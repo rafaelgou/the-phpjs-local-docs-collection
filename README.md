@@ -1,8 +1,10 @@
 #The PHP/Javascript Local Docs Collection
 
-A HUGE doc collection for PHP and Javascript web developers
+A HUGE doc collection for PHP and Javascript web developers.
 
 Compiled by [Rafael Goulart](http://github.com/rafaelgou).
+
+You can see a demo in [rgou.net The PHP/JSC LDC Install](http://the-phpjs-ldc.rgou.net).
 
 ## Install
 
@@ -15,11 +17,11 @@ Considering a default Apache installation:
     cd /var/www
     git clone https://github.com/rafaelgou/the-phpjs-local-docs-collection.git
 
-And have a coffee (it's about 790Mb).
+And have a coffee (it's about 650Mb to download from GitHub).
 
 Now you need [Composer](http://getcomposer.org).
 
-Start by downloading Composer anywhere onto your local computer. If you have curl installed, it’s as easy as:
+Start by downloading Composer onto your computer. If you have curl installed, it’s as easy as:
 
     cd the-phpjs-local-docs-collection
     curl -s https://getcomposer.org/installer | php
