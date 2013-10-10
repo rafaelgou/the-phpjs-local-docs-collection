@@ -4,6 +4,42 @@ A HUGE doc collection for PHP and Javascript web developers
 
 Compiled by [Rafael Goulart](http://github.com/rafaelgou).
 
+## Install
+
+Be sure to have PHP-CLI instaled.
+
+Use a local Apache install directory for cloning.
+
+Considering a default Apache installation:
+
+    cd /var/www
+    git clone https://github.com/rafaelgou/the-phpjs-local-docs-collection.git
+
+And have a coffee (it's about 790Mb).
+
+Now you need [Composer](http://getcomposer.org).
+
+Start by downloading Composer anywhere onto your local computer. If you have curl installed, it’s as easy as:
+
+    cd the-phpjs-local-docs-collection
+    curl -s https://getcomposer.org/installer | php
+
+With composer installed, then you get the dependencies:
+
+    ./composer.phar install
+
+Copy `autorender.yml.dist` to `autorender.yml`:
+
+    cp autorender.yml.dist autorender.yml
+
+Be sure to open this file and check the default paths. If you've followed the instructions above,
+you've used `/var/www` as parent and clone without changing the target directory, 
+then the default values are enough. 
+
+If your local web server runs on http://localhost, then you are able now to navigate on
+http://localhost/the-phpjs-local-docs-collection .
+
+That's all!
 
 ## What is for?
 
