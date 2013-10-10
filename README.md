@@ -8,7 +8,7 @@ You can see a demo in [rgou.net The PHP/JSC LDC Install](http://the-phpjs-ldc.rg
 
 ## Install
 
-Be sure to have PHP-CLI instaled.
+Be sure to have PHP-CLI installed.
 
 Use a local Apache install directory for cloning.
 
@@ -38,16 +38,16 @@ Be sure to open this file and check the default paths. If you've followed the in
 you've used `/var/www` as parent and clone without changing the target directory, 
 then the default values are enough. 
 
-If your local web server runs on http://localhost, then you are able now to navigate on
+If your local web server runs at http://localhost, then you are able now to navigate at
 http://localhost/the-phpjs-local-docs-collection .
 
 That's all!
 
 ## What is for?
 
-I a kind of paranoic about being offline without any references.
+I'm a kind of paranoic about being offline without any references.
 
-So I do this research and put almost everything I need offline.
+So I did this research and put almost everything I need offline.
 
 ## All Local?
 
@@ -56,25 +56,22 @@ As soon as I discover, I will clean up.
 
 ## Where are the docs sources?
 
-If it's possible, direct download in HTML
-
-Then I'd made a search on  http://readthedocs.org - and downloaded from there.
-
-If it's possible, I'd compiled from the sources.
-
-If the docs are on Markdow I'd used https://github.com/rafaelgou/doc-renderer to render on-the-fly from sources.
-
-Some was taken from `apt-get install bla-docs`
-
-If still not avaliable, brute-force `wget` and manual cleaning was the last try.
+* If it's possible, direct download in HTML from the original website;
+* Then I make a search on  http://readthedocs.org - and downloaded from there;
+* If it's available , I compile from the sources;
+* If the docs are on Markdown so I use [Doc Renderer](https://github.com/rafaelgou/doc-renderer) to render on-the-fly from sources;
+* Some docs I get from `apt-get install bla-docs`;
+* If it's still not avaliable, brute-force `wget` and manual cleaning is the last try.
 
 ## What is still missing?
 
-Good Javascript, DOM and CSS references are not available for download (if you find anywhere, tell me!).
+A REALLY good HTML, Javascript, DOM and CSS references are not available for download (if you find anywhere, tell me!).
+There's nothing like https://developer.mozilla.org/ in my opinion, but it's hard to compile it.
 
-But you can run a local instace of [DocHub](https://github.com/rgarcia/dochub), it's pretty awesome!
+But you can run a local instace of [DocHub](https://github.com/rgarcia/dochub) NodeJS project, it's pretty awesome! 
+Don't waste your time, get this stuff! (but DON'T try to update it's resources, it's broken, at least for me).
 
-## What is in the list?
+## What is on the list?
 
 Here we go:
 
@@ -301,11 +298,14 @@ root@rgoujob:/var/www/the-phpjs-local-docs-collection# php full-list.php
         * [Index](http://aurelio.net/regex/)
 
 
-## What languages?
+## What languages are available?
 
-Almost all English, some English and Portuguese, and just two great references only in Portuguese. 
+Almost all docs in English, some in English and Portuguese, and just two great references only 
+in Portuguese (I use them, sorry, it must fit my needs firstly).
 
 ## Licences
 
 All docs are licensed to permit redistribuition. If for some reason I'd made a mistake, please let me 
 know to exclude the doc. It's important to respect the authors.
+
+This project is licensed under GPL3
