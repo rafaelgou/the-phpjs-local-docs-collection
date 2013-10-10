@@ -1,0 +1,984 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Abstract &mdash; Docutils 0.11 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.11',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Docutils 0.11 documentation" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../index.html">Docutils 0.11 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <p>PEP: 258
+Title: Docutils Design Specification
+Version: $Revision: 6154 $
+Last-Modified: $Date: 2009-10-05 21:08:10 +0200 (Mon, 05 Oct 2009) $
+Author: David Goodger &lt;<a class="reference external" href="mailto:goodger&#37;&#52;&#48;python&#46;org">goodger<span>&#64;</span>python<span>&#46;</span>org</a>&gt;
+Discussions-To: &lt;<a class="reference external" href="mailto:doc-sig&#37;&#52;&#48;python&#46;org">doc-sig<span>&#64;</span>python<span>&#46;</span>org</a>&gt;
+Status: Draft
+Type: Standards Track
+Content-Type: text/x-rst
+Requires: 256, 257
+Created: 31-May-2001
+Post-History: 13-Jun-2001</p>
+<div class="section" id="abstract">
+<h1>Abstract<a class="headerlink" href="#abstract" title="Permalink to this headline">¶</a></h1>
+<p>This PEP documents design issues and implementation details for
+Docutils, a Python Docstring Processing System (DPS).  The rationale
+and high-level concepts of a DPS are documented in PEP 256, &#8220;Docstring
+Processing System Framework&#8221; <a class="footnote-reference" href="#pep-256" id="id1">[1]</a>.  Also see PEP 256 for a
+&#8220;Road Map to the Docstring PEPs&#8221;.</p>
+<p>Docutils is being designed modularly so that any of its components can
+be replaced easily.  In addition, Docutils is not limited to the
+processing of Python docstrings; it processes standalone documents as
+well, in several contexts.</p>
+<p>No changes to the core Python language are required by this PEP.  Its
+deliverables consist of a package for the standard library and its
+documentation.</p>
+</div>
+<div class="section" id="specification">
+<h1>Specification<a class="headerlink" href="#specification" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="docutils-project-model">
+<h2>Docutils Project Model<a class="headerlink" href="#docutils-project-model" title="Permalink to this headline">¶</a></h2>
+<p>Project components and data flow:</p>
+<div class="highlight-python"><pre>                 +---------------------------+
+                 |        Docutils:          |
+                 | docutils.core.Publisher,  |
+                 | docutils.core.publish_*() |
+                 +---------------------------+
+                  /            |            \
+                 /             |             \
+        1,3,5   /        6     |              \ 7
+       +--------+       +-------------+       +--------+
+       | READER | ----&gt; | TRANSFORMER | ====&gt; | WRITER |
+       +--------+       +-------------+       +--------+
+        /     \\                                  |
+       /       \\                                 |
+ 2    /      4  \\                             8  |
++-------+   +--------+                        +--------+
+| INPUT |   | PARSER |                        | OUTPUT |
++-------+   +--------+                        +--------+</pre>
+</div>
+<p>The numbers above each component indicate the path a document&#8217;s data
+takes.  Double-width lines between Reader &amp; Parser and between
+Transformer &amp; Writer indicate that data sent along these paths should
+be standard (pure &amp; unextended) Docutils doc trees.  Single-width
+lines signify that internal tree extensions or completely unrelated
+representations are possible, but they must be supported at both ends.</p>
+<div class="section" id="publisher">
+<h3>Publisher<a class="headerlink" href="#publisher" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">docutils.core</span></tt> module contains a &#8220;Publisher&#8221; facade class and
+several convenience functions: &#8220;publish_cmdline()&#8221; (for command-line
+front ends), &#8220;publish_file()&#8221; (for programmatic use with file-like
+I/O), and &#8220;publish_string()&#8221; (for programmatic use with string I/O).
+The Publisher class encapsulates the high-level logic of a Docutils
+system.  The Publisher class has overall responsibility for
+processing, controlled by the <tt class="docutils literal"><span class="pre">Publisher.publish()</span></tt> method:</p>
+<ol class="arabic simple">
+<li>Set up internal settings (may include config files &amp; command-line
+options) and I/O objects.</li>
+<li>Call the Reader object to read data from the source Input object
+and parse the data with the Parser object.  A document object is
+returned.</li>
+<li>Set up and apply transforms via the Transformer object attached to
+the document.</li>
+<li>Call the Writer object which translates the document to the final
+output format and writes the formatted data to the destination
+Output object.  Depending on the Output object, the output may be
+returned from the Writer, and then from the <tt class="docutils literal"><span class="pre">publish()</span></tt> method.</li>
+</ol>
+<p>Calling the &#8220;publish&#8221; function (or instantiating a &#8220;Publisher&#8221; object)
+with component names will result in default behavior.  For custom
+behavior (customizing component settings), create custom component
+objects first, and pass <em>them</em> to the Publisher or <tt class="docutils literal"><span class="pre">publish_*</span></tt>
+convenience functions.</p>
+</div>
+<div class="section" id="readers">
+<h3>Readers<a class="headerlink" href="#readers" title="Permalink to this headline">¶</a></h3>
+<p>Readers understand the input context (where the data is coming from),
+send the whole input or discrete &#8220;chunks&#8221; to the parser, and provide
+the context to bind the chunks together back into a cohesive whole.</p>
+<p>Each reader is a module or package exporting a &#8220;Reader&#8221; class with a
+&#8220;read&#8221; method.  The base &#8220;Reader&#8221; class can be found in the
+<tt class="docutils literal"><span class="pre">docutils/readers/__init__.py</span></tt> module.</p>
+<p>Most Readers will have to be told what parser to use.  So far (see the
+list of examples below), only the Python Source Reader (&#8220;PySource&#8221;;
+still incomplete) will be able to determine the parser on its own.</p>
+<p>Responsibilities:</p>
+<ul class="simple">
+<li>Get input text from the source I/O.</li>
+<li>Pass the input text to the parser, along with a fresh <a class="reference internal" href="#document-tree">document
+tree</a> root.</li>
+</ul>
+<p>Examples:</p>
+<ul>
+<li><p class="first">Standalone (Raw/Plain): Just read a text file and process it.
+The reader needs to be told which parser to use.</p>
+<p>The &#8220;Standalone Reader&#8221; has been implemented in module
+<tt class="docutils literal"><span class="pre">docutils.readers.standalone</span></tt>.</p>
+</li>
+<li><p class="first">Python Source: See <a class="reference internal" href="#python-source-reader">Python Source Reader</a> below.  This Reader is
+currently in development in the Docutils sandbox.</p>
+</li>
+<li><p class="first">Email: RFC-822 headers, quoted excerpts, signatures, MIME parts.</p>
+</li>
+<li><p class="first">PEP: RFC-822 headers, &#8220;PEP xxxx&#8221; and &#8220;RFC xxxx&#8221; conversion to URIs.
+The &#8220;PEP Reader&#8221; has been implemented in module
+<tt class="docutils literal"><span class="pre">docutils.readers.pep</span></tt>; see PEP 287 and PEP 12.</p>
+</li>
+<li><p class="first">Wiki: Global reference lookups of &#8220;wiki links&#8221; incorporated into
+transforms.  (CamelCase only or unrestricted?)  Lazy
+indentation?</p>
+</li>
+<li><p class="first">Web Page: As standalone, but recognize meta fields as meta tags.
+Support for templates of some sort?  (After <tt class="docutils literal"><span class="pre">&lt;body&gt;</span></tt>, before
+<tt class="docutils literal"><span class="pre">&lt;/body&gt;</span></tt>?)</p>
+</li>
+<li><p class="first">FAQ: Structured &#8220;question &amp; answer(s)&#8221; constructs.</p>
+</li>
+<li><p class="first">Compound document: Merge chapters into a book.  Master manifest
+file?</p>
+</li>
+</ul>
+</div>
+<div class="section" id="parsers">
+<h3>Parsers<a class="headerlink" href="#parsers" title="Permalink to this headline">¶</a></h3>
+<p>Parsers analyze their input and produce a Docutils <a class="reference internal" href="#document-tree">document tree</a>.
+They don&#8217;t know or care anything about the source or destination of
+the data.</p>
+<p>Each input parser is a module or package exporting a &#8220;Parser&#8221; class
+with a &#8220;parse&#8221; method.  The base &#8220;Parser&#8221; class can be found in the
+<tt class="docutils literal"><span class="pre">docutils/parsers/__init__.py</span></tt> module.</p>
+<p>Responsibilities: Given raw input text and a doctree root node,
+populate the doctree by parsing the input text.</p>
+<p>Example: The only parser implemented so far is for the
+reStructuredText markup.  It is implemented in the
+<tt class="docutils literal"><span class="pre">docutils/parsers/rst/</span></tt> package.</p>
+<p>The development and integration of other parsers is possible and
+encouraged.</p>
+</div>
+<div class="section" id="transformer">
+<span id="transforms"></span><h3>Transformer<a class="headerlink" href="#transformer" title="Permalink to this headline">¶</a></h3>
+<p>The Transformer class, in <tt class="docutils literal"><span class="pre">docutils/transforms/__init__.py</span></tt>, stores
+transforms and applies them to documents.  A transformer object is
+attached to every new document tree.  The <a class="reference internal" href="#publisher">Publisher</a> calls
+<tt class="docutils literal"><span class="pre">Transformer.apply_transforms()</span></tt> to apply all stored transforms to
+the document tree.  Transforms change the document tree from one form
+to another, add to the tree, or prune it.  Transforms resolve
+references and footnote numbers, process interpreted text, and do
+other context-sensitive processing.</p>
+<p>Some transforms are specific to components (Readers, Parser, Writers,
+Input, Output).  Standard component-specific transforms are specified
+in the <tt class="docutils literal"><span class="pre">default_transforms</span></tt> attribute of component classes.  After
+the Reader has finished processing, the <a class="reference internal" href="#publisher">Publisher</a> calls
+<tt class="docutils literal"><span class="pre">Transformer.populate_from_components()</span></tt> with a list of components
+and all default transforms are stored.</p>
+<p>Each transform is a class in a module in the <tt class="docutils literal"><span class="pre">docutils/transforms/</span></tt>
+package, a subclass of <tt class="docutils literal"><span class="pre">docutils.tranforms.Transform</span></tt>.  Transform
+classes each have a <tt class="docutils literal"><span class="pre">default_priority</span></tt> attribute which is used by
+the Transformer to apply transforms in order (low to high).  The
+default priority can be overridden when adding transforms to the
+Transformer object.</p>
+<p>Transformer responsibilities:</p>
+<ul class="simple">
+<li>Apply transforms to the document tree, in priority order.</li>
+<li>Store a mapping of component type name (&#8216;reader&#8217;, &#8216;writer&#8217;, etc.) to
+component objects.  These are used by certain transforms (such as
+&#8220;components.Filter&#8221;) to determine suitability.</li>
+</ul>
+<p>Transform responsibilities:</p>
+<ul class="simple">
+<li>Modify a doctree in-place, either purely transforming one structure
+into another, or adding new structures based on the doctree and/or
+external data.</li>
+</ul>
+<p>Examples of transforms (in the <tt class="docutils literal"><span class="pre">docutils/transforms/</span></tt> package):</p>
+<ul class="simple">
+<li>frontmatter.DocInfo: Conversion of document metadata (bibliographic
+information).</li>
+<li>references.AnonymousHyperlinks: Resolution of anonymous references
+to corresponding targets.</li>
+<li>parts.Contents: Generates a table of contents for a document.</li>
+<li>document.Merger: Combining multiple populated doctrees into one.
+(Not yet implemented or fully understood.)</li>
+<li>document.Splitter: Splits a document into a tree-structure of
+subdocuments, perhaps by section.  It will have to transform
+references appropriately.  (Neither implemented not remotely
+understood.)</li>
+<li>components.Filter: Includes or excludes elements which depend on a
+specific Docutils component.</li>
+</ul>
+</div>
+<div class="section" id="writers">
+<h3>Writers<a class="headerlink" href="#writers" title="Permalink to this headline">¶</a></h3>
+<p>Writers produce the final output (HTML, XML, TeX, etc.).  Writers
+translate the internal <a class="reference internal" href="#document-tree">document tree</a> structure into the final data
+format, possibly running Writer-specific <a class="reference internal" href="#transforms">transforms</a> first.</p>
+<p>By the time the document gets to the Writer, it should be in final
+form.  The Writer&#8217;s job is simply (and only) to translate from the
+Docutils doctree structure to the target format.  Some small
+transforms may be required, but they should be local and
+format-specific.</p>
+<p>Each writer is a module or package exporting a &#8220;Writer&#8221; class with a
+&#8220;write&#8221; method.  The base &#8220;Writer&#8221; class can be found in the
+<tt class="docutils literal"><span class="pre">docutils/writers/__init__.py</span></tt> module.</p>
+<p>Responsibilities:</p>
+<ul class="simple">
+<li>Translate doctree(s) into specific output formats.<ul>
+<li>Transform references into format-native forms.</li>
+</ul>
+</li>
+<li>Write the translated output to the destination I/O.</li>
+</ul>
+<p>Examples:</p>
+<ul class="simple">
+<li>XML: Various forms, such as:<ul>
+<li>Docutils XML (an expression of the internal document tree,
+implemented as <tt class="docutils literal"><span class="pre">docutils.writers.docutils_xml</span></tt>).</li>
+<li>DocBook (being implemented in the Docutils sandbox).</li>
+</ul>
+</li>
+<li>HTML (XHTML implemented as <tt class="docutils literal"><span class="pre">docutils.writers.html4css1</span></tt>).</li>
+<li>PDF (a ReportLabs interface is being developed in the Docutils
+sandbox).</li>
+<li>TeX (a LaTeX Writer is being implemented in the sandbox).</li>
+<li>Docutils-native pseudo-XML (implemented as
+<tt class="docutils literal"><span class="pre">docutils.writers.pseudoxml</span></tt>, used for testing).</li>
+<li>Plain text</li>
+<li>reStructuredText?</li>
+</ul>
+</div>
+<div class="section" id="input-output">
+<h3>Input/Output<a class="headerlink" href="#input-output" title="Permalink to this headline">¶</a></h3>
+<p>I/O classes provide a uniform API for low-level input and output.
+Subclasses will exist for a variety of input/output mechanisms.
+However, they can be considered an implementation detail.  Most
+applications should be satisfied using one of the convenience
+functions associated with the <a class="reference internal" href="#publisher">Publisher</a>.</p>
+<p>I/O classes are currently in the preliminary stages; there&#8217;s a lot of
+work yet to be done.  Issues:</p>
+<ul class="simple">
+<li>How to represent multi-file input (files &amp; directories) in the API?</li>
+<li>How to represent multi-file output?  Perhaps &#8220;Writer&#8221; variants, one
+for each output distribution type?  Or Output objects with
+associated transforms?</li>
+</ul>
+<p>Responsibilities:</p>
+<ul class="simple">
+<li>Read data from the input source (Input objects) or write data to the
+output destination (Output objects).</li>
+</ul>
+<p>Examples of input sources:</p>
+<ul class="simple">
+<li>A single file on disk or a stream (implemented as
+<tt class="docutils literal"><span class="pre">docutils.io.FileInput</span></tt>).</li>
+<li>Multiple files on disk (<tt class="docutils literal"><span class="pre">MultiFileInput</span></tt>?).</li>
+<li>Python source files: modules and packages.</li>
+<li>Python strings, as received from a client application
+(implemented as <tt class="docutils literal"><span class="pre">docutils.io.StringInput</span></tt>).</li>
+</ul>
+<p>Examples of output destinations:</p>
+<ul class="simple">
+<li>A single file on disk or a stream (implemented as
+<tt class="docutils literal"><span class="pre">docutils.io.FileOutput</span></tt>).</li>
+<li>A tree of directories and files on disk.</li>
+<li>A Python string, returned to a client application (implemented as
+<tt class="docutils literal"><span class="pre">docutils.io.StringOutput</span></tt>).</li>
+<li>No output; useful for programmatic applications where only a portion
+of the normal output is to be used (implemented as
+<tt class="docutils literal"><span class="pre">docutils.io.NullOutput</span></tt>).</li>
+<li>A single tree-shaped data structure in memory.</li>
+<li>Some other set of data structures in memory.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="docutils-package-structure">
+<h2>Docutils Package Structure<a class="headerlink" href="#docutils-package-structure" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p class="first">Package &#8220;docutils&#8221;.</p>
+<ul>
+<li><p class="first">Module &#8220;__init__.py&#8221; contains: class &#8220;Component&#8221;, a base class for
+Docutils components; class &#8220;SettingsSpec&#8221;, a base class for
+specifying runtime settings (used by docutils.frontend); and class
+&#8220;TransformSpec&#8221;, a base class for specifying transforms.</p>
+</li>
+<li><p class="first">Module &#8220;docutils.core&#8221; contains facade class &#8220;Publisher&#8221; and
+convenience functions.  See <a class="reference internal" href="#publisher">Publisher</a> above.</p>
+</li>
+<li><p class="first">Module &#8220;docutils.frontend&#8221; provides runtime settings support, for
+programmatic use and front-end tools (including configuration file
+support, and command-line argument and option processing).</p>
+</li>
+<li><p class="first">Module &#8220;docutils.io&#8221; provides a uniform API for low-level input
+and output.  See <a class="reference internal" href="#input-output">Input/Output</a> above.</p>
+</li>
+<li><p class="first">Module &#8220;docutils.nodes&#8221; contains the Docutils document tree
+element class library plus tree-traversal Visitor pattern base
+classes.  See <a class="reference internal" href="#document-tree">Document Tree</a> below.</p>
+</li>
+<li><p class="first">Module &#8220;docutils.statemachine&#8221; contains a finite state machine
+specialized for regular-expression-based text filters and parsers.
+The reStructuredText parser implementation is based on this
+module.</p>
+</li>
+<li><p class="first">Module &#8220;docutils.urischemes&#8221; contains a mapping of known URI
+schemes (&#8220;http&#8221;, &#8220;ftp&#8221;, &#8220;mail&#8221;, etc.).</p>
+</li>
+<li><p class="first">Module &#8220;docutils.utils&#8221; contains utility functions and classes,
+including a logger class (&#8220;Reporter&#8221;; see <a class="reference internal" href="#error-handling">Error Handling</a>
+below).</p>
+</li>
+<li><p class="first">Package &#8220;docutils.parsers&#8221;: markup <a class="reference internal" href="#parsers">parsers</a>.</p>
+<ul class="simple">
+<li>Function &#8220;get_parser_class(parser_name)&#8221; returns a parser module
+by name.  Class &#8220;Parser&#8221; is the base class of specific parsers.
+(<tt class="docutils literal"><span class="pre">docutils/parsers/__init__.py</span></tt>)</li>
+<li>Package &#8220;docutils.parsers.rst&#8221;: the reStructuredText parser.</li>
+<li>Alternate markup parsers may be added.</li>
+</ul>
+<p>See <a class="reference internal" href="#parsers">Parsers</a> above.</p>
+</li>
+<li><p class="first">Package &#8220;docutils.readers&#8221;: context-aware input readers.</p>
+<ul class="simple">
+<li>Function &#8220;get_reader_class(reader_name)&#8221; returns a reader module
+by name or alias.  Class &#8220;Reader&#8221; is the base class of specific
+readers.  (<tt class="docutils literal"><span class="pre">docutils/readers/__init__.py</span></tt>)</li>
+<li>Module &#8220;docutils.readers.standalone&#8221; reads independent document
+files.</li>
+<li>Module &#8220;docutils.readers.pep&#8221; reads PEPs (Python Enhancement
+Proposals).</li>
+<li>Module &#8220;docutils.readers.doctree&#8221; is used to re-read a
+previously stored document tree for reprocessing.</li>
+<li>Readers to be added for: Python source code (structure &amp;
+docstrings), email, FAQ, and perhaps Wiki and others.</li>
+</ul>
+<p>See <a class="reference internal" href="#readers">Readers</a> above.</p>
+</li>
+<li><p class="first">Package &#8220;docutils.writers&#8221;: output format writers.</p>
+<ul class="simple">
+<li>Function &#8220;get_writer_class(writer_name)&#8221; returns a writer module
+by name.  Class &#8220;Writer&#8221; is the base class of specific writers.
+(<tt class="docutils literal"><span class="pre">docutils/writers/__init__.py</span></tt>)</li>
+<li>Package &#8220;docutils.writers.html4css1&#8221; is a simple HyperText
+Markup Language document tree writer for HTML 4.01 and CSS1.</li>
+<li>Package &#8220;docutils.writers.pep_html&#8221; generates HTML from
+reStructuredText PEPs.</li>
+<li>Package &#8220;docutils.writers.s5_html&#8221; generates S5/HTML slide
+shows.</li>
+<li>Package &#8220;docutils.writers.latex2e&#8221; writes LaTeX.</li>
+<li>Package &#8220;docutils.writers.newlatex2e&#8221; also writes LaTeX; it is a
+new implementation.</li>
+<li>Module &#8220;docutils.writers.docutils_xml&#8221; writes the internal
+document tree in XML form.</li>
+<li>Module &#8220;docutils.writers.pseudoxml&#8221; is a simple internal
+document tree writer; it writes indented pseudo-XML.</li>
+<li>Module &#8220;docutils.writers.null&#8221; is a do-nothing writer; it is
+used for specialized purposes such as storing the internal
+document tree.</li>
+<li>Writers to be added: HTML 3.2 or 4.01-loose, XML (various forms,
+such as DocBook), PDF, plaintext, reStructuredText, and perhaps
+others.</li>
+</ul>
+<p>Subpackages of &#8220;docutils.writers&#8221; contain modules and data files
+(such as stylesheets) that support the individual writers.</p>
+<p>See <a class="reference internal" href="#writers">Writers</a> above.</p>
+</li>
+<li><p class="first">Package &#8220;docutils.transforms&#8221;: tree transform classes.</p>
+<ul class="simple">
+<li>Class &#8220;Transformer&#8221; stores transforms and applies them to
+document trees.  (<tt class="docutils literal"><span class="pre">docutils/transforms/__init__.py</span></tt>)</li>
+<li>Class &#8220;Transform&#8221; is the base class of specific transforms.
+(<tt class="docutils literal"><span class="pre">docutils/transforms/__init__.py</span></tt>)</li>
+<li>Each module contains related transform classes.</li>
+</ul>
+<p>See <a class="reference internal" href="#transforms">Transforms</a> above.</p>
+</li>
+<li><p class="first">Package &#8220;docutils.languages&#8221;: Language modules contain
+language-dependent strings and mappings.  They are named for their
+language identifier (as defined in <a class="reference internal" href="#choice-of-docstring-format">Choice of Docstring Format</a>
+below), converting dashes to underscores.</p>
+<ul class="simple">
+<li>Function &#8220;get_language(language_code)&#8221;, returns matching
+language module.  (<tt class="docutils literal"><span class="pre">docutils/languages/__init__.py</span></tt>)</li>
+<li>Modules: en.py (English), de.py (German), fr.py (French), it.py
+(Italian), sk.py (Slovak), sv.py (Swedish).</li>
+<li>Other languages to be added.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p class="first">Third-party modules: &#8220;extras&#8221; directory.  These modules are
+installed only if they&#8217;re not already present in the Python
+installation.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">extras/roman.py</span></tt> contains Roman numeral conversion routines.</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="front-end-tools">
+<h2>Front-End Tools<a class="headerlink" href="#front-end-tools" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><span class="pre">tools/</span></tt> directory contains several front ends for common
+Docutils processing.  See <a class="reference external" href="http://docutils.sourceforge.net/docs/user/tools.html">Docutils Front-End Tools</a> for details.</p>
+</div>
+<div class="section" id="document-tree">
+<h2>Document Tree<a class="headerlink" href="#document-tree" title="Permalink to this headline">¶</a></h2>
+<p>A single intermediate data structure is used internally by Docutils,
+in the interfaces between components; it is defined in the
+<tt class="docutils literal"><span class="pre">docutils.nodes</span></tt> module.  It is not required that this data
+structure be used <em>internally</em> by any of the components, just
+<em>between</em> components as outlined in the diagram in the <a class="reference internal" href="#docutils-project-model">Docutils
+Project Model</a> above.</p>
+<p>Custom node types are allowed, provided that either (a) a transform
+converts them to standard Docutils nodes before they reach the Writer
+proper, or (b) the custom node is explicitly supported by certain
+Writers, and is wrapped in a filtered &#8220;pending&#8221; node.  An example of
+condition (a) is the <a class="reference internal" href="#python-source-reader">Python Source Reader</a> (see below), where a
+&#8220;stylist&#8221; transform converts custom nodes.  The HTML <tt class="docutils literal"><span class="pre">&lt;meta&gt;</span></tt> tag is
+an example of condition (b); it is supported by the HTML Writer but
+not by others.  The reStructuredText &#8220;meta&#8221; directive creates a
+&#8220;pending&#8221; node, which contains knowledge that the embedded &#8220;meta&#8221; node
+can only be handled by HTML-compatible writers.  The &#8220;pending&#8221; node is
+resolved by the <tt class="docutils literal"><span class="pre">docutils.transforms.components.Filter</span></tt> transform,
+which checks that the calling writer supports HTML; if it doesn&#8217;t, the
+&#8220;pending&#8221; node (and enclosed &#8220;meta&#8221; node) is removed from the
+document.</p>
+<p>The document tree data structure is similar to a DOM tree, but with
+specific node names (classes) instead of DOM&#8217;s generic nodes. The
+schema is documented in an XML DTD (eXtensible Markup Language
+Document Type Definition), which comes in two parts:</p>
+<ul class="simple">
+<li>the Docutils Generic DTD, <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/docutils.dtd">docutils.dtd</a>, and</li>
+<li>the OASIS Exchange Table Model, <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/soextblx.dtd">soextbl.dtd</a>.</li>
+</ul>
+<p>The DTD defines a rich set of elements, suitable for many input and
+output formats.  The DTD retains all information necessary to
+reconstruct the original input text, or a reasonable facsimile
+thereof.</p>
+<p>See <a class="reference external" href="http://docutils.sourceforge.net/docs/ref/doctree.html">The Docutils Document Tree</a> for details (incomplete).</p>
+</div>
+<div class="section" id="error-handling">
+<h2>Error Handling<a class="headerlink" href="#error-handling" title="Permalink to this headline">¶</a></h2>
+<p>When the parser encounters an error in markup, it inserts a system
+message (DTD element &#8220;system_message&#8221;).  There are five levels of
+system messages:</p>
+<ul class="simple">
+<li>Level-0, &#8220;DEBUG&#8221;: an internal reporting issue.  There is no effect
+on the processing.  Level-0 system messages are handled separately
+from the others.</li>
+<li>Level-1, &#8220;INFO&#8221;: a minor issue that can be ignored.  There is little
+or no effect on the processing.  Typically level-1 system messages
+are not reported.</li>
+<li>Level-2, &#8220;WARNING&#8221;: an issue that should be addressed.  If ignored,
+there may be minor problems with the output.  Typically level-2
+system messages are reported but do not halt processing.</li>
+<li>Level-3, &#8220;ERROR&#8221;: a major issue that should be addressed.  If
+ignored, the output will contain unpredictable errors.  Typically
+level-3 system messages are reported but do not halt processing.</li>
+<li>Level-4, &#8220;SEVERE&#8221;: a critical error that must be addressed.
+Typically level-4 system messages are turned into exceptions which
+do halt processing.  If ignored, the output will contain severe
+errors.</li>
+</ul>
+<p>Although the initial message levels were devised independently, they
+have a strong correspondence to <a class="reference external" href="http://www.openvms.compaq.com:8000/73final/5841/841pro_027.html#error_cond_severity">VMS error condition severity
+levels</a>; the names in quotes for levels 1 through 4 were borrowed
+from VMS.  Error handling has since been influenced by the <a class="reference external" href="http://logging.apache.org/log4j/docs/index.html">log4j
+project</a>.</p>
+</div>
+<div class="section" id="python-source-reader">
+<h2>Python Source Reader<a class="headerlink" href="#python-source-reader" title="Permalink to this headline">¶</a></h2>
+<p>The Python Source Reader (&#8220;PySource&#8221;) is the Docutils component that
+reads Python source files, extracts docstrings in context, then
+parses, links, and assembles the docstrings into a cohesive whole.  It
+is a major and non-trivial component, currently under experimental
+development in the Docutils sandbox.  High-level design issues are
+presented here.</p>
+<div class="section" id="processing-model">
+<h3>Processing Model<a class="headerlink" href="#processing-model" title="Permalink to this headline">¶</a></h3>
+<p>This model will evolve over time, incorporating experience and
+discoveries.</p>
+<ol class="arabic simple">
+<li>The PySource Reader uses an Input class to read in Python packages
+and modules, into a tree of strings.</li>
+<li>The Python modules are parsed, converting the tree of strings into
+a tree of abstract syntax trees with docstring nodes.</li>
+<li>The abstract syntax trees are converted into an internal
+representation of the packages/modules.  Docstrings are extracted,
+as well as code structure details.  See <a class="reference internal" href="#ast-mining">AST Mining</a> below.
+Namespaces are constructed for lookup in step 6.</li>
+<li>One at a time, the docstrings are parsed, producing standard
+Docutils doctrees.</li>
+<li>PySource assembles all the individual docstrings&#8217; doctrees into a
+Python-specific custom Docutils tree paralleling the
+package/module/class structure; this is a custom Reader-specific
+internal representation (see the <a class="reference external" href="http://docutils.sourceforge.net/docs/dev/pysource.dtd">Docutils Python Source DTD</a>).
+Namespaces must be merged: Python identifiers, hyperlink targets.</li>
+<li>Cross-references from docstrings (interpreted text) to Python
+identifiers are resolved according to the Python namespace lookup
+rules.  See <a class="reference internal" href="#identifier-cross-references">Identifier Cross-References</a> below.</li>
+<li>A &#8220;Stylist&#8221; transform is applied to the custom doctree (by the
+<a class="reference internal" href="#transformer">Transformer</a>), custom nodes are rendered using standard nodes as
+primitives, and a standard document tree is emitted.  See <a class="reference internal" href="#stylist-transforms">Stylist
+Transforms</a> below.</li>
+<li>Other transforms are applied to the standard doctree by the
+<a class="reference internal" href="#transformer">Transformer</a>.</li>
+<li>The standard doctree is sent to a Writer, which translates the
+document into a concrete format (HTML, PDF, etc.).</li>
+<li>The Writer uses an Output class to write the resulting data to its
+destination (disk file, directories and files, etc.).</li>
+</ol>
+</div>
+<div class="section" id="ast-mining">
+<h3>AST Mining<a class="headerlink" href="#ast-mining" title="Permalink to this headline">¶</a></h3>
+<p>Abstract Syntax Tree mining code will be written (or adapted) that
+scans a parsed Python module, and returns an ordered tree containing
+the names, docstrings (including attribute and additional docstrings;
+see below), and additional info (in parentheses below) of all of the
+following objects:</p>
+<ul class="simple">
+<li>packages</li>
+<li>modules</li>
+<li>module attributes (+ initial values)</li>
+<li>classes (+ inheritance)</li>
+<li>class attributes (+ initial values)</li>
+<li>instance attributes (+ initial values)</li>
+<li>methods (+ parameters &amp; defaults)</li>
+<li>functions (+ parameters &amp; defaults)</li>
+</ul>
+<p>(Extract comments too?  For example, comments at the start of a module
+would be a good place for bibliographic field lists.)</p>
+<p>In order to evaluate interpreted text cross-references, namespaces for
+each of the above will also be required.</p>
+<p>See the python-dev/docstring-develop thread &#8220;AST mining&#8221;, started on
+2001-08-14.</p>
+</div>
+<div class="section" id="docstring-extraction-rules">
+<h3>Docstring Extraction Rules<a class="headerlink" href="#docstring-extraction-rules" title="Permalink to this headline">¶</a></h3>
+<ol class="arabic">
+<li><p class="first">What to examine:</p>
+<ol class="loweralpha simple">
+<li>If the &#8220;<tt class="docutils literal"><span class="pre">__all__</span></tt>&#8221; variable is present in the module being
+documented, only identifiers listed in &#8220;<tt class="docutils literal"><span class="pre">__all__</span></tt>&#8221; are
+examined for docstrings.</li>
+<li>In the absence of &#8220;<tt class="docutils literal"><span class="pre">__all__</span></tt>&#8221;, all identifiers are examined,
+except those whose names are private (names begin with &#8220;_&#8221; but
+don&#8217;t begin and end with &#8220;__&#8221;).</li>
+<li>1a and 1b can be overridden by runtime settings.</li>
+</ol>
+</li>
+<li><p class="first">Where:</p>
+<p>Docstrings are string literal expressions, and are recognized in
+the following places within Python modules:</p>
+<ol class="loweralpha simple">
+<li>At the beginning of a module, function definition, class
+definition, or method definition, after any comments.  This is
+the standard for Python <tt class="docutils literal"><span class="pre">__doc__</span></tt> attributes.</li>
+<li>Immediately following a simple assignment at the top level of a
+module, class definition, or <tt class="docutils literal"><span class="pre">__init__</span></tt> method definition,
+after any comments.  See <a class="reference internal" href="#attribute-docstrings">Attribute Docstrings</a> below.</li>
+<li>Additional string literals found immediately after the
+docstrings in (a) and (b) will be recognized, extracted, and
+concatenated.  See <a class="reference internal" href="#additional-docstrings">Additional Docstrings</a> below.</li>
+<li>&#64;&#64;&#64; 2.2-style &#8220;properties&#8221; with attribute docstrings?  Wait for
+syntax?</li>
+</ol>
+</li>
+<li><p class="first">How:</p>
+<p>Whenever possible, Python modules should be parsed by Docutils, not
+imported.  There are several reasons:</p>
+<ul class="simple">
+<li>Importing untrusted code is inherently insecure.</li>
+<li>Information from the source is lost when using introspection to
+examine an imported module, such as comments and the order of
+definitions.</li>
+<li>Docstrings are to be recognized in places where the byte-code
+compiler ignores string literal expressions (2b and 2c above),
+meaning importing the module will lose these docstrings.</li>
+</ul>
+<p>Of course, standard Python parsing tools such as the &#8220;parser&#8221;
+library module should be used.</p>
+<p>When the Python source code for a module is not available
+(i.e. only the <tt class="docutils literal"><span class="pre">.pyc</span></tt> file exists) or for C extension modules, to
+access docstrings the module can only be imported, and any
+limitations must be lived with.</p>
+</li>
+</ol>
+<p>Since attribute docstrings and additional docstrings are ignored by
+the Python byte-code compiler, no namespace pollution or runtime bloat
+will result from their use.  They are not assigned to <tt class="docutils literal"><span class="pre">__doc__</span></tt> or
+to any other attribute.  The initial parsing of a module may take a
+slight performance hit.</p>
+<div class="section" id="attribute-docstrings">
+<h4>Attribute Docstrings<a class="headerlink" href="#attribute-docstrings" title="Permalink to this headline">¶</a></h4>
+<p>(This is a simplified version of PEP 224 <a class="footnote-reference" href="#pep-224" id="id2">[2]</a>.)</p>
+<p>A string literal immediately following an assignment statement is
+interpreted by the docstring extraction machinery as the docstring of
+the target of the assignment statement, under the following
+conditions:</p>
+<ol class="arabic">
+<li><p class="first">The assignment must be in one of the following contexts:</p>
+<ol class="loweralpha simple">
+<li>At the top level of a module (i.e., not nested inside a compound
+statement such as a loop or conditional): a module attribute.</li>
+<li>At the top level of a class definition: a class attribute.</li>
+<li>At the top level of the &#8220;<tt class="docutils literal"><span class="pre">__init__</span></tt>&#8221; method definition of a
+class: an instance attribute.  Instance attributes assigned in
+other methods are assumed to be implementation details.  (&#64;&#64;&#64;
+<tt class="docutils literal"><span class="pre">__new__</span></tt> methods?)</li>
+<li>A function attribute assignment at the top level of a module or
+class definition.</li>
+</ol>
+<p>Since each of the above contexts are at the top level (i.e., in the
+outermost suite of a definition), it may be necessary to place
+dummy assignments for attributes assigned conditionally or in a
+loop.</p>
+</li>
+<li><p class="first">The assignment must be to a single target, not to a list or a tuple
+of targets.</p>
+</li>
+<li><p class="first">The form of the target:</p>
+<ol class="loweralpha simple">
+<li>For contexts 1a and 1b above, the target must be a simple
+identifier (not a dotted identifier, a subscripted expression,
+or a sliced expression).</li>
+<li>For context 1c above, the target must be of the form
+&#8220;<tt class="docutils literal"><span class="pre">self.attrib</span></tt>&#8221;, where &#8220;<tt class="docutils literal"><span class="pre">self</span></tt>&#8221; matches the &#8220;<tt class="docutils literal"><span class="pre">__init__</span></tt>&#8221;
+method&#8217;s first parameter (the instance parameter) and &#8220;attrib&#8221;
+is a simple identifier as in 3a.</li>
+<li>For context 1d above, the target must be of the form
+&#8220;<tt class="docutils literal"><span class="pre">name.attrib</span></tt>&#8221;, where &#8220;<tt class="docutils literal"><span class="pre">name</span></tt>&#8221; matches an already-defined
+function or method name and &#8220;attrib&#8221; is a simple identifier as
+in 3a.</li>
+</ol>
+</li>
+</ol>
+<p>Blank lines may be used after attribute docstrings to emphasize the
+connection between the assignment and the docstring.</p>
+<p>Examples:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">g</span> <span class="o">=</span> <span class="s">&#39;module attribute (module-global variable)&#39;</span>
+<span class="sd">&quot;&quot;&quot;This is g&#39;s docstring.&quot;&quot;&quot;</span>
+
+<span class="k">class</span> <span class="nc">AClass</span><span class="p">:</span>
+
+    <span class="n">c</span> <span class="o">=</span> <span class="s">&#39;class attribute&#39;</span>
+    <span class="sd">&quot;&quot;&quot;This is AClass.c&#39;s docstring.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method __init__&#39;s docstring.&quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">i</span> <span class="o">=</span> <span class="s">&#39;instance attribute&#39;</span>
+        <span class="sd">&quot;&quot;&quot;This is self.i&#39;s docstring.&quot;&quot;&quot;</span>
+
+<span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Function f&#39;s docstring.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">x</span><span class="o">**</span><span class="mi">2</span>
+
+<span class="n">f</span><span class="o">.</span><span class="n">a</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="sd">&quot;&quot;&quot;Function attribute f.a&#39;s docstring.&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="additional-docstrings">
+<h4>Additional Docstrings<a class="headerlink" href="#additional-docstrings" title="Permalink to this headline">¶</a></h4>
+<p>(This idea was adapted from PEP 216 <a class="footnote-reference" href="#pep-216" id="id3">[3]</a>.)</p>
+<p>Many programmers would like to make extensive use of docstrings for
+API documentation.  However, docstrings do take up space in the
+running program, so some programmers are reluctant to &#8220;bloat up&#8221; their
+code.  Also, not all API documentation is applicable to interactive
+environments, where <tt class="docutils literal"><span class="pre">__doc__</span></tt> would be displayed.</p>
+<p>Docutils&#8217; docstring extraction tools will concatenate all string
+literal expressions which appear at the beginning of a definition or
+after a simple assignment.  Only the first strings in definitions will
+be available as <tt class="docutils literal"><span class="pre">__doc__</span></tt>, and can be used for brief usage text
+suitable for interactive sessions; subsequent string literals and all
+attribute docstrings are ignored by the Python byte-code compiler and
+may contain more extensive API information.</p>
+<p>Example:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">function</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is __doc__, function&#39;s docstring.&quot;&quot;&quot;</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is an additional docstring, ignored by the byte-code</span>
+<span class="sd">    compiler, but extracted by Docutils.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<div class="topic">
+<p class="topic-title first">Issue: <tt class="docutils literal"><span class="pre">from</span> <span class="pre">__future__</span> <span class="pre">import</span></tt></p>
+<p>This would break &#8220;<tt class="docutils literal"><span class="pre">from</span> <span class="pre">__future__</span> <span class="pre">import</span></tt>&#8221; statements introduced
+in Python 2.1 for multiple module docstrings (main docstring plus
+additional docstring(s)).  The Python Reference Manual specifies:</p>
+<blockquote>
+<div><p>A future statement must appear near the top of the module.  The
+only lines that can appear before a future statement are:</p>
+<ul class="simple">
+<li>the module docstring (if any),</li>
+<li>comments,</li>
+<li>blank lines, and</li>
+<li>other future statements.</li>
+</ul>
+</div></blockquote>
+<p>Resolution?</p>
+<ol class="arabic simple">
+<li>Should we search for docstrings after a <tt class="docutils literal"><span class="pre">__future__</span></tt>
+statement?  Very ugly.</li>
+<li>Redefine <tt class="docutils literal"><span class="pre">__future__</span></tt> statements to allow multiple preceding
+string literals?</li>
+<li>Or should we not even worry about this?  There probably
+shouldn&#8217;t be <tt class="docutils literal"><span class="pre">__future__</span></tt> statements in production code, after
+all.  Perhaps modules with <tt class="docutils literal"><span class="pre">__future__</span></tt> statements will simply
+have to put up with the single-docstring limitation.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="section" id="choice-of-docstring-format">
+<h3>Choice of Docstring Format<a class="headerlink" href="#choice-of-docstring-format" title="Permalink to this headline">¶</a></h3>
+<p>Rather than force everyone to use a single docstring format, multiple
+input formats are allowed by the processing system.  A special
+variable, <tt class="docutils literal"><span class="pre">__docformat__</span></tt>, may appear at the top level of a module
+before any function or class definitions.  Over time or through
+decree, a standard format or set of formats should emerge.</p>
+<p>A module&#8217;s <tt class="docutils literal"><span class="pre">__docformat__</span></tt> variable only applies to the objects
+defined in the module&#8217;s file.  In particular, the <tt class="docutils literal"><span class="pre">__docformat__</span></tt>
+variable in a package&#8217;s <tt class="docutils literal"><span class="pre">__init__.py</span></tt> file does not apply to objects
+defined in subpackages and submodules.</p>
+<p>The <tt class="docutils literal"><span class="pre">__docformat__</span></tt> variable is a string containing the name of the
+format being used, a case-insensitive string matching the input
+parser&#8217;s module or package name (i.e., the same name as required to
+&#8220;import&#8221; the module or package), or a registered alias.  If no
+<tt class="docutils literal"><span class="pre">__docformat__</span></tt> is specified, the default format is &#8220;plaintext&#8221; for
+now; this may be changed to the standard format if one is ever
+established.</p>
+<p>The <tt class="docutils literal"><span class="pre">__docformat__</span></tt> string may contain an optional second field,
+separated from the format name (first field) by a single space: a
+case-insensitive language identifier as defined in RFC 1766.  A
+typical language identifier consists of a 2-letter language code from
+<a class="reference external" href="http://www.loc.gov/standards/iso639-2/englangn.html">ISO 639</a> (3-letter codes used only if no 2-letter code exists; RFC
+1766 is currently being revised to allow 3-letter codes).  If no
+language identifier is specified, the default is &#8220;en&#8221; for English.
+The language identifier is passed to the parser and can be used for
+language-dependent markup features.</p>
+</div>
+<div class="section" id="identifier-cross-references">
+<h3>Identifier Cross-References<a class="headerlink" href="#identifier-cross-references" title="Permalink to this headline">¶</a></h3>
+<p>In Python docstrings, interpreted text is used to classify and mark up
+program identifiers, such as the names of variables, functions,
+classes, and modules.  If the identifier alone is given, its role is
+inferred implicitly according to the Python namespace lookup rules.
+For functions and methods (even when dynamically assigned),
+parentheses (&#8216;()&#8217;) may be included:</p>
+<div class="highlight-python"><pre>This function uses `another()` to do its work.</pre>
+</div>
+<p>For class, instance and module attributes, dotted identifiers are used
+when necessary.  For example (using reStructuredText markup):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Keeper</span><span class="p">(</span><span class="n">Storer</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extend `Storer`.  Class attribute `instances` keeps track</span>
+<span class="sd">    of the number of `Keeper` objects instantiated.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">instances</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="sd">&quot;&quot;&quot;How many `Keeper` objects are there?&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extend `Storer.__init__()` to keep track of instances.</span>
+
+<span class="sd">        Keep count in `Keeper.instances`, data in `self.data`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">Storer</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">Keeper</span><span class="o">.</span><span class="n">instances</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="sd">&quot;&quot;&quot;Store data in a list, most recent last.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">store_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Extend `Storer.store_data()`; append new `data` to a</span>
+<span class="sd">        list (in `self.data`).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+</pre></div>
+</div>
+<p>Each of the identifiers quoted with backquotes (&#8220;`&#8221;) will become
+references to the definitions of the identifiers themselves.</p>
+</div>
+<div class="section" id="stylist-transforms">
+<h3>Stylist Transforms<a class="headerlink" href="#stylist-transforms" title="Permalink to this headline">¶</a></h3>
+<p>Stylist transforms are specialized transforms specific to the PySource
+Reader.  The PySource Reader doesn&#8217;t have to make any decisions as to
+style; it just produces a logically constructed document tree, parsed
+and linked, including custom node types.  Stylist transforms
+understand the custom nodes created by the Reader and convert them
+into standard Docutils nodes.</p>
+<p>Multiple Stylist transforms may be implemented and one can be chosen
+at runtime (through a &#8220;&#8211;style&#8221; or &#8220;&#8211;stylist&#8221; command-line option).
+Each Stylist transform implements a different layout or style; thus
+the name.  They decouple the context-understanding part of the Reader
+from the layout-generating part of processing, resulting in a more
+flexible and robust system.  This also serves to &#8220;separate style from
+content&#8221;, the SGML/XML ideal.</p>
+<p>By keeping the piece of code that does the styling small and modular,
+it becomes much easier for people to roll their own styles.  The
+&#8220;barrier to entry&#8221; is too high with existing tools; extracting the
+stylist code will lower the barrier considerably.</p>
+</div>
+</div>
+</div>
+<div class="section" id="references-and-footnotes">
+<h1>References and Footnotes<a class="headerlink" href="#references-and-footnotes" title="Permalink to this headline">¶</a></h1>
+<table class="docutils footnote" frame="void" id="pep-256" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>PEP 256, Docstring Processing System Framework, Goodger
+(<a class="reference external" href="http://www.python.org/peps/pep-0256.html">http://www.python.org/peps/pep-0256.html</a>)</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="pep-224" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>PEP 224, Attribute Docstrings, Lemburg
+(<a class="reference external" href="http://www.python.org/peps/pep-0224.html">http://www.python.org/peps/pep-0224.html</a>)</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="pep-216" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[3]</a></td><td>PEP 216, Docstring Format, Zadka
+(<a class="reference external" href="http://www.python.org/peps/pep-0216.html">http://www.python.org/peps/pep-0216.html</a>)</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="project-web-site">
+<h1>Project Web Site<a class="headerlink" href="#project-web-site" title="Permalink to this headline">¶</a></h1>
+<p>A SourceForge project has been set up for this work at
+<a class="reference external" href="http://docutils.sourceforge.net/">http://docutils.sourceforge.net/</a>.</p>
+</div>
+<div class="section" id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this headline">¶</a></h1>
+<p>This document has been placed in the public domain.</p>
+</div>
+<div class="section" id="acknowledgements">
+<h1>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permalink to this headline">¶</a></h1>
+<p>This document borrows ideas from the archives of the <a class="reference external" href="http://www.python.org/sigs/doc-sig/">Python
+Doc-SIG</a>.  Thanks to all members past &amp; present.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Abstract</a></li>
+<li><a class="reference internal" href="#specification">Specification</a><ul>
+<li><a class="reference internal" href="#docutils-project-model">Docutils Project Model</a><ul>
+<li><a class="reference internal" href="#publisher">Publisher</a></li>
+<li><a class="reference internal" href="#readers">Readers</a></li>
+<li><a class="reference internal" href="#parsers">Parsers</a></li>
+<li><a class="reference internal" href="#transformer">Transformer</a></li>
+<li><a class="reference internal" href="#writers">Writers</a></li>
+<li><a class="reference internal" href="#input-output">Input/Output</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#docutils-package-structure">Docutils Package Structure</a></li>
+<li><a class="reference internal" href="#front-end-tools">Front-End Tools</a></li>
+<li><a class="reference internal" href="#document-tree">Document Tree</a></li>
+<li><a class="reference internal" href="#error-handling">Error Handling</a></li>
+<li><a class="reference internal" href="#python-source-reader">Python Source Reader</a><ul>
+<li><a class="reference internal" href="#processing-model">Processing Model</a></li>
+<li><a class="reference internal" href="#ast-mining">AST Mining</a></li>
+<li><a class="reference internal" href="#docstring-extraction-rules">Docstring Extraction Rules</a><ul>
+<li><a class="reference internal" href="#attribute-docstrings">Attribute Docstrings</a></li>
+<li><a class="reference internal" href="#additional-docstrings">Additional Docstrings</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#choice-of-docstring-format">Choice of Docstring Format</a></li>
+<li><a class="reference internal" href="#identifier-cross-references">Identifier Cross-References</a></li>
+<li><a class="reference internal" href="#stylist-transforms">Stylist Transforms</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#references-and-footnotes">References and Footnotes</a></li>
+<li><a class="reference internal" href="#project-web-site">Project Web Site</a></li>
+<li><a class="reference internal" href="#copyright">Copyright</a></li>
+<li><a class="reference internal" href="#acknowledgements">Acknowledgements</a></li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/peps/pep-0258.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../index.html">Docutils 0.11 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Docutils Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

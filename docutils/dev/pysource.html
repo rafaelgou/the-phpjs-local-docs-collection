@@ -1,0 +1,229 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Python Source Reader &mdash; Docutils 0.11 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '0.11',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Docutils 0.11 documentation" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../index.html">Docutils 0.11 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="python-source-reader">
+<h1><a class="toc-backref" href="#id3">Python Source Reader</a><a class="headerlink" href="#python-source-reader" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">David Goodger</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Contact:</th><td class="field-body"><a class="reference external" href="mailto:docutils-develop&#37;&#52;&#48;lists&#46;sourceforge&#46;net">docutils-develop<span>&#64;</span>lists<span>&#46;</span>sourceforge<span>&#46;</span>net</a></td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Revision:</th><td class="field-body">$Revision: 7302 $</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Date:</th><td class="field-body">$Date: 2012-01-03 20:23:53 +0100 (Tue, 03 Jan 2012) $</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Copyright:</th><td class="field-body">This document has been placed in the public domain.</td>
+</tr>
+</tbody>
+</table>
+<p>This document explores issues around extracting and processing
+docstrings from Python modules.</p>
+<p>For definitive element hierarchy details, see the &#8220;Python Plaintext
+Document Interface DTD&#8221; XML document type definition, <a class="reference external" href="pysource.dtd">pysource.dtd</a>
+(which modifies the generic <a class="reference external" href="../ref/docutils.dtd">docutils.dtd</a>).  Descriptions below list
+&#8216;DTD elements&#8217; (XML &#8216;generic identifiers&#8217; or tag names) corresponding
+to syntax constructs.</p>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#python-source-reader" id="id3">Python Source Reader</a><ul>
+<li><a class="reference internal" href="#model" id="id4">Model</a></li>
+<li><a class="reference internal" href="#docstring-extractor" id="id5">Docstring Extractor</a></li>
+<li><a class="reference internal" href="#interpreted-text" id="id6">Interpreted Text</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="model">
+<h2><a class="toc-backref" href="#id4">Model</a><a class="headerlink" href="#model" title="Permalink to this headline">¶</a></h2>
+<p>The Python Source Reader (&#8220;PySource&#8221;) model that&#8217;s evolving in my mind
+goes something like this:</p>
+<ol class="arabic">
+<li><p class="first">Extract the docstring/namespace <a class="footnote-reference" href="#id2" id="id1">[1]</a> tree from the module(s) and/or
+package(s).</p>
+<table class="docutils footnote" frame="void" id="id2" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td><p class="first last">See <a class="reference internal" href="#docstring-extractor">Docstring Extractor</a> below.</p>
+</td></tr>
+</tbody>
+</table>
+</li>
+<li><p class="first">Run the parser on each docstring in turn, producing a forest of
+doctrees (per nodes.py).</p>
+</li>
+<li><p class="first">Join the docstring trees together into a single tree, running
+transforms:</p>
+<ul class="simple">
+<li>merge hyperlinks</li>
+<li>merge namespaces</li>
+<li>create various sections like &#8220;Module Attributes&#8221;, &#8220;Functions&#8221;,
+&#8220;Classes&#8221;, &#8220;Class Attributes&#8221;, etc.; see <a class="reference external" href="pysource.dtd">pysource.dtd</a></li>
+<li>convert the above special sections to ordinary doctree nodes</li>
+</ul>
+</li>
+<li><p class="first">Run transforms on the combined doctree.  Examples: resolving
+cross-references/hyperlinks (including interpreted text on Python
+identifiers); footnote auto-numbering; first field list -&gt;
+bibliographic elements.</p>
+<p>(Or should step 4&#8217;s transforms come before step 3?)</p>
+</li>
+<li><p class="first">Pass the resulting unified tree to the writer/builder.</p>
+</li>
+</ol>
+<p>I&#8217;ve had trouble reconciling the roles of input parser and output
+writer with the idea of modes (&#8220;readers&#8221; or &#8220;directors&#8221;).  Does the
+mode govern the tranformation of the input, the output, or both?
+Perhaps the mode should be split into two.</p>
+<p>For example, say the source of our input is a Python module.  Our
+&#8220;input mode&#8221; should be the &#8220;Python Source Reader&#8221;.  It discovers (from
+<tt class="docutils literal"><span class="pre">__docformat__</span></tt>) that the input parser is &#8220;reStructuredText&#8221;.  If we
+want HTML, we&#8217;ll specify the &#8220;HTML&#8221; output formatter.  But there&#8217;s a
+piece missing.  What <em>kind</em> or <em>style</em> of HTML output do we want?
+PyDoc-style, LibRefMan style, etc.  (many people will want to specify
+and control their own style).  Is the output style specific to a
+particular output format (XML, HTML, etc.)?  Is the style specific to
+the input mode?  Or can/should they be independent?</p>
+<p>I envision interaction between the input parser, an &#8220;input mode&#8221; , and
+the output formatter.  The same intermediate data format would be used
+between each of these, being transformed as it progresses.</p>
+</div>
+<div class="section" id="docstring-extractor">
+<h2><a class="toc-backref" href="#id5">Docstring Extractor</a><a class="headerlink" href="#docstring-extractor" title="Permalink to this headline">¶</a></h2>
+<p>We need code that scans a parsed Python module, and returns an ordered
+tree containing the names, docstrings (including attribute and
+additional docstrings), and additional info (in parentheses below) of
+all of the following objects:</p>
+<ul class="simple">
+<li>packages</li>
+<li>modules</li>
+<li>module attributes (+ values)</li>
+<li>classes (+ inheritance)</li>
+<li>class attributes (+ values)</li>
+<li>instance attributes (+ values)</li>
+<li>methods (+ formal parameters &amp; defaults)</li>
+<li>functions (+ formal parameters &amp; defaults)</li>
+</ul>
+<p>(Extract comments too?  For example, comments at the start of a module
+would be a good place for bibliographic field lists.)</p>
+<p>In order to evaluate interpreted text cross-references, namespaces for
+each of the above will also be required.</p>
+<p>See python-dev/docstring-develop thread &#8220;AST mining&#8221;, started on
+2001-08-14.</p>
+</div>
+<div class="section" id="interpreted-text">
+<h2><a class="toc-backref" href="#id6">Interpreted Text</a><a class="headerlink" href="#interpreted-text" title="Permalink to this headline">¶</a></h2>
+<p>DTD elements: package, module, class, method, function,
+module_attribute, class_attribute, instance_attribute, variable,
+parameter, type, exception_class, warning_class.</p>
+<p>To classify identifiers explicitly, the role is given along with the
+identifier in either prefix or suffix form:</p>
+<div class="highlight-python"><pre>Use :method:`Keeper.storedata` to store the object's data in
+`Keeper.data`:instance_attribute:.</pre>
+</div>
+<p>The role may be one of &#8216;package&#8217;, &#8216;module&#8217;, &#8216;class&#8217;, &#8216;method&#8217;,
+&#8216;function&#8217;, &#8216;module_attribute&#8217;, &#8216;class_attribute&#8217;,
+&#8216;instance_attribute&#8217;, &#8216;variable&#8217;, &#8216;parameter&#8217;, &#8216;type&#8217;,
+&#8216;exception_class&#8217;, &#8216;exception&#8217;, &#8216;warning_class&#8217;, or &#8216;warning&#8217;.  Other
+roles may be defined.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Python Source Reader</a><ul>
+<li><a class="reference internal" href="#model">Model</a></li>
+<li><a class="reference internal" href="#docstring-extractor">Docstring Extractor</a></li>
+<li><a class="reference internal" href="#interpreted-text">Interpreted Text</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/dev/pysource.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../index.html">Docutils 0.11 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Docutils Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
