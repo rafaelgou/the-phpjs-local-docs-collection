@@ -88,7 +88,7 @@ Here we go:
         * [version ?](http://getcomposer.org/)
 * JS
     * jQuery API
-        * [version 1.9.x](http://api.jquery.com/)
+        * [version 1.9.x](http://www.jqapi.com/)
     * jQuery UI
         * [Index](http://jqueryui.com/)
         * [API Docs](http://api.jqueryui.com/)
