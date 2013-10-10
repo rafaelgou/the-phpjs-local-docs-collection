@@ -1,0 +1,557 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Configure Linux iptables Firewall for MongoDB &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/configure-linux-iptables-firewall.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/configure-linux-iptables-firewall" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Security" href="../security.html" />
+<link rel="next" title="Configure Windows netsh Firewall for MongoDB" href="configure-windows-netsh-firewall.html" />
+<link rel="prev" title="Access Control" href="../core/access-control.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../security.html">Security</a><span class="bcpoint"> > </span></li>
+          <li>Configure Linux <tt class="docutils literal docutils literal"><span class="pre">iptables</span></tt> Firewall for MongoDB</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="configure-linux-iptables-firewall-for-mongodb">
+<h1>Configure Linux <tt class="docutils literal"><span class="pre">iptables</span></tt> Firewall for MongoDB<a class="headerlink" href="#configure-linux-iptables-firewall-for-mongodb" title="Permalink to this headline">¶</a></h1>
+<p>On contemporary Linux systems, the <tt class="docutils literal"><span class="pre">iptables</span></tt> program provides
+methods for managing the Linux Kernel&#8217;s <tt class="docutils literal"><span class="pre">netfilter</span></tt> or network
+packet filtering capabilities. These firewall rules make it possible
+for administrators to control what hosts can connect to the system,
+and limit risk exposure by limiting the hosts that can connect to a
+system.</p>
+<p>This document outlines basic firewall configurations for <tt class="docutils literal"><span class="pre">iptables</span></tt>
+firewalls on Linux. Use these approaches as a starting point for your
+larger networking organization. For a detailed over view of security
+practices and risk management for MongoDB, see <a class="reference internal" href="../core/security.html"><em>Security Practices and Management</em></a>.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">For MongoDB deployments on Amazon&#8217;s web services, see the
+<a class="reference external" href="http://docs.mongodb.org/ecosystem/platforms/amazon-ec2">Amazon EC2</a> page, which addresses Amazon&#8217;s
+Security Groups and other EC2-specific security features.</p>
+</div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>Rules in <tt class="docutils literal"><span class="pre">iptables</span></tt> configurations fall into chains, which describe
+the process for filtering and processing specific streams of
+traffic. Chains have an order, and packets must pass through earlier
+rules in a chain to reach later rules. This document only the
+following two chains:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">INPUT</span></tt></dt>
+<dd>Controls all incoming traffic.</dd>
+<dt><tt class="docutils literal"><span class="pre">OUTPUT</span></tt></dt>
+<dd>Controls all outgoing traffic.</dd>
+</dl>
+<p>Given the <a class="reference internal" href="../core/security.html#security-port-numbers"><em>default ports</em></a> of all MongoDB
+processes, you must configure networking rules that permit <em>only</em>
+required communication between your application and the appropriate
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances.</p>
+<p>Be aware that, by default, the default policy of <tt class="docutils literal"><span class="pre">iptables</span></tt> is to
+allow all connections and traffic unless explicitly disabled. The
+configuration changes outlined in this document will create rules that
+explicitly allow traffic from specific addresses and on specific
+ports, using a default policy that drops all traffic that is not
+explicitly allowed. When you have properly configured your
+<tt class="docutils literal"><span class="pre">iptables</span></tt> rules to allow only the traffic that you want to permit,
+you can <a class="reference internal" href="#iptables-change-default-policy-to-drop"><em>Change Default Policy to DROP</em></a>.</p>
+</div>
+<div class="section" id="patterns">
+<h2>Patterns<a class="headerlink" href="#patterns" title="Permalink to this headline">¶</a></h2>
+<p>This section contains a number of patterns and examples for
+configuring <tt class="docutils literal"><span class="pre">iptables</span></tt> for use with MongoDB deployments. If you have
+configured different ports using the <a class="reference internal" href="../reference/configuration-options.html#port" title="port"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">port</span></tt></a> configuration
+setting, you will need to modify the rules accordingly.</p>
+<div class="section" id="traffic-to-and-from-mongod-instances">
+<span id="iptables-basic-rule-set"></span><h3>Traffic to and from <tt class="docutils literal"><span class="pre">mongod</span></tt> Instances<a class="headerlink" href="#traffic-to-and-from-mongod-instances" title="Permalink to this headline">¶</a></h3>
+<p>This pattern is applicable to all <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances running
+as standalone instances or as part of a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>.</p>
+<p>The goal of this pattern is to explicitly allow traffic to the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance from the application server. In the
+following examples, replace <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with the IP address of
+the application server:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 27017 -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -d &lt;ip-address&gt; -p tcp --source-port 27017 -m state --state ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>The first rule allows all incoming traffic from <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> on
+port <tt class="docutils literal"><span class="pre">27017</span></tt>, which allows the application server to connect to the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance. The second rule, allows outgoing traffic
+from the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> to reach the application server.</p>
+<div class="admonition-optional admonition">
+<p class="first admonition-title">Optional</p>
+<p>If you have only one application server, you can replace
+<tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with either the IP address itself, such as:
+<tt class="docutils literal"><span class="pre">198.51.100.55</span></tt>. You can also express this using CIDR notation as
+<tt class="docutils literal"><span class="pre">198.51.100.55/32</span></tt>. If you want to permit a larger block of
+possible IP addresses you can allow traffic from a <tt class="docutils literal"><span class="pre">/24</span></tt> using
+one of the following specifications for the <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt>, as
+follows:</p>
+<div class="last highlight-sh"><div class="highlight"><pre>10.10.10.10/24
+10.10.10.10/255.255.255.0
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="traffic-to-and-from-mongos-instances">
+<h3>Traffic to and from <tt class="docutils literal"><span class="pre">mongos</span></tt> Instances<a class="headerlink" href="#traffic-to-and-from-mongos-instances" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances provide query routing for <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded
+clusters</em></a>. Clients connect to <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances, which
+behave from the client&#8217;s perspective as <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances. In turn, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> connects to all
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances that are components of the sharded
+cluster.</p>
+<p>Use the same <tt class="docutils literal"><span class="pre">iptables</span></tt> command to allow traffic to and from these
+instances as you would from the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances that are
+members of the replica set. Take the configuration outlined in the
+<a class="reference internal" href="#iptables-basic-rule-set"><em>Traffic to and from mongod Instances</em></a> section as an example.</p>
+</div>
+<div class="section" id="traffic-to-and-from-a-mongodb-config-server">
+<h3>Traffic to and from a MongoDB Config Server<a class="headerlink" href="#traffic-to-and-from-a-mongodb-config-server" title="Permalink to this headline">¶</a></h3>
+<p>Config servers, host the <a class="reference internal" href="../reference/glossary.html#term-config-database"><em class="xref std std-term">config database</em></a> that stores metadata
+for sharded clusters. Each production cluster has three config
+servers, initiated using the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--configsvr"><em class="xref std std-option">mongod --configsvr</em></a>
+option. <a class="footnote-reference" href="#config-option" id="id1">[1]</a> Config servers listen for connections on port
+<tt class="docutils literal"><span class="pre">27019</span></tt>. As a result, add the following <tt class="docutils literal"><span class="pre">iptables</span></tt> rules to the
+config server to allow incoming and outgoing connection on port
+<tt class="docutils literal"><span class="pre">27019</span></tt>, for connection to the other config servers.</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 27019 -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -d &lt;ip-address&gt; -p tcp --source-port 27019 -m state --state ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with the address or address space of <em>all</em>
+the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> that provide config servers.</p>
+<p>Additionally, config servers need to allow incoming connections from
+all of the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances in the cluster <em>and</em> all
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances in the cluster. Add rules that
+resemble the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 27019 -m state --state NEW,ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with the address of the
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances and the shard <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances.</p>
+<table class="docutils footnote" frame="void" id="config-option" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>You can also run a config server by setting the
+<a class="reference internal" href="../reference/configuration-options.html#configsvr" title="configsvr"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">configsvr</span></tt></a> option in a configuration file.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="traffic-to-and-from-a-mongodb-shard-server">
+<h3>Traffic to and from a MongoDB Shard Server<a class="headerlink" href="#traffic-to-and-from-a-mongodb-shard-server" title="Permalink to this headline">¶</a></h3>
+<p>For shard servers, running as <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--shardsvr"><em class="xref std std-option">mongod --shardsvr</em></a>
+<a class="footnote-reference" href="#shard-option" id="id2">[2]</a> Because the default port number when running with
+<a class="reference internal" href="../reference/configuration-options.html#shardsvr" title="shardsvr"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">shardsvr</span></tt></a> is <tt class="docutils literal"><span class="pre">27018</span></tt>,  you must configure the following
+<tt class="docutils literal"><span class="pre">iptables</span></tt> rules to allow traffic to and from each shard:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 27018 -m state --state NEW,ESTABLISHED -j ACCEPT
+iptables -A OUTPUT -d &lt;ip-address&gt; -p tcp --source-port 27018 -m state --state ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>Replace the <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> specification with the IP address of all
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>. This allows you to permit incoming and outgoing
+traffic between all shards including constituent replica set members,
+to:</p>
+<ul class="simple">
+<li>all <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances in the shard&#8217;s replica sets.</li>
+<li>all <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances in other shards. <a class="footnote-reference" href="#migrations" id="id3">[3]</a></li>
+</ul>
+<p>Furthermore, shards need to be able make outgoing connections to:</p>
+<ul class="simple">
+<li>all <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances.</li>
+<li>all <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances in the config servers.</li>
+</ul>
+<p>Create a rule that resembles the following, and replace the
+<tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with the address of the config servers and the
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A OUTPUT -d &lt;ip-address&gt; -p tcp --source-port 27018 -m state --state ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<table class="docutils footnote" frame="void" id="shard-option" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>You can also specify the shard server option using
+the <a class="reference internal" href="../reference/configuration-options.html#shardsvr" title="shardsvr"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">shardsvr</span></tt></a> setting in the configuration file. Shard
+members are also often conventional replica sets using the default
+port.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="migrations" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[3]</a></td><td>All shards in a cluster need to be able to
+communicate with all other shards to facilitate <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunk</em></a> and
+balancing operations.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="provide-access-for-monitoring-systems">
+<h3>Provide Access For Monitoring Systems<a class="headerlink" href="#provide-access-for-monitoring-systems" title="Permalink to this headline">¶</a></h3>
+<ol class="arabic">
+<li><p class="first">The <a class="reference internal" href="../reference/program/mongostat.html#bin.mongostat" title="mongostat"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongostat</span></tt></a> diagnostic tool, when running with the
+<a class="reference internal" href="../reference/program/mongostat.html#cmdoption-mongostat--discover"><em class="xref std std-option">--discover</em></a> needs to be able to
+reach all components of a cluster, including the config servers,
+the shard servers, and the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances.</p>
+</li>
+<li><p class="first">If your monitoring system needs access the HTTP interface, insert
+the following rule to the chain:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 28017 -m state --state NEW,ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">&lt;ip-address&gt;</span></tt> with the address of the instance that
+needs access to the HTTP or REST interface. For <em>all</em> deployments,
+you should restrict access to this port to <em>only</em> the monitoring
+instance.</p>
+<div class="admonition-optional admonition">
+<p class="first admonition-title">Optional</p>
+<p>For shard server <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances running with
+<a class="reference internal" href="../reference/configuration-options.html#shardsvr" title="shardsvr"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">shardsvr</span></tt></a>, the rule would resemble the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 28018 -m state --state NEW,ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+<p>For config server <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances running with
+<a class="reference internal" href="../reference/configuration-options.html#configsvr" title="configsvr"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">configsvr</span></tt></a>, the rule would resemble the following:</p>
+<div class="last highlight-sh"><div class="highlight"><pre>iptables -A INPUT -s &lt;ip-address&gt; -p tcp --destination-port 28019 -m state --state NEW,ESTABLISHED -j ACCEPT
+</pre></div>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="section" id="change-default-policy-to-drop">
+<span id="iptables-change-default-policy-to-drop"></span><h2>Change Default Policy to <tt class="docutils literal"><span class="pre">DROP</span></tt><a class="headerlink" href="#change-default-policy-to-drop" title="Permalink to this headline">¶</a></h2>
+<p>The default policy for <tt class="docutils literal"><span class="pre">iptables</span></tt> chains is to allow all
+traffic. After completing all <tt class="docutils literal"><span class="pre">iptables</span></tt> configuration changes, you
+<em>must</em> change the default policy to <tt class="docutils literal"><span class="pre">DROP</span></tt> so that all traffic that
+isn&#8217;t explicitly allowed as above will not be able to reach components
+of the MongoDB deployment. Issue the following commands to change this
+policy:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables -P INPUT DROP
+
+iptables -P OUTPUT DROP
+</pre></div>
+</div>
+</div>
+<div class="section" id="manage-and-maintain-iptables-configuration">
+<h2>Manage and Maintain <tt class="docutils literal"><span class="pre">iptables</span></tt> Configuration<a class="headerlink" href="#manage-and-maintain-iptables-configuration" title="Permalink to this headline">¶</a></h2>
+<p>This section contains a number of basic operations for managing and
+using <tt class="docutils literal"><span class="pre">iptables</span></tt>. There are various front end tools that automate
+some aspects of <tt class="docutils literal"><span class="pre">iptables</span></tt> configuration, but at the core all
+<tt class="docutils literal"><span class="pre">iptables</span></tt> front ends provide the same basic functionality:</p>
+<div class="section" id="make-all-iptables-rules-persistent">
+<span id="iptables-make-all-rules-persistent"></span><h3>Make all <tt class="docutils literal"><span class="pre">iptables</span></tt> Rules Persistent<a class="headerlink" href="#make-all-iptables-rules-persistent" title="Permalink to this headline">¶</a></h3>
+<p>By default all <tt class="docutils literal"><span class="pre">iptables</span></tt> rules are only stored in memory. When
+your system restarts, your firewall rules will revert to their
+defaults. When you have tested a rule set and have guaranteed that it
+effectively controls traffic you can use the following operations to
+you should make the rule set persistent.</p>
+<p>On Red Hat Enterprise Linux, Fedora Linux, and related distributions
+you can issue the following command:</p>
+<div class="highlight-sh"><div class="highlight"><pre>service iptables save
+</pre></div>
+</div>
+<p>On Debian, Ubuntu, and related distributions, you can use the
+following command to dump the <tt class="docutils literal"><span class="pre">iptables</span></tt> rules to the
+<tt class="docutils literal"><span class="pre">/etc/iptables.conf</span></tt> file:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables-save &gt; /etc/iptables.conf
+</pre></div>
+</div>
+<p>Run the following operation to restore the network rules:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables-restore &lt; /etc/iptables.conf
+</pre></div>
+</div>
+<p>Place this command in your <tt class="docutils literal"><span class="pre">rc.local</span></tt> file, or in the
+<tt class="docutils literal"><span class="pre">/etc/network/if-up.d/iptables</span></tt> file with other similar operations.q</p>
+</div>
+<div class="section" id="list-all-iptables-rules">
+<h3>List all <tt class="docutils literal"><span class="pre">iptables</span></tt> Rules<a class="headerlink" href="#list-all-iptables-rules" title="Permalink to this headline">¶</a></h3>
+<p>To list all of currently applied <tt class="docutils literal"><span class="pre">iptables</span></tt> rules, use the following
+operation at the system shell.</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables --L
+</pre></div>
+</div>
+</div>
+<div class="section" id="flush-all-iptables-rules">
+<h3>Flush all <tt class="docutils literal"><span class="pre">iptables</span></tt> Rules<a class="headerlink" href="#flush-all-iptables-rules" title="Permalink to this headline">¶</a></h3>
+<p>If you make a configuration mistake when entering <tt class="docutils literal"><span class="pre">iptables</span></tt> rules
+or simply need to revert to the default rule set, you can use the
+following operation at the system shell to flush all rules:</p>
+<div class="highlight-sh"><div class="highlight"><pre>iptables --F
+</pre></div>
+</div>
+<p>If you&#8217;ve already made your <tt class="docutils literal"><span class="pre">iptables</span></tt> rules persistent, you will
+need to repeat the appropriate procedure in the
+<a class="reference internal" href="#iptables-make-all-rules-persistent"><em>Make all iptables Rules Persistent</em></a> section.</p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../core/access-control.html" title="Previous Section: Access Control">&lt; &nbsp; Access Control</a></li>
+              <li id="btnvup"><a href="../security.html" title="Parent Section: Security" >&#47;&#92;&nbsp; Security</a></li>
+              <li id="btnvnx"><a href="configure-windows-netsh-firewall.html" title="Next Section: Configure Windows netsh Firewall for MongoDB">Configure Windows netsh Firewall for MongoDB &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../security.html">Security</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/security.html">Security Practices and Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/access-control.html">Access Control</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Configure Linux <tt class="docutils literal"><span class="pre">iptables</span></tt> Firewall for MongoDB</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="configure-windows-netsh-firewall.html">Configure Windows <tt class="docutils literal"><span class="pre">netsh</span></tt> Firewall for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create-a-vulnerability-report.html">Create a Vulnerability Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="enable-authentication.html">Enable Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add-user-administrator.html">Create a User Administrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add-user-to-database.html">Add a User to a Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate-key-file.html">Generate a Key File</a></li>
+<li class="toctree-l2"><a class="reference internal" href="control-access-to-mongodb-with-kerberos-authentication.html">Deploy MongoDB with Kerberos Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/user-privileges.html">User Privilege Roles in MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/privilege-documents.html"><tt class="docutils literal"><span class="pre">system.users</span></tt> Privilege Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/password-hashing-insecurity.html">Password Hashing Insecurity</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/configure-linux-iptables-firewall.txt" target="_blank" title="Edit tutorial/configure-linux-iptables-firewall.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/configure-linux-iptables-firewall%2Etxt%22" target="_blank" title="Report a problem with tutorial/configure-linux-iptables-firewall.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/configure-linux-iptables-firewall.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/configure-linux-iptables-firewall'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/configure-linux-iptables-firewall'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

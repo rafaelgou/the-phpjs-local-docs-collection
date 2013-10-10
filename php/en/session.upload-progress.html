@@ -1,0 +1,106 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Session Upload Progress</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="session.customhandler.html">Custom Session Handlers</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="session.security.html">Sessions and security</a></div>
+ <div class="up"><a href="book.session.html">Sessions</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="session.upload-progress" class="chapter">
+ <h1>Session Upload Progress</h1>
+
+
+ <p class="para">
+  When the
+  <a href="session.configuration.html#ini.session.upload-progress.enabled" class="link">session.upload_progress.enabled</a>
+  INI option is enabled, PHP will be able to track the upload progress of
+  individual files being uploaded.
+  This information isn&#039;t particularly useful for the actual upload request
+  itself, but during the file upload an application can send a POST request
+  to a separate endpoint (via <acronym>XHR</acronym> for example) to check the
+  status.
+ </p>
+ <p class="para">
+  The upload progress will be available in the <var class="varname"><var class="varname"><a href="reserved.variables.session.html" class="classname">$_SESSION</a></var></var>
+  superglobal when an upload is in progress, and when POSTing a variable of
+  the same name as the
+  <a href="session.configuration.html#ini.session.upload-progress.name" class="link">session.upload_progress.name</a>
+  INI setting is set to.
+  When PHP detects such POST requests, it will populate an array in the
+  <var class="varname"><var class="varname"><a href="reserved.variables.session.html" class="classname">$_SESSION</a></var></var>, where the index is a concatenated value of the
+  <a href="session.configuration.html#ini.session.upload-progress.prefix" class="link">session.upload_progress.prefix</a>
+  and
+  <a href="session.configuration.html#ini.session.upload-progress.name" class="link">session.upload_progress.name</a>
+  INI options.
+  The key is typically retrieved by reading these INI settings, i.e.
+  <div class="informalexample">
+   <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br />$key&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">ini_get</span><span style="color: #007700">(</span><span style="color: #DD0000">"session.upload_progress.prefix"</span><span style="color: #007700">)&nbsp;.&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #0000BB">ini_get</span><span style="color: #007700">(</span><span style="color: #DD0000">"session.upload_progress.name"</span><span style="color: #007700">)];<br /></span><span style="color: #0000BB">var_dump</span><span style="color: #007700">(</span><span style="color: #0000BB">$_SESSION</span><span style="color: #007700">[</span><span style="color: #0000BB">$key</span><span style="color: #007700">]);<br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+   </div>
+
+  </div>
+ </p>
+ <p class="para">
+  It is also possible to <em class="emphasis">cancel</em> the currently in-progress file
+  upload, by setting the <em>$_SESSION[$key][&quot;cancel_upload&quot;]</em> key to
+  <strong><code>TRUE</code></strong>.
+  When uploading multiple files in the same request, this will only cancel the
+  currently in-progress file upload, and pending file uploads, but will not
+  remove successfully completed uploads.
+  When an upload is cancelled like this, the <em>error</em> key in
+  <var class="varname"><var class="varname"><a href="reserved.variables.files.html" class="classname">$_FILES</a></var></var> array will be set to
+  <strong><code>UPLOAD_ERR_EXTENSION</code></strong>.
+ </p>
+ <p class="para">
+  The
+  <a href="session.configuration.html#ini.session.upload-progress.freq" class="link">session.upload_progress.freq</a>
+  and
+  <a href="session.configuration.html#ini.session.upload-progress.min-freq" class="link">session.upload_progress.min_freq</a>
+  INI options control how frequent the upload progress information should be
+  recalculated.
+  With a reasonable amount for these two settings, the overhead of this
+  feature is almost non-existent.
+ </p>
+ <p class="para">
+  <div class="example" id="example-4639">
+   <p><strong>Example #1 Example information</strong></p>
+   <div class="example-contents"><p>
+    Example of the structure of the progress upload array.
+   </p></div>
+   <div class="example-contents">
+<div class="htmlcode"><pre class="htmlcode">&lt;form action=&quot;upload.php&quot; method=&quot;POST&quot; enctype=&quot;multipart/form-data&quot;&gt;
+ &lt;input type=&quot;hidden&quot; name=&quot;&lt;?php echo ini_get(&quot;session.upload_progress.name&quot;); ?&gt;&quot; value=&quot;123&quot; /&gt;
+ &lt;input type=&quot;file&quot; name=&quot;file1&quot; /&gt;
+ &lt;input type=&quot;file&quot; name=&quot;file2&quot; /&gt;
+ &lt;input type=&quot;submit&quot; /&gt;
+&lt;/form&gt;</pre>
+</div>
+   </div>
+
+   <div class="example-contents"><p>
+    The data stored in the session will look like this:
+   </p></div>
+   <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br />$_SESSION</span><span style="color: #007700">[</span><span style="color: #DD0000">"upload_progress_123"</span><span style="color: #007700">]&nbsp;=&nbsp;array(<br />&nbsp;</span><span style="color: #DD0000">"start_time"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">1234567890</span><span style="color: #007700">,&nbsp;&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;The&nbsp;request&nbsp;time<br />&nbsp;</span><span style="color: #DD0000">"content_length"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">57343257</span><span style="color: #007700">,&nbsp;</span><span style="color: #FF8000">//&nbsp;POST&nbsp;content&nbsp;length<br />&nbsp;</span><span style="color: #DD0000">"bytes_processed"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">453489</span><span style="color: #007700">,&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;Amount&nbsp;of&nbsp;bytes&nbsp;received&nbsp;and&nbsp;processed<br />&nbsp;</span><span style="color: #DD0000">"done"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">false</span><span style="color: #007700">,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;true&nbsp;when&nbsp;the&nbsp;POST&nbsp;handler&nbsp;has&nbsp;finished,&nbsp;successfully&nbsp;or&nbsp;not<br />&nbsp;</span><span style="color: #DD0000">"files"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;array(<br />&nbsp;&nbsp;</span><span style="color: #0000BB">0&nbsp;</span><span style="color: #007700">=&gt;&nbsp;array(<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"field_name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #DD0000">"file1"</span><span style="color: #007700">,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;Name&nbsp;of&nbsp;the&nbsp;&lt;input/&gt;&nbsp;field<br />&nbsp;&nbsp;&nbsp;//&nbsp;The&nbsp;following&nbsp;3&nbsp;elements&nbsp;equals&nbsp;those&nbsp;in&nbsp;$_FILES<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #DD0000">"foo.avi"</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"tmp_name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #DD0000">"/tmp/phpxxxxxx"</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"error"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">0</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"done"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">true</span><span style="color: #007700">,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;True&nbsp;when&nbsp;the&nbsp;POST&nbsp;handler&nbsp;has&nbsp;finished&nbsp;handling&nbsp;this&nbsp;file<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"start_time"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">1234567890</span><span style="color: #007700">,&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;When&nbsp;this&nbsp;file&nbsp;has&nbsp;started&nbsp;to&nbsp;be&nbsp;processed<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"bytes_processed"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">57343250</span><span style="color: #007700">,&nbsp;</span><span style="color: #FF8000">//&nbsp;Number&nbsp;of&nbsp;bytes&nbsp;received&nbsp;and&nbsp;processed&nbsp;for&nbsp;this&nbsp;file<br />&nbsp;&nbsp;</span><span style="color: #007700">),<br />&nbsp;&nbsp;</span><span style="color: #FF8000">//&nbsp;An&nbsp;other&nbsp;file,&nbsp;not&nbsp;finished&nbsp;uploading,&nbsp;in&nbsp;the&nbsp;same&nbsp;request<br />&nbsp;&nbsp;</span><span style="color: #0000BB">1&nbsp;</span><span style="color: #007700">=&gt;&nbsp;array(<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"field_name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #DD0000">"file2"</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #DD0000">"bar.avi"</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"tmp_name"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">NULL</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"error"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">0</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"done"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">false</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"start_time"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">1234567899</span><span style="color: #007700">,<br />&nbsp;&nbsp;&nbsp;</span><span style="color: #DD0000">"bytes_processed"&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">54554</span><span style="color: #007700">,<br />&nbsp;&nbsp;),<br />&nbsp;)<br />);</span>
+</span>
+</code></div>
+   </div>
+
+  </div>
+ </p>
+
+</div>
+<hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="session.customhandler.html">Custom Session Handlers</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="session.security.html">Sessions and security</a></div>
+ <div class="up"><a href="book.session.html">Sessions</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

@@ -1,0 +1,878 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Sharded Cluster Internals &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/sharded-cluster-internals.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/sharded-cluster-internals" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Sharding" href="../sharding.html" />
+<link rel="next" title="Sharded Cluster Administration" href="../administration/sharded-clusters.html" />
+<link rel="prev" title="Security Practices for Sharded Clusters" href="sharded-cluster-security.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../sharding.html">Sharding</a><span class="bcpoint"> > </span></li>
+          <li>Sharded Cluster Internals</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="sharded-cluster-internals">
+<span id="sharding-internals"></span><span id="index-0"></span><h1>Sharded Cluster Internals<a class="headerlink" href="#sharded-cluster-internals" title="Permalink to this headline">¶</a></h1>
+<p>This document introduces lower level sharding concepts for users who
+are familiar with <a class="reference internal" href="../reference/glossary.html#term-sharding"><em class="xref std std-term">sharding</em></a> generally and want to learn more
+about the internals. This document provides a more detailed
+understanding of your cluster&#8217;s behavior. For higher level sharding
+concepts, see <a class="reference internal" href="sharded-clusters.html"><em>Sharded Cluster Overview</em></a>. For complete
+documentation of sharded clusters see the <a class="reference internal" href="../sharding.html"><em>Sharding</em></a> section of
+this manual.</p>
+<div class="section" id="shard-keys">
+<span id="sharding-internals-shard-keys"></span><span id="index-1"></span><h2>Shard Keys<a class="headerlink" href="#shard-keys" title="Permalink to this headline">¶</a></h2>
+<p>Shard keys are the field in a collection that MongoDB uses to
+distribute <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> within a sharded cluster. See
+the <a class="reference internal" href="sharded-clusters.html#sharding-shard-key"><em>overview of shard keys</em></a> for a
+higher-level introduction.</p>
+<div class="section" id="cardinality">
+<span id="sharding-shard-key-cardinality"></span><span id="index-2"></span><h3>Cardinality<a class="headerlink" href="#cardinality" title="Permalink to this headline">¶</a></h3>
+<p>Cardinality in the context of MongoDB, refers to the ability of the
+system to <a class="reference internal" href="../reference/glossary.html#term-partition"><em class="xref std std-term">partition</em></a> data into <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a>. For
+example, consider a collection of data such as an &#8220;address book&#8221; that
+stores address records:</p>
+<ul>
+<li><p class="first">Consider the use of a <tt class="docutils literal"><span class="pre">state</span></tt> field as a shard key:</p>
+<p>The state key&#8217;s value holds the US state for a given address document.
+This field has a <em>low cardinality</em> as all documents that have the
+same value in the <tt class="docutils literal"><span class="pre">state</span></tt> field <em>must</em> reside on the same shard,
+even if a particular state&#8217;s chunk exceeds the maximum chunk size.</p>
+<p>Since there are a limited number of possible values for the <tt class="docutils literal"><span class="pre">state</span></tt>
+field, MongoDB may distribute data unevenly among a small
+number of fixed chunks. This may have a number of effects:</p>
+<ul class="simple">
+<li>If MongoDB cannot split a chunk because all of its documents
+have the same shard key, migrations involving these un-splittable
+chunks will take longer than other migrations, and it will be more
+difficult for your data to stay balanced.</li>
+<li>If you have a fixed maximum number of chunks, you will never be
+able to use more than that number of shards for this collection.</li>
+</ul>
+</li>
+<li><p class="first">Consider the use of a <tt class="docutils literal"><span class="pre">zipcode</span></tt> field as a shard key:</p>
+<p>While this field has a large number of possible values, and thus has
+potentially higher cardinality, it&#8217;s possible that a large number of users
+could have the same value for the shard key, which would make this
+chunk of users un-splittable.</p>
+<p>In these cases, cardinality depends on the data. If your address book
+stores records for a geographically distributed contact list
+(e.g. &#8220;Dry cleaning businesses in America,&#8221;) then a value like
+zipcode would be sufficient. However, if your address book is
+more geographically concentrated (e.g &#8220;ice cream stores in Boston
+Massachusetts,&#8221;) then you may have a much lower cardinality.</p>
+</li>
+<li><p class="first">Consider the use of a <tt class="docutils literal"><span class="pre">phone-number</span></tt> field as a shard key:</p>
+<p>Phone number has a <em>high cardinality,</em> because users will generally
+have a unique value for this field, MongoDB will be able to split as
+many chunks as needed.</p>
+</li>
+</ul>
+<p>While &#8220;high cardinality,&#8221; is necessary for ensuring an even
+distribution of data, having a high cardinality does not guarantee
+sufficient <a class="reference internal" href="#sharding-shard-key-query-isolation"><em>query isolation</em></a>
+or appropriate <a class="reference internal" href="#sharding-shard-key-write-scaling"><em>write scaling</em></a>.
+Please continue reading for additional information.</p>
+</div>
+<div class="section" id="write-scaling">
+<span id="sharding-shard-key-write-scaling"></span><span id="index-3"></span><h3>Write Scaling<a class="headerlink" href="#write-scaling" title="Permalink to this headline">¶</a></h3>
+<p>Some possible shard keys will allow your application to take advantage of
+the increased write capacity that the cluster can provide, while
+others do not. Consider the following example where you shard by the
+values of the default <a class="reference internal" href="../reference/glossary.html#term-id"><em class="xref std std-term">_id</em></a> field, which is <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectID</em></a>.</p>
+<p><tt class="docutils literal"><span class="pre">ObjectID</span></tt> is computed upon document creation, that is a
+unique identifier for the object. However, the most significant bits of data
+in this value represent a time stamp, which means that they increment
+in a regular and predictable pattern. Even though this value has
+<a class="reference internal" href="#sharding-shard-key-cardinality"><em>high cardinality</em></a>, when using
+this, <em>any date, or other monotonically increasing number</em> as the shard
+key, all insert operations will be storing data into a single chunk, and
+therefore, a single shard. As a result, the write capacity of this shard
+will define the effective write capacity of the cluster.</p>
+<p>A shard key that increases monotonically will not hinder performance
+if you have a very low insert rate, or if most of your write
+operations are <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operations
+distributed through your entire data set. Generally, choose shard keys
+that have <em>both</em> high cardinality and will distribute write operations
+across the <em>entire cluster</em>.</p>
+<p>Typically, a computed shard key that has some amount of &#8220;randomness,&#8221;
+such as ones that include a cryptographic hash (i.e. MD5 or SHA1) of
+other content in the document, will allow the cluster to scale write
+operations. However, random shard keys do not typically provide
+<a class="reference internal" href="#sharding-shard-key-query-isolation"><em>query isolation</em></a>, which is
+another important characteristic of shard keys.</p>
+</div>
+<div class="section" id="querying">
+<span id="sharding-internals-querying"></span><h3>Querying<a class="headerlink" href="#querying" title="Permalink to this headline">¶</a></h3>
+<p>The <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> provides an interface for applications to
+interact with sharded clusters that hides the complexity of <a class="reference internal" href="../reference/glossary.html#term-partition"><em class="xref std std-term">data
+partitioning</em></a>. A <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> receives queries from
+applications, and uses metadata from the <a class="reference internal" href="#sharding-config-server"><em>config server</em></a>, to route queries to the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances with the appropriate data. While the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+succeeds in making all querying operational in sharded environments,
+the <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a> you select can have a profound affect on query
+performance.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">The <a class="reference internal" href="sharded-cluster-query-routing.html#sharding-mongos"><em>mongos and Sharding</em></a> and
+<a class="reference internal" href="#sharding-config-server"><em>config server</em></a> sections for a more
+general overview of querying in sharded environments.</p>
+</div>
+<div class="section" id="query-isolation">
+<span id="sharding-shard-key-query-isolation"></span><span id="index-4"></span><h4>Query Isolation<a class="headerlink" href="#query-isolation" title="Permalink to this headline">¶</a></h4>
+<p>The fastest queries in a sharded environment are those that
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> will route to a single shard, using the
+<a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a> and the cluster meta data from the <a class="reference internal" href="#sharding-config-server"><em>config server</em></a>. For queries that don&#8217;t include the shard
+key, <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> must query all shards, wait for their response
+and then return the result to the application. These &#8220;scatter/gather&#8221;
+queries can be long running operations.</p>
+<p>If your query includes the first component of a compound shard
+key <a class="footnote-reference" href="#shard-key-index" id="id1">[1]</a>, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> can route the
+query directly to a single shard, or a small number of shards, which
+provides better performance. Even if you query values of the shard
+key reside in different chunks, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> will route
+queries directly to specific shards.</p>
+<p>To select a shard key for a collection:</p>
+<ul class="simple">
+<li>determine the most commonly included fields in queries for a
+given application</li>
+<li>find which of these operations are most performance dependent.</li>
+</ul>
+<p>If this field has low cardinality (i.e not sufficiently
+selective) you should add a second field to the shard key making a
+compound shard key. The data may become more splittable with a
+compound shard key.</p>
+<div class="admonition-see admonition seealso">
+<p class="first admonition-title">See</p>
+<p class="last"><a class="reference internal" href="sharded-cluster-query-routing.html#sharding-mongos"><em>mongos Operational Overview</em></a> for more information on query
+operations in the context of sharded clusters. Specifically the
+<a class="reference internal" href="sharded-cluster-query-routing.html#sharding-query-routing"><em>mongos Operational Overview</em></a> sub-section outlines the procedure
+that <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> uses to route read operations to the shards.</p>
+</div>
+<table class="docutils footnote" frame="void" id="shard-key-index" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>In many ways, you can think of the shard key a
+cluster-wide unique index. However, be aware that sharded systems
+cannot enforce cluster-wide unique indexes <em>unless</em> the unique
+field is in the shard key. Consider the <a class="reference internal" href="indexes.html"><em>Indexing Overview</em></a> page
+for more information on indexes and compound indexes.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="sorting">
+<h4>Sorting<a class="headerlink" href="#sorting" title="Permalink to this headline">¶</a></h4>
+<p>In sharded systems, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> performs a merge-sort of all
+sorted query results from the shards. See the <a class="reference internal" href="sharded-cluster-query-routing.html#sharding-query-routing"><em>sharded query
+routing</em></a> and <a class="reference internal" href="../tutorial/sort-results-with-indexes.html#index-sort"><em>Use Indexes to Sort Query Results</em></a> sections for
+more information.</p>
+</div>
+</div>
+<div class="section" id="operations-and-reliability">
+<span id="sharding-internals-operations-and-reliability"></span><h3>Operations and Reliability<a class="headerlink" href="#operations-and-reliability" title="Permalink to this headline">¶</a></h3>
+<p>The most important consideration when choosing a <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>
+are:</p>
+<ul class="simple">
+<li>to ensure that MongoDB will be able to distribute data evenly among
+shards, and</li>
+<li>to scale writes across the cluster, and</li>
+<li>to ensure that <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> can isolate most queries to a specific
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</li>
+</ul>
+<p>Furthermore:</p>
+<ul class="simple">
+<li>Each shard should be a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>, if a specific
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance fails, the replica set members will elect
+another to be <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> and continue operation. However, if an
+entire shard is unreachable or fails for some reason, that data will
+be unavailable.</li>
+<li>If the shard key allows the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> to isolate most
+operations to a single shard, then the failure of a single shard
+will only render <em>some</em> data unavailable.</li>
+<li>If your shard key distributes data required for every operation
+throughout the cluster, then the failure of the entire shard will
+render the entire cluster unavailable.</li>
+</ul>
+<p>In essence, this concern for reliability simply underscores the
+importance of choosing a shard key that isolates query operations to a
+single shard.</p>
+</div>
+<div class="section" id="choosing-a-shard-key">
+<span id="sharding-internals-choose-shard-key"></span><h3>Choosing a Shard Key<a class="headerlink" href="#choosing-a-shard-key" title="Permalink to this headline">¶</a></h3>
+<p>For many data sets, there may be no single, naturally occurring key in
+your collection that possesses all of the qualities of a good shard
+key. For these cases, you may select one of the following strategies:</p>
+<ol class="arabic">
+<li><p class="first">Compute a more ideal shard key in your application layer,
+and store this in all of your documents, potentially in the
+<tt class="docutils literal"><span class="pre">_id</span></tt> field.</p>
+</li>
+<li><p class="first">Use a compound shard key that uses two or three values from all
+documents that provide the right mix of cardinality with scalable
+write operations and query isolation.</p>
+</li>
+<li><p class="first">Determine that the impact of using a less than ideal shard key,
+is insignificant in your use case given:</p>
+<ul class="simple">
+<li>limited write volume,</li>
+<li>expected data size, or</li>
+<li>query patterns and demands.</li>
+</ul>
+</li>
+<li><p class="first versionadded">
+<span class="versionmodified">New in version 2.4: </span>Use a <a class="reference internal" href="../reference/glossary.html#term-hashed-shard-key"><em class="xref std std-term">hashed shard key</em></a>. With a hashed shard key, you can
+choose a field that has high cardinality and create a
+<a class="reference internal" href="../tutorial/create-a-hashed-index.html#index-hashed-index"><em>hashed indexes</em></a> index on that field.
+MongoDB then uses the values of this hashed index as the shard
+key values, thus ensuring an even distribution across the shards.</p>
+</li>
+</ol>
+<p>From a decision making stand point, begin by finding the field
+that will provide the required <a class="reference internal" href="#sharding-shard-key-query-isolation"><em>query isolation</em></a>, ensure that <a class="reference internal" href="#sharding-shard-key-query-isolation"><em>writes will
+scale across the cluster</em></a>, and
+then add an additional field to provide additional <a class="reference internal" href="#sharding-shard-key-cardinality"><em>cardinality</em></a> if your primary key does not have
+sufficient split-ability.</p>
+</div>
+<div class="section" id="shard-key-indexes">
+<span id="sharding-shard-key-indexes"></span><span id="sharding-internals-shard-key-indexes"></span><span id="index-6"></span><h3>Shard Key Indexes<a class="headerlink" href="#shard-key-indexes" title="Permalink to this headline">¶</a></h3>
+<p>All sharded collections <strong>must</strong> have an index that starts with the
+<a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>. If you shard a collection that does not yet contain
+documents and <em>without</em> such an index, the <a class="reference internal" href="../reference/command/shardCollection.html#dbcmd.shardCollection" title="shardCollection"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">shardCollection</span></tt></a>
+command will create an index on the shard key. If the collection already
+contains documents, you must create an appropriate index before using
+<a class="reference internal" href="../reference/command/shardCollection.html#dbcmd.shardCollection" title="shardCollection"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">shardCollection</span></tt></a>.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span>The index on the shard key no longer needs to be identical to the
+shard key. This index can be an index of the shard key itself as before,
+or a <a class="reference internal" href="../reference/glossary.html#term-compound-index"><em class="xref std std-term">compound index</em></a> where the
+shard key is the prefix of the index. This index <em>cannot</em> be a
+multikey index.</p>
+<p>If you have a collection named <tt class="docutils literal"><span class="pre">people</span></tt>, sharded using the field
+<tt class="docutils literal"><span class="pre">{</span> <span class="pre">zipcode:</span> <span class="pre">1</span> <span class="pre">}</span></tt>, and you want to replace this with an index on the
+field <tt class="docutils literal"><span class="pre">{</span> <span class="pre">zipcode:</span> <span class="pre">1,</span> <span class="pre">username:</span> <span class="pre">1</span> <span class="pre">}</span></tt>, then:</p>
+<ol class="arabic">
+<li><p class="first">Create an index on <tt class="docutils literal"><span class="pre">{</span> <span class="pre">zipcode:</span> <span class="pre">1,</span> <span class="pre">username:</span> <span class="pre">1</span> <span class="pre">}</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">people</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">zipcode</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">username</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">);</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">When MongoDB finishes building the index, you can safely drop
+existing index on <tt class="docutils literal"><span class="pre">{</span> <span class="pre">zipcode:</span> <span class="pre">1</span> <span class="pre">}</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">people</span><span class="p">.</span><span class="nx">dropIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">zipcode</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>The index on the shard key <strong>cannot</strong> be a multikey index.</p>
+<p>As above, an index on <tt class="docutils literal"><span class="pre">{</span> <span class="pre">zipcode:</span> <span class="pre">1,</span> <span class="pre">username:</span> <span class="pre">1</span> <span class="pre">}</span></tt> can only
+replace an index on <tt class="docutils literal"><span class="pre">zipcode</span></tt> if there are no array values for
+the <tt class="docutils literal"><span class="pre">username</span></tt> field.</p>
+<p class="last">If you drop the last appropriate index for the shard key, recover
+by recreating an index on just the shard key.</p>
+</div>
+</div>
+<div class="section" id="hashed-shard-keys">
+<span id="sharding-hashed-shard-key-internals"></span><h3>Hashed Shard Keys<a class="headerlink" href="#hashed-shard-keys" title="Permalink to this headline">¶</a></h3>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p>Hashed shard keys use a special <a class="reference internal" href="indexes.html#index-type-hashed"><em>hashed index type</em></a> to store hashes of the shard key field to
+partition data in a cluster.</p>
+<p>Use hashed shard keys when you want to shard using a field that
+increases monotonically, like an <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectId</em></a>, or has high
+cardinality but uneven distribution.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p class="last">A hashed index on an <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectId</em></a> will lead to an even
+distribution of documents across all shards since the hash of two
+sequential documents will have different hashes.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><a class="reference internal" href="../reference/glossary.html#term-hashed-shard-key"><em class="xref std std-term">Hash-based sharding</em></a> does not support
+tag-aware sharding.</p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last"><tt class="docutils literal"><span class="pre">hashed</span></tt> indexes truncate floating point numbers to 64-bit integers
+before hashing. For example, a <tt class="docutils literal"><span class="pre">hashed</span></tt> index would store the same
+value for a field that held a value of <tt class="docutils literal"><span class="pre">2.3</span></tt>, <tt class="docutils literal"><span class="pre">2.2</span></tt> and <tt class="docutils literal"><span class="pre">2.9</span></tt>.
+To prevent collisions, do not use a <tt class="docutils literal"><span class="pre">hashed</span></tt> index for floating
+point numbers that cannot be consistently converted to 64-bit
+integers (and then back to floating point.) <tt class="docutils literal"><span class="pre">hashed</span></tt> indexes do
+not support floating point values larger than 2<sup>53</sup>.</p>
+</div>
+</div>
+</div>
+<div class="section" id="cluster-balancer">
+<span id="sharding-balancing-internals"></span><span id="index-8"></span><h2>Cluster Balancer<a class="headerlink" href="#cluster-balancer" title="Permalink to this headline">¶</a></h2>
+<p>The <a class="reference internal" href="sharded-clusters.html#sharding-balancing"><em>balancer</em></a> sub-process is responsible
+for redistributing chunks evenly among the shards and ensuring that
+each member of the cluster is responsible for the same volume of
+data. This section contains complete documentation of the balancer
+process and operations. For a higher level introduction see the
+<a class="reference internal" href="sharded-clusters.html#sharding-balancing"><em>Shard Balancing</em></a> section.</p>
+<div class="section" id="balancing-internals">
+<span id="sharding-internals-balancing"></span><h3>Balancing Internals<a class="headerlink" href="#balancing-internals" title="Permalink to this headline">¶</a></h3>
+<p>A balancing round originates from an arbitrary <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instance from one of the cluster&#8217;s
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances. When a balancer process is active, the
+responsible <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> acquires a &#8220;lock&#8221; by modifying a
+document in the <tt class="docutils literal"><span class="pre">lock</span></tt> collection in the <a class="reference internal" href="../reference/config-database.html#config-database"><em>Config Database</em></a>.</p>
+<p>By default, the balancer process is always running. When the number of
+chunks in a collection is unevenly distributed among the shards, the
+balancer begins migrating <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> from shards with more
+chunks to shards with a fewer number of chunks. The balancer will
+continue migrating chunks, one at a time, until the data is evenly
+distributed among the shards.</p>
+<p>While these automatic chunk migrations are crucial for distributing
+data, they carry some overhead in terms of bandwidth and workload,
+both of which can impact database performance. As a result, MongoDB
+attempts to minimize the effect of balancing by only migrating chunks
+when the distribution of chunks passes the <a class="reference internal" href="#sharding-migration-thresholds"><em>migration thresholds</em></a>.</p>
+<p id="index-9">The migration process ensures consistency and maximizes availability
+of chunks during balancing: when MongoDB begins migrating a chunk, the
+database begins copying the data to the new server and tracks incoming
+write operations. After migrating chunks, the &#8220;from&#8221; <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+sends all new writes to the &#8220;receiving&#8221; server. Finally,
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> updates the chunk record in the <a class="reference internal" href="../reference/glossary.html#term-config-database"><em class="xref std std-term">config
+database</em></a> to reflect the new location of the chunk.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last versionchanged">
+<span class="versionmodified">Changed in version 2.0: </span>Before MongoDB version 2.0, large differences in timekeeping
+(i.e. clock skew) between <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances could lead
+to failed distributed locks, which carries the possibility of
+data loss, particularly with skews larger than 5 minutes.
+Always use the network time protocol (NTP) by running <tt class="docutils literal"><span class="pre">ntpd</span></tt>
+on your servers to minimize clock skew.</p>
+</div>
+</div>
+<div class="section" id="migration-thresholds">
+<span id="sharding-migration-thresholds"></span><h3>Migration Thresholds<a class="headerlink" href="#migration-thresholds" title="Permalink to this headline">¶</a></h3>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span>The following thresholds appear first in 2.2; prior to this
+release, balancing would only commence if the shard with the most
+chunks had 8 more chunks than the shard with the least number of
+chunks.</p>
+<p>In order to minimize the impact of balancing on the cluster, the
+<a class="reference internal" href="../reference/glossary.html#term-balancer"><em class="xref std std-term">balancer</em></a> will not begin balancing until the distribution of
+chunks has reached certain thresholds. These thresholds apply to the
+difference in number of <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> between the shard with
+the greatest number of chunks and the shard with the least number of
+chunks. The balancer has the following thresholds:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="46%" />
+<col width="54%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Number of Chunks</td>
+<td>Migration Threshold</td>
+</tr>
+<tr class="row-even"><td>Less than 20</td>
+<td>2</td>
+</tr>
+<tr class="row-odd"><td>21-80</td>
+<td>4</td>
+</tr>
+<tr class="row-even"><td>Greater than 80</td>
+<td>8</td>
+</tr>
+</tbody>
+</table>
+<p>Once a balancing round starts, the balancer will not stop until the
+difference between the number of chunks on any two shards is <em>less
+than two.</em></p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>You can restrict the balancer so that it only operates between specific
+start and end times. See <a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html#sharding-schedule-balancing-window"><em>Schedule the Balancing Window</em></a> for more information.</p>
+<p class="last">The specification of the balancing window is relative to the local
+time zone of all individual <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances in the
+sharded cluster.</p>
+</div>
+</div>
+<div class="section" id="chunk-size">
+<span id="sharding-chunk-size"></span><span id="index-10"></span><h3>Chunk Size<a class="headerlink" href="#chunk-size" title="Permalink to this headline">¶</a></h3>
+<p>The default <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunk</em></a> size in MongoDB is 64 megabytes.</p>
+<p>When chunks grow beyond the <a class="reference internal" href="#sharding-chunk-size"><em>specified chunk size</em></a> a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance will split the
+chunk in half. This will eventually lead to migrations, when chunks
+become unevenly distributed among the cluster. The <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instances will initiate a round of migrations to redistribute data in
+the cluster.</p>
+<p>Chunk size is arbitrary and must account for the following:</p>
+<ol class="arabic simple">
+<li>Small chunks lead to a more even distribution of data at the
+expense of more frequent migrations, which creates expense at the
+query routing (<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>) layer.</li>
+<li>Large chunks lead to fewer migrations, which is more efficient both
+from the networking perspective <em>and</em> in terms internal overhead at
+the query routing layer. Large chunks produce these efficiencies at
+the expense of a potentially more uneven distribution of data.</li>
+</ol>
+<p>For many deployments it makes sense to avoid frequent and potentially
+spurious migrations at the expense of a slightly less evenly
+distributed data set, but this value is <a class="reference internal" href="../tutorial/manage-chunks-in-sharded-cluster.html#sharding-balancing-modify-chunk-size"><em>configurable</em></a>. Be aware of the following limitations
+when modifying chunk size:</p>
+<ul class="simple">
+<li>Automatic splitting only occurs when inserting <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> or updating existing documents; if you lower the chunk
+size it may take time for all chunks to split to the new size.</li>
+<li>Splits cannot be &#8220;undone:&#8221; if you increase the chunk size, existing
+chunks must grow through insertion or updates until they reach the
+new size.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Chunk ranges are inclusive of the lower boundary and exclusive of
+the upper boundary.</p>
+</div>
+</div>
+<div class="section" id="shard-size">
+<span id="sharding-shard-size"></span><h3>Shard Size<a class="headerlink" href="#shard-size" title="Permalink to this headline">¶</a></h3>
+<p>By default, MongoDB will attempt to fill all available disk space with
+data on every shard as the data set grows. Monitor disk utilization in
+addition to other performance metrics, to ensure that the cluster
+always has capacity to accommodate additional data.</p>
+<p>You can also configure a &#8220;maximum size&#8221; for any shard when you add the
+shard using the <tt class="docutils literal"><span class="pre">maxSize</span></tt> parameter of the <a class="reference internal" href="../reference/command/addShard.html#dbcmd.addShard" title="addShard"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">addShard</span></tt></a>
+command. This will prevent the <a class="reference internal" href="../reference/glossary.html#term-balancer"><em class="xref std std-term">balancer</em></a> from migrating chunks
+to the shard when the value of <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.mem.mapped" title="serverStatus.mem.mapped"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">mapped</span></tt></a>
+exceeds the <tt class="docutils literal"><span class="pre">maxSize</span></tt> setting.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../tutorial/configure-sharded-cluster-balancer.html#sharded-cluster-config-max-shard-size"><em>Change the Maximum Storage Size for a Given Shard</em></a> and
+<a class="reference internal" href="../administration/monitoring.html"><em>Monitoring for MongoDB</em></a>.</p>
+</div>
+</div>
+<div class="section" id="chunk-migration">
+<span id="sharding-chunk-migration"></span><h3>Chunk Migration<a class="headerlink" href="#chunk-migration" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB migrates chunks in a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> to distribute data
+evenly among shards. Migrations may be either:</p>
+<ul class="simple">
+<li>Manual. In these migrations you must specify the chunk that you want
+to migrate and the destination shard. Only migrate chunks manually
+after initiating sharding, to distribute data during bulk inserts,
+or if the cluster becomes uneven. See <a class="reference internal" href="../tutorial/manage-chunks-in-sharded-cluster.html#sharding-balancing-manual-migration"><em>Migrating Chunks</em></a> for more details.</li>
+<li>Automatic. The balancer process handles most migrations when
+distribution of chunks between shards becomes uneven. See
+<a class="reference internal" href="#sharding-migration-thresholds"><em>Migration Thresholds</em></a> for more
+details.</li>
+</ul>
+<p>All chunk migrations use the following procedure:</p>
+<ol class="arabic">
+<li><p class="first">The balancer process sends the <a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command to
+the source shard for the chunk. In this operation the balancer
+passes the name of the destination shard to the source shard.</p>
+</li>
+<li><p class="first">The source initiates the move with an internal
+<a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command with the destination shard.</p>
+</li>
+<li><p class="first">The destination shard begins requesting documents in the chunk, and
+begins receiving these chunks.</p>
+</li>
+<li><p class="first">After receiving the final document in the chunk, the destination
+shard initiates a synchronization process to ensure that all
+changes to the documents in the chunk on the source shard during
+the migration process exist on the destination shard.</p>
+<p>When fully synchronized, the destination shard connects to the
+<a class="reference internal" href="../reference/glossary.html#term-config-database"><em class="xref std std-term">config database</em></a> and updates the chunk location in the
+cluster metadata. After completing this operation, once there are
+no open cursors on the chunk, the source shard starts deleting
+its copy of documents from the migrated chunk.</p>
+</li>
+</ol>
+<p>If enabled, the <tt class="docutils literal"><span class="pre">_secondaryThrottle</span></tt> setting causes the balancer to
+wait for replication to secondaries. For more information, see
+<a class="reference internal" href="../tutorial/configure-sharded-cluster-balancer.html#sharded-cluster-config-secondary-throttle"><em>Require Replication before Chunk Migration (Secondary Throttle)</em></a>.</p>
+</div>
+<div class="section" id="detect-connections-to-mongos-instances">
+<h3>Detect Connections to <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> Instances<a class="headerlink" href="#detect-connections-to-mongos-instances" title="Permalink to this headline">¶</a></h3>
+<p>If your application must detect if the MongoDB instance its connected
+to is <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>, use the <a class="reference internal" href="../reference/command/isMaster.html#dbcmd.isMaster" title="isMaster"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">isMaster</span></tt></a> command. When a
+client connects to a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>, <a class="reference internal" href="../reference/command/isMaster.html#dbcmd.isMaster" title="isMaster"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">isMaster</span></tt></a> returns
+a document with a <tt class="docutils literal"><span class="pre">msg</span></tt> field that holds the string
+<tt class="docutils literal"><span class="pre">isdbgrid</span></tt>. For example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+   <span class="s2">&quot;ismaster&quot;</span> <span class="o">:</span> <span class="kc">true</span><span class="p">,</span>
+   <span class="s2">&quot;msg&quot;</span> <span class="o">:</span> <span class="s2">&quot;isdbgrid&quot;</span><span class="p">,</span>
+   <span class="s2">&quot;maxBsonObjectSize&quot;</span> <span class="o">:</span> <span class="mi">16777216</span><span class="p">,</span>
+   <span class="s2">&quot;ok&quot;</span> <span class="o">:</span> <span class="mi">1</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If the application is instead connected to a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, the
+returned document does not include the <tt class="docutils literal"><span class="pre">isdbgrid</span></tt> string.</p>
+</div>
+</div>
+<div class="section" id="sharded-cluster-metadata">
+<h2>Sharded Cluster Metadata<a class="headerlink" href="#sharded-cluster-metadata" title="Permalink to this headline">¶</a></h2>
+<p>Sharded cluster metadata is contained in the
+<a class="reference internal" href="../reference/config-database.html"><em>Config Database</em></a> and comprises information about the
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster&#8217;s</em></a> partitioned data sets. The
+config database stores the relationship between <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a>
+and where they reside within a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>. Without a
+config database, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances would be unable to
+route queries or write operations within the cluster.</p>
+<span class="target" id="index-12"></span><div class="section" id="config-database">
+<span id="sharding-internals-config-database"></span><span id="index-13"></span><h3>Config Database<a class="headerlink" href="#config-database" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">config</span></tt> database contains information about your sharding
+configuration and stores the information in a set of collections
+used by sharding.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Back up the <tt class="docutils literal"><span class="pre">config</span></tt> database before performing
+any maintenance on the config server.</p>
+</div>
+<p>To access the <tt class="docutils literal"><span class="pre">config</span></tt> database, issue the following command from the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">use</span> <span class="nx">config</span>
+</pre></div>
+</div>
+<p>In general, you should <em>never</em> manipulate the content of the config
+database directly. The <tt class="docutils literal"><span class="pre">config</span></tt> database contains the following
+collections:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/config-database.html#config.changelog" title="config.changelog"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">changelog</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.chunks" title="config.chunks"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">chunks</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.collections" title="config.collections"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">collections</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.databases" title="config.databases"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">databases</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.lockpings" title="config.lockpings"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">lockpings</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.locks" title="config.locks"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">locks</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.mongos" title="config.mongos"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">mongos</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.settings" title="config.settings"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">settings</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.shards" title="config.shards"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">shards</span></tt></a></li>
+<li><a class="reference internal" href="../reference/config-database.html#config.version" title="config.version"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">version</span></tt></a></li>
+</ul>
+<p>See <a class="reference internal" href="../reference/config-database.html"><em>Config Database</em></a> for full documentation of these
+collections and their role in sharded clusters.</p>
+<span class="target" id="index-14"></span></div>
+<div class="section" id="config-servers">
+<span id="sharded-cluster-config-server"></span><span id="sharding-config-server"></span><span id="index-15"></span><h3>Config Servers<a class="headerlink" href="#config-servers" title="Permalink to this headline">¶</a></h3>
+<p>Config servers are special <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances that maintain the
+sharded cluster metadata in the config database. A sharded cluster
+operates with a group of <em>three</em> config servers that use a two-phase
+commit process that ensures immediate consistency and reliability.
+Config servers <em>do not</em> run as replica sets.</p>
+<p>For testing purposes you may deploy a cluster with a single
+config server, but this is not recommended for production.</p>
+<p>All config servers must be available on initial setup
+of a sharded cluster. Each <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance must be able
+to write to the <tt class="docutils literal"><span class="pre">config.version</span></tt> collection.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>If your cluster has a single config server, this
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> is a single point of failure.  If the instance is
+inaccessible the cluster is not accessible. If you cannot recover
+the data on a config server, the cluster will be inoperable.</p>
+<p class="last"><strong>Always</strong> use three config servers for production deployments.</p>
+</div>
+</div>
+<div class="section" id="read-and-write-operations-on-config-servers">
+<h3>Read and Write Operations on Config Servers<a class="headerlink" href="#read-and-write-operations-on-config-servers" title="Permalink to this headline">¶</a></h3>
+<p>The load on configuration servers is small because each
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance maintains a cached copy of the configuration
+database. MongoDB only writes data to the config server to:</p>
+<ul class="simple">
+<li>create splits in existing chunks, which happens as data in
+existing chunks exceeds the maximum chunk size.</li>
+<li>migrate a chunk between shards.</li>
+</ul>
+<p>If one or two configuration instances become unavailable, the
+cluster&#8217;s metadata becomes <em>read only</em>. It is still possible to read
+and write data from the shards, but no chunk migrations or splits will
+occur until all three servers are accessible. At the same time, config
+server data is only read in the following situations:</p>
+<ul class="simple">
+<li>A new <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> starts for the first time, or an existing
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> restarts.</li>
+<li>After a chunk migration, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances update
+themselves with the new cluster metadata.</li>
+</ul>
+<p>If all three config servers are inaccessible, you can continue to use
+the cluster as long as you don&#8217;t restart the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instances until after config servers are accessible again. If you
+restart the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances and there are no accessible
+config servers, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> would be unable to direct
+queries or write operations to the cluster.</p>
+<p>Because the configuration data is small relative to the amount of data
+stored in a cluster, the amount of activity is relatively low, and 100%
+up time is not required for a functioning sharded cluster. As a result,
+backing up the config servers is not difficult. Backups of config
+servers are critical as clusters become totally inoperable when
+you lose all configuration instances and data. Precautions to ensure
+that the config servers remain available and intact are critical.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Configuration servers store metadata for a single sharded cluster.
+You must have a separate configuration server or servers for each
+cluster you administer.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="sharded-cluster-security.html" title="Previous Section: Security Practices for Sharded Clusters">&lt; &nbsp; Security Practices for Sharded Clusters</a></li>
+              <li id="btnvup"><a href="../sharding.html" title="Parent Section: Sharding" >&#47;&#92;&nbsp; Sharding</a></li>
+              <li id="btnvnx"><a href="../administration/sharded-clusters.html" title="Next Section: Sharded Cluster Administration">Sharded Cluster Administration &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../sharding.html">Sharding</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="sharded-clusters.html">Sharded Cluster Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-architectures.html">Sharded Cluster Architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-query-routing.html">Query Routing in Sharded Clusters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-security.html">Security Practices for Sharded Clusters</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Sharded Cluster Internals</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/sharded-clusters.html">Sharded Cluster Administration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/sharding-commands.html">Sharding Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/config-database.html">Config Database</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/sharded-cluster-internals.txt" target="_blank" title="Edit core/sharded-cluster-internals.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/sharded-cluster-internals%2Etxt%22" target="_blank" title="Report a problem with core/sharded-cluster-internals.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/sharded-cluster-internals.txt"'},
+		environment: {'repo': 'docs','source': 'core/sharded-cluster-internals'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/sharded-cluster-internals'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

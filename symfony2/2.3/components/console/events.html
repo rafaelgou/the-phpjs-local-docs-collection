@@ -1,0 +1,230 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Using Events &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Console" href="index.html" />
+    <link rel="next" title="The Console Helpers" href="helpers/index.html" />
+    <link rel="prev" title="Building a Single Command Application" href="single_command_tool.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="helpers/index.html" title="The Console Helpers"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="single_command_tool.html" title="Building a Single Command Application"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Console</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="using-events">
+<span id="index-0"></span><h1>Using Events<a class="headerlink" href="#using-events" title="Permalink to this headline">¶</a></h1>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.3: </span>Console events were added in Symfony 2.3.</p>
+<p>The Application class of the Console component allows you to optionally hook
+into the lifecycle of a console application via events. Instead of reinventing
+the wheel, it uses the Symfony EventDispatcher component to do the work:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Console\Application;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+
+$application = new Application();
+$application-&gt;setDispatcher($dispatcher);
+$application-&gt;run();</pre>
+</div>
+<div class="section" id="the-consoleevents-command-event">
+<h2>The <tt class="docutils literal"><span class="pre">ConsoleEvents::COMMAND</span></tt> Event<a class="headerlink" href="#the-consoleevents-command-event" title="Permalink to this headline">¶</a></h2>
+<p><strong>Typical Purposes</strong>: Doing something before any command is run (like logging
+which command is going to be executed), or displaying something about the event
+to be executed.</p>
+<p>Just before executing any command, the <tt class="docutils literal"><span class="pre">ConsoleEvents::COMMAND</span></tt> event is
+dispatched. Listeners receive a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Event/ConsoleCommandEvent.html" title="Symfony\Component\Console\Event\ConsoleCommandEvent"><span class="pre">ConsoleCommandEvent</span></a></tt> event:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Console\Event\ConsoleCommandEvent;
+use Symfony\Component\Console\ConsoleEvents;
+
+$dispatcher-&gt;addListener(ConsoleEvents::COMMAND, function (ConsoleCommandEvent $event) {
+    // get the input instance
+    $input = $event-&gt;getInput();
+
+    // get the output instance
+    $output = $event-&gt;getOutput();
+
+    // get the command to be executed
+    $command = $event-&gt;getCommand();
+
+    // write something about the command
+    $output-&gt;writeln(sprintf('Before running command &lt;info&gt;%s&lt;/info&gt;', $command-&gt;getName()));
+
+    // get the application
+    $application = $command-&gt;getApplication();
+});</pre>
+</div>
+</div>
+<div class="section" id="the-consoleevents-terminate-event">
+<h2>The <tt class="docutils literal"><span class="pre">ConsoleEvents::TERMINATE</span></tt> event<a class="headerlink" href="#the-consoleevents-terminate-event" title="Permalink to this headline">¶</a></h2>
+<p><strong>Typical Purposes</strong>: To perform some cleanup actions after the command has
+been executed.</p>
+<p>After the command has been executed, the <tt class="docutils literal"><span class="pre">ConsoleEvents::TERMINATE</span></tt> event is
+dispatched. It can be used to do any actions that need to be executed for all
+commands or to cleanup what you initiated in a <tt class="docutils literal"><span class="pre">ConsoleEvents::COMMAND</span></tt>
+listener (like sending logs, closing a database connection, sending emails,
+...). A listener might also change the exit code.</p>
+<p>Listeners receive a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Event/ConsoleTerminateEvent.html" title="Symfony\Component\Console\Event\ConsoleTerminateEvent"><span class="pre">ConsoleTerminateEvent</span></a></tt> event:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Symfony\Component\Console\ConsoleEvents;
+
+$dispatcher-&gt;addListener(ConsoleEvents::TERMINATE, function (ConsoleTerminateEvent $event) {
+    // get the output
+    $output = $event-&gt;getOutput();
+
+    // get the command that has been executed
+    $command = $event-&gt;getCommand();
+
+    // display something
+    $output-&gt;writeln(sprintf('After running command &lt;info&gt;%s&lt;/info&gt;', $command-&gt;getName()));
+
+    // change the exit code
+    $event-&gt;setExitCode(128);
+});</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">This event is also dispatched when an exception is thrown by the command.
+It is then dispatched just before the <tt class="docutils literal"><span class="pre">ConsoleEvents::EXCEPTION</span></tt> event.
+The exit code received in this case is the exception code.</p>
+</div>
+</div>
+<div class="section" id="the-consoleevents-exception-event">
+<h2>The <tt class="docutils literal"><span class="pre">ConsoleEvents::EXCEPTION</span></tt> event<a class="headerlink" href="#the-consoleevents-exception-event" title="Permalink to this headline">¶</a></h2>
+<p><strong>Typical Purposes</strong>: Handle exceptions thrown during the execution of a
+command.</p>
+<p>Whenever an exception is thrown by a command, the <tt class="docutils literal"><span class="pre">ConsoleEvents::EXCEPTION</span></tt>
+event is dispatched. A listener can wrap or change the exception or do
+anything useful before the exception is thrown by the application.</p>
+<p>Listeners receive a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Event/ConsoleExceptionEvent.html" title="Symfony\Component\Console\Event\ConsoleExceptionEvent"><span class="pre">ConsoleExceptionEvent</span></a></tt> event:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Console\Event\ConsoleExceptionEvent;
+use Symfony\Component\Console\ConsoleEvents;
+
+$dispatcher-&gt;addListener(ConsoleEvents::EXCEPTION, function (ConsoleExceptionEvent $event) {
+    $output = $event-&gt;getOutput();
+
+    $command = $event-&gt;getCommand();
+
+    $output-&gt;writeln(sprintf('Oops, exception thrown while running command &lt;info&gt;%s&lt;/info&gt;', $command-&gt;getName()));
+
+    // get the current exit code (the exception code or the exit code set by a ConsoleEvents::TERMINATE event)
+    $exitCode = $event-&gt;getExitCode();
+
+    // change the exception to another one
+    $event-&gt;setException(new \LogicException('Caught exception', $exitCode, $event-&gt;getException()));
+});</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Using Events</a><ul>
+<li><a class="reference internal" href="#the-consoleevents-command-event">The <tt class="docutils literal"><span class="pre">ConsoleEvents::COMMAND</span></tt> Event</a></li>
+<li><a class="reference internal" href="#the-consoleevents-terminate-event">The <tt class="docutils literal"><span class="pre">ConsoleEvents::TERMINATE</span></tt> event</a></li>
+<li><a class="reference internal" href="#the-consoleevents-exception-event">The <tt class="docutils literal"><span class="pre">ConsoleEvents::EXCEPTION</span></tt> event</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="single_command_tool.html"
+                        title="previous chapter">Building a Single Command Application</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="helpers/index.html"
+                        title="next chapter">The Console Helpers</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/console/events.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="helpers/index.html" title="The Console Helpers"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="single_command_tool.html" title="Building a Single Command Application"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Console</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,378 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>O Controller &mdash; Symfony2Docs 2.0.x documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2.0.x',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs 2.0.x documentation" href="../index.html" />
+    <link rel="up" title="Guia de Início Rápido" href="index.html" />
+    <link rel="next" title="A Arquitetura" href="the_architecture.html" />
+    <link rel="prev" title="A View" href="the_view.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="the_architecture.html" title="A Arquitetura"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="the_view.html" title="A View"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs 2.0.x documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Guia de Início Rápido</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="o-controller">
+<h1>O Controller<a class="headerlink" href="#o-controller" title="Permalink to this headline">¶</a></h1>
+<p>Ainda está com a gente depois das primeiras duas partes? Então você já está se
+tornando um viciado no Symfony2! Sem mais delongas, vamos descobrir o que os
+controllers podem fazer por você.</p>
+<div class="section" id="usando-formatos">
+<h2>Usando Formatos<a class="headerlink" href="#usando-formatos" title="Permalink to this headline">¶</a></h2>
+<p>Atualmente, uma aplicação web deve ser capaz de entregar mais do que apenas
+páginas HTML. Desde XML para feeds RSS ou Web Services, até JSON para
+requisições Ajax, existem muitos formatos diferentes para escolher. Dar suporte
+para esses formatos no Symfony2 é simples. É só ajustar a rota, como aqui que
+acrescentando um valor padrão <tt class="docutils literal"><span class="pre">xml</span></tt> para a variável <tt class="docutils literal"><span class="pre">_format</span></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Controller/DemoController.php
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+
+/**
+ * @Route("/hello/{name}", defaults={"_format"="xml"}, name="_demo_hello")
+ * @Template()
+ */
+public function helloAction($name)
+{
+    return array('name' =&gt; $name);
+}</pre>
+</div>
+<p>Usando o formato de requisição (como definido pelo valor <tt class="docutils literal"><span class="pre">_format</span></tt>), o
+Symfony2 automaticamente seleciona o template correto, nesse caso o
+<tt class="docutils literal"><span class="pre">hello.xml.twig</span></tt>:</p>
+<div class="highlight-xml+php"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/DemoBundle/Resources/views/Demo/hello.xml.twig --&gt;</span>
+<span class="nt">&lt;hello&gt;</span>
+    <span class="nt">&lt;name&gt;</span>{{ name }}<span class="nt">&lt;/name&gt;</span>
+<span class="nt">&lt;/hello&gt;</span>
+</pre></div>
+</div>
+<p>Isso é tudo. Para os formatos padrão, o Symfony2 também irá escolher
+automaticamente o melhor cabeçalho <tt class="docutils literal"><span class="pre">Content-Type</span></tt> para a resposta. Se você
+quiser dar suporte para diferentes formatos numa única action, em vez disso use
+o marcador <tt class="docutils literal"><span class="pre">{_format}</span></tt> no padrão da rota:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Controller/DemoController.php
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+
+/**
+ * @Route("/hello/{name}.{_format}", defaults={"_format"="html"}, requirements={"_format"="html|xml|json"}, name="_demo_hello")
+ * @Template()
+ */
+public function helloAction($name)
+{
+    return array('name' =&gt; $name);
+}</pre>
+</div>
+<p>O controller agora será chamado por URLs parecidas com
+<tt class="docutils literal"><span class="pre">/demo/hello/Fabien.xml</span></tt> ou <tt class="docutils literal"><span class="pre">/demo/hello/Fabien.json</span></tt>.</p>
+<p>A entrada <tt class="docutils literal"><span class="pre">requiriments</span></tt> define expressões regulares que os marcadores
+precisam casar. Nesse exemplo, se você tentar requisitar
+<tt class="docutils literal"><span class="pre">/demo/hello/Fabien.js</span></tt> irá receber um erro HTTP 404 pois a requisição
+não casa com o requisito <tt class="docutils literal"><span class="pre">_format</span></tt>.</p>
+</div>
+<div class="section" id="redirecionamento-e-encaminhamento">
+<h2>Redirecionamento e Encaminhamento<a class="headerlink" href="#redirecionamento-e-encaminhamento" title="Permalink to this headline">¶</a></h2>
+<p>Se você quiser redirecionar o usuário para outra página, use o método
+<tt class="docutils literal"><span class="pre">redirect()</span></tt>:</p>
+<div class="highlight-python"><pre>return $this-&gt;redirect($this-&gt;generateUrl('_demo_hello', array('name' =&gt; 'Lucas')));</pre>
+</div>
+<p>O método <tt class="docutils literal"><span class="pre">generateUrl()</span></tt> é o mesmo que a função <tt class="docutils literal"><span class="pre">path()</span></tt> que usamos nos
+templates. Ele pega o nome da rota e um array de parâmetros como argumentos e
+retorna a URL amigável associada.</p>
+<p>Você também pode facilmente encaminhar a action para uma outra com o método
+<tt class="docutils literal"><span class="pre">forward()</span></tt>. Internamente, o Symfony faz uma &#8220;sub-requisição&#8221;, e retorna
+o objeto <tt class="docutils literal"><span class="pre">Response</span></tt> daquela sub-requisição:</p>
+<div class="highlight-python"><pre>$response = $this-&gt;forward('AcmeDemoBundle:Hello:fancy', array('name' =&gt; $name, 'color' =&gt; 'green'));
+
+// faça algo com a resposta ou a retorne diretamente</pre>
+</div>
+</div>
+<div class="section" id="pegando-informacao-da-requisicao">
+<h2>Pegando informação da Requisição<a class="headerlink" href="#pegando-informacao-da-requisicao" title="Permalink to this headline">¶</a></h2>
+<p>Além dos valores dos marcadores de rota, o controller tem acesso ao objeto
+<tt class="docutils literal"><span class="pre">Request</span></tt>:</p>
+<div class="highlight-python"><pre>$request = $this-&gt;getRequest();
+
+$request-&gt;isXmlHttpRequest(); // essa é uma requisição Ajax?
+
+$request-&gt;getPreferredLanguage(array('en', 'fr'));
+
+$request-&gt;query-&gt;get('page'); // pega um parâmetro $_GET
+
+$request-&gt;request-&gt;get('page'); // pega um parâmetro $_POST</pre>
+</div>
+<p>Em um template, você também pode acessar o objeto <tt class="docutils literal"><span class="pre">Request</span></tt> via a variável
+<tt class="docutils literal"><span class="pre">app.request</span></tt>:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">app.request.query.get</span><span class="o">(</span><span class="s1">&#39;page&#39;</span><span class="o">)</span> <span class="cp">}}</span>
+
+<span class="cp">{{</span> <span class="nv">app.request.parameter</span><span class="o">(</span><span class="s1">&#39;page&#39;</span><span class="o">)</span> <span class="cp">}}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="persistindo-os-dados-na-sessao">
+<h2>Persistindo os Dados na Sessão<a class="headerlink" href="#persistindo-os-dados-na-sessao" title="Permalink to this headline">¶</a></h2>
+<p>Mesmo o protocolo HTTP sendo stateless (não tendo monitoração de estado), o
+Symfony fornece um objeto interessante que representa o cliente (seja ele uma
+pessoa real utilizando um navegador, um bot ou um web service). Entre duas
+requisições, o Symfony2 guarda os atributos num cookie usando sessões nativas
+do PHP.</p>
+<p>É fácil guardar e recuperar a informação da sessão a partir de qualquer
+controller:</p>
+<div class="highlight-python"><pre>$session = $this-&gt;getRequest()-&gt;getSession();
+
+// guarda um atributo para reutilização na próxima requisição do usuário
+$session-&gt;set('foo', 'bar');
+
+// em outro controller para outra requisição
+$foo = $session-&gt;get('foo');
+
+// define a localidade do usuário
+$session-&gt;setLocale('fr');</pre>
+</div>
+<p>Você pode guardar pequenas mensagens que ficarão disponíveis apenas para a
+próxima requisição:</p>
+<div class="highlight-python"><pre>// guarda uma mensagem para a próxima requisição somente (em um controller)
+$session-&gt;setFlash('notice', 'Congratulations, your action succeeded!');
+
+// mostra a mensagem na próxima requisição (em um template)
+{{ app.session.flash('notice') }}</pre>
+</div>
+<p>Isso é útil quando você precisa definir uma mensagem de sucesso antes de
+redirecionar o usuário para outra página (que então mostrará a mensagem).</p>
+</div>
+<div class="section" id="protegendo-recursos">
+<h2>Protegendo Recursos<a class="headerlink" href="#protegendo-recursos" title="Permalink to this headline">¶</a></h2>
+<p>A versão Standard Edition do Symfony vem com uma configuração de segurança simples que
+atende as necessidades mais comuns:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Symfony\Component\Security\Core\User\User</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">plaintext</span>
+
+    <span class="l-Scalar-Plain">role_hierarchy</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">ROLE_ADMIN</span><span class="p-Indicator">:</span>       <span class="l-Scalar-Plain">ROLE_USER</span>
+        <span class="l-Scalar-Plain">ROLE_SUPER_ADMIN</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">ROLE_USER</span><span class="p-Indicator">,</span> <span class="nv">ROLE_ADMIN</span><span class="p-Indicator">,</span> <span class="nv">ROLE_ALLOWED_TO_SWITCH</span><span class="p-Indicator">]</span>
+
+    <span class="l-Scalar-Plain">providers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">in_memory</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">users</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">user</span><span class="p-Indicator">:</span>  <span class="p-Indicator">{</span> <span class="nv">password</span><span class="p-Indicator">:</span> <span class="nv">userpass</span><span class="p-Indicator">,</span> <span class="nv">roles</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span> <span class="s">&#39;ROLE_USER&#39;</span> <span class="p-Indicator">]</span> <span class="p-Indicator">}</span>
+                <span class="l-Scalar-Plain">admin</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">password</span><span class="p-Indicator">:</span> <span class="nv">adminpass</span><span class="p-Indicator">,</span> <span class="nv">roles</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span> <span class="s">&#39;ROLE_ADMIN&#39;</span> <span class="p-Indicator">]</span> <span class="p-Indicator">}</span>
+
+    <span class="l-Scalar-Plain">firewalls</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">dev</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">^/(_(profiler|wdt)|css|images|js)/</span>
+            <span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+
+        <span class="l-Scalar-Plain">login</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">^/demo/secured/login$</span>
+            <span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+
+        <span class="l-Scalar-Plain">secured_area</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>    <span class="l-Scalar-Plain">^/demo/secured/</span>
+            <span class="l-Scalar-Plain">form_login</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">check_path</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/demo/secured/login_check</span>
+                <span class="l-Scalar-Plain">login_path</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/demo/secured/login</span>
+            <span class="l-Scalar-Plain">logout</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">path</span><span class="p-Indicator">:</span>   <span class="l-Scalar-Plain">/demo/secured/logout</span>
+                <span class="l-Scalar-Plain">target</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/demo/</span>
+</pre></div>
+</div>
+<p>Essa configuração requer que os usuários se autentiquem para acessar qualquer
+URL começada por <tt class="docutils literal"><span class="pre">/demo/secured/</span></tt> e define dois usuários válidos: <tt class="docutils literal"><span class="pre">user</span></tt> e
+<tt class="docutils literal"><span class="pre">admin</span></tt>.  Além disso o usuário <tt class="docutils literal"><span class="pre">admin</span></tt> tem uma permissão <tt class="docutils literal"><span class="pre">ROLE_ADMIN</span></tt>,
+que também inclui a permissão <tt class="docutils literal"><span class="pre">ROLE_USER</span></tt> (veja a configuração
+<tt class="docutils literal"><span class="pre">role_hierarchy</span></tt>).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Para melhorar a legibilidade, nessa nossa configuração simplificada as
+senhas são guardadas em texto puro, mas você pode usar algum algoritmo
+de hash ajustando a seção <tt class="docutils literal"><span class="pre">encoders</span></tt>.</p>
+</div>
+<p>Indo para a URL <tt class="docutils literal"><span class="pre">http://localhost/Symfony/web/app_dev.php/demo/secured/hello</span></tt>
+você será automaticamente redirecionado para o formulário de login pois o
+recurso é protegido por um <tt class="docutils literal"><span class="pre">firewall</span></tt>.</p>
+<p>Você também pode forçar a action para requisitar uma permissão especial usando
+a annotation <tt class="docutils literal"><span class="pre">&#64;Secure</span></tt> no controller:</p>
+<div class="highlight-python"><pre>use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use JMS\SecurityExtraBundle\Annotation\Secure;
+
+/**
+ * @Route("/hello/admin/{name}", name="_demo_secured_hello_admin")
+ * @Secure(roles="ROLE_ADMIN")
+ * @Template()
+ */
+public function helloAdminAction($name)
+{
+    return array('name' =&gt; $name);
+}</pre>
+</div>
+<p>Agora, se autentique como <tt class="docutils literal"><span class="pre">user</span></tt> (que não tem a permissão <tt class="docutils literal"><span class="pre">ROLE_ADMIN</span></tt>)
+e, a partir da página protegida hello, clique no link &#8220;Hello resource secured&#8221;.
+O Symfony2 deve retornar um erro HTTP 403, indicando que o usuário está
+&#8220;proibido&#8221; de acessar o recurso.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A camada de segurança do Symfony2 é bem flexível e vem com muitos serviços
+de usuários (como no Doctrine ORM) e autenticação (como HTTP básico, HTTP
+digest ou certificados X509). Leia o capítulo &#8220;<a class="reference internal" href="../book/security.html"><em>Segurança</em></a>&#8221; do
+livro para mais informação de como usá-los e configurá-los.</p>
+</div>
+</div>
+<div class="section" id="fazendo-cache-dos-recursos">
+<h2>Fazendo Cache dos Recursos<a class="headerlink" href="#fazendo-cache-dos-recursos" title="Permalink to this headline">¶</a></h2>
+<p>A medida que seu site começa a ter mais tráfego, você vai querer evitar fazer a
+geração dos mesmos recursos várias e várias vezes. O Symfony2 usa cabeçalhos de
+cache HTTP para gerenciar o cache dos recursos. Para estratégias simples de
+cache, use a annotation conveniente <tt class="docutils literal"><span class="pre">&#64;Cache()</span></tt>:</p>
+<div class="highlight-python"><pre>use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
+
+/**
+ * @Route("/hello/{name}", name="_demo_hello")
+ * @Template()
+ * @Cache(maxage="86400")
+ */
+public function helloAction($name)
+{
+    return array('name' =&gt; $name);
+}</pre>
+</div>
+<p>Nesse exemplo, o recurso ficará em cache por um dia. Mas você também pode
+usar validações em vez de expiração, ou uma combinação de ambos, se isso se
+encaixar melhor nas suas necessidades.</p>
+<p>O cache de recursos é gerenciado pelo proxy reverso embutido no Symfony2. Mas
+como o cache é gerenciado usando cabeçalhos de cache HTTP normais, você pode
+substituir o proxy reverso com o Varnish ou o Squid e estender a sua aplicação
+de forma fácil.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Mas como se virar se você não puder fazer cache de páginas inteiras? O
+Symfony2 continua tendo a solução, via Edge Side Includes (ESI), que
+são suportados nativamente. Aprenda mais sobre isso lendo o capítulo
+&#8220;<a class="reference internal" href="../book/http_cache.html"><em>HTTP Cache</em></a>&#8221; do livro.</p>
+</div>
+</div>
+<div class="section" id="consideracoes-finais">
+<h2>Considerações Finais<a class="headerlink" href="#consideracoes-finais" title="Permalink to this headline">¶</a></h2>
+<p>Isso foi tudo, e acho que não gastamos nem 10 minutos. Fizemos uma breve
+introdução aos bundles na primeira parte e todas as funcionalidades sobre as
+quais aprendemos até agora são parte do bundle núcleo do framework.
+Graças aos bundles, tudo no Symfony2 pode ser estendido ou substituído.
+Esse é o tema da <a class="reference internal" href="the_architecture.html"><em>próxima parte do tutorial</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">O Controller</a><ul>
+<li><a class="reference internal" href="#usando-formatos">Usando Formatos</a></li>
+<li><a class="reference internal" href="#redirecionamento-e-encaminhamento">Redirecionamento e Encaminhamento</a></li>
+<li><a class="reference internal" href="#pegando-informacao-da-requisicao">Pegando informação da Requisição</a></li>
+<li><a class="reference internal" href="#persistindo-os-dados-na-sessao">Persistindo os Dados na Sessão</a></li>
+<li><a class="reference internal" href="#protegendo-recursos">Protegendo Recursos</a></li>
+<li><a class="reference internal" href="#fazendo-cache-dos-recursos">Fazendo Cache dos Recursos</a></li>
+<li><a class="reference internal" href="#consideracoes-finais">Considerações Finais</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="the_view.html"
+                        title="previous chapter">A View</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="the_architecture.html"
+                        title="next chapter">A Arquitetura</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/quick_tour/the_controller.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="the_architecture.html" title="A Arquitetura"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="the_view.html" title="A View"
+             >previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs 2.0.x documentation</a> &raquo;</li>
+          <li><a href="index.html" >Guia de Início Rápido</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

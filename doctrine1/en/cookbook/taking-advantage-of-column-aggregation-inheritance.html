@@ -1,0 +1,219 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Taking Advantage of Column Aggregation Inheritance &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Master and Slave Connections" href="master-and-slave-connections.html" />
+    <link rel="prev" title="Plug and Play Schema Information with Templates" href="plug-and-play-schema-information-with-templates.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="master-and-slave-connections.html" title="Master and Slave Connections"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="plug-and-play-schema-information-with-templates.html" title="Plug and Play Schema Information with Templates"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="taking-advantage-of-column-aggregation-inheritance">
+<h1>Taking Advantage of Column Aggregation Inheritance<a class="headerlink" href="#taking-advantage-of-column-aggregation-inheritance" title="Permalink to this headline">¶</a></h1>
+<p>First, let me give a brief explanation of what column aggregation
+inheritance is and how it works. With column aggregation inheritance all
+classes share the same table, and all columns must exist in the parent.
+Doctrine is able to know which class each row in the database belongs to
+by automatically setting a &#8220;type&#8221; column so that Doctrine can cast the
+correct class when hydrating data from the database. Even if you query
+the top level column aggregation class, the collection will return
+instances of the class that each row belongs to.</p>
+<p>Now that you have a basic understand of column aggregation inheritance
+lets put it to use. In this example we will setup some models which will
+allow us to use one address table for storing all of our addresses
+across the entire application. Any record will be able to have multiple
+addresses, and all the information will be stored in one table. First
+lets define our Address</p>
+<blockquote>
+<div>class Address extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;address1&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;address2&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;address3&#8217;, &#8216;string&#8217;, 255); $this-&gt;hasColumn(&#8216;city&#8217;,
+&#8216;string&#8217;, 255); $this-&gt;hasColumn(&#8216;state&#8217;, &#8216;string&#8217;, 2);
+$this-&gt;hasColumn(&#8216;zipcode&#8217;, &#8216;string&#8217;, 15); $this-&gt;hasColumn(&#8216;type&#8217;,
+&#8216;string&#8217;, 255); $this-&gt;hasColumn(&#8216;record_id&#8217;, &#8216;integer&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">option</span><span class="p">(</span><span class="s1">&#39;export&#39;</span><span class="p">,</span> <span class="s1">&#39;tables&#39;</span><span class="p">);</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">setSubClasses</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;UserAddress&#39;</span>    <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;UserAddress&#39;</span><span class="p">),</span>
+                               <span class="s1">&#39;CompanyAddress&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;CompanyAddress&#39;</span><span class="p">)));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Note the option set above to only export tables because we do not want
+to export any foreign key constraints since record_id is going to
+relate to many different records.</p>
+<p>We are going to setup a User so it can have multiple addresses, so we
+will need to setup a UserAddress child class that User can relate to.</p>
+<blockquote>
+<div>class UserAddress extends Address { public function setUp() {</div></blockquote>
+<p>$this-&gt;hasOne(&#8216;User&#8217;, array(&#8216;local&#8217; =&gt; &#8216;record_id&#8217;, &#8216;foreign&#8217; =&gt;
+&#8216;id&#8217;)); } }</p>
+<p>Now lets define our User and link it to the UserAddress model so it can
+have multiple addresses. class User extends Doctrine_Record { public
+function setTableDefinition() { $this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;,
+255); $this-&gt;hasColumn(&#8216;password&#8217;, &#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;UserAddress as Addresses&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;local&#39;</span>    <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+                                                     <span class="s1">&#39;foreign&#39;</span>  <span class="o">=&gt;</span> <span class="s1">&#39;record_id&#39;</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Now say we have a Company record which also needs ot have many
+addresses. First we need to setup the CompanyAddress child class</p>
+<blockquote>
+<div>class CompanyAddress extends Address { public function setUp() {</div></blockquote>
+<p>$this-&gt;hasOne(&#8216;Company&#8217;, array(&#8216;local&#8217; =&gt; &#8216;record_id&#8217;, &#8216;foreign&#8217; =&gt;
+&#8216;id&#8217;)); } }</p>
+<p>Now lets define our Company and link it to the CompanyAddress model so
+it can have multiple addresses. class Company extends Doctrine_Record {
+public function setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;,
+&#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;CompanyAddress as Addresses&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;local&#39;</span>    <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+                                                        <span class="s1">&#39;foreign&#39;</span>  <span class="o">=&gt;</span> <span class="s1">&#39;record_id&#39;</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Now both Users and Companies can have multiple addresses and the data is
+all stored in one address table.</p>
+<p>Now lets create the tables and insert some records</p>
+<blockquote>
+<div>Doctrine_Core::createTablesFromArray(array(&#8216;User&#8217;, &#8216;Company&#8217;,</div></blockquote>
+<p>&#8216;Address&#8217;));</p>
+<p>$user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =
+&#8216;changeme&#8217;; $user-&gt;Addresses[0]-&gt;address1 = &#8216;123 Road Dr.&#8217;;
+$user-&gt;Addresses[0]-&gt;city = &#8216;Nashville&#8217;; $user-&gt;Addresses[0]-&gt;state =
+&#8216;TN&#8217;; $user-&gt;save();</p>
+<p>$company = new Company(); $company-&gt;name = &#8216;centre{source}&#8217;;
+$company-&gt;Addresses[0]-&gt;address1 = &#8216;123 Road Dr.&#8217;;
+$company-&gt;Addresses[0]-&gt;city = &#8216;Nashville&#8217;;
+$company-&gt;Addresses[0]-&gt;state = &#8216;TN&#8217;; $company-&gt;save();</p>
+<p>Query for the user and its addresses</p>
+<blockquote>
+<div>$users = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;)</div></blockquote>
+<p>-&gt;leftJoin(&#8216;u.Addresses a&#8217;) -&gt;execute();</p>
+<p>echo $users[0]-&gt;username; // jwage echo
+<tt class="code docutils literal"><span class="pre">users[0]-&gt;Addresses[0]-&gt;address1</span> <span class="pre">=</span> <span class="pre">'123</span> <span class="pre">Road</span> <span class="pre">Dr.';</span> <span class="pre">echo</span> <span class="pre">get_class(</span></tt>users[0]-&gt;Addresses[0]);
+// UserAddress</p>
+<p>Query for the company and its addresses</p>
+<blockquote>
+<div>$companies = Doctrine_Query::create() -&gt;from(&#8216;Company c&#8217;)</div></blockquote>
+<p>-&gt;leftJoin(&#8216;c.Addresses a&#8217;) -&gt;execute();</p>
+<p>echo $companies[0]-&gt;name; // centre{source} echo
+<tt class="code docutils literal"><span class="pre">companies[0]-&gt;Addresses[0]-&gt;address1</span> <span class="pre">=</span> <span class="pre">'123</span> <span class="pre">Road</span> <span class="pre">Dr.';</span> <span class="pre">echo</span> <span class="pre">get_class(</span></tt>companies[0]-&gt;Addresses[0]);
+// CompanyAddress</p>
+<p>Now lets query the Addresses directly and you will notice each child
+record returned is hydrated as the appropriate child class that created
+the record initially.</p>
+<p><tt class="code docutils literal"><span class="pre">addresses</span> <span class="pre">=</span> <span class="pre">Doctrine_Query::create()</span> <span class="pre">-&gt;from('Address</span> <span class="pre">a')</span> <span class="pre">-&gt;execute();</span> <span class="pre">echo</span> <span class="pre">get_class(</span></tt>addresses[0]);
+// UserAddress echo get_class($addresses[1]); // CompanyAddress</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="plug-and-play-schema-information-with-templates.html"
+                        title="previous chapter">Plug and Play Schema Information with Templates</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="master-and-slave-connections.html"
+                        title="next chapter">Master and Slave Connections</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/cookbook/taking-advantage-of-column-aggregation-inheritance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="master-and-slave-connections.html" title="Master and Slave Connections"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="plug-and-play-schema-information-with-templates.html" title="Plug and Play Schema Information with Templates"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

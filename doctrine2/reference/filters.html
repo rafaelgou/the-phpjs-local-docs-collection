@@ -1,0 +1,407 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>30. Filters &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="31. Implementing a NamingStrategy" href="namingstrategy.html" />
+    <link rel="prev" title="29. Limitations and Known Issues" href="limitations-and-known-issues.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="namingstrategy.html" title="31. Implementing a NamingStrategy"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="limitations-and-known-issues.html" title="29. Limitations and Known Issues"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="filters">
+<h1>30. Filters<a class="headerlink" href="#filters" title="Permalink to this headline">¶</a></h1>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.2.</span></p>
+<p>Doctrine 2.2 features a filter system that allows the developer to add SQL to
+the conditional clauses of queries, regardless the place where the SQL is
+generated (e.g. from a DQL query, or by loading associated entities).</p>
+<p>The filter functionality works on SQL level. Whether a SQL query is generated
+in a Persister, during lazy loading, in extra lazy collections or from DQL.
+Each time the system iterates over all the enabled filters, adding a new SQL
+part as a filter returns.</p>
+<p>By adding SQL to the conditional clauses of queries, the filter system filters
+out rows belonging to the entities at the level of the SQL result set. This
+means that the filtered entities are never hydrated (which can be expensive).</p>
+<div class="section" id="example-filter-class">
+<h2>30.1. Example filter class<a class="headerlink" href="#example-filter-class" title="Permalink to this headline">¶</a></h2>
+<p>Throughout this document the example <tt class="docutils literal"><span class="pre">MyLocaleFilter</span></tt> class will be used to
+illustrate how the filter feature works. A filter class must extend the base
+<tt class="docutils literal"><span class="pre">Doctrine\ORM\Query\Filter\SQLFilter</span></tt> class and implement the <tt class="docutils literal"><span class="pre">addFilterConstraint</span></tt>
+method. The method receives the <tt class="docutils literal"><span class="pre">ClassMetadata</span></tt> of the filtered entity and the
+table alias of the SQL table of the entity.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In the case of joined or single table inheritance, you always get passed the ClassMetadata of the
+inheritance root. This is necessary to avoid edge cases that would break the SQL when applying the filters.</p>
+</div>
+<p>Parameters for the query should be set on the filter object by
+<tt class="docutils literal"><span class="pre">SQLFilter#setParameter()</span></tt>. Only parameters set via this function can be used
+in filters.  The <tt class="docutils literal"><span class="pre">SQLFilter#getParameter()</span></tt> function takes care of the
+proper quoting of parameters.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">Example</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping\ClassMetaData</span><span class="p">,</span>
+    <span class="nx">Doctrine\ORM\Query\Filter\SQLFilter</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">MyLocaleFilter</span> <span class="k">extends</span> <span class="nx">SQLFilter</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">addFilterConstraint</span><span class="p">(</span><span class="nx">ClassMetadata</span> <span class="nv">$targetEntity</span><span class="p">,</span> <span class="nv">$targetTableAlias</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Check if the entity implements the LocalAware interface</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$targetEntity</span><span class="o">-&gt;</span><span class="na">reflClass</span><span class="o">-&gt;</span><span class="na">implementsInterface</span><span class="p">(</span><span class="s1">&#39;LocaleAware&#39;</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="nv">$targetTableAlias</span><span class="o">.</span><span class="s1">&#39;.locale = &#39;</span> <span class="o">.</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getParameter</span><span class="p">(</span><span class="s1">&#39;locale&#39;</span><span class="p">);</span> <span class="c1">// getParameter applies quoting automatically</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="configuration">
+<h2>30.2. Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>Filter classes are added to the configuration as following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">addFilter</span><span class="p">(</span><span class="s2">&quot;locale&quot;</span><span class="p">,</span> <span class="s2">&quot;\Doctrine</span><span class="se">\T</span><span class="s2">ests\ORM\Functional\MyLocaleFilter&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Configuration#addFilter()</span></tt> method takes a name for the filter and the name of the
+class responsible for the actual filtering.</p>
+</div>
+<div class="section" id="disabling-enabling-filters-and-setting-parameters">
+<h2>30.3. Disabling/Enabling Filters and Setting Parameters<a class="headerlink" href="#disabling-enabling-filters-and-setting-parameters" title="Permalink to this headline">¶</a></h2>
+<p>Filters can be disabled and enabled via the <tt class="docutils literal"><span class="pre">FilterCollection</span></tt> which is
+stored in the <tt class="docutils literal"><span class="pre">EntityManager</span></tt>. The <tt class="docutils literal"><span class="pre">FilterCollection#enable($name)</span></tt> method
+will retrieve the filter object. You can set the filter parameters on that
+object.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$filter</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getFilters</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">enable</span><span class="p">(</span><span class="s2">&quot;locale&quot;</span><span class="p">);</span>
+<span class="nv">$filter</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;locale&#39;</span><span class="p">,</span> <span class="s1">&#39;en&#39;</span><span class="p">);</span>
+
+<span class="c1">// Disable it</span>
+<span class="nv">$filter</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getFilters</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">disable</span><span class="p">(</span><span class="s2">&quot;locale&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Disabling and enabling filters has no effect on managed entities. If you
+want to refresh or reload an object after having modified a filter or the
+FilterCollection, then you should clear the EntityManager and re-fetch your
+entities, having the new rules for filtering applied.</p>
+</div>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">30. Filters</a><ul>
+<li><a class="reference internal" href="#example-filter-class">30.1. Example filter class</a></li>
+<li><a class="reference internal" href="#configuration">30.2. Configuration</a></li>
+<li><a class="reference internal" href="#disabling-enabling-filters-and-setting-parameters">30.3. Disabling/Enabling Filters and Setting Parameters</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="limitations-and-known-issues.html"
+                                  title="previous chapter">29. Limitations and Known Issues</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="namingstrategy.html"
+                                  title="next chapter">31. Implementing a NamingStrategy</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/reference/filters.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/reference/filters.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/reference/filters.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

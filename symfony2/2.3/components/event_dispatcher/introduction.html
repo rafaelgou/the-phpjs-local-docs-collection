@@ -1,0 +1,640 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The Event Dispatcher Component &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Event Dispatcher" href="index.html" />
+    <link rel="next" title="The Generic Event Object" href="generic_event.html" />
+    <link rel="prev" title="Event Dispatcher" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="generic_event.html" title="The Generic Event Object"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Event Dispatcher"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Event Dispatcher</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-event-dispatcher-component">
+<span id="index-0"></span><h1>The Event Dispatcher Component<a class="headerlink" href="#the-event-dispatcher-component" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Objected Oriented code has gone a long way to ensuring code extensibility. By
+creating classes that have well defined responsibilities, your code becomes
+more flexible and a developer can extend them with subclasses to modify their
+behaviors. But if he wants to share his changes with other developers who have
+also made their own subclasses, code inheritance is no longer the answer.</p>
+<p>Consider the real-world example where you want to provide a plugin system for
+your project. A plugin should be able to add methods, or do something before
+or after a method is executed, without interfering with other plugins. This is
+not an easy problem to solve with single inheritance, and multiple inheritance
+(were it possible with PHP) has its own drawbacks.</p>
+<p>The Symfony2 Event Dispatcher component implements the <a class="reference external" href="http://en.wikipedia.org/wiki/Observer_pattern">Observer</a> pattern in
+a simple and effective way to make all these things possible and to make your
+projects truly extensible.</p>
+<p>Take a simple example from the <a class="reference internal" href="../http_kernel/introduction.html"><em>The HttpKernel Component</em></a>. Once a
+<tt class="docutils literal"><span class="pre">Response</span></tt> object has been created, it may be useful to allow other elements
+in the system to modify it (e.g. add some cache headers) before it&#8217;s actually
+used. To make this possible, the Symfony2 kernel throws an event -
+<tt class="docutils literal"><span class="pre">kernel.response</span></tt>. Here&#8217;s how it works:</p>
+<ul class="simple">
+<li>A <em>listener</em> (PHP object) tells a central <em>dispatcher</em> object that it wants
+to listen to the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event;</li>
+<li>At some point, the Symfony2 kernel tells the <em>dispatcher</em> object to dispatch
+the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event, passing with it an <tt class="docutils literal"><span class="pre">Event</span></tt> object that has
+access to the <tt class="docutils literal"><span class="pre">Response</span></tt> object;</li>
+<li>The dispatcher notifies (i.e. calls a method on) all listeners of the
+<tt class="docutils literal"><span class="pre">kernel.response</span></tt> event, allowing each of them to make modifications to
+the <tt class="docutils literal"><span class="pre">Response</span></tt> object.</li>
+</ul>
+</div>
+<div class="section" id="installation">
+<span id="index-1"></span><h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>You can install the component in 2 different ways:</p>
+<ul class="simple">
+<li>Use the official Git repository (<a class="reference external" href="https://github.com/symfony/EventDispatcher">https://github.com/symfony/EventDispatcher</a>);</li>
+<li><a class="reference internal" href="../using_components.html"><em>Install it via Composer</em></a> (<tt class="docutils literal"><span class="pre">symfony/event-dispatcher</span></tt> on <a class="reference external" href="https://packagist.org/packages/symfony/event-dispatcher">Packagist</a>).</li>
+</ul>
+</div>
+<div class="section" id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="events">
+<h3>Events<a class="headerlink" href="#events" title="Permalink to this headline">¶</a></h3>
+<p>When an event is dispatched, it&#8217;s identified by a unique name (e.g.
+<tt class="docutils literal"><span class="pre">kernel.response</span></tt>), which any number of listeners might be listening to. An
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html" title="Symfony\Component\EventDispatcher\Event"><span class="pre">Event</span></a></tt> instance is also created
+and passed to all of the listeners. As you&#8217;ll see later, the <tt class="docutils literal"><span class="pre">Event</span></tt> object
+itself often contains data about the event being dispatched.</p>
+<div class="section" id="naming-conventions">
+<span id="index-2"></span><h4>Naming Conventions<a class="headerlink" href="#naming-conventions" title="Permalink to this headline">¶</a></h4>
+<p>The unique event name can be any string, but optionally follows a few simple
+naming conventions:</p>
+<ul class="simple">
+<li>use only lowercase letters, numbers, dots (<tt class="docutils literal"><span class="pre">.</span></tt>), and underscores (<tt class="docutils literal"><span class="pre">_</span></tt>);</li>
+<li>prefix names with a namespace followed by a dot (e.g. <tt class="docutils literal"><span class="pre">kernel.</span></tt>);</li>
+<li>end names with a verb that indicates what action is being taken (e.g.
+<tt class="docutils literal"><span class="pre">request</span></tt>).</li>
+</ul>
+<p>Here are some examples of good event names:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">kernel.response</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt></li>
+</ul>
+</div>
+<div class="section" id="event-names-and-event-objects">
+<span id="index-3"></span><h4>Event Names and Event Objects<a class="headerlink" href="#event-names-and-event-objects" title="Permalink to this headline">¶</a></h4>
+<p>When the dispatcher notifies listeners, it passes an actual <tt class="docutils literal"><span class="pre">Event</span></tt> object
+to those listeners. The base <tt class="docutils literal"><span class="pre">Event</span></tt> class is very simple: it contains a
+method for stopping <a class="reference internal" href="#event-dispatcher-event-propagation"><em>event
+propagation</em></a>, but not much else.</p>
+<p>Often times, data about a specific event needs to be passed along with the
+<tt class="docutils literal"><span class="pre">Event</span></tt> object so that the listeners have needed information. In the case of
+the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event, the <tt class="docutils literal"><span class="pre">Event</span></tt> object that&#8217;s created and passed to
+each listener is actually of type
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterResponseEvent.html" title="Symfony\Component\HttpKernel\Event\FilterResponseEvent"><span class="pre">FilterResponseEvent</span></a></tt>, a
+subclass of the base <tt class="docutils literal"><span class="pre">Event</span></tt> object. This class contains methods such as
+<tt class="docutils literal"><span class="pre">getResponse</span></tt> and <tt class="docutils literal"><span class="pre">setResponse</span></tt>, allowing listeners to get or even replace
+the <tt class="docutils literal"><span class="pre">Response</span></tt> object.</p>
+<p>The moral of the story is this: When creating a listener to an event, the
+<tt class="docutils literal"><span class="pre">Event</span></tt> object that&#8217;s passed to the listener may be a special subclass that
+has additional methods for retrieving information from and responding to the
+event.</p>
+</div>
+</div>
+<div class="section" id="the-dispatcher">
+<h3>The Dispatcher<a class="headerlink" href="#the-dispatcher" title="Permalink to this headline">¶</a></h3>
+<p>The dispatcher is the central object of the event dispatcher system. In
+general, a single dispatcher is created, which maintains a registry of
+listeners. When an event is dispatched via the dispatcher, it notifies all
+listeners registered with that event:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\EventDispatcher;
+
+$dispatcher = new EventDispatcher();</pre>
+</div>
+</div>
+<div class="section" id="connecting-listeners">
+<span id="index-4"></span><h3>Connecting Listeners<a class="headerlink" href="#connecting-listeners" title="Permalink to this headline">¶</a></h3>
+<p>To take advantage of an existing event, you need to connect a listener to the
+dispatcher so that it can be notified when the event is dispatched. A call to
+the dispatcher <tt class="docutils literal"><span class="pre">addListener()</span></tt> method associates any valid PHP callable to
+an event:</p>
+<div class="highlight-python"><pre>$listener = new AcmeListener();
+$dispatcher-&gt;addListener('foo.action', array($listener, 'onFooAction'));</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">addListener()</span></tt> method takes up to three arguments:</p>
+<ul class="simple">
+<li>The event name (string) that this listener wants to listen to;</li>
+<li>A PHP callable that will be notified when an event is thrown that it listens
+to;</li>
+<li>An optional priority integer (higher equals more important) that determines
+when a listener is triggered versus other listeners (defaults to <tt class="docutils literal"><span class="pre">0</span></tt>). If
+two listeners have the same priority, they are executed in the order that
+they were added to the dispatcher.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>A <a class="reference external" href="http://www.php.net/manual/en/language.pseudo-types.php#language.types.callback">PHP callable</a> is a PHP variable that can be used by the
+<tt class="docutils literal"><span class="pre">call_user_func()</span></tt> function and returns <tt class="docutils literal"><span class="pre">true</span></tt> when passed to the
+<tt class="docutils literal"><span class="pre">is_callable()</span></tt> function. It can be a <tt class="docutils literal"><span class="pre">\Closure</span></tt> instance, an object
+implementing an __invoke method (which is what closures are in fact),
+a string representing a function, or an array representing an object
+method or a class method.</p>
+<p>So far, you&#8217;ve seen how PHP objects can be registered as listeners. You
+can also register PHP <a class="reference external" href="http://php.net/manual/en/functions.anonymous.php">Closures</a> as event listeners:</p>
+<div class="last highlight-python"><pre>use Symfony\Component\EventDispatcher\Event;
+
+$dispatcher-&gt;addListener('foo.action', function (Event $event) {
+    // will be executed when the foo.action event is dispatched
+});</pre>
+</div>
+</div>
+<p>Once a listener is registered with the dispatcher, it waits until the event is
+notified. In the above example, when the <tt class="docutils literal"><span class="pre">foo.action</span></tt> event is dispatched,
+the dispatcher calls the <tt class="docutils literal"><span class="pre">AcmeListener::onFooAction</span></tt> method and passes the
+<tt class="docutils literal"><span class="pre">Event</span></tt> object as the single argument:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\Event;
+
+class AcmeListener
+{
+    // ...
+
+    public function onFooAction(Event $event)
+    {
+        // ... do something
+    }
+}</pre>
+</div>
+<p>In many cases, a special <tt class="docutils literal"><span class="pre">Event</span></tt> subclass that&#8217;s specific to the given event
+is passed to the listener. This gives the listener access to special
+information about the event. Check the documentation or implementation of each
+event to determine the exact <tt class="docutils literal"><span class="pre">Symfony\Component\EventDispatcher\Event</span></tt>
+instance that&#8217;s being passed. For example, the <tt class="docutils literal"><span class="pre">kernel.event</span></tt> event passes an
+instance of <tt class="docutils literal"><span class="pre">Symfony\Component\HttpKernel\Event\FilterResponseEvent</span></tt>:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+
+public function onKernelResponse(FilterResponseEvent $event)
+{
+    $response = $event-&gt;getResponse();
+    $request = $event-&gt;getRequest();
+
+    // ...
+}</pre>
+</div>
+<span class="target" id="event-dispatcher-closures-as-listeners"></span></div>
+<div class="section" id="creating-and-dispatching-an-event">
+<span id="index-5"></span><h3>Creating and Dispatching an Event<a class="headerlink" href="#creating-and-dispatching-an-event" title="Permalink to this headline">¶</a></h3>
+<p>In addition to registering listeners with existing events, you can create and
+dispatch your own events. This is useful when creating third-party libraries
+and also when you want to keep different components of your own system
+flexible and decoupled.</p>
+<div class="section" id="the-static-events-class">
+<h4>The Static <tt class="docutils literal"><span class="pre">Events</span></tt> Class<a class="headerlink" href="#the-static-events-class" title="Permalink to this headline">¶</a></h4>
+<p>Suppose you want to create a new Event - <tt class="docutils literal"><span class="pre">store.order</span></tt> - that is dispatched
+each time an order is created inside your application. To keep things
+organized, start by creating a <tt class="docutils literal"><span class="pre">StoreEvents</span></tt> class inside your application
+that serves to define and document your event:</p>
+<div class="highlight-python"><pre>namespace Acme\StoreBundle;
+
+final class StoreEvents
+{
+    /**
+     * The store.order event is thrown each time an order is created
+     * in the system.
+     *
+     * The event listener receives an
+     * Acme\StoreBundle\Event\FilterOrderEvent instance.
+     *
+     * @var string
+     */
+    const STORE_ORDER = 'store.order';
+}</pre>
+</div>
+<p>Notice that this class doesn&#8217;t actually <em>do</em> anything. The purpose of the
+<tt class="docutils literal"><span class="pre">StoreEvents</span></tt> class is just to be a location where information about common
+events can be centralized. Notice also that a special <tt class="docutils literal"><span class="pre">FilterOrderEvent</span></tt>
+class will be passed to each listener of this event.</p>
+</div>
+<div class="section" id="creating-an-event-object">
+<h4>Creating an Event object<a class="headerlink" href="#creating-an-event-object" title="Permalink to this headline">¶</a></h4>
+<p>Later, when you dispatch this new event, you&#8217;ll create an <tt class="docutils literal"><span class="pre">Event</span></tt> instance
+and pass it to the dispatcher. The dispatcher then passes this same instance
+to each of the listeners of the event. If you don&#8217;t need to pass any
+information to your listeners, you can use the default
+<tt class="docutils literal"><span class="pre">Symfony\Component\EventDispatcher\Event</span></tt> class. Most of the time, however,
+you <em>will</em> need to pass information about the event to each listener. To
+accomplish this, you&#8217;ll create a new class that extends
+<tt class="docutils literal"><span class="pre">Symfony\Component\EventDispatcher\Event</span></tt>.</p>
+<p>In this example, each listener will need access to some pretend <tt class="docutils literal"><span class="pre">Order</span></tt>
+object. Create an <tt class="docutils literal"><span class="pre">Event</span></tt> class that makes this possible:</p>
+<div class="highlight-python"><pre>namespace Acme\StoreBundle\Event;
+
+use Symfony\Component\EventDispatcher\Event;
+use Acme\StoreBundle\Order;
+
+class FilterOrderEvent extends Event
+{
+    protected $order;
+
+    public function __construct(Order $order)
+    {
+        $this-&gt;order = $order;
+    }
+
+    public function getOrder()
+    {
+        return $this-&gt;order;
+    }
+}</pre>
+</div>
+<p>Each listener now has access to the <tt class="docutils literal"><span class="pre">Order</span></tt> object via the <tt class="docutils literal"><span class="pre">getOrder</span></tt>
+method.</p>
+</div>
+<div class="section" id="dispatch-the-event">
+<h4>Dispatch the Event<a class="headerlink" href="#dispatch-the-event" title="Permalink to this headline">¶</a></h4>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/EventDispatcher.html#method_dispatch" title="Symfony\Component\EventDispatcher\EventDispatcher::dispatch()"><span class="pre">dispatch()</span></a></tt>
+method notifies all listeners of the given event. It takes two arguments: the
+name of the event to dispatch and the <tt class="docutils literal"><span class="pre">Event</span></tt> instance to pass to each
+listener of that event:</p>
+<div class="highlight-python"><pre>use Acme\StoreBundle\StoreEvents;
+use Acme\StoreBundle\Order;
+use Acme\StoreBundle\Event\FilterOrderEvent;
+
+// the order is somehow created or retrieved
+$order = new Order();
+// ...
+
+// create the FilterOrderEvent and dispatch it
+$event = new FilterOrderEvent($order);
+$dispatcher-&gt;dispatch(StoreEvents::STORE_ORDER, $event);</pre>
+</div>
+<p>Notice that the special <tt class="docutils literal"><span class="pre">FilterOrderEvent</span></tt> object is created and passed to
+the <tt class="docutils literal"><span class="pre">dispatch</span></tt> method. Now, any listener to the <tt class="docutils literal"><span class="pre">store.order</span></tt> event will
+receive the <tt class="docutils literal"><span class="pre">FilterOrderEvent</span></tt> and have access to the <tt class="docutils literal"><span class="pre">Order</span></tt> object via
+the <tt class="docutils literal"><span class="pre">getOrder</span></tt> method:</p>
+<div class="highlight-python"><pre>// some listener class that's been registered for "STORE_ORDER" event
+use Acme\StoreBundle\Event\FilterOrderEvent;
+
+public function onStoreOrder(FilterOrderEvent $event)
+{
+    $order = $event-&gt;getOrder();
+    // do something to or with the order
+}</pre>
+</div>
+</div>
+</div>
+<div class="section" id="using-event-subscribers">
+<span id="event-dispatcher-using-event-subscribers"></span><span id="index-6"></span><h3>Using Event Subscribers<a class="headerlink" href="#using-event-subscribers" title="Permalink to this headline">¶</a></h3>
+<p>The most common way to listen to an event is to register an <em>event listener</em>
+with the dispatcher. This listener can listen to one or more events and is
+notified each time those events are dispatched.</p>
+<p>Another way to listen to events is via an <em>event subscriber</em>. An event
+subscriber is a PHP class that&#8217;s able to tell the dispatcher exactly which
+events it should subscribe to. It implements the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/EventSubscriberInterface.html" title="Symfony\Component\EventDispatcher\EventSubscriberInterface"><span class="pre">EventSubscriberInterface</span></a></tt>
+interface, which requires a single static method called
+<tt class="docutils literal"><span class="pre">getSubscribedEvents</span></tt>. Take the following example of a subscriber that
+subscribes to the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> and <tt class="docutils literal"><span class="pre">store.order</span></tt> events:</p>
+<div class="highlight-python"><pre>namespace Acme\StoreBundle\Event;
+
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+
+class StoreSubscriber implements EventSubscriberInterface
+{
+    public static function getSubscribedEvents()
+    {
+        return array(
+            'kernel.response' =&gt; array(
+                array('onKernelResponsePre', 10),
+                array('onKernelResponseMid', 5),
+                array('onKernelResponsePost', 0),
+            ),
+            'store.order'     =&gt; array('onStoreOrder', 0),
+        );
+    }
+
+    public function onKernelResponsePre(FilterResponseEvent $event)
+    {
+        // ...
+    }
+
+    public function onKernelResponseMid(FilterResponseEvent $event)
+    {
+        // ...
+    }
+
+    public function onKernelResponsePost(FilterResponseEvent $event)
+    {
+        // ...
+    }
+
+    public function onStoreOrder(FilterOrderEvent $event)
+    {
+        // ...
+    }
+}</pre>
+</div>
+<p>This is very similar to a listener class, except that the class itself can
+tell the dispatcher which events it should listen to. To register a subscriber
+with the dispatcher, use the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/EventDispatcher.html#method_addSubscriber" title="Symfony\Component\EventDispatcher\EventDispatcher::addSubscriber()"><span class="pre">addSubscriber()</span></a></tt>
+method:</p>
+<div class="highlight-python"><pre>use Acme\StoreBundle\Event\StoreSubscriber;
+
+$subscriber = new StoreSubscriber();
+$dispatcher-&gt;addSubscriber($subscriber);</pre>
+</div>
+<p>The dispatcher will automatically register the subscriber for each event
+returned by the <tt class="docutils literal"><span class="pre">getSubscribedEvents</span></tt> method. This method returns an array
+indexed by event names and whose values are either the method name to call or
+an array composed of the method name to call and a priority. The example
+above shows how to register several listener methods for the same event in
+subscriber and also shows how to pass the priority of each listener method.
+The higher the priority, the earlier the method is called. In the above
+example, when the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event is triggered, the methods
+<tt class="docutils literal"><span class="pre">onKernelResponsePre</span></tt>, <tt class="docutils literal"><span class="pre">onKernelResponseMid</span></tt>, and <tt class="docutils literal"><span class="pre">onKernelResponsePost</span></tt>
+are called in that order.</p>
+</div>
+<div class="section" id="stopping-event-flow-propagation">
+<span id="event-dispatcher-event-propagation"></span><span id="index-7"></span><h3>Stopping Event Flow/Propagation<a class="headerlink" href="#stopping-event-flow-propagation" title="Permalink to this headline">¶</a></h3>
+<p>In some cases, it may make sense for a listener to prevent any other listeners
+from being called. In other words, the listener needs to be able to tell the
+dispatcher to stop all propagation of the event to future listeners (i.e. to
+not notify any more listeners). This can be accomplished from inside a
+listener via the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html#method_stopPropagation" title="Symfony\Component\EventDispatcher\Event::stopPropagation()"><span class="pre">stopPropagation()</span></a></tt> method:</p>
+<div class="highlight-python"><pre>use Acme\StoreBundle\Event\FilterOrderEvent;
+
+public function onStoreOrder(FilterOrderEvent $event)
+{
+    // ...
+
+    $event-&gt;stopPropagation();
+}</pre>
+</div>
+<p>Now, any listeners to <tt class="docutils literal"><span class="pre">store.order</span></tt> that have not yet been called will <em>not</em>
+be called.</p>
+<p>It is possible to detect if an event was stopped by using the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html#method_isPropagationStopped" title="Symfony\Component\EventDispatcher\Event::isPropagationStopped()"><span class="pre">isPropagationStopped()</span></a></tt> method
+which returns a boolean value:</p>
+<div class="highlight-python"><pre>$dispatcher-&gt;dispatch('foo.event', $event);
+if ($event-&gt;isPropagationStopped()) {
+    // ...
+}</pre>
+</div>
+</div>
+<div class="section" id="eventdispatcher-aware-events-and-listeners">
+<span id="event-dispatcher-dispatcher-aware-events"></span><span id="index-8"></span><h3>EventDispatcher aware Events and Listeners<a class="headerlink" href="#eventdispatcher-aware-events-and-listeners" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> always injects a reference to itself in the passed event
+object.  This means that all listeners have direct access to the
+<tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> object that notified the listener via the passed <tt class="docutils literal"><span class="pre">Event</span></tt>
+object&#8217;s <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html#method_getDispatcher" title="Symfony\Component\EventDispatcher\Event::getDispatcher()"><span class="pre">getDispatcher()</span></a></tt>
+method.</p>
+<p>This can lead to some advanced applications of the <tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> including
+letting listeners dispatch other events, event chaining or even lazy loading of
+more listeners into the dispatcher object. Examples follow:</p>
+<p>Lazy loading listeners:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\Event;
+use Acme\StoreBundle\Event\StoreSubscriber;
+
+class Foo
+{
+    private $started = false;
+
+    public function myLazyListener(Event $event)
+    {
+        if (false === $this-&gt;started) {
+            $subscriber = new StoreSubscriber();
+            $event-&gt;getDispatcher()-&gt;addSubscriber($subscriber);
+        }
+
+        $this-&gt;started = true;
+
+        // ... more code
+    }
+}</pre>
+</div>
+<p>Dispatching another event from within a listener:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\Event;
+
+class Foo
+{
+    public function myFooListener(Event $event)
+    {
+        $event-&gt;getDispatcher()-&gt;dispatch('log', $event);
+
+        // ... more code
+    }
+}</pre>
+</div>
+<p>While this above is sufficient for most uses, if your application uses multiple
+<tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> instances, you might need to specifically inject a known
+instance of the <tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> into your listeners.  This could be done
+using constructor or setter injection as follows:</p>
+<p>Constructor injection:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+
+class Foo
+{
+    protected $dispatcher = null;
+
+    public function __construct(EventDispatcherInterface $dispatcher)
+    {
+        $this-&gt;dispatcher = $dispatcher;
+    }
+}</pre>
+</div>
+<p>Or setter injection:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+
+class Foo
+{
+    protected $dispatcher = null;
+
+    public function setEventDispatcher(EventDispatcherInterface $dispatcher)
+    {
+        $this-&gt;dispatcher = $dispatcher;
+    }
+}</pre>
+</div>
+<p>Choosing between the two is really a matter of taste. Many tend to prefer the
+constructor injection as the objects are fully initialized at construction
+time. But when you have a long list of dependencies, using setter injection
+can be the way to go, especially for optional dependencies.</p>
+</div>
+<div class="section" id="dispatcher-shortcuts">
+<span id="event-dispatcher-shortcuts"></span><span id="index-9"></span><h3>Dispatcher Shortcuts<a class="headerlink" href="#dispatcher-shortcuts" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/EventDispatcher.html#method_dispatch" title="Symfony\Component\EventDispatcher\EventDispatcher::dispatch()"><span class="pre">EventDispatcher::dispatch</span></a></tt>
+method always returns an <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html" title="Symfony\Component\EventDispatcher\Event"><span class="pre">Event</span></a></tt>
+object. This allows for various shortcuts. For example if one does not need
+a custom event object, one can simply rely on a plain
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html" title="Symfony\Component\EventDispatcher\Event"><span class="pre">Event</span></a></tt> object. You do not even need
+to pass this to the dispatcher as it will create one by default unless you
+specifically pass one:</p>
+<div class="highlight-python"><pre>$dispatcher-&gt;dispatch('foo.event');</pre>
+</div>
+<p>Moreover, the EventDispatcher always returns whichever event object that was
+dispatched, i.e. either the event that was passed or the event that was
+created internally by the dispatcher. This allows for nice shortcuts:</p>
+<div class="highlight-python"><pre>if (!$dispatcher-&gt;dispatch('foo.event')-&gt;isPropagationStopped()) {
+    // ...
+}</pre>
+</div>
+<p>Or:</p>
+<div class="highlight-python"><pre>$barEvent = new BarEvent();
+$bar = $dispatcher-&gt;dispatch('bar.event', $barEvent)-&gt;getBar();</pre>
+</div>
+<p>Or:</p>
+<div class="highlight-python"><pre>$response = $dispatcher-&gt;dispatch('bar.event', new BarEvent())-&gt;getBar();</pre>
+</div>
+<p>and so on...</p>
+</div>
+<div class="section" id="event-name-introspection">
+<span id="event-dispatcher-event-name-introspection"></span><span id="index-10"></span><h3>Event Name Introspection<a class="headerlink" href="#event-name-introspection" title="Permalink to this headline">¶</a></h3>
+<p>Since the <tt class="docutils literal"><span class="pre">EventDispatcher</span></tt> already knows the name of the event when dispatching
+it, the event name is also injected into the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html" title="Symfony\Component\EventDispatcher\Event"><span class="pre">Event</span></a></tt> objects, making it available
+to event listeners via the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/Event.html#method_getName" title="Symfony\Component\EventDispatcher\Event::getName()"><span class="pre">getName()</span></a></tt>
+method.</p>
+<p>The event name, (as with any other data in a custom event object) can be used as
+part of the listener&#8217;s processing logic:</p>
+<div class="highlight-python"><pre>use Symfony\Component\EventDispatcher\Event;
+
+class Foo
+{
+    public function myEventListener(Event $event)
+    {
+        echo $event-&gt;getName();
+    }
+}</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">The Event Dispatcher Component</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#usage">Usage</a><ul>
+<li><a class="reference internal" href="#events">Events</a><ul>
+<li><a class="reference internal" href="#naming-conventions">Naming Conventions</a></li>
+<li><a class="reference internal" href="#event-names-and-event-objects">Event Names and Event Objects</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-dispatcher">The Dispatcher</a></li>
+<li><a class="reference internal" href="#connecting-listeners">Connecting Listeners</a></li>
+<li><a class="reference internal" href="#creating-and-dispatching-an-event">Creating and Dispatching an Event</a><ul>
+<li><a class="reference internal" href="#the-static-events-class">The Static <tt class="docutils literal"><span class="pre">Events</span></tt> Class</a></li>
+<li><a class="reference internal" href="#creating-an-event-object">Creating an Event object</a></li>
+<li><a class="reference internal" href="#dispatch-the-event">Dispatch the Event</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#using-event-subscribers">Using Event Subscribers</a></li>
+<li><a class="reference internal" href="#stopping-event-flow-propagation">Stopping Event Flow/Propagation</a></li>
+<li><a class="reference internal" href="#eventdispatcher-aware-events-and-listeners">EventDispatcher aware Events and Listeners</a></li>
+<li><a class="reference internal" href="#dispatcher-shortcuts">Dispatcher Shortcuts</a></li>
+<li><a class="reference internal" href="#event-name-introspection">Event Name Introspection</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Event Dispatcher</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="generic_event.html"
+                        title="next chapter">The Generic Event Object</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/event_dispatcher/introduction.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="generic_event.html" title="The Generic Event Object"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Event Dispatcher"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Event Dispatcher</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

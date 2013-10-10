@@ -1,0 +1,272 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como gerar Entidades de uma base de dados existente &mdash; Symfony2Docs 2.0.x documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.x',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs 2.0.x documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine" href="index.html" />
+    <link rel="next" title="Como trabalhar com Múltiplos Gerenciadores de Entidade" href="multiple_entity_managers.html" />
+    <link rel="prev" title="Como usar as extens?es do Doctrine: Timestampable, Sluggable, Translatable, etc." href="common_extensions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="multiple_entity_managers.html" title="Como trabalhar com Múltiplos Gerenciadores de Entidade"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="common_extensions.html" title="Como usar as extens?es do Doctrine: Timestampable, Sluggable, Translatable, etc."
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs 2.0.x documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-gerar-entidades-de-uma-base-de-dados-existente">
+<span id="index-0"></span><h1>Como gerar Entidades de uma base de dados existente<a class="headerlink" href="#como-gerar-entidades-de-uma-base-de-dados-existente" title="Permalink to this headline">¶</a></h1>
+<p>Quando se começa a trabalhar em um novo projeto que usa banco de dados, duas
+diferentes situações são comuns. Na maioria dos casos, o modelo de banco de
+dados é projetado e construído do zero. Mas algumas vezes, você começará com
+um modelo de banco de dados existente e provavelmente não poderá alterá-lo.
+Felizmente, o Doctrine possui muitas ferramentas que podem te ajudar a gerar
+as classes model do seu de banco de dados já existente.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Como a <a class="reference external" href="http://www.doctrine-project.org/docs/orm/2.0/en/reference/tools.html#reverse-engineering">Doctrine tools documentation</a> diz, engenharia reversa é um
+processo único ao iniciar um projeto. Doctrine é capaz de converter
+aproximadamente 70-80% das instruções de mapeamento necessárias baseadas
+em campos, índices e chaves estrangeiras. Doctrine não pode descobrir
+associações inversas, tipos de herança, entidades com chaves estrangeiras
+como chaves primárias ou operações semânticas em associações como cascata
+ou eventos de ciclo de vida. Alguns ajustes adicionais nas entidades
+geradas são necessários posteriormente para adequar as especificidades de
+cada modelo de domínio.</p>
+</div>
+<p>Este tutorial asssume que você está utilizando uma simples aplicação de blog
+com as seguintes duas tabelas: <tt class="docutils literal"><span class="pre">blog_post</span></tt> e <tt class="docutils literal"><span class="pre">blog_comment</span></tt>. Um comentário
+gravado é ligado a um post gravado graças a uma chave estrangeira.</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="o">`</span><span class="n">blog_post</span><span class="o">`</span> <span class="p">(</span>
+  <span class="o">`</span><span class="n">id</span><span class="o">`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="n">AUTO_INCREMENT</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">title</span><span class="o">`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span> <span class="k">COLLATE</span> <span class="n">utf8_unicode_ci</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">content</span><span class="o">`</span> <span class="n">longtext</span> <span class="k">COLLATE</span> <span class="n">utf8_unicode_ci</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">created_at</span><span class="o">`</span> <span class="n">datetime</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="o">`</span><span class="n">id</span><span class="o">`</span><span class="p">),</span>
+<span class="p">)</span> <span class="n">ENGINE</span><span class="o">=</span><span class="n">InnoDB</span> <span class="n">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">1</span> <span class="k">DEFAULT</span> <span class="n">CHARSET</span><span class="o">=</span><span class="n">utf8</span> <span class="k">COLLATE</span><span class="o">=</span><span class="n">utf8_unicode_ci</span><span class="p">;</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> <span class="o">`</span><span class="n">blog_comment</span><span class="o">`</span> <span class="p">(</span>
+  <span class="o">`</span><span class="n">id</span><span class="o">`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span> <span class="n">AUTO_INCREMENT</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">post_id</span><span class="o">`</span> <span class="nb">bigint</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">author</span><span class="o">`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span> <span class="k">COLLATE</span> <span class="n">utf8_unicode_ci</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">content</span><span class="o">`</span> <span class="n">longtext</span> <span class="k">COLLATE</span> <span class="n">utf8_unicode_ci</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="o">`</span><span class="n">created_at</span><span class="o">`</span> <span class="n">datetime</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+  <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="o">`</span><span class="n">id</span><span class="o">`</span><span class="p">),</span>
+  <span class="k">KEY</span> <span class="o">`</span><span class="n">blog_comment_post_id_idx</span><span class="o">`</span> <span class="p">(</span><span class="o">`</span><span class="n">post_id</span><span class="o">`</span><span class="p">),</span>
+  <span class="k">CONSTRAINT</span> <span class="o">`</span><span class="n">blog_post_id</span><span class="o">`</span> <span class="k">FOREIGN</span> <span class="k">KEY</span> <span class="p">(</span><span class="o">`</span><span class="n">post_id</span><span class="o">`</span><span class="p">)</span> <span class="k">REFERENCES</span> <span class="o">`</span><span class="n">blog_post</span><span class="o">`</span> <span class="p">(</span><span class="o">`</span><span class="n">id</span><span class="o">`</span><span class="p">)</span> <span class="k">ON</span> <span class="k">DELETE</span> <span class="k">CASCADE</span>
+<span class="p">)</span> <span class="n">ENGINE</span><span class="o">=</span><span class="n">InnoDB</span> <span class="n">AUTO_INCREMENT</span><span class="o">=</span><span class="mi">1</span> <span class="k">DEFAULT</span> <span class="n">CHARSET</span><span class="o">=</span><span class="n">utf8</span> <span class="k">COLLATE</span><span class="o">=</span><span class="n">utf8_unicode_ci</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Antes de começar a receita, verifique se seus parâmetros de conexão com banco
+de dados estão configurados corretamente no arquivo
+<tt class="docutils literal"><span class="pre">app/config/parameters.yml</span></tt> (ou onde quer que sua configuração de banco de
+dados é mantida) e que você tenha inicializado um bundle que irá receber sua
+futura classe de entidade. NEste tutorial, vamos supor que um
+<tt class="docutils literal"><span class="pre">AcmeBlogBundle</span></tt> existe e está localizado na pasta <tt class="docutils literal"><span class="pre">src/Acme/BlogBundle</span></tt>.</p>
+<p>O primeiro passo para construir as classes de entidade de uma base da dados
+é solicitar que o Doctrine faça a introspecção do banco de dados e gere os
+arquivos de metadados. Os arquivos de metadados descrevem a classe de entidade
+baseados nos campos da tabela.</p>
+<div class="highlight-bash"><div class="highlight"><pre>php app/console doctrine:mapping:convert xml ./src/Acme/BlogBundle/Resources/config/doctrine/metadata/orm --from-database --force
+</pre></div>
+</div>
+<p>Esta ferramenta de linha de comando pede para o Doctrine fazer a introspecção
+do banco de dados e gerar os arquivos de metadados na pasta <tt class="docutils literal"><span class="pre">src/Acme/BlogBundle/Resources/config/doctrine/metadata/orm</span></tt>
+do seu bundle.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Também é possivel gerar a classe de metadados no formato YAML alterando o
+primeiro argumento para <cite>yml</cite>.</p>
+</div>
+<p>O arquivo de metadados gerado <tt class="docutils literal"><span class="pre">BlogPost.dcm.xml</span></tt> é semelhante a isto:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>
+<span class="nt">&lt;doctrine-mapping&gt;</span>
+  <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;BlogPost&quot;</span> <span class="na">table=</span><span class="s">&quot;blog_post&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;change-tracking-policy&gt;</span>DEFERRED_IMPLICIT<span class="nt">&lt;/change-tracking-policy&gt;</span>
+    <span class="nt">&lt;id</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">type=</span><span class="s">&quot;bigint&quot;</span> <span class="na">column=</span><span class="s">&quot;id&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;generator</span> <span class="na">strategy=</span><span class="s">&quot;IDENTITY&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/id&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;title&quot;</span> <span class="na">type=</span><span class="s">&quot;string&quot;</span> <span class="na">column=</span><span class="s">&quot;title&quot;</span> <span class="na">length=</span><span class="s">&quot;100&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;content&quot;</span> <span class="na">type=</span><span class="s">&quot;text&quot;</span> <span class="na">column=</span><span class="s">&quot;content&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;isPublished&quot;</span> <span class="na">type=</span><span class="s">&quot;boolean&quot;</span> <span class="na">column=</span><span class="s">&quot;is_published&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;createdAt&quot;</span> <span class="na">type=</span><span class="s">&quot;datetime&quot;</span> <span class="na">column=</span><span class="s">&quot;created_at&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;updatedAt&quot;</span> <span class="na">type=</span><span class="s">&quot;datetime&quot;</span> <span class="na">column=</span><span class="s">&quot;updated_at&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;slug&quot;</span> <span class="na">type=</span><span class="s">&quot;string&quot;</span> <span class="na">column=</span><span class="s">&quot;slug&quot;</span> <span class="na">length=</span><span class="s">&quot;255&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;lifecycle-callbacks/&gt;</span>
+  <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+<p>Uma vez que os arquivos de metados foram gerados, você pode pedir para Doctrine
+importar o esquema e construir as classes de entidade relacionadas com a
+execução dos dois comandos a seguir.</p>
+<div class="highlight-bash"><div class="highlight"><pre>php app/console doctrine:mapping:import AcmeBlogBundle annotation
+php app/console doctrine:generate:entities AcmeBlogBundle
+</pre></div>
+</div>
+<p>O primeiro comando gera as classes de entidade com um mapeamento de anotações,
+msa você poderá alterar o argumento <tt class="docutils literal"><span class="pre">annotation``para</span> <span class="pre">``xml</span></tt> ou <tt class="docutils literal"><span class="pre">yml</span></tt>.
+A classe de entidade <tt class="docutils literal"><span class="pre">BlogComment</span></tt> recém-criada é semelhante a isto:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="o">&lt;?</span><span class="nx">php</span>
+
+<span class="c1">// src/Acme/BlogBundle/Entity/BlogComment.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\BlogBundle\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping</span> <span class="k">as</span> <span class="nx">ORM</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Acme\BlogBundle\Entity\BlogComment</span>
+<span class="sd"> *</span>
+<span class="sd"> * @ORM\Table(name=&quot;blog_comment&quot;)</span>
+<span class="sd"> * @ORM\Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">BlogComment</span>
+<span class="p">{</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @var bigint $id</span>
+<span class="sd">     *</span>
+<span class="sd">     * @ORM\Column(name=&quot;id&quot;, type=&quot;bigint&quot;, nullable=false)</span>
+<span class="sd">     * @ORM\Id</span>
+<span class="sd">     * @ORM\GeneratedValue(strategy=&quot;IDENTITY&quot;)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @var string $author</span>
+<span class="sd">     *</span>
+<span class="sd">     * @ORM\Column(name=&quot;author&quot;, type=&quot;string&quot;, length=100, nullable=false)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$author</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @var text $content</span>
+<span class="sd">     *</span>
+<span class="sd">     * @ORM\Column(name=&quot;content&quot;, type=&quot;text&quot;, nullable=false)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$content</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @var datetime $createdAt</span>
+<span class="sd">     *</span>
+<span class="sd">     * @ORM\Column(name=&quot;created_at&quot;, type=&quot;datetime&quot;, nullable=false)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$createdAt</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @var BlogPost</span>
+<span class="sd">     *</span>
+<span class="sd">     * @ORM\ManyToOne(targetEntity=&quot;BlogPost&quot;)</span>
+<span class="sd">     * @ORM\JoinColumn(name=&quot;post_id&quot;, referencedColumnName=&quot;id&quot;)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$post</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Como você pode ver, Doctrine converte todos os campos da tabela para
+propriedades privadas e anotadas da classe. O mais impressionante é que ele
+descobre o relacionamento com a classe de entidade <tt class="docutils literal"><span class="pre">BlogPost</span></tt> baseada na
+restrição de chave estrangeira.
+Conseqüentemente, você pode encontrar uma propriedade privada <tt class="docutils literal"><span class="pre">$post</span></tt> mapeada
+com por uma entidade <tt class="docutils literal"><span class="pre">BlogPost</span></tt> na classe de entidade <tt class="docutils literal"><span class="pre">BlogComment</span></tt>.</p>
+<p>O último comando gerou todos os getters e setters para todas as propriedades
+das duas classes de entidade <tt class="docutils literal"><span class="pre">BlogPost</span></tt> e <tt class="docutils literal"><span class="pre">BlogComment</span></tt>. As entidades
+geradas agora estão prontas para serem usadas. Divirta-se!</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="common_extensions.html"
+                        title="previous chapter">Como usar as extens?es do Doctrine: Timestampable, Sluggable, Translatable, etc.</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="multiple_entity_managers.html"
+                        title="next chapter">Como trabalhar com Múltiplos Gerenciadores de Entidade</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/doctrine/reverse_engineering.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="multiple_entity_managers.html" title="Como trabalhar com Múltiplos Gerenciadores de Entidade"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="common_extensions.html" title="Como usar as extens?es do Doctrine: Timestampable, Sluggable, Translatable, etc."
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs 2.0.x documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

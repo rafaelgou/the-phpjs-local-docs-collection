@@ -1,0 +1,692 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Composite and Foreign Keys as Primary Key &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="Ordering To-Many Associations" href="ordered-associations.html" />
+    <link rel="prev" title="Extra Lazy Associations" href="extra-lazy-associations.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="ordered-associations.html" title="Ordering To-Many Associations"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="extra-lazy-associations.html" title="Extra Lazy Associations"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="composite-and-foreign-keys-as-primary-key">
+<h1>Composite and Foreign Keys as Primary Key<a class="headerlink" href="#composite-and-foreign-keys-as-primary-key" title="Permalink to this headline">¶</a></h1>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.1.</span></p>
+<p>Doctrine 2 supports composite primary keys natively. Composite keys are a very powerful relational database concept
+and we took good care to make sure Doctrine 2 supports as many of the composite primary key use-cases.
+For Doctrine 2.0 composite keys of primitive data-types are supported, for Doctrine 2.1 even foreign keys as
+primary keys are supported.</p>
+<p>This tutorial shows how the semantics of composite primary keys work and how they map to the database.</p>
+<div class="section" id="general-considerations">
+<h2>General Considerations<a class="headerlink" href="#general-considerations" title="Permalink to this headline">¶</a></h2>
+<p>Every entity with a composite key cannot use an id generator other than &#8220;ASSIGNED&#8221;. That means
+the ID fields have to have their values set before you call <tt class="docutils literal"><span class="pre">EntityManager#persist($entity)</span></tt>.</p>
+</div>
+<div class="section" id="primitive-types-only">
+<h2>Primitive Types only<a class="headerlink" href="#primitive-types-only" title="Permalink to this headline">¶</a></h2>
+<p>Even in version 2.0 you can have composite keys as long as they only consist of the primitive types
+<tt class="docutils literal"><span class="pre">integer</span></tt> and <tt class="docutils literal"><span class="pre">string</span></tt>. Suppose you want to create a database of cars and use the model-name
+and year of production as primary keys:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">VehicleCatalogue\Model</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">Car</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$name</span><span class="p">;</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$year</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$year</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="nv">$name</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">year</span> <span class="o">=</span> <span class="nv">$year</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getModelName</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">name</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getYearOfProduction</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">year</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span class="nt">&lt;doctrine-mapping</span> <span class="na">xmlns=</span><span class="s">&quot;http://doctrine-project.org/schemas/orm/doctrine-mapping&quot;</span>
+      <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+      <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://doctrine-project.org/schemas/orm/doctrine-mapping</span>
+<span class="s">                          http://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;VehicleCatalogue\Model\Car&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;id</span> <span class="na">field=</span><span class="s">&quot;name&quot;</span> <span class="na">type=</span><span class="s">&quot;string&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;id</span> <span class="na">field=</span><span class="s">&quot;year&quot;</span> <span class="na">type=</span><span class="s">&quot;integer&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">VehicleCatalogue\Model\Car</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string</span>
+    <span class="l-Scalar-Plain">year</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">integer</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now you can use this entity:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">VehicleCatalogue\Model</span><span class="p">;</span>
+
+<span class="c1">// $em is the EntityManager</span>
+
+<span class="nv">$car</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Car</span><span class="p">(</span><span class="s2">&quot;Audi A8&quot;</span><span class="p">,</span> <span class="mi">2010</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">persist</span><span class="p">(</span><span class="nv">$car</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>And for querying you can use arrays to both DQL and EntityRepositories:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">VehicleCatalogue\Model</span><span class="p">;</span>
+
+<span class="c1">// $em is the EntityManager</span>
+<span class="nv">$audi</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s2">&quot;VehicleCatalogue\Model\Car&quot;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;name&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;Audi A8&quot;</span><span class="p">,</span> <span class="s2">&quot;year&quot;</span> <span class="o">=&gt;</span> <span class="mi">2010</span><span class="p">));</span>
+
+<span class="nv">$dql</span> <span class="o">=</span> <span class="s2">&quot;SELECT c FROM VehicleCatalogue\Model\Car c WHERE c.id = ?1&quot;</span><span class="p">;</span>
+<span class="nv">$audi</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">createQuery</span><span class="p">(</span><span class="nv">$dql</span><span class="p">)</span>
+           <span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s2">&quot;name&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;Audi A8&quot;</span><span class="p">,</span> <span class="s2">&quot;year&quot;</span> <span class="o">=&gt;</span> <span class="mi">2010</span><span class="p">))</span>
+           <span class="o">-&gt;</span><span class="na">getSingleResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>You can also use this entity in associations. Doctrine will then generate two foreign keys one for <tt class="docutils literal"><span class="pre">name</span></tt>
+and to <tt class="docutils literal"><span class="pre">year</span></tt> to the related entities.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This example shows how you can nicely solve the requirement for existing
+values before <tt class="docutils literal"><span class="pre">EntityManager#persist()</span></tt>: By adding them as mandatory values for the constructor.</p>
+</div>
+</div>
+<div class="section" id="identity-through-foreign-entities">
+<h2>Identity through foreign Entities<a class="headerlink" href="#identity-through-foreign-entities" title="Permalink to this headline">¶</a></h2>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Identity through foreign entities is only supported with Doctrine 2.1</p>
+</div>
+<p>There are tons of use-cases where the identity of an Entity should be determined by the entity
+of one or many parent entities.</p>
+<ul class="simple">
+<li>Dynamic Attributes of an Entity (for example Article). Each Article has many
+attributes with primary key &#8220;article_id&#8221; and &#8220;attribute_name&#8221;.</li>
+<li>Address object of a Person, the primary key of the address is &#8220;user_id&#8221;. This is not a case of a composite primary
+key, but the identity is derived through a foreign entity and a foreign key.</li>
+<li>Join Tables with metadata can be modelled as Entity, for example connections between two articles
+with a little description and a score.</li>
+</ul>
+<p>The semantics of mapping identity through foreign entities are easy:</p>
+<ul class="simple">
+<li>Only allowed on Many-To-One or One-To-One associations.</li>
+<li>Plug an <tt class="docutils literal"><span class="pre">&#64;Id</span></tt> annotation onto every association.</li>
+<li>Set an attribute <tt class="docutils literal"><span class="pre">association-key</span></tt> with the field name of the association in XML.</li>
+<li>Set a key <tt class="docutils literal"><span class="pre">associationKey:</span></tt> with the field name of the association in YAML.</li>
+</ul>
+</div>
+<div class="section" id="use-case-1-dynamic-attributes">
+<h2>Use-Case 1: Dynamic Attributes<a class="headerlink" href="#use-case-1-dynamic-attributes" title="Permalink to this headline">¶</a></h2>
+<p>We keep up the example of an Article with arbitrary attributes, the mapping looks like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">Application\Model</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\Common\Collections\ArrayCollection</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">Article</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+    <span class="sd">/** @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$title</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @OneToMany(targetEntity=&quot;ArticleAttribute&quot;, mappedBy=&quot;article&quot;, cascade={&quot;ALL&quot;}, indexBy=&quot;attribute&quot;)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$attributes</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">addAttribute</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$value</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">attributes</span><span class="p">[</span><span class="nv">$name</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ArticleAttribute</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$value</span><span class="p">,</span> <span class="nv">$this</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">ArticleAttribute</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @ManyToOne(targetEntity=&quot;Article&quot;, inversedBy=&quot;attributes&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$article</span><span class="p">;</span>
+
+    <span class="sd">/** @Id @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$attribute</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$value</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$value</span><span class="p">,</span> <span class="nv">$article</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">attribute</span> <span class="o">=</span> <span class="nv">$name</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">value</span> <span class="o">=</span> <span class="nv">$value</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">article</span> <span class="o">=</span> <span class="nv">$article</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping</span> <span class="na">xmlns=</span><span class="s">&quot;http://doctrine-project.org/schemas/orm/doctrine-mapping&quot;</span>
+      <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+      <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://doctrine-project.org/schemas/orm/doctrine-mapping</span>
+<span class="s">                    http://doctrine-project.org/schemas/orm/doctrine-mapping.xsd&quot;</span><span class="nt">&gt;</span>
+
+     <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;Application\Model\ArticleAttribute&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;id</span> <span class="na">name=</span><span class="s">&quot;article&quot;</span> <span class="na">association-key=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;id</span> <span class="na">name=</span><span class="s">&quot;attribute&quot;</span> <span class="na">type=</span><span class="s">&quot;string&quot;</span> <span class="nt">/&gt;</span>
+
+        <span class="nt">&lt;field</span> <span class="na">name=</span><span class="s">&quot;value&quot;</span> <span class="na">type=</span><span class="s">&quot;string&quot;</span> <span class="nt">/&gt;</span>
+
+        <span class="nt">&lt;many-to-one</span> <span class="na">field=</span><span class="s">&quot;article&quot;</span> <span class="na">target-entity=</span><span class="s">&quot;Article&quot;</span> <span class="na">inversed-by=</span><span class="s">&quot;attributes&quot;</span> <span class="nt">/&gt;</span>
+     <span class="nt">&lt;entity&gt;</span>
+
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">Application\Model\ArticleAttribute</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">article</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">associationKey</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+    <span class="l-Scalar-Plain">attribute</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string</span>
+  <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">value</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string</span>
+  <span class="l-Scalar-Plain">manyToOne</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">article</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">targetEntity</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Article</span>
+      <span class="l-Scalar-Plain">inversedBy</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">attributes</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="use-case-2-simple-derived-identity">
+<h2>Use-Case 2: Simple Derived Identity<a class="headerlink" href="#use-case-2-simple-derived-identity" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes you have the requirement that two objects are related by a One-To-One association
+and that the dependent class should re-use the primary key of the class it depends on.
+One good example for this is a user-address relationship:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * @Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">User</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @Entity</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">Address</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @OneToOne(targetEntity=&quot;User&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$user</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">User</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">integer</span>
+      <span class="l-Scalar-Plain">generator</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">strategy</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">AUTO</span>
+
+<span class="l-Scalar-Plain">Address</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">user</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">associationKey</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+  <span class="l-Scalar-Plain">oneToOne</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">user</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">targetEntity</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">User</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="use-case-3-join-table-with-metadata">
+<h2>Use-Case 3: Join-Table with Metadata<a class="headerlink" href="#use-case-3-join-table-with-metadata" title="Permalink to this headline">¶</a></h2>
+<p>In the classic order product shop example there is the concept of the order item
+which contains references to order and product and additional data such as the amount
+of products purchased and maybe even the current price.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">use</span> <span class="nx">Doctrine\Common\Collections\ArrayCollection</span><span class="p">;</span>
+
+<span class="sd">/** @Entity */</span>
+<span class="k">class</span> <span class="nc">Order</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/** @ManyToOne(targetEntity=&quot;Customer&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$customer</span><span class="p">;</span>
+    <span class="sd">/** @OneToMany(targetEntity=&quot;OrderItem&quot;, mappedBy=&quot;order&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$items</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;boolean&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$payed</span> <span class="o">=</span> <span class="k">false</span><span class="p">;</span>
+    <span class="sd">/** @Column(type=&quot;boolean&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$shipped</span> <span class="o">=</span> <span class="k">false</span><span class="p">;</span>
+    <span class="sd">/** @Column(type=&quot;datetime&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$created</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">Customer</span> <span class="nv">$customer</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">customer</span> <span class="o">=</span> <span class="nv">$customer</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">items</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ArrayCollection</span><span class="p">();</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\DateTime</span><span class="p">(</span><span class="s2">&quot;now&quot;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="sd">/** @Entity */</span>
+<span class="k">class</span> <span class="nc">Product</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$name</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;decimal&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$currentPrice</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getCurrentPrice</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">currentPrice</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="sd">/** @Entity */</span>
+<span class="k">class</span> <span class="nc">OrderItem</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @ManyToOne(targetEntity=&quot;Order&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$order</span><span class="p">;</span>
+
+    <span class="sd">/** @Id @ManyToOne(targetEntity=&quot;Product&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$product</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;integer&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$amount</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;decimal&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$offeredPrice</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">Order</span> <span class="nv">$order</span><span class="p">,</span> <span class="nx">Product</span> <span class="nv">$product</span><span class="p">,</span> <span class="nv">$amount</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">order</span> <span class="o">=</span> <span class="nv">$order</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">product</span> <span class="o">=</span> <span class="nv">$product</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">offeredPrice</span> <span class="o">=</span> <span class="nv">$product</span><span class="o">-&gt;</span><span class="na">getCurrentPrice</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="performance-considerations">
+<h2>Performance Considerations<a class="headerlink" href="#performance-considerations" title="Permalink to this headline">¶</a></h2>
+<p>Using composite keys always comes with a performance hit compared to using entities with
+a simple surrogate key. This performance impact is mostly due to additional PHP code that is
+necessary to handle this kind of keys, most notably when using derived identifiers.</p>
+<p>On the SQL side there is not much overhead as no additional or unexpected queries have to be
+executed to manage entities with derived foreign keys.</p>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">Composite and Foreign Keys as Primary Key</a><ul>
+<li><a class="reference internal" href="#general-considerations">General Considerations</a></li>
+<li><a class="reference internal" href="#primitive-types-only">Primitive Types only</a></li>
+<li><a class="reference internal" href="#identity-through-foreign-entities">Identity through foreign Entities</a></li>
+<li><a class="reference internal" href="#use-case-1-dynamic-attributes">Use-Case 1: Dynamic Attributes</a></li>
+<li><a class="reference internal" href="#use-case-2-simple-derived-identity">Use-Case 2: Simple Derived Identity</a></li>
+<li><a class="reference internal" href="#use-case-3-join-table-with-metadata">Use-Case 3: Join-Table with Metadata</a></li>
+<li><a class="reference internal" href="#performance-considerations">Performance Considerations</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="extra-lazy-associations.html"
+                                  title="previous chapter">Extra Lazy Associations</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="ordered-associations.html"
+                                  title="next chapter">Ordering To-Many Associations</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/tutorials/composite-primary-keys.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/tutorials/composite-primary-keys.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/tutorials/composite-primary-keys.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

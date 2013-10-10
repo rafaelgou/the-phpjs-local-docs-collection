@@ -1,0 +1,558 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Data Modeling Considerations for MongoDB Applications &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/data-modeling.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/data-modeling" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Data Modeling" href="../data-modeling.html" />
+<link rel="next" title="Model Embedded One-to-One Relationships Between Documents" href="../tutorial/model-embedded-one-to-one-relationships-between-documents.html" />
+<link rel="prev" title="Data Modeling" href="../data-modeling.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../data-modeling.html">Data Modeling</a><span class="bcpoint"> > </span></li>
+          <li>Data Modeling Considerations for MongoDB Applications</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="data-modeling-considerations-for-mongodb-applications">
+<h1>Data Modeling Considerations for MongoDB Applications<a class="headerlink" href="#data-modeling-considerations-for-mongodb-applications" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>Data in MongoDB has a <em>flexible schema</em>. <a class="reference internal" href="../reference/glossary.html#term-collection"><em class="xref std std-term">Collections</em></a> do not enforce <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a> structure. This means
+that:</p>
+<ul class="simple">
+<li>documents in the same collection do not need to have the same set of
+fields or structure, and</li>
+<li>common fields in a collection&#8217;s documents may hold different types
+of data.</li>
+</ul>
+<p>Each document only needs to contain relevant fields to the entity or
+object that the document represents. In practice, <em>most</em> documents in a
+collection share a similar structure. Schema flexibility means that
+you can model your documents in MongoDB so that they can closely
+resemble and reflect application-level objects.</p>
+<p>As in all data modeling, when developing data models (i.e. <em>schema
+designs</em>) for MongoDB, you must consider the inherent properties and
+requirements of the application objects and the relationships between
+application objects. MongoDB data models must also reflect:</p>
+<ul class="simple">
+<li>how data will grow and change over time, and</li>
+<li>the kinds of queries your application will perform.</li>
+</ul>
+<p>These considerations and requirements force developers to make a
+number of multi-factored decisions when modeling data, including:</p>
+<ul>
+<li><p class="first">normalization and de-normalization.</p>
+<p>These decisions reflect the degree to which the data model should
+store related pieces of data in a single document. Fully normalized
+data models describe relationships using <a class="reference internal" href="../reference/database-references.html"><em>references</em></a> between documents, while
+de-normalized models may store redundant information across related
+models.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../applications/indexes.html"><em>indexing strategy</em></a>.</p>
+</li>
+<li><p class="first">representation of data in arrays in <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a>.</p>
+</li>
+</ul>
+<p>Although a number of data models may be functionally equivalent for a
+given application, different data models may have significant impacts on
+MongoDB and applications performance.</p>
+<p>This document provides a high level overview of these data modeling
+decisions and factors. In addition, consider the
+<a class="reference internal" href="#data-modeling-examples"><em>Data Modeling Patterns and Examples</em></a> section which provides more concrete
+examples of all the discussed patterns.</p>
+</div>
+<div class="section" id="data-modeling-decisions">
+<span id="id1"></span><h2>Data Modeling Decisions<a class="headerlink" href="#data-modeling-decisions" title="Permalink to this headline">¶</a></h2>
+<p>Data modeling decisions involve determining how to structure the
+documents to model the data effectively. The primary decision is
+whether to <a class="reference internal" href="#data-modeling-embedding"><em>embed</em></a> or to <a class="reference internal" href="#data-modeling-referencing"><em>use
+references</em></a>.</p>
+<div class="section" id="embedding">
+<span id="data-modeling-embedding"></span><h3>Embedding<a class="headerlink" href="#embedding" title="Permalink to this headline">¶</a></h3>
+<p>To de-normalize data, store two related pieces of data in a single
+<a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a>.</p>
+<p>Operations within a document are less expensive for the server than
+operations that involve multiple documents.</p>
+<p>In general, use embedded data models when:</p>
+<ul class="simple">
+<li>you have &#8220;contains&#8221; relationships between entities. See
+<a class="reference internal" href="../tutorial/model-embedded-one-to-one-relationships-between-documents.html#data-modeling-example-one-to-one"><em>Model Embedded One-to-One Relationships Between Documents</em></a>.</li>
+<li>you have one-to-many relationships where the &#8220;many&#8221; objects always
+appear with or are viewed in the context of their parent documents.
+See <a class="reference internal" href="../tutorial/model-embedded-one-to-many-relationships-between-documents.html#data-modeling-example-one-to-many"><em>Model Embedded One-to-Many Relationships Between Documents</em></a>.</li>
+</ul>
+<p>Embedding provides the following benefits:</p>
+<ul class="simple">
+<li>generally better performance for read operations.</li>
+<li>the ability to request and retrieve related data in a single
+database operation.</li>
+</ul>
+<p>Embedding related data in documents, can lead to situations where
+documents grow after creation. Document growth can impact write
+performance and lead to data fragmentation. Furthermore, documents in
+MongoDB must be smaller than the <a class="reference internal" href="../reference/limits.html#BSON Document Size" title="BSON Document Size"><tt class="xref mongodb mongodb-limit docutils literal"><span class="pre">maximum</span> <span class="pre">BSON</span> <span class="pre">document</span> <span class="pre">size</span></tt></a>. For larger documents, consider using
+<a class="reference internal" href="gridfs.html"><em>GridFS</em></a>.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<ul class="last simple">
+<li><a class="reference internal" href="../reference/glossary.html#term-dot-notation"><em class="xref std std-term">dot notation</em></a> for information on &#8220;reaching into&#8221; embedded
+sub-documents.</li>
+<li><a class="reference internal" href="read-operations.html#read-operations-arrays"><em>Arrays</em></a> for more examples on accessing arrays.</li>
+<li><a class="reference internal" href="read-operations.html#read-operations-subdocuments"><em>Subdocuments</em></a> for more examples on accessing
+subdocuments.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="referencing">
+<span id="data-modeling-referencing"></span><h3>Referencing<a class="headerlink" href="#referencing" title="Permalink to this headline">¶</a></h3>
+<p>To normalize data, store <a class="reference internal" href="../reference/database-references.html"><em>references</em></a> between two documents to indicate
+a relationship between the data represented in each document.</p>
+<p>In general, use normalized data models:</p>
+<ul class="simple">
+<li>when embedding would result in duplication of data but would not
+provide sufficient read performance advantages to outweigh the
+implications of the duplication.</li>
+<li>to represent more complex many-to-many relationships.</li>
+<li>to model large hierarchical data sets. See <a class="reference internal" href="../tutorial/model-tree-structures.html#data-modeling-trees"><em>Model Tree Structures in MongoDB</em></a>.</li>
+</ul>
+<p>Referencing provides more flexibility than embedding; however, to
+resolve the references, client-side applications must issue follow-up
+queries. In other words, using references requires more roundtrips to
+the server.</p>
+<p>See <a class="reference internal" href="../tutorial/model-referenced-one-to-many-relationships-between-documents.html#data-modeling-publisher-and-books"><em>Model Referenced One-to-Many Relationships Between Documents</em></a> for an example of
+referencing.</p>
+</div>
+<div class="section" id="atomicity">
+<span id="data-modeling-atomicity"></span><h3>Atomicity<a class="headerlink" href="#atomicity" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB only provides atomic operations on the level of a single
+document. <a class="footnote-reference" href="#record-atomicity" id="id2">[1]</a> As a result needs for atomic operations
+influence decisions to use embedded or referenced relationships when
+modeling data for MongoDB.</p>
+<p>Embed fields that need to be modified together atomically in the same
+document. See <a class="reference internal" href="../tutorial/model-data-for-atomic-operations.html#data-modeling-atomic-operation"><em>Model Data for Atomic Operations</em></a> for an example of
+atomic updates within a single document.</p>
+<table class="docutils footnote" frame="void" id="record-atomicity" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[1]</a></td><td>Document-level atomic operations include all
+operations within a single MongoDB document record: operations that
+affect multiple sub-documents within that single record are still
+atomic.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="operational-considerations">
+<h2>Operational Considerations<a class="headerlink" href="#operational-considerations" title="Permalink to this headline">¶</a></h2>
+<p>In addition to normalization and normalization concerns, a number of
+other operational factors help shape data modeling decisions in
+MongoDB. These factors include:</p>
+<ul class="simple">
+<li>data lifecycle management,</li>
+<li>number of collections and</li>
+<li>indexing requirements,</li>
+<li>sharding, and</li>
+<li>managing document growth.</li>
+</ul>
+<p>These factors implications for database and application performance
+as well as future maintenance and development costs.</p>
+<div class="section" id="data-lifecycle-management">
+<h3>Data Lifecycle Management<a class="headerlink" href="#data-lifecycle-management" title="Permalink to this headline">¶</a></h3>
+<p>Data modeling decisions should also take data lifecycle management into
+consideration.</p>
+<p>The <a class="reference internal" href="../tutorial/expire-data.html"><em>Time to Live or TTL feature</em></a> of
+collections expires documents after a period of time. Consider using
+the TTL feature if your application requires some data to persist in
+the database for a limited period of time.</p>
+<p>Additionally, if your application only uses recently inserted
+documents consider <a class="reference internal" href="capped-collections.html"><em>Capped Collections</em></a>.  Capped
+collections provide <em>first-in-first-out</em> (FIFO) management of inserted
+documents and optimized to support operations that insert and read
+documents based on insertion order.</p>
+</div>
+<div class="section" id="large-number-of-collections">
+<span id="data-model-large-number-of-collections"></span><h3>Large Number of Collections<a class="headerlink" href="#large-number-of-collections" title="Permalink to this headline">¶</a></h3>
+<p>In certain situations, you might choose to store information in several
+collections rather than in a single collection.</p>
+<p>Consider a sample collection <tt class="docutils literal"><span class="pre">logs</span></tt> that stores log documents for
+various environment and applications. The <tt class="docutils literal"><span class="pre">logs</span></tt> collection contains
+documents of the following form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">log</span><span class="o">:</span> <span class="s2">&quot;dev&quot;</span><span class="p">,</span> <span class="nx">ts</span><span class="o">:</span> <span class="p">...,</span> <span class="nx">info</span><span class="o">:</span> <span class="p">...</span> <span class="p">}</span>
+<span class="p">{</span> <span class="nx">log</span><span class="o">:</span> <span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="nx">ts</span><span class="o">:</span> <span class="p">...,</span> <span class="nx">info</span><span class="o">:</span> <span class="p">...}</span>
+</pre></div>
+</div>
+<p>If the total number of documents is low you may group documents into
+collection by type. For logs, consider maintaining distinct log
+collections, such as <tt class="docutils literal"><span class="pre">logs.dev</span></tt> and <tt class="docutils literal"><span class="pre">logs.debug</span></tt>. The <tt class="docutils literal"><span class="pre">logs.dev</span></tt>
+collection would contain only the documents related to the dev
+environment.</p>
+<p>Generally, having large number of collections has no significant
+performance penalty and results in very good performance. Distinct
+collections are very important for high-throughput batch processing.</p>
+<p>When using models that have a large number of collections, consider
+the following behaviors:</p>
+<ul class="simple">
+<li>Each collection has a certain minimum overhead of a few kilobytes.</li>
+<li>Each index, including the index on <tt class="docutils literal"><span class="pre">_id</span></tt>, requires at least 8KB of
+data space.</li>
+</ul>
+<p>A single <tt class="docutils literal"><span class="pre">&lt;database&gt;.ns</span></tt> file stores all meta-data for each
+<a class="reference internal" href="../reference/glossary.html#term-database"><em class="xref std std-term">database</em></a>. Each index and collection has its own entry in the
+namespace file, MongoDB places <a class="reference internal" href="../reference/limits.html#Size of Namespace File" title="Size of Namespace File"><tt class="xref mongodb mongodb-limit docutils literal"><span class="pre">limits</span> <span class="pre">on</span> <span class="pre">the</span> <span class="pre">size</span> <span class="pre">of</span> <span class="pre">namespace</span>
+<span class="pre">files</span></tt></a>.</p>
+<p>Because of <a class="reference internal" href="../reference/limits.html#Number of Namespaces" title="Number of Namespaces"><tt class="xref mongodb mongodb-limit docutils literal"><span class="pre">limits</span> <span class="pre">on</span> <span class="pre">namespaces</span></tt></a>, you
+may wish to know the current number of namespaces in order to determine
+how many additional namespaces the database can support, as in the
+following example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">system</span><span class="p">.</span><span class="nx">namespaces</span><span class="p">.</span><span class="nx">count</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">&lt;database&gt;.ns</span></tt> file defaults to 16 MB. To change
+the size of the <tt class="docutils literal"><span class="pre">&lt;database&gt;.ns</span></tt> file, pass a new size to
+<a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--nssize"><em class="xref std std-option">--nssize option &lt;new size MB&gt;</em></a> on server
+start.</p>
+<p>The <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--nssize"><em class="xref std std-option">--nssize</em></a> sets the size for <em>new</em>
+<tt class="docutils literal"><span class="pre">&lt;database&gt;.ns</span></tt> files. For existing databases, after starting up the
+server with <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--nssize"><em class="xref std std-option">--nssize</em></a>, run the
+<a class="reference internal" href="../reference/method/db.repairDatabase.html#db.repairDatabase" title="db.repairDatabase()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.repairDatabase()</span></tt></a> command from the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell.</p>
+</div>
+<div class="section" id="indexes">
+<h3>Indexes<a class="headerlink" href="#indexes" title="Permalink to this headline">¶</a></h3>
+<p>Create indexes to support common queries. Generally, indexes and index
+use in MongoDB correspond to indexes and index use in relational
+database: build indexes on fields that appear often in queries and for
+all operations that return sorted results. MongoDB automatically
+creates a unique index on the <tt class="docutils literal"><span class="pre">_id</span></tt> field.</p>
+<p>As you create indexes, consider the following behaviors of indexes:</p>
+<ul class="simple">
+<li>Each index requires at least 8KB of data space.</li>
+<li>Adding an index has some negative performance impact for write
+operations. For collections with high write-to-read ratio, indexes
+are expensive as each insert must add keys to each index.</li>
+<li>Collections with high proportion of read operations to write
+operations often benefit from additional indexes. Indexes do not
+affect un-indexed read operations.</li>
+</ul>
+<p>See <a class="reference internal" href="../applications/indexes.html"><em>Indexing Strategies</em></a> for more information on determining
+indexes. Additionally, the MongoDB <a class="reference internal" href="../tutorial/manage-the-database-profiler.html"><em>database profiler</em></a> may help identify
+inefficient queries.</p>
+</div>
+<div class="section" id="sharding">
+<h3>Sharding<a class="headerlink" href="#sharding" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="../reference/glossary.html#term-sharding"><em class="xref std std-term">Sharding</em></a> allows users to <a class="reference internal" href="../reference/glossary.html#term-partition"><em class="xref std std-term">partition</em></a> a
+<a class="reference internal" href="../reference/glossary.html#term-collection"><em class="xref std std-term">collection</em></a> within a database to distribute the collection&#8217;s
+documents across a number of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances or
+<a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a>.</p>
+<p>The shard key determines how MongoDB distributes data among shards in
+a sharded collection. Selecting the proper <a class="reference internal" href="sharded-clusters.html#shard-key"><em>shard key</em></a> has significant implications for performance.</p>
+<p>See <a class="reference internal" href="sharded-clusters.html"><em>Sharded Cluster Overview</em></a> for more information on sharding and
+the selection of the <a class="reference internal" href="sharded-clusters.html#shard-key"><em>shard key</em></a>.</p>
+</div>
+<div class="section" id="document-growth">
+<h3>Document Growth<a class="headerlink" href="#document-growth" title="Permalink to this headline">¶</a></h3>
+<p>Certain updates to documents can increase the document size, such as
+pushing elements to an array and adding new fields. If the document
+size exceeds the allocated space for that document, MongoDB relocates
+the document on disk. This internal relocation can be both time and
+resource consuming.</p>
+<p>Although MongoDB automatically provides padding to minimize the
+occurrence of relocations, you may still need to manually handle
+document growth. Refer to <a class="reference internal" href="../use-cases/pre-aggregated-reports.html"><em>Pre-Aggregated Reports</em></a> for
+an example of the <em>Pre-allocation</em> approach to handle document growth.</p>
+</div>
+</div>
+<div class="section" id="data-modeling-patterns-and-examples">
+<span id="data-modeling-examples"></span><h2>Data Modeling Patterns and Examples<a class="headerlink" href="#data-modeling-patterns-and-examples" title="Permalink to this headline">¶</a></h2>
+<p>The following documents provide overviews of various data modeling
+patterns and common schema design considerations:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../tutorial/model-embedded-one-to-one-relationships-between-documents.html"><em>Model Embedded One-to-One Relationships Between Documents</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-embedded-one-to-many-relationships-between-documents.html"><em>Model Embedded One-to-Many Relationships Between Documents</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-referenced-one-to-many-relationships-between-documents.html"><em>Model Referenced One-to-Many Relationships Between Documents</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-data-for-atomic-operations.html"><em>Model Data for Atomic Operations</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-tree-structures-with-parent-references.html"><em>Model Tree Structures with Parent References</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-tree-structures-with-child-references.html"><em>Model Tree Structures with Child References</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-tree-structures-with-materialized-paths.html"><em>Model Tree Structures with Materialized Paths</em></a></li>
+<li><a class="reference internal" href="../tutorial/model-tree-structures-with-nested-sets.html"><em>Model Tree Structures with Nested Sets</em></a></li>
+</ul>
+<p>For more information and examples of real-world data modeling,
+consider the following external resources:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://www.10gen.com/presentations/mongodb-melbourne-2012/schema-design-example">Schema Design by Example</a></li>
+<li><a class="reference external" href="http://blog.fiesta.cc/post/11319522700/walkthrough-mongodb-data-modeling">Walkthrough MongoDB Data Modeling</a></li>
+<li><a class="reference external" href="http://oreilly.com/catalog/0636920018391">Document Design for MongoDB</a></li>
+<li><a class="reference external" href="http://dmerr.tumblr.com/post/6633338010/schemaless">Dynamic Schema Blog Post</a></li>
+<li><a class="reference external" href="http://docs.mongodb.org/ecosystem/tutorial/model-data-for-ruby-on-rails/">MongoDB Data Modeling and Rails</a></li>
+<li><a class="reference external" href="http://github.com/banker/newsmonger/blob/master/app/models/comment.rb">Ruby Example of Materialized Paths</a></li>
+<li><a class="reference external" href="http://seancribbs.com/tech/2009/09/28/modeling-a-tree-in-a-document-database">Sean Cribs Blog Post</a>
+which was the source for much of the <a class="reference internal" href="../tutorial/model-tree-structures.html#data-modeling-trees"><em>Model Tree Structures in MongoDB</em></a>
+content.</li>
+</ul>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../data-modeling.html" title="Previous Section: Data Modeling">&lt; &nbsp; Data Modeling</a></li>
+              <li id="btnvup"><a href="../data-modeling.html" title="Parent Section: Data Modeling" >&#47;&#92;&nbsp; Data Modeling</a></li>
+              <li id="btnvnx"><a href="../tutorial/model-embedded-one-to-one-relationships-between-documents.html" title="Next Section: Model Embedded One-to-One Relationships Between Documents">Model Embedded One-to-One Relationships Between Documents &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../data-modeling.html">Data Modeling</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="">Data Modeling Considerations for MongoDB Applications</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-embedded-one-to-one-relationships-between-documents.html">Model Embedded One-to-One Relationships Between Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-embedded-one-to-many-relationships-between-documents.html">Model Embedded One-to-Many Relationships Between Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-referenced-one-to-many-relationships-between-documents.html">Model Referenced One-to-Many Relationships Between Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-data-for-atomic-operations.html">Model Data for Atomic Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-tree-structures-with-parent-references.html">Model Tree Structures with Parent References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-tree-structures-with-child-references.html">Model Tree Structures with Child References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-tree-structures-with-ancestors-array.html">Model Tree Structures with an Array of Ancestors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-tree-structures-with-materialized-paths.html">Model Tree Structures with Materialized Paths</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-tree-structures-with-nested-sets.html">Model Tree Structures with Nested Sets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/model-data-for-keyword-search.html">Model Data to Support Keyword Search</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/data-modeling.txt" target="_blank" title="Edit core/data-modeling.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/data-modeling%2Etxt%22" target="_blank" title="Report a problem with core/data-modeling.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/data-modeling.txt"'},
+		environment: {'repo': 'docs','source': 'core/data-modeling'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/data-modeling'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

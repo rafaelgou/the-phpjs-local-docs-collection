@@ -1,0 +1,1193 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>17. Native SQL &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="18. Change Tracking Policies" href="change-tracking-policies.html" />
+    <link rel="prev" title="16. The QueryBuilder" href="query-builder.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="change-tracking-policies.html" title="18. Change Tracking Policies"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="query-builder.html" title="16. The QueryBuilder"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="native-sql">
+<h1>17. Native SQL<a class="headerlink" href="#native-sql" title="Permalink to this headline">¶</a></h1>
+<p>With <tt class="docutils literal"><span class="pre">NativeQuery</span></tt> you can execute native SELECT SQL statements
+and map the results to Doctrine entities or any other result format
+supported by Doctrine.</p>
+<p>In order to make this mapping possible, you need to describe
+to Doctrine what columns in the result map to which entity property.
+This description is represented by a <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> object.</p>
+<p>With this feature you can map arbitrary SQL code to objects, such as highly
+vendor-optimized SQL or stored-procedures.</p>
+<p>Writing <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> from scratch is complex, but there is a convenience
+wrapper around it called a <tt class="docutils literal"><span class="pre">ResultSetMappingBuilder</span></tt>. It can generate
+the mappings for you based on Entities and even generates the <tt class="docutils literal"><span class="pre">SELECT</span></tt>
+clause based on this information for you.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you want to execute DELETE, UPDATE or INSERT statements
+the Native SQL API cannot be used and will probably throw errors.
+Use <tt class="docutils literal"><span class="pre">EntityManager#getConnection()</span></tt> to access the native database
+connection and call the <tt class="docutils literal"><span class="pre">executeUpdate()</span></tt> method for these
+queries.</p>
+</div>
+<div class="section" id="the-nativequery-class">
+<h2>17.1. The NativeQuery class<a class="headerlink" href="#the-nativequery-class" title="Permalink to this headline">¶</a></h2>
+<p>To create a <tt class="docutils literal"><span class="pre">NativeQuery</span></tt> you use the method
+<tt class="docutils literal"><span class="pre">EntityManager#createNativeQuery($sql,</span> <span class="pre">$resultSetMapping)</span></tt>. As you can see in
+the signature of this method, it expects 2 ingredients: The SQL you want to
+execute and the <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> that describes how the results will be
+mapped.</p>
+<p>Once you obtained an instance of a <tt class="docutils literal"><span class="pre">NativeQuery</span></tt>, you can bind parameters to
+it with the same API that <tt class="docutils literal"><span class="pre">Query</span></tt> has and execute it.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Query\ResultSetMapping</span><span class="p">;</span>
+
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMapping</span><span class="p">();</span>
+<span class="c1">// build rsm here</span>
+
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$entityManager</span><span class="o">-&gt;</span><span class="na">createNativeQuery</span><span class="p">(</span><span class="s1">&#39;SELECT id, name, discr FROM users WHERE name = ?&#39;</span><span class="p">,</span> <span class="nv">$rsm</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$query</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="resultsetmappingbuilder">
+<h2>17.2. ResultSetMappingBuilder<a class="headerlink" href="#resultsetmappingbuilder" title="Permalink to this headline">¶</a></h2>
+<p>An easy start into ResultSet mapping is the <tt class="docutils literal"><span class="pre">ResultSetMappingBuilder</span></tt> object.
+This has several benefits:</p>
+<ul class="simple">
+<li>The builder takes care of automatically updating your <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt>
+when the fields or associations change on the metadata of an entity.</li>
+<li>You can generate the required <tt class="docutils literal"><span class="pre">SELECT</span></tt> expression for a builder
+by converting it to a string.</li>
+<li>The API is much simpler than the usual <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> API.</li>
+</ul>
+<p>One downside is that the builder API does not yet support entities
+with inheritance hierachies.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Query\ResultSetMappingBuilder</span><span class="p">;</span>
+
+<span class="nv">$sql</span> <span class="o">=</span> <span class="s2">&quot;SELECT u.id, u.name, a.id AS address_id, a.street, a.city &quot;</span> <span class="o">.</span>
+       <span class="s2">&quot;FROM users u INNER JOIN address a ON u.address_id = a.id&quot;</span><span class="p">;</span>
+
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMappingBuilder</span><span class="p">(</span><span class="nv">$entityManager</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addRootEntityFromClassMetadata</span><span class="p">(</span><span class="s1">&#39;MyProject\User&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addJoinedEntityFromClassMetadata</span><span class="p">(</span><span class="s1">&#39;MyProject\Address&#39;</span><span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;address_id&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>The builder extends the <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> class and as such has all the functionality of it as well.</p>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p>Starting with Doctrine ORM 2.4 you can generate the <tt class="docutils literal"><span class="pre">SELECT</span></tt> clause
+from a <tt class="docutils literal"><span class="pre">ResultSetMappingBuilder</span></tt>. You can either cast the builder
+object to <tt class="docutils literal"><span class="pre">(string)</span></tt> and the DQL aliases are used as SQL table aliases
+or use the <tt class="docutils literal"><span class="pre">generateSelectClause($tableAliases)</span></tt> method and pass
+a mapping from DQL alias (key) to SQL alias (value)</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+
+<span class="nv">$selectClause</span> <span class="o">=</span> <span class="nv">$builder</span><span class="o">-&gt;</span><span class="na">generateSelectClause</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;u&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;t1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;g&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;t2&#39;</span>
+<span class="p">));</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="s2">&quot;SELECT &quot;</span> <span class="o">.</span> <span class="nv">$selectClause</span> <span class="o">.</span> <span class="s2">&quot; FROM users t1 JOIN groups t2 ON t1.group_id = t2.id&quot;</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-resultsetmapping">
+<h2>17.3. The ResultSetMapping<a class="headerlink" href="#the-resultsetmapping" title="Permalink to this headline">¶</a></h2>
+<p>Understanding the <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> is the key to using a
+<tt class="docutils literal"><span class="pre">NativeQuery</span></tt>. A Doctrine result can contain the following
+components:</p>
+<ul class="simple">
+<li>Entity results. These represent root result elements.</li>
+<li>Joined entity results. These represent joined entities in
+associations of root entity results.</li>
+<li>Field results. These represent a column in the result set that
+maps to a field of an entity. A field result always belongs to an
+entity result or joined entity result.</li>
+<li>Scalar results. These represent scalar values in the result set
+that will appear in each result row. Adding scalar results to a
+ResultSetMapping can also cause the overall result to become
+<strong>mixed</strong> (see DQL - Doctrine Query Language) if the same
+ResultSetMapping also contains entity results.</li>
+<li>Meta results. These represent columns that contain
+meta-information, such as foreign keys and discriminator columns.
+When querying for objects (<tt class="docutils literal"><span class="pre">getResult()</span></tt>), all meta columns of
+root entities or joined entities must be present in the SQL query
+and mapped accordingly using <tt class="docutils literal"><span class="pre">ResultSetMapping#addMetaResult</span></tt>.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">It might not surprise you that Doctrine uses
+<tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> internally when you create DQL queries. As
+the query gets parsed and transformed to SQL, Doctrine fills a
+<tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt> that describes how the results should be
+processed by the hydration routines.</p>
+</div>
+<p>We will now look at each of the result types that can appear in a
+ResultSetMapping in detail.</p>
+<div class="section" id="entity-results">
+<h3>17.3.1. Entity results<a class="headerlink" href="#entity-results" title="Permalink to this headline">¶</a></h3>
+<p>An entity result describes an entity type that appears as a root
+element in the transformed result. You add an entity result through
+<tt class="docutils literal"><span class="pre">ResultSetMapping#addEntityResult()</span></tt>. Let&#8217;s take a look at the
+method signature in detail:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Adds an entity result to this ResultSetMapping.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $class The class name of the entity.</span>
+<span class="sd"> * @param string $alias The alias for the class. The alias must be unique among all entity</span>
+<span class="sd"> *                      results or joined entity results within this ResultSetMapping.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">addEntityResult</span><span class="p">(</span><span class="nv">$class</span><span class="p">,</span> <span class="nv">$alias</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first parameter is the fully qualified name of the entity
+class. The second parameter is some arbitrary alias for this entity
+result that must be unique within a <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt>. You use
+this alias to attach field results to the entity result. It is very
+similar to an identification variable that you use in DQL to alias
+classes or relationships.</p>
+<p>An entity result alone is not enough to form a valid
+<tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt>. An entity result or joined entity result
+always needs a set of field results, which we will look at soon.</p>
+</div>
+<div class="section" id="joined-entity-results">
+<h3>17.3.2. Joined entity results<a class="headerlink" href="#joined-entity-results" title="Permalink to this headline">¶</a></h3>
+<p>A joined entity result describes an entity type that appears as a
+joined relationship element in the transformed result, attached to
+a (root) entity result. You add a joined entity result through
+<tt class="docutils literal"><span class="pre">ResultSetMapping#addJoinedEntityResult()</span></tt>. Let&#8217;s take a look at
+the method signature in detail:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Adds a joined entity result.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $class The class name of the joined entity.</span>
+<span class="sd"> * @param string $alias The unique alias to use for the joined entity.</span>
+<span class="sd"> * @param string $parentAlias The alias of the entity result that is the parent of this joined result.</span>
+<span class="sd"> * @param object $relation The association field that connects the parent entity result with the joined entity result.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">addJoinedEntityResult</span><span class="p">(</span><span class="nv">$class</span><span class="p">,</span> <span class="nv">$alias</span><span class="p">,</span> <span class="nv">$parentAlias</span><span class="p">,</span> <span class="nv">$relation</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first parameter is the class name of the joined entity. The
+second parameter is an arbitrary alias for the joined entity that
+must be unique within the <tt class="docutils literal"><span class="pre">ResultSetMapping</span></tt>. You use this alias
+to attach field results to the entity result. The third parameter
+is the alias of the entity result that is the parent type of the
+joined relationship. The fourth and last parameter is the name of
+the field on the parent entity result that should contain the
+joined entity result.</p>
+</div>
+<div class="section" id="field-results">
+<h3>17.3.3. Field results<a class="headerlink" href="#field-results" title="Permalink to this headline">¶</a></h3>
+<p>A field result describes the mapping of a single column in a SQL
+result set to a field in an entity. As such, field results are
+inherently bound to entity results. You add a field result through
+<tt class="docutils literal"><span class="pre">ResultSetMapping#addFieldResult()</span></tt>. Again, let&#8217;s examine the
+method signature in detail:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Adds a field result that is part of an entity result or joined entity result.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $alias The alias of the entity result or joined entity result.</span>
+<span class="sd"> * @param string $columnName The name of the column in the SQL result set.</span>
+<span class="sd"> * @param string $fieldName The name of the field on the (joined) entity.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">addFieldResult</span><span class="p">(</span><span class="nv">$alias</span><span class="p">,</span> <span class="nv">$columnName</span><span class="p">,</span> <span class="nv">$fieldName</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first parameter is the alias of the entity result to which the
+field result will belong. The second parameter is the name of the
+column in the SQL result set. Note that this name is case
+sensitive, i.e. if you use a native query against Oracle it must be
+all uppercase. The third parameter is the name of the field on the
+entity result identified by <tt class="docutils literal"><span class="pre">$alias</span></tt> into which the value of the
+column should be set.</p>
+</div>
+<div class="section" id="scalar-results">
+<h3>17.3.4. Scalar results<a class="headerlink" href="#scalar-results" title="Permalink to this headline">¶</a></h3>
+<p>A scalar result describes the mapping of a single column in a SQL
+result set to a scalar value in the Doctrine result. Scalar results
+are typically used for aggregate values but any column in the SQL
+result set can be mapped as a scalar value. To add a scalar result
+use <tt class="docutils literal"><span class="pre">ResultSetMapping#addScalarResult()</span></tt>. The method signature in
+detail:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Adds a scalar result mapping.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $columnName The name of the column in the SQL result set.</span>
+<span class="sd"> * @param string $alias The result alias with which the scalar result should be placed in the result structure.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">addScalarResult</span><span class="p">(</span><span class="nv">$columnName</span><span class="p">,</span> <span class="nv">$alias</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first parameter is the name of the column in the SQL result set
+and the second parameter is the result alias under which the value
+of the column will be placed in the transformed Doctrine result.</p>
+</div>
+<div class="section" id="meta-results">
+<h3>17.3.5. Meta results<a class="headerlink" href="#meta-results" title="Permalink to this headline">¶</a></h3>
+<p>A meta result describes a single column in a SQL result set that
+is either a foreign key or a discriminator column. These columns
+are essential for Doctrine to properly construct objects out of SQL
+result sets. To add a column as a meta result use
+<tt class="docutils literal"><span class="pre">ResultSetMapping#addMetaResult()</span></tt>. The method signature in
+detail:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Adds a meta column (foreign key or discriminator column) to the result set.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string  $alias</span>
+<span class="sd"> * @param string  $columnAlias</span>
+<span class="sd"> * @param string  $columnName</span>
+<span class="sd"> * @param boolean $isIdentifierColumn</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">addMetaResult</span><span class="p">(</span><span class="nv">$alias</span><span class="p">,</span> <span class="nv">$columnAlias</span><span class="p">,</span> <span class="nv">$columnName</span><span class="p">,</span> <span class="nv">$isIdentifierColumn</span> <span class="o">=</span> <span class="k">false</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first parameter is the alias of the entity result to which the
+meta column belongs. A meta result column (foreign key or
+discriminator column) always belongs to an entity result. The
+second parameter is the column alias/name of the column in the SQL
+result set and the third parameter is the column name used in the
+mapping.
+The fourth parameter should be set to true in case the primary key
+of the entity is the foreign key you&#8217;re adding.</p>
+</div>
+<div class="section" id="discriminator-column">
+<h3>17.3.6. Discriminator Column<a class="headerlink" href="#discriminator-column" title="Permalink to this headline">¶</a></h3>
+<p>When joining an inheritance tree you have to give Doctrine a hint
+which meta-column is the discriminator column of this tree.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * Sets a discriminator column for an entity result or joined entity result.</span>
+<span class="sd"> * The discriminator column will be used to determine the concrete class name to</span>
+<span class="sd"> * instantiate.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $alias The alias of the entity result or joined entity result the discriminator</span>
+<span class="sd"> *                      column should be used for.</span>
+<span class="sd"> * @param string $discrColumn The name of the discriminator column in the SQL result set.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">setDiscriminatorColumn</span><span class="p">(</span><span class="nv">$alias</span><span class="p">,</span> <span class="nv">$discrColumn</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="examples">
+<h3>17.3.7. Examples<a class="headerlink" href="#examples" title="Permalink to this headline">¶</a></h3>
+<p>Understanding a ResultSetMapping is probably easiest through
+looking at some examples.</p>
+<p>First a basic example that describes the mapping of a single
+entity.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// Equivalent DQL query: &quot;select u from User u where u.name=?1&quot;</span>
+<span class="c1">// User owns no associations.</span>
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMapping</span><span class="p">;</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addEntityResult</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">);</span>
+
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_em</span><span class="o">-&gt;</span><span class="na">createNativeQuery</span><span class="p">(</span><span class="s1">&#39;SELECT id, name FROM users WHERE name = ?&#39;</span><span class="p">,</span> <span class="nv">$rsm</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$query</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The result would look like this:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">array(</span>
+<span class="x">    [0] =&gt; User (Object)</span>
+<span class="x">)</span>
+</pre></div>
+</div>
+<p>Note that this would be a partial object if the entity has more
+fields than just id and name. In the example above the column and
+field names are identical but that is not necessary, of course.
+Also note that the query string passed to createNativeQuery is
+<strong>real native SQL</strong>. Doctrine does not touch this SQL in any way.</p>
+<p>In the previous basic example, a User had no relations and the
+table the class is mapped to owns no foreign keys. The next example
+assumes User has a unidirectional or bidirectional one-to-one
+association to a CmsAddress, where the User is the owning side and
+thus owns the foreign key.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// Equivalent DQL query: &quot;select u from User u where u.name=?1&quot;</span>
+<span class="c1">// User owns an association to an Address but the Address is not loaded in the query.</span>
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMapping</span><span class="p">;</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addEntityResult</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addMetaResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;address_id&#39;</span><span class="p">,</span> <span class="s1">&#39;address_id&#39;</span><span class="p">);</span>
+
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_em</span><span class="o">-&gt;</span><span class="na">createNativeQuery</span><span class="p">(</span><span class="s1">&#39;SELECT id, name, address_id FROM users WHERE name = ?&#39;</span><span class="p">,</span> <span class="nv">$rsm</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$query</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Foreign keys are used by Doctrine for lazy-loading purposes when
+querying for objects. In the previous example, each user object in
+the result will have a proxy (a &#8220;ghost&#8221;) in place of the address
+that contains the address_id. When the ghost proxy is accessed, it
+loads itself based on this key.</p>
+<p>Consequently, associations that are <em>fetch-joined</em> do not require
+the foreign keys to be present in the SQL result set, only
+associations that are lazy.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// Equivalent DQL query: &quot;select u from User u join u.address a WHERE u.name = ?1&quot;</span>
+<span class="c1">// User owns association to an Address and the Address is loaded in the query.</span>
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMapping</span><span class="p">;</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addEntityResult</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addJoinedEntityResult</span><span class="p">(</span><span class="s1">&#39;Address&#39;</span> <span class="p">,</span> <span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;address&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;address_id&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;street&#39;</span><span class="p">,</span> <span class="s1">&#39;street&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,</span> <span class="s1">&#39;city&#39;</span><span class="p">,</span> <span class="s1">&#39;city&#39;</span><span class="p">);</span>
+
+<span class="nv">$sql</span> <span class="o">=</span> <span class="s1">&#39;SELECT u.id, u.name, a.id AS address_id, a.street, a.city FROM users u &#39;</span> <span class="o">.</span>
+       <span class="s1">&#39;INNER JOIN address a ON u.address_id = a.id WHERE u.name = ?&#39;</span><span class="p">;</span>
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_em</span><span class="o">-&gt;</span><span class="na">createNativeQuery</span><span class="p">(</span><span class="nv">$sql</span><span class="p">,</span> <span class="nv">$rsm</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$query</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>In this case the nested entity <tt class="docutils literal"><span class="pre">Address</span></tt> is registered with the
+<tt class="docutils literal"><span class="pre">ResultSetMapping#addJoinedEntityResult</span></tt> method, which notifies
+Doctrine that this entity is not hydrated at the root level, but as
+a joined entity somewhere inside the object graph. In this case we
+specify the alias &#8216;u&#8217; as third parameter and <tt class="docutils literal"><span class="pre">address</span></tt> as fourth
+parameter, which means the <tt class="docutils literal"><span class="pre">Address</span></tt> is hydrated into the
+<tt class="docutils literal"><span class="pre">User::$address</span></tt> property.</p>
+<p>If a fetched entity is part of a mapped hierarchy that requires a
+discriminator column, this column must be present in the result set
+as a meta column so that Doctrine can create the appropriate
+concrete type. This is shown in the following example where we
+assume that there are one or more subclasses that extend User and
+either Class Table Inheritance or Single Table Inheritance is used
+to map the hierarchy (both use a discriminator column).</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// Equivalent DQL query: &quot;select u from User u where u.name=?1&quot;</span>
+<span class="c1">// User is a mapped base class for other classes. User owns no associations.</span>
+<span class="nv">$rsm</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ResultSetMapping</span><span class="p">;</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addEntityResult</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="s1">&#39;u&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span> <span class="s1">&#39;id&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addFieldResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;name&#39;</span><span class="p">);</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">addMetaResult</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;discr&#39;</span><span class="p">,</span> <span class="s1">&#39;discr&#39;</span><span class="p">);</span> <span class="c1">// discriminator column</span>
+<span class="nv">$rsm</span><span class="o">-&gt;</span><span class="na">setDiscriminatorColumn</span><span class="p">(</span><span class="s1">&#39;u&#39;</span><span class="p">,</span> <span class="s1">&#39;discr&#39;</span><span class="p">);</span>
+
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_em</span><span class="o">-&gt;</span><span class="na">createNativeQuery</span><span class="p">(</span><span class="s1">&#39;SELECT id, name, discr FROM users WHERE name = ?&#39;</span><span class="p">,</span> <span class="nv">$rsm</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$query</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Note that in the case of Class Table Inheritance, an example as
+above would result in partial objects if any objects in the result
+are actually a subtype of User. When using DQL, Doctrine
+automatically includes the necessary joins for this mapping
+strategy but with native SQL it is your responsibility.</p>
+</div>
+</div>
+<div class="section" id="named-native-query">
+<h2>17.4. Named Native Query<a class="headerlink" href="#named-native-query" title="Permalink to this headline">¶</a></h2>
+<p>You can also map a native query using a named native query mapping.</p>
+<p>To achieve that, you must describe the SQL resultset structure
+using named native query (and sql resultset mappings if is a several resultset mappings).</p>
+<p>Like named query, a named native query can be defined at class level or in a XML or YAML file.</p>
+<p>A resultSetMapping parameter is defined in &#64;NamedNativeQuery,
+it represents the name of a defined &#64;SqlResultSetMapping.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyProject\Model</span><span class="p">;</span>
+<span class="sd">/**</span>
+<span class="sd"> * @NamedNativeQueries({</span>
+<span class="sd"> *      @NamedNativeQuery(</span>
+<span class="sd"> *          name            = &quot;fetchMultipleJoinsEntityResults&quot;,</span>
+<span class="sd"> *          resultSetMapping= &quot;mappingMultipleJoinsEntityResults&quot;,</span>
+<span class="sd"> *          query           = &quot;SELECT u.id AS u_id, u.name AS u_name, u.status AS u_status, a.id AS a_id, a.zip AS a_zip, a.country AS a_country, COUNT(p.phonenumber) AS numphones FROM users u INNER JOIN addresses a ON u.id = a.user_id INNER JOIN phonenumbers p ON u.id = p.user_id GROUP BY u.id, u.name, u.status, u.username, a.id, a.zip, a.country ORDER BY u.username&quot;</span>
+<span class="sd"> *      ),</span>
+<span class="sd"> * })</span>
+<span class="sd"> * @SqlResultSetMappings({</span>
+<span class="sd"> *      @SqlResultSetMapping(</span>
+<span class="sd"> *          name    = &quot;mappingMultipleJoinsEntityResults&quot;,</span>
+<span class="sd"> *          entities= {</span>
+<span class="sd"> *              @EntityResult(</span>
+<span class="sd"> *                  entityClass = &quot;__CLASS__&quot;,</span>
+<span class="sd"> *                  fields      = {</span>
+<span class="sd"> *                      @FieldResult(name = &quot;id&quot;,       column=&quot;u_id&quot;),</span>
+<span class="sd"> *                      @FieldResult(name = &quot;name&quot;,     column=&quot;u_name&quot;),</span>
+<span class="sd"> *                      @FieldResult(name = &quot;status&quot;,   column=&quot;u_status&quot;),</span>
+<span class="sd"> *                  }</span>
+<span class="sd"> *              ),</span>
+<span class="sd"> *              @EntityResult(</span>
+<span class="sd"> *                  entityClass = &quot;Address&quot;,</span>
+<span class="sd"> *                  fields      = {</span>
+<span class="sd"> *                      @FieldResult(name = &quot;id&quot;,       column=&quot;a_id&quot;),</span>
+<span class="sd"> *                      @FieldResult(name = &quot;zip&quot;,      column=&quot;a_zip&quot;),</span>
+<span class="sd"> *                      @FieldResult(name = &quot;country&quot;,  column=&quot;a_country&quot;),</span>
+<span class="sd"> *                  }</span>
+<span class="sd"> *              )</span>
+<span class="sd"> *          },</span>
+<span class="sd"> *          columns = {</span>
+<span class="sd"> *              @ColumnResult(&quot;numphones&quot;)</span>
+<span class="sd"> *          }</span>
+<span class="sd"> *      )</span>
+<span class="sd"> *})</span>
+<span class="sd"> */</span>
+ <span class="k">class</span> <span class="nc">User</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">public</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;, length=50, nullable=true) */</span>
+    <span class="k">public</span> <span class="nv">$status</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;, length=255, unique=true) */</span>
+    <span class="k">public</span> <span class="nv">$username</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;, length=255) */</span>
+    <span class="k">public</span> <span class="nv">$name</span><span class="p">;</span>
+
+    <span class="sd">/** @OneToMany(targetEntity=&quot;Phonenumber&quot;) */</span>
+    <span class="k">public</span> <span class="nv">$phonenumbers</span><span class="p">;</span>
+
+    <span class="sd">/** @OneToOne(targetEntity=&quot;Address&quot;) */</span>
+    <span class="k">public</span> <span class="nv">$address</span><span class="p">;</span>
+
+    <span class="c1">// ....</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping&gt;</span>
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;MyProject\Model\User&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;named-native-queries&gt;</span>
+            <span class="nt">&lt;named-native-query</span> <span class="na">name=</span><span class="s">&quot;fetchMultipleJoinsEntityResults&quot;</span> <span class="na">result-set-mapping=</span><span class="s">&quot;mappingMultipleJoinsEntityResults&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;query&gt;</span>SELECT u.id AS u_id, u.name AS u_name, u.status AS u_status, a.id AS a_id, a.zip AS a_zip, a.country AS a_country, COUNT(p.phonenumber) AS numphones FROM users u INNER JOIN addresses a ON u.id = a.user_id INNER JOIN phonenumbers p ON u.id = p.user_id GROUP BY u.id, u.name, u.status, u.username, a.id, a.zip, a.country ORDER BY u.username<span class="nt">&lt;/query&gt;</span>
+            <span class="nt">&lt;/named-native-query&gt;</span>
+        <span class="nt">&lt;/named-native-queries&gt;</span>
+        <span class="nt">&lt;sql-result-set-mappings&gt;</span>
+            <span class="nt">&lt;sql-result-set-mapping</span> <span class="na">name=</span><span class="s">&quot;mappingMultipleJoinsEntityResults&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;entity-result</span> <span class="na">entity-class=</span><span class="s">&quot;__CLASS__&quot;</span><span class="nt">&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">column=</span><span class="s">&quot;u_id&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span> <span class="na">column=</span><span class="s">&quot;u_name&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;status&quot;</span> <span class="na">column=</span><span class="s">&quot;u_status&quot;</span><span class="nt">/&gt;</span>
+                <span class="nt">&lt;/entity-result&gt;</span>
+                <span class="nt">&lt;entity-result</span> <span class="na">entity-class=</span><span class="s">&quot;Address&quot;</span><span class="nt">&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">column=</span><span class="s">&quot;a_id&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;zip&quot;</span> <span class="na">column=</span><span class="s">&quot;a_zip&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;country&quot;</span> <span class="na">column=</span><span class="s">&quot;a_country&quot;</span><span class="nt">/&gt;</span>
+                <span class="nt">&lt;/entity-result&gt;</span>
+                <span class="nt">&lt;column-result</span> <span class="na">name=</span><span class="s">&quot;numphones&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/sql-result-set-mapping&gt;</span>
+        <span class="nt">&lt;/sql-result-set-mappings&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">MyProject\Model\User</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">namedNativeQueries</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">fetchMultipleJoinsEntityResults</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">fetchMultipleJoinsEntityResults</span>
+      <span class="l-Scalar-Plain">resultSetMapping</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingMultipleJoinsEntityResults</span>
+      <span class="l-Scalar-Plain">query</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SELECT u.id AS u_id, u.name AS u_name, u.status AS u_status, a.id AS a_id, a.zip AS a_zip, a.country AS a_country, COUNT(p.phonenumber) AS numphones FROM users u INNER JOIN addresses a ON u.id = a.user_id INNER JOIN phonenumbers p ON u.id = p.user_id GROUP BY u.id, u.name, u.status, u.username, a.id, a.zip, a.country ORDER BY u.username</span>
+  <span class="l-Scalar-Plain">sqlResultSetMappings</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">mappingMultipleJoinsEntityResults</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingMultipleJoinsEntityResults</span>
+      <span class="l-Scalar-Plain">columnResult</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">numphones</span>
+      <span class="l-Scalar-Plain">entityResult</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">entityClass</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">__CLASS__</span>
+          <span class="l-Scalar-Plain">fieldResult</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">id</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">u_id</span>
+            <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">name</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">u_name</span>
+            <span class="l-Scalar-Plain">2</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">status</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">u_status</span>
+        <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">entityClass</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Address</span>
+          <span class="l-Scalar-Plain">fieldResult</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">id</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_id</span>
+            <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">zip</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_zip</span>
+            <span class="l-Scalar-Plain">2</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">country</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_country</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<dl class="docutils">
+<dt>Things to note:</dt>
+<dd><ul class="first last simple">
+<li>The resultset mapping declares the entities retrieved by this native query.</li>
+<li>Each field of the entity is bound to a SQL alias (or column name).</li>
+<li>All fields of the entity including the ones of subclasses
+and the foreign key columns of related entities have to be present in the SQL query.</li>
+<li>Field definitions are optional provided that they map to the same
+column name as the one declared on the class property.</li>
+<li><tt class="docutils literal"><span class="pre">__CLASS__</span></tt> is an alias for the mapped class</li>
+</ul>
+</dd>
+</dl>
+<p>In the above example,
+the <tt class="docutils literal"><span class="pre">fetchJoinedAddress</span></tt> named query use the joinMapping result set mapping.
+This mapping returns 2 entities, User and Address, each property is declared and associated to a column name,
+actually the column name retrieved by the query.</p>
+<p>Let&#8217;s now see an implicit declaration of the property / column.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyProject\Model</span><span class="p">;</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @NamedNativeQueries({</span>
+<span class="sd">     *      @NamedNativeQuery(</span>
+<span class="sd">     *          name                = &quot;findAll&quot;,</span>
+<span class="sd">     *          resultSetMapping    = &quot;mappingFindAll&quot;,</span>
+<span class="sd">     *          query               = &quot;SELECT * FROM addresses&quot;</span>
+<span class="sd">     *      ),</span>
+<span class="sd">     * })</span>
+<span class="sd">     * @SqlResultSetMappings({</span>
+<span class="sd">     *      @SqlResultSetMapping(</span>
+<span class="sd">     *          name    = &quot;mappingFindAll&quot;,</span>
+<span class="sd">     *          entities= {</span>
+<span class="sd">     *              @EntityResult(</span>
+<span class="sd">     *                  entityClass = &quot;Address&quot;</span>
+<span class="sd">     *              )</span>
+<span class="sd">     *          }</span>
+<span class="sd">     *      )</span>
+<span class="sd">     * })</span>
+<span class="sd">     */</span>
+   <span class="k">class</span> <span class="nc">Address</span>
+   <span class="p">{</span>
+        <span class="sd">/**  @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+        <span class="k">public</span> <span class="nv">$id</span><span class="p">;</span>
+
+        <span class="sd">/** @Column() */</span>
+        <span class="k">public</span> <span class="nv">$country</span><span class="p">;</span>
+
+        <span class="sd">/** @Column() */</span>
+        <span class="k">public</span> <span class="nv">$zip</span><span class="p">;</span>
+
+        <span class="sd">/** @Column()*/</span>
+        <span class="k">public</span> <span class="nv">$city</span><span class="p">;</span>
+
+        <span class="c1">// ....</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping&gt;</span>
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;MyProject\Model\Address&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;named-native-queries&gt;</span>
+            <span class="nt">&lt;named-native-query</span> <span class="na">name=</span><span class="s">&quot;findAll&quot;</span> <span class="na">result-set-mapping=</span><span class="s">&quot;mappingFindAll&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;query&gt;</span>SELECT * FROM addresses<span class="nt">&lt;/query&gt;</span>
+            <span class="nt">&lt;/named-native-query&gt;</span>
+        <span class="nt">&lt;/named-native-queries&gt;</span>
+        <span class="nt">&lt;sql-result-set-mappings&gt;</span>
+            <span class="nt">&lt;sql-result-set-mapping</span> <span class="na">name=</span><span class="s">&quot;mappingFindAll&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;entity-result</span> <span class="na">entity-class=</span><span class="s">&quot;Address&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/sql-result-set-mapping&gt;</span>
+        <span class="nt">&lt;/sql-result-set-mappings&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">MyProject\Model\Address</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">namedNativeQueries</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">findAll</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">resultSetMapping</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingFindAll</span>
+      <span class="l-Scalar-Plain">query</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SELECT * FROM addresses</span>
+  <span class="l-Scalar-Plain">sqlResultSetMappings</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">mappingFindAll</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingFindAll</span>
+      <span class="l-Scalar-Plain">entityResult</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">address</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">entityClass</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Address</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>In this example, we only describe the entity member of the result set mapping.
+The property / column mappings is done using the entity mapping values.
+In this case the model property is bound to the model_txt column.
+If the association to a related entity involve a composite primary key,
+a &#64;FieldResult element should be used for each foreign key column.
+The &#64;FieldResult name is composed of the property name for the relationship,
+followed by a dot (&#8221;.&#8221;), followed by the name or the field or property of the primary key.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyProject\Model</span><span class="p">;</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @NamedNativeQueries({</span>
+<span class="sd">     *      @NamedNativeQuery(</span>
+<span class="sd">     *          name            = &quot;fetchJoinedAddress&quot;,</span>
+<span class="sd">     *          resultSetMapping= &quot;mappingJoinedAddress&quot;,</span>
+<span class="sd">     *          query           = &quot;SELECT u.id, u.name, u.status, a.id AS a_id, a.country AS a_country, a.zip AS a_zip, a.city AS a_city FROM users u INNER JOIN addresses a ON u.id = a.user_id WHERE u.username = ?&quot;</span>
+<span class="sd">     *      ),</span>
+<span class="sd">     * })</span>
+<span class="sd">     * @SqlResultSetMappings({</span>
+<span class="sd">     *      @SqlResultSetMapping(</span>
+<span class="sd">     *          name    = &quot;mappingJoinedAddress&quot;,</span>
+<span class="sd">     *          entities= {</span>
+<span class="sd">     *              @EntityResult(</span>
+<span class="sd">     *                  entityClass = &quot;__CLASS__&quot;,</span>
+<span class="sd">     *                  fields      = {</span>
+<span class="sd">     *                      @FieldResult(name = &quot;id&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;name&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;status&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;address.id&quot;, column = &quot;a_id&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;address.zip&quot;, column = &quot;a_zip&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;address.city&quot;, column = &quot;a_city&quot;),</span>
+<span class="sd">     *                      @FieldResult(name = &quot;address.country&quot;, column = &quot;a_country&quot;),</span>
+<span class="sd">     *                  }</span>
+<span class="sd">     *              )</span>
+<span class="sd">     *          }</span>
+<span class="sd">     *      )</span>
+<span class="sd">     * })</span>
+<span class="sd">     */</span>
+    <span class="k">class</span> <span class="nc">User</span>
+    <span class="p">{</span>
+        <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+        <span class="k">public</span> <span class="nv">$id</span><span class="p">;</span>
+
+        <span class="sd">/** @Column(type=&quot;string&quot;, length=50, nullable=true) */</span>
+        <span class="k">public</span> <span class="nv">$status</span><span class="p">;</span>
+
+        <span class="sd">/** @Column(type=&quot;string&quot;, length=255, unique=true) */</span>
+        <span class="k">public</span> <span class="nv">$username</span><span class="p">;</span>
+
+        <span class="sd">/** @Column(type=&quot;string&quot;, length=255) */</span>
+        <span class="k">public</span> <span class="nv">$name</span><span class="p">;</span>
+
+        <span class="sd">/** @OneToOne(targetEntity=&quot;Address&quot;) */</span>
+        <span class="k">public</span> <span class="nv">$address</span><span class="p">;</span>
+
+        <span class="c1">// ....</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping&gt;</span>
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;MyProject\Model\User&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;named-native-queries&gt;</span>
+            <span class="nt">&lt;named-native-query</span> <span class="na">name=</span><span class="s">&quot;fetchJoinedAddress&quot;</span> <span class="na">result-set-mapping=</span><span class="s">&quot;mappingJoinedAddress&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;query&gt;</span>SELECT u.id, u.name, u.status, a.id AS a_id, a.country AS a_country, a.zip AS a_zip, a.city AS a_city FROM users u INNER JOIN addresses a ON u.id = a.user_id WHERE u.username = ?<span class="nt">&lt;/query&gt;</span>
+            <span class="nt">&lt;/named-native-query&gt;</span>
+        <span class="nt">&lt;/named-native-queries&gt;</span>
+        <span class="nt">&lt;sql-result-set-mappings&gt;</span>
+            <span class="nt">&lt;sql-result-set-mapping</span> <span class="na">name=</span><span class="s">&quot;mappingJoinedAddress&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;entity-result</span> <span class="na">entity-class=</span><span class="s">&quot;__CLASS__&quot;</span><span class="nt">&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;status&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;address.id&quot;</span> <span class="na">column=</span><span class="s">&quot;a_id&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;address.zip&quot;</span>  <span class="na">column=</span><span class="s">&quot;a_zip&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;address.city&quot;</span>  <span class="na">column=</span><span class="s">&quot;a_city&quot;</span><span class="nt">/&gt;</span>
+                    <span class="nt">&lt;field-result</span> <span class="na">name=</span><span class="s">&quot;address.country&quot;</span> <span class="na">column=</span><span class="s">&quot;a_country&quot;</span><span class="nt">/&gt;</span>
+                <span class="nt">&lt;/entity-result&gt;</span>
+            <span class="nt">&lt;/sql-result-set-mapping&gt;</span>
+        <span class="nt">&lt;/sql-result-set-mappings&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">MyProject\Model\User</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">namedNativeQueries</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">fetchJoinedAddress</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">fetchJoinedAddress</span>
+      <span class="l-Scalar-Plain">resultSetMapping</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingJoinedAddress</span>
+      <span class="l-Scalar-Plain">query</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SELECT u.id, u.name, u.status, a.id AS a_id, a.country AS a_country, a.zip AS a_zip, a.city AS a_city FROM users u INNER JOIN addresses a ON u.id = a.user_id WHERE u.username = ?</span>
+  <span class="l-Scalar-Plain">sqlResultSetMappings</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">mappingJoinedAddress</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">entityResult</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">entityClass</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">__CLASS__</span>
+          <span class="l-Scalar-Plain">fieldResult</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">0</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">id</span>
+            <span class="l-Scalar-Plain">1</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">name</span>
+            <span class="l-Scalar-Plain">2</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">status</span>
+            <span class="l-Scalar-Plain">3</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">address.id</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_id</span>
+            <span class="l-Scalar-Plain">4</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">address.zip</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_zip</span>
+            <span class="l-Scalar-Plain">5</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">address.city</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_city</span>
+            <span class="l-Scalar-Plain">6</span><span class="p-Indicator">:</span>
+              <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">address.country</span>
+              <span class="l-Scalar-Plain">column</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">a_country</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>If you retrieve a single entity and if you use the default mapping,
+you can use the resultClass attribute instead of resultSetMapping:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyProject\Model</span><span class="p">;</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @NamedNativeQueries({</span>
+<span class="sd">     *      @NamedNativeQuery(</span>
+<span class="sd">     *          name           = &quot;find-by-id&quot;,</span>
+<span class="sd">     *          resultClass    = &quot;Address&quot;,</span>
+<span class="sd">     *          query          = &quot;SELECT * FROM addresses&quot;</span>
+<span class="sd">     *      ),</span>
+<span class="sd">     * })</span>
+<span class="sd">     */</span>
+   <span class="k">class</span> <span class="nc">Address</span>
+   <span class="p">{</span>
+        <span class="c1">// ....</span>
+   <span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping&gt;</span>
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;MyProject\Model\Address&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;named-native-queries&gt;</span>
+            <span class="nt">&lt;named-native-query</span> <span class="na">name=</span><span class="s">&quot;find-by-id&quot;</span> <span class="na">result-class=</span><span class="s">&quot;Address&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;query&gt;</span>SELECT * FROM addresses WHERE id = ?<span class="nt">&lt;/query&gt;</span>
+            <span class="nt">&lt;/named-native-query&gt;</span>
+        <span class="nt">&lt;/named-native-queries&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">MyProject\Model\Address</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">namedNativeQueries</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">findAll</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">findAll</span>
+      <span class="l-Scalar-Plain">resultClass</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Address</span>
+      <span class="l-Scalar-Plain">query</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SELECT * FROM addresses</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>In some of your native queries, you&#8217;ll have to return scalar values,
+for example when building report queries.
+You can map them in the &#64;SqlResultsetMapping through &#64;ColumnResult.
+You actually can even mix, entities and scalar returns in the same native query (this is probably not that common though).</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyProject\Model</span><span class="p">;</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @NamedNativeQueries({</span>
+<span class="sd">     *      @NamedNativeQuery(</span>
+<span class="sd">     *          name            = &quot;count&quot;,</span>
+<span class="sd">     *          resultSetMapping= &quot;mappingCount&quot;,</span>
+<span class="sd">     *          query           = &quot;SELECT COUNT(*) AS count FROM addresses&quot;</span>
+<span class="sd">     *      )</span>
+<span class="sd">     * })</span>
+<span class="sd">     * @SqlResultSetMappings({</span>
+<span class="sd">     *      @SqlResultSetMapping(</span>
+<span class="sd">     *          name    = &quot;mappingCount&quot;,</span>
+<span class="sd">     *          columns = {</span>
+<span class="sd">     *              @ColumnResult(</span>
+<span class="sd">     *                  name = &quot;count&quot;</span>
+<span class="sd">     *              )</span>
+<span class="sd">     *          }</span>
+<span class="sd">     *      )</span>
+<span class="sd">     * })</span>
+<span class="sd">     */</span>
+   <span class="k">class</span> <span class="nc">Address</span>
+   <span class="p">{</span>
+        <span class="c1">// ....</span>
+   <span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;doctrine-mapping&gt;</span>
+    <span class="nt">&lt;entity</span> <span class="na">name=</span><span class="s">&quot;MyProject\Model\Address&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;named-native-query</span> <span class="na">name=</span><span class="s">&quot;count&quot;</span> <span class="na">result-set-mapping=</span><span class="s">&quot;mappingCount&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;query&gt;</span>SELECT COUNT(*) AS count FROM addresses<span class="nt">&lt;/query&gt;</span>
+        <span class="nt">&lt;/named-native-query&gt;</span>
+        <span class="nt">&lt;sql-result-set-mappings&gt;</span>
+            <span class="nt">&lt;sql-result-set-mapping</span> <span class="na">name=</span><span class="s">&quot;mappingCount&quot;</span><span class="nt">&gt;</span>
+                <span class="nt">&lt;column-result</span> <span class="na">name=</span><span class="s">&quot;count&quot;</span><span class="nt">/&gt;</span>
+            <span class="nt">&lt;/sql-result-set-mapping&gt;</span>
+        <span class="nt">&lt;/sql-result-set-mappings&gt;</span>
+    <span class="nt">&lt;/entity&gt;</span>
+<span class="nt">&lt;/doctrine-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">MyProject\Model\Address</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+  <span class="l-Scalar-Plain">namedNativeQueries</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">count</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">count</span>
+      <span class="l-Scalar-Plain">resultSetMapping</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingCount</span>
+      <span class="l-Scalar-Plain">query</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">SELECT COUNT(*) AS count FROM addresses</span>
+  <span class="l-Scalar-Plain">sqlResultSetMappings</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">mappingCount</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mappingCount</span>
+      <span class="l-Scalar-Plain">columnResult</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">count</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">count</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">17. Native SQL</a><ul>
+<li><a class="reference internal" href="#the-nativequery-class">17.1. The NativeQuery class</a></li>
+<li><a class="reference internal" href="#resultsetmappingbuilder">17.2. ResultSetMappingBuilder</a></li>
+<li><a class="reference internal" href="#the-resultsetmapping">17.3. The ResultSetMapping</a><ul>
+<li><a class="reference internal" href="#entity-results">17.3.1. Entity results</a></li>
+<li><a class="reference internal" href="#joined-entity-results">17.3.2. Joined entity results</a></li>
+<li><a class="reference internal" href="#field-results">17.3.3. Field results</a></li>
+<li><a class="reference internal" href="#scalar-results">17.3.4. Scalar results</a></li>
+<li><a class="reference internal" href="#meta-results">17.3.5. Meta results</a></li>
+<li><a class="reference internal" href="#discriminator-column">17.3.6. Discriminator Column</a></li>
+<li><a class="reference internal" href="#examples">17.3.7. Examples</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#named-native-query">17.4. Named Native Query</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="query-builder.html"
+                                  title="previous chapter">16. The QueryBuilder</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="change-tracking-policies.html"
+                                  title="next chapter">18. Change Tracking Policies</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/reference/native-sql.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/reference/native-sql.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/reference/native-sql.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

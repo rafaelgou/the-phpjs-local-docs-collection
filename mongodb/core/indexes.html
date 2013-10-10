@@ -1,0 +1,1070 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Indexing Overview &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/indexes.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/indexes" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Indexes" href="../indexes.html" />
+<link rel="next" title="Indexing Strategies" href="../applications/indexes.html" />
+<link rel="prev" title="Indexes" href="../indexes.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../indexes.html">Indexes</a><span class="bcpoint"> > </span></li>
+          <li>Indexing Overview</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="indexing-overview">
+<h1>Indexing Overview<a class="headerlink" href="#indexing-overview" title="Permalink to this headline">¶</a></h1>
+<p>This document provides an overview of indexes in MongoDB, including
+index types and creation options. For operational guidelines and
+procedures, see the <a class="reference internal" href="../administration/indexes.html"><em>Indexing Operations</em></a> document. For
+strategies and practical approaches, see the
+<a class="reference internal" href="../applications/indexes.html"><em>Indexing Strategies</em></a> document.</p>
+<div class="section" id="synopsis">
+<span id="index-overview-synopsis"></span><span id="index-0"></span><h2>Synopsis<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h2>
+<p>An index is a data structure that allows you to quickly locate documents
+based on the values stored in certain specified fields. Fundamentally,
+indexes in MongoDB are similar to indexes in other database systems.
+MongoDB supports indexes on any field or sub-field contained in
+documents within a MongoDB collection.</p>
+<p>MongoDB indexes have the following core features:</p>
+<ul>
+<li><p class="first">MongoDB defines indexes on a per-<a class="reference internal" href="../reference/glossary.html#term-collection"><em class="xref std std-term">collection</em></a> level.</p>
+</li>
+<li><p class="first">You can create indexes on a single field or on multiple fields using
+a <a class="reference internal" href="#index-type-compound"><em>compound index</em></a>.</p>
+</li>
+<li><p class="first">Indexes enhance query performance, often dramatically.
+However, each index also incurs some overhead for every write
+operation.
+Consider the queries, the frequency of these queries, the size of
+your working set, the insert load, and your application&#8217;s
+requirements as you create indexes in your MongoDB environment.</p>
+</li>
+<li><p class="first">All MongoDB indexes use a B-tree data structure. MongoDB can use
+this representation of the data to optimize query responses.</p>
+</li>
+<li><p class="first">Every query, including update operations, uses one and only one
+index. The <a class="reference internal" href="read-operations.html#read-operations-query-optimization"><em>query optimizer</em></a>
+selects the index empirically by
+occasionally running alternate query plans and by selecting the plan
+with the best response time for each query type. You can override
+the query optimizer using the <a class="reference internal" href="../reference/method/cursor.hint.html#cursor.hint" title="cursor.hint()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">cursor.hint()</span></tt></a> method.</p>
+</li>
+<li><p class="first">An index &#8220;covers&#8221; a query if:</p>
+<ul class="simple">
+<li>all the fields in the <a class="reference internal" href="read-operations.html#read-operations-query-document"><em>query</em></a>
+are part of that index, <strong>and</strong></li>
+<li>all the fields returned in the documents that match the query are
+in the same index.</li>
+</ul>
+<p>When an index covers a query, the server can both match the
+<a class="reference internal" href="read-operations.html#read-operations-query-document"><em>query conditions</em></a> <strong>and</strong>
+return the results using only the index; MongoDB does not need to
+look at the documents, only the index, to fulfill the query.
+Querying the index can be faster than querying the documents outside
+of the index.</p>
+<p>See <a class="reference internal" href="../tutorial/create-indexes-to-support-queries.html#indexes-covered-queries"><em>Create Indexes that Support Covered Queries</em></a> for more information.</p>
+</li>
+<li><p class="first">Using queries with good index coverage reduces the number of full
+documents that MongoDB needs to store in memory, thus maximizing database
+performance and throughput.</p>
+</li>
+<li><p class="first">If an update does not change the size of a document or cause the
+document to outgrow its allocated area, then MongoDB will update an
+index <em>only if</em> the indexed fields have changed. This improves
+performance. Note that if the document has grown and must move, all
+index keys must then update.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="index-types">
+<span id="index-1"></span><span id="id1"></span><h2>Index Types<a class="headerlink" href="#index-types" title="Permalink to this headline">¶</a></h2>
+<p>This section enumerates the types of indexes available in MongoDB.
+For all collections, MongoDB creates the default <a class="reference internal" href="#index-type-id"><em>_id index</em></a>. You can create additional indexes with the
+<a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a> method on any
+single field or <a class="reference internal" href="#index-type-compound"><em>sequence of fields</em></a> within
+any document or <a class="reference internal" href="#index-sub-document"><em>sub-document</em></a>. MongoDB also
+supports indexes of arrays, called <a class="reference internal" href="#index-type-multi-key"><em>multi-key indexes</em></a>.</p>
+<span class="target" id="index-2"></span><span class="target" id="index-3"></span><span class="target" id="index-4"></span><div class="section" id="index-type-id">
+<span id="index-5"></span><span id="id-index"></span><h3>_id Index<a class="headerlink" href="#index-type-id" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">_id</span></tt> index is a <a class="reference internal" href="#index-type-unique"><em>unique index</em></a>
+<a class="footnote-reference" href="#unique-index-report" id="id2">[1]</a> on the <tt class="docutils literal"><span class="pre">_id</span></tt> field, and MongoDB creates this
+index by default on all collections. <a class="footnote-reference" href="#capped-collections" id="id3">[2]</a>
+You cannot delete the index on <tt class="docutils literal"><span class="pre">_id</span></tt>.</p>
+<p>The <tt class="docutils literal"><span class="pre">_id</span></tt> field is the <a class="reference internal" href="../reference/glossary.html#term-primary-key"><em class="xref std std-term">primary key</em></a> for the collection, and
+every document <em>must</em> have a unique <tt class="docutils literal"><span class="pre">_id</span></tt> field. You may store any
+unique value in the <tt class="docutils literal"><span class="pre">_id</span></tt> field. The default value of <tt class="docutils literal"><span class="pre">_id</span></tt> is an
+<a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectID</em></a> on every <a class="reference internal" href="../reference/method/db.collection.insert.html#db.collection.insert" title="db.collection.insert()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">insert()</span></tt></a>
+operation. An <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectId</em></a> is a 12-byte unique identifiers
+suitable for use as the value of an <tt class="docutils literal"><span class="pre">_id</span></tt> field.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded clusters</em></a>, if you do <em>not</em> use
+the <tt class="docutils literal"><span class="pre">_id</span></tt> field as the <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>, then your application
+<strong>must</strong> ensure the uniqueness of the values in the <tt class="docutils literal"><span class="pre">_id</span></tt> field
+to prevent errors.  This is most-often done by using a standard
+auto-generated <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectId</em></a>.</p>
+</div>
+<table class="docutils footnote" frame="void" id="unique-index-report" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[1]</a></td><td>Although the index on <tt class="docutils literal"><span class="pre">_id</span></tt> <em>is</em> unique,
+the <a class="reference internal" href="../reference/method/db.collection.getIndexes.html#db.collection.getIndexes" title="db.collection.getIndexes()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">getIndexes()</span></tt></a> method will
+<em>not</em> print <tt class="docutils literal"><span class="pre">unique:</span> <span class="pre">true</span></tt> in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="capped-collections" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[2]</a></td><td>Before version 2.2 capped collections did not
+have an <tt class="docutils literal"><span class="pre">_id</span></tt> field. In 2.2, all capped collections
+have an <tt class="docutils literal"><span class="pre">_id</span></tt> field, except those in the <tt class="docutils literal"><span class="pre">local</span></tt> <a class="reference internal" href="../reference/glossary.html#term-database"><em class="xref std std-term">database</em></a>.
+See the <a class="reference internal" href="../release-notes/2.2.html#id-indexes-capped-collections"><em>release notes</em></a>
+for more information.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="secondary-indexes">
+<h3>Secondary Indexes<a class="headerlink" href="#secondary-indexes" title="Permalink to this headline">¶</a></h3>
+<p>All indexes in MongoDB are <a class="reference internal" href="../reference/glossary.html#term-secondary-index"><em class="xref std std-term">secondary indexes</em></a>. You can create indexes on any field within any document or
+sub-document. Additionally, you can create compound indexes with
+multiple fields, so that a single query can match multiple components
+using the index while scanning fewer whole documents.</p>
+<p>In general, you should create indexes that support your primary, common,
+and user-facing queries. Doing so requires MongoDB to scan the fewest
+number of documents possible.</p>
+<p>In the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell, you can create an index by calling the
+<a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a> method.
+Arguments to <a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a>
+resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;field&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;product.quantity&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;product&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;quantity&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>For each field in the index specify either <tt class="docutils literal"><span class="pre">1</span></tt> for an
+ascending order or <tt class="docutils literal"><span class="pre">-1</span></tt> for a descending order, which represents the
+order of the keys in the index. For indexes with more than one key (i.e.
+<a class="reference internal" href="#index-type-compound"><em>compound indexes</em></a>) the sequence of fields is
+important.</p>
+</div>
+<div class="section" id="indexes-on-sub-documents">
+<span id="index-sub-document"></span><span id="index-subdocument"></span><span id="index-sub-documents"></span><span id="index-subdocuments"></span><span id="index-7"></span><h3>Indexes on Sub-documents<a class="headerlink" href="#indexes-on-sub-documents" title="Permalink to this headline">¶</a></h3>
+<p>You can create indexes on fields that hold sub-documents as in the
+following example:</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Given the following document in the <tt class="docutils literal"><span class="pre">factories</span></tt> collection:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...),</span> <span class="nx">metro</span><span class="o">:</span> <span class="p">{</span> <span class="nx">city</span><span class="o">:</span> <span class="s2">&quot;New York&quot;</span><span class="p">,</span> <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;NY&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>You can create an index on the <tt class="docutils literal"><span class="pre">metro</span></tt> key. The following queries would
+then use that index, and both would return the above document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">factories</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">metro</span><span class="o">:</span> <span class="p">{</span> <span class="nx">city</span><span class="o">:</span> <span class="s2">&quot;New York&quot;</span><span class="p">,</span> <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;NY&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">);</span>
+
+<span class="nx">db</span><span class="p">.</span><span class="nx">factories</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">metro</span><span class="o">:</span> <span class="p">{</span> <span class="nx">$gte</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">city</span><span class="o">:</span> <span class="s2">&quot;New York&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p class="last">The second query returns the document because <tt class="docutils literal"><span class="pre">{</span> <span class="pre">city:</span> <span class="pre">&quot;New</span> <span class="pre">York&quot;</span>
+<span class="pre">}</span></tt> is less than <tt class="docutils literal"><span class="pre">{</span> <span class="pre">city:</span> <span class="pre">&quot;New</span> <span class="pre">York&quot;,</span> <span class="pre">state:</span> <span class="pre">&quot;NY&quot;</span> <span class="pre">}</span></tt> The order of
+comparison is in ascending key order in the order the keys occur in
+the <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> document.</p>
+</div>
+</div>
+<div class="section" id="indexes-on-embedded-fields">
+<span id="index-embedded-fields"></span><span id="index-8"></span><h3>Indexes on Embedded Fields<a class="headerlink" href="#indexes-on-embedded-fields" title="Permalink to this headline">¶</a></h3>
+<p>You can create indexes on fields in sub-documents, just as you can
+index top-level fields in documents. <a class="footnote-reference" href="#sub-document-indexes" id="id4">[3]</a> These
+indexes allow you to use a &#8220;dot notation,&#8221; to introspect into
+sub-documents.</p>
+<p>Consider a collection named <tt class="docutils literal"><span class="pre">people</span></tt> that holds documents that resemble
+the following example document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span><span class="s2">&quot;_id&quot;</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+ <span class="s2">&quot;name&quot;</span><span class="o">:</span> <span class="s2">&quot;John Doe&quot;</span>
+ <span class="s2">&quot;address&quot;</span><span class="o">:</span> <span class="p">{</span>
+        <span class="s2">&quot;street&quot;</span><span class="o">:</span> <span class="s2">&quot;Main&quot;</span>
+        <span class="s2">&quot;zipcode&quot;</span><span class="o">:</span> <span class="mi">53511</span>
+        <span class="s2">&quot;state&quot;</span><span class="o">:</span> <span class="s2">&quot;WI&quot;</span>
+        <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can create an index on the <tt class="docutils literal"><span class="pre">address.zipcode</span></tt> field, using the
+following specification:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">people</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;address.zipcode&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<table class="docutils footnote" frame="void" id="sub-document-indexes" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[3]</a></td><td><a class="reference internal" href="#index-sub-documents"><em>Indexes on Sub-documents</em></a>, by contrast
+allow you to index fields that hold documents, including the full
+content, up to the maximum <a class="reference internal" href="../reference/limits.html#Index Size" title="Index Size"><tt class="xref mongodb mongodb-limit docutils literal"><span class="pre">Index</span> <span class="pre">Size</span></tt></a> of the sub-document
+in the index.</td></tr>
+</tbody>
+</table>
+<span class="target" id="index-9"></span></div>
+<div class="section" id="compound-indexes">
+<span id="index-type-compound"></span><span id="index-10"></span><h3>Compound Indexes<a class="headerlink" href="#compound-indexes" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB supports &#8220;compound indexes,&#8221; where a single index structure
+holds references to multiple fields within a collection&#8217;s
+documents. Consider a collection named <tt class="docutils literal"><span class="pre">products</span></tt> that holds documents
+that resemble the following document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+ <span class="s2">&quot;_id&quot;</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+ <span class="s2">&quot;item&quot;</span><span class="o">:</span> <span class="s2">&quot;Banana&quot;</span>
+ <span class="s2">&quot;category&quot;</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;food&quot;</span><span class="p">,</span> <span class="s2">&quot;produce&quot;</span><span class="p">,</span> <span class="s2">&quot;grocery&quot;</span><span class="p">]</span>
+ <span class="s2">&quot;location&quot;</span><span class="o">:</span> <span class="s2">&quot;4th Street Store&quot;</span>
+ <span class="s2">&quot;stock&quot;</span><span class="o">:</span> <span class="mi">4</span>
+ <span class="s2">&quot;type&quot;</span><span class="o">:</span> <span class="nx">cases</span>
+ <span class="s2">&quot;arrival&quot;</span><span class="o">:</span> <span class="nb">Date</span><span class="p">(...)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If most applications queries include the <tt class="docutils literal"><span class="pre">item</span></tt> field and a
+significant number of queries will also check the <tt class="docutils literal"><span class="pre">stock</span></tt> field, you
+can specify a single compound index to support both of these queries:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;item&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;location&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;stock&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Compound indexes support queries on any prefix of the fields in the
+index. <a class="footnote-reference" href="#prefix" id="id5">[4]</a> For example, MongoDB can use the above index to
+support queries that select the <tt class="docutils literal"><span class="pre">item</span></tt> field and to support queries
+that select the <tt class="docutils literal"><span class="pre">item</span></tt> field <strong>and</strong> the <tt class="docutils literal"><span class="pre">location</span></tt> field. The
+index, however, would not support queries that select the following:</p>
+<ul class="simple">
+<li>only the <tt class="docutils literal"><span class="pre">location</span></tt> field</li>
+<li>only the <tt class="docutils literal"><span class="pre">stock</span></tt> field</li>
+<li>only the <tt class="docutils literal"><span class="pre">location</span></tt> and <tt class="docutils literal"><span class="pre">stock</span></tt> fields</li>
+<li>only the <tt class="docutils literal"><span class="pre">item</span></tt> and <tt class="docutils literal"><span class="pre">stock</span></tt> fields</li>
+</ul>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">You may not create compound indexes that have
+<tt class="docutils literal"><span class="pre">hashed</span></tt> index fields. You will receive an error if you attempt to
+create a compound index that includes <a class="reference internal" href="../tutorial/create-a-hashed-index.html#index-hashed-index"><em>a hashed index</em></a>.</p>
+</div>
+<p>When creating an index, the number associated with a key specifies the
+direction of the index. The options are <tt class="docutils literal"><span class="pre">1</span></tt> (ascending) and <tt class="docutils literal"><span class="pre">-1</span></tt>
+(descending). Direction doesn&#8217;t matter for single key indexes or for
+random access retrieval but is important if you are doing sort
+queries on compound indexes.</p>
+<p>The order of fields in a compound index is very important. In the
+previous example, the index will contain references to documents
+sorted first by the values of the <tt class="docutils literal"><span class="pre">item</span></tt> field and, within each
+value of the <tt class="docutils literal"><span class="pre">item</span></tt> field, sorted by the values of <tt class="docutils literal"><span class="pre">location</span></tt>, and
+then sorted by values of the <tt class="docutils literal"><span class="pre">stock</span></tt> field.</p>
+<table class="docutils footnote" frame="void" id="prefix" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id5">[4]</a></td><td>Index prefixes are the beginning subset of fields. For
+example, given the index <tt class="docutils literal"><span class="pre">{</span> <span class="pre">a:</span> <span class="pre">1,</span> <span class="pre">b:</span> <span class="pre">1,</span> <span class="pre">c:</span> <span class="pre">1</span> <span class="pre">}</span></tt> both <tt class="docutils literal"><span class="pre">{</span> <span class="pre">a:</span> <span class="pre">1</span> <span class="pre">}</span></tt>
+and <tt class="docutils literal"><span class="pre">{</span> <span class="pre">a:</span> <span class="pre">1,</span> <span class="pre">b:</span> <span class="pre">1</span> <span class="pre">}</span></tt> are prefixes of the index.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="indexes-with-ascending-and-descending-keys">
+<span id="index-ascending-and-descending"></span><span id="index-11"></span><h3>Indexes with Ascending and Descending Keys<a class="headerlink" href="#indexes-with-ascending-and-descending-keys" title="Permalink to this headline">¶</a></h3>
+<p>Indexes store references to fields in either ascending or descending
+order. For single-field indexes, the order of keys doesn&#8217;t matter,
+because MongoDB can traverse the index in either direction. However,
+for <a class="reference internal" href="#index-type-compound"><em>compound indexes</em></a>, if you need to
+order results against two fields, sometimes you need the index fields
+running in opposite order relative to each other.</p>
+<p>To specify an index with a descending order, use the following form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;field&quot;</span><span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>More typically in the context of a <a class="reference internal" href="#index-type-compound"><em>compound
+index</em></a>, the specification would resemble the
+following prototype:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;fieldA&quot;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;fieldB&quot;</span><span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Consider a collection of event data that includes both usernames and a
+timestamp. If you want to return a list of events sorted by username
+and then with the most recent events first. To create this index, use
+the following command:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">events</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;username&quot;</span> <span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;timestamp&quot;</span> <span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="multikey-indexes">
+<span id="index-type-multikey"></span><span id="index-type-multi-key"></span><span id="index-12"></span><h3>Multikey Indexes<a class="headerlink" href="#multikey-indexes" title="Permalink to this headline">¶</a></h3>
+<p>If you index a field that contains an array, MongoDB indexes each
+value in the array separately, in a &#8220;multikey index.&#8221;</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Given the following document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;Warm Weather&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;author&quot;</span> <span class="o">:</span> <span class="s2">&quot;Steve&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;tags&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="s2">&quot;weather&quot;</span><span class="p">,</span> <span class="s2">&quot;hot&quot;</span><span class="p">,</span> <span class="s2">&quot;record&quot;</span><span class="p">,</span> <span class="s2">&quot;april&quot;</span> <span class="p">]</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>Then an index on the <tt class="docutils literal"><span class="pre">tags</span></tt> field would be a multikey index and
+would include these separate entries:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">tags</span><span class="o">:</span> <span class="s2">&quot;weather&quot;</span> <span class="p">}</span>
+<span class="p">{</span> <span class="nx">tags</span><span class="o">:</span> <span class="s2">&quot;hot&quot;</span> <span class="p">}</span>
+<span class="p">{</span> <span class="nx">tags</span><span class="o">:</span> <span class="s2">&quot;record&quot;</span> <span class="p">}</span>
+<span class="p">{</span> <span class="nx">tags</span><span class="o">:</span> <span class="s2">&quot;april&quot;</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p class="last">Queries could use the multikey index to return queries for any of
+the above values.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For <tt class="docutils literal"><span class="pre">hashed</span></tt> indexes, MongoDB collapses sub-documents and
+computes the hash for the entire value, but does not support
+multi-key (i.e. arrays) indexes. For fields that hold
+sub-documents, you cannot use the index to support queries that
+introspect the sub-document.</p>
+</div>
+<p>You can use multikey indexes to index fields within objects embedded in
+arrays, as in the following example:</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Consider a <tt class="docutils literal"><span class="pre">feedback</span></tt> collection with documents in the following
+form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+ <span class="s2">&quot;_id&quot;</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+ <span class="s2">&quot;title&quot;</span><span class="o">:</span> <span class="s2">&quot;Grocery Quality&quot;</span>
+ <span class="s2">&quot;comments&quot;</span><span class="o">:</span> <span class="p">[</span>
+    <span class="p">{</span> <span class="nx">author_id</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+      <span class="nx">date</span><span class="o">:</span> <span class="nb">Date</span><span class="p">(...)</span>
+      <span class="nx">text</span><span class="o">:</span> <span class="s2">&quot;Please expand the cheddar selection.&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">author_id</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+      <span class="nx">date</span><span class="o">:</span> <span class="nb">Date</span><span class="p">(...)</span>
+      <span class="nx">text</span><span class="o">:</span> <span class="s2">&quot;Please expand the mustard selection.&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">author_id</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+      <span class="nx">date</span><span class="o">:</span> <span class="nb">Date</span><span class="p">(...)</span>
+      <span class="nx">text</span><span class="o">:</span> <span class="s2">&quot;Please expand the olive selection.&quot;</span> <span class="p">}</span>
+ <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An index on the <tt class="docutils literal"><span class="pre">comments.text</span></tt> field would be a multikey index
+and would add items to the index for all of the sub-documents in
+the array.</p>
+<p>With an index, such as <tt class="docutils literal"><span class="pre">{</span> <span class="pre">comments.text:</span> <span class="pre">1</span> <span class="pre">}</span></tt>, consider the
+following query:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">feedback</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;comments.text&quot;</span><span class="o">:</span> <span class="s2">&quot;Please expand the selection.&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>This would select the document, that contains the following
+document in the <tt class="docutils literal"><span class="pre">comments.text</span></tt> array:</p>
+<div class="last highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">author_id</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(...)</span>
+  <span class="nx">date</span><span class="o">:</span> <span class="nb">Date</span><span class="p">(...)</span>
+  <span class="nx">text</span><span class="o">:</span> <span class="s2">&quot;Please expand the olive selection.&quot;</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition-compound-multikey-indexes-may-only-include-one-array-field admonition">
+<p class="first admonition-title">Compound Multikey Indexes May Only Include One Array Field</p>
+<p>While you can create multikey <a class="reference internal" href="#index-type-compound"><em>compound indexes</em></a>, at most one field in a compound index may hold
+an array. For example, given an index on <tt class="docutils literal"><span class="pre">{</span> <span class="pre">a:</span> <span class="pre">1,</span> <span class="pre">b:</span> <span class="pre">1</span> <span class="pre">}</span></tt>, the
+following documents are permissible:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span><span class="nx">a</span><span class="o">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="nx">b</span><span class="o">:</span> <span class="mi">1</span><span class="p">}</span>
+
+<span class="p">{</span><span class="nx">a</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">b</span><span class="o">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]}</span>
+</pre></div>
+</div>
+<p>However, the following document is impermissible, and MongoDB
+cannot insert such a document into a collection with the <tt class="docutils literal"><span class="pre">{a:</span> <span class="pre">1,</span>
+<span class="pre">b:</span> <span class="pre">1</span> <span class="pre">}</span></tt> index:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span><span class="nx">a</span><span class="o">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="nx">b</span><span class="o">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]}</span>
+</pre></div>
+</div>
+<p class="last">If you attempt to insert a such a document, MongoDB will reject the
+insertion, and produce an error that says <tt class="docutils literal"><span class="pre">cannot</span> <span class="pre">index</span> <span class="pre">parallel</span>
+<span class="pre">arrays</span></tt>. MongoDB does not index parallel arrays because they
+require the index to include each value in the Cartesian product of
+the compound keys, which could quickly result in incredibly large
+and difficult to maintain indexes.</p>
+</div>
+</div>
+<div class="section" id="unique-indexes">
+<span id="index-type-unique"></span><span id="index-13"></span><h3>Unique Indexes<a class="headerlink" href="#unique-indexes" title="Permalink to this headline">¶</a></h3>
+<p>A unique index causes MongoDB to reject all documents that
+contain a duplicate value for the indexed field. To create a unique index
+on the <tt class="docutils literal"><span class="pre">user_id</span></tt> field of the <tt class="docutils literal"><span class="pre">members</span></tt> collection, use the
+following operation in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">addresses</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;user_id&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">},</span> <span class="p">{</span> <span class="nx">unique</span><span class="o">:</span> <span class="kc">true</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>By default, <tt class="docutils literal"><span class="pre">unique</span></tt> is <tt class="docutils literal"><span class="pre">false</span></tt> on MongoDB indexes.</p>
+<p>If you use the unique constraint on a <a class="reference internal" href="#index-type-compound"><em>compound index</em></a> then MongoDB will enforce uniqueness on the
+<em>combination</em> of values, rather than the individual value for any or all
+values of the key.</p>
+<p>If a document does not have a value for the indexed field in a unique
+index, the index will store a null value for this document. MongoDB
+will only permit one document without a unique value in the collection
+because of this unique constraint. You can combine with the
+<a class="reference internal" href="#index-type-sparse"><em>sparse index</em></a> to filter these null values
+from the unique index.</p>
+<p>You may not specify a unique constraint on a <a class="reference internal" href="#index-type-hashed"><em>hashed
+index</em></a>.</p>
+</div>
+<div class="section" id="sparse-indexes">
+<span id="index-type-sparse"></span><span id="index-14"></span><h3>Sparse Indexes<a class="headerlink" href="#sparse-indexes" title="Permalink to this headline">¶</a></h3>
+<p>Sparse indexes only contain entries for documents that have the
+indexed field. <a class="footnote-reference" href="#null-values-are-indexed-in-sparse-indexes" id="id6">[5]</a> Any
+document that is missing the field is not indexed. The index is
+&#8220;sparse&#8221; because of the missing documents when values are missing.</p>
+<p>By contrast, non-sparse indexes contain all documents
+in a collection, and store null values for documents that do not
+contain the indexed field. Create a sparse index on the <tt class="docutils literal"><span class="pre">xmpp_id</span></tt>
+field, of the <tt class="docutils literal"><span class="pre">members</span></tt> collection, using the following operation in
+the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">addresses</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="s2">&quot;xmpp_id&quot;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">},</span> <span class="p">{</span> <span class="nx">sparse</span><span class="o">:</span> <span class="kc">true</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>By default, <tt class="docutils literal"><span class="pre">sparse</span></tt> is <tt class="docutils literal"><span class="pre">false</span></tt> on MongoDB indexes.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Using these indexes will sometimes result in incomplete results
+when filtering or sorting results, because sparse indexes are not
+complete for all documents in a collection.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Do not confuse sparse indexes in MongoDB with <a class="reference external" href="http://en.wikipedia.org/wiki/Database_index#Sparse_index">block-level</a>
+indexes in other databases. Think of them as dense indexes with a
+specific filter.</p>
+<p class="last">You can combine the sparse index option with the <a class="reference internal" href="#index-type-unique"><em>unique
+indexes</em></a> option so that <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> will
+reject documents that have duplicate values for a field, but that
+ignore documents that do not have the key.</p>
+</div>
+<table class="docutils footnote" frame="void" id="null-values-are-indexed-in-sparse-indexes" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id6">[5]</a></td><td>All documents that
+have the indexed field <em>are</em> indexed in a sparse index, even if
+that field stores a null value in some documents.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="hashed-index">
+<span id="index-type-hashed"></span><span id="index-15"></span><h3>Hashed Index<a class="headerlink" href="#hashed-index" title="Permalink to this headline">¶</a></h3>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p>Hashed indexes maintain entries with hashes of the values of the
+indexed field. The hashing function collapses sub-documents and
+computes the hash for the entire value but does not support multi-key
+(i.e. arrays) indexes.</p>
+<p>MongoDB can use the <tt class="docutils literal"><span class="pre">hashed</span></tt> index to support equality queries, but
+<tt class="docutils literal"><span class="pre">hashed</span></tt> indexes do not support range queries.</p>
+<p>You may not create compound indexes that have <tt class="docutils literal"><span class="pre">hashed</span></tt> index fields
+or specify a unique constraint on a <tt class="docutils literal"><span class="pre">hashed</span></tt> index; however, you can
+create both a <tt class="docutils literal"><span class="pre">hashed</span></tt> index and an ascending/descending (i.e.
+non-hashed) index on the same field: MongoDB will use the scalar index
+for range queries.</p>
+<div class="admonition warning" id="hashed-index-warning">
+<p class="first admonition-title">Warning</p>
+<p class="last"><tt class="docutils literal"><span class="pre">hashed</span></tt> indexes truncate floating point numbers to 64-bit integers
+before hashing. For example, a <tt class="docutils literal"><span class="pre">hashed</span></tt> index would store the same
+value for a field that held a value of <tt class="docutils literal"><span class="pre">2.3</span></tt>, <tt class="docutils literal"><span class="pre">2.2</span></tt> and <tt class="docutils literal"><span class="pre">2.9</span></tt>.
+To prevent collisions, do not use a <tt class="docutils literal"><span class="pre">hashed</span></tt> index for floating
+point numbers that cannot be consistently converted to 64-bit
+integers (and then back to floating point.) <tt class="docutils literal"><span class="pre">hashed</span></tt> indexes do
+not support floating point values larger than 2<sup>53</sup>.</p>
+</div>
+<p>Create a <tt class="docutils literal"><span class="pre">hashed</span></tt> index using an operation that resembles the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">active</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">a</span><span class="o">:</span> <span class="s2">&quot;hashed&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>This operation creates a hashed index for the <tt class="docutils literal"><span class="pre">active</span></tt> collection on
+the <tt class="docutils literal"><span class="pre">a</span></tt> field.</p>
+<table class="docutils footnote" frame="void" id="hash-size" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[6]</td><td>The hash stored in the <tt class="docutils literal"><span class="pre">hashed</span></tt> index is 64 bits of the
+128 bit <tt class="docutils literal"><span class="pre">md5</span></tt> hash.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="index-names">
+<span id="index-16"></span><span id="id7"></span><h2>Index Names<a class="headerlink" href="#index-names" title="Permalink to this headline">¶</a></h2>
+<p>The default name for an index is the concatenation of the indexed keys
+and each key&#8217;s direction in the index (1 or -1).</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Issue the following command to create an index on <tt class="docutils literal"><span class="pre">item</span></tt>
+and <tt class="docutils literal"><span class="pre">quantity</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">item</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">quantity</span><span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p class="last">The resulting index is named: <tt class="docutils literal"><span class="pre">item_1_quantity_-1</span></tt>.</p>
+</div>
+<p>Optionally, you can specify a name for an index instead of using the
+default name.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Issue the following command to create an index on <tt class="docutils literal"><span class="pre">item</span></tt>
+and <tt class="docutils literal"><span class="pre">quantity</span></tt> and specify <tt class="docutils literal"><span class="pre">inventory</span></tt> as the index name:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">products</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">item</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">quantity</span><span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">,</span> <span class="p">{</span><span class="nx">name</span><span class="o">:</span> <span class="s2">&quot;inventory&quot;</span><span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p class="last">The resulting index is named: <tt class="docutils literal"><span class="pre">inventory</span></tt>.</p>
+</div>
+<p>To view the name of an index, use the <a class="reference internal" href="../reference/method/db.collection.getIndexes.html#db.collection.getIndexes" title="db.collection.getIndexes()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">getIndexes()</span></tt></a> method.</p>
+</div>
+<div class="section" id="index-creation-options">
+<span id="index-operations"></span><span id="index-creation-operations"></span><span id="index-17"></span><h2>Index Creation Options<a class="headerlink" href="#index-creation-options" title="Permalink to this headline">¶</a></h2>
+<p>You specify index creation options in the second argument in
+<a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a>.</p>
+<p>The options <a class="reference internal" href="#index-type-sparse"><em>sparse</em></a>, <a class="reference internal" href="#index-type-unique"><em>unique</em></a>, and <a class="reference internal" href="#index-feature-ttl"><em>TTL</em></a> affect the
+kind of index that MongoDB creates. This section addresses,
+<a class="reference internal" href="#index-creation-background"><em>background construction</em></a> and
+<a class="reference internal" href="#index-creation-duplicate-dropping"><em>duplicate dropping</em></a>, which
+affect how MongoDB builds the indexes.</p>
+<div class="section" id="background-construction">
+<span id="index-creation-background"></span><span id="index-18"></span><h3>Background Construction<a class="headerlink" href="#background-construction" title="Permalink to this headline">¶</a></h3>
+<p>By default, creating an index is a blocking operation. Building an
+index on a large collection of data can take a long
+time to complete. To resolve this issue, the background option can
+allow you to continue to use your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance during
+the index build.</p>
+<p>For example, to create an index in the background of the <tt class="docutils literal"><span class="pre">zipcode</span></tt>
+field of the <tt class="docutils literal"><span class="pre">people</span></tt> collection you would issue the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">people</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">zipcode</span><span class="o">:</span> <span class="mi">1</span><span class="p">},</span> <span class="p">{</span><span class="nx">background</span><span class="o">:</span> <span class="kc">true</span><span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>By default, <tt class="docutils literal"><span class="pre">background</span></tt> is <tt class="docutils literal"><span class="pre">false</span></tt> for building MongoDB indexes.</p>
+<p>You can combine the background option with other options, as in the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">people</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">zipcode</span><span class="o">:</span> <span class="mi">1</span><span class="p">},</span> <span class="p">{</span><span class="nx">background</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span> <span class="nx">sparse</span><span class="o">:</span> <span class="kc">true</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Be aware of the following behaviors with background index
+construction:</p>
+<ul>
+<li><p class="first">A <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance can build more than one index in the
+background concurrently.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.4: </span>Before 2.4, a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance could only build one
+background index per database at a time.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span>Before 2.2, a single <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance could only build
+one index at a time.</p>
+</li>
+<li><p class="first">The indexing operation runs in the background so that other database
+operations can run while creating the index. However, the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell session or connection where you are creating
+the index will block until the index build is complete. Open another
+connection or <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> instance to continue using commands
+to the database.</p>
+</li>
+<li><p class="first">The background index operation use an incremental approach that is
+slower than the normal &#8220;foreground&#8221; index builds. If the index is
+larger than the available RAM, then the incremental process
+can take <em>much</em> longer than the foreground build.</p>
+</li>
+<li><p class="first">If your application includes <a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a> operations, and an index <em>doesn&#8217;t</em>
+exist for other operational concerns, building the index can have a
+severe impact on the performance of the database.</p>
+<p>Make sure that your application checks for the indexes at start up
+using the <a class="reference internal" href="../reference/method/db.collection.getIndexes.html#db.collection.getIndexes" title="db.collection.getIndexes()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">getIndexes()</span></tt></a> method
+or the <a class="reference external" href="http://api.mongodb.org/">equivalent method for your driver</a> and terminates if
+the proper indexes do not exist. Always build indexes in production
+instances using separate application code, during designated
+maintenance windows.</p>
+</li>
+</ul>
+<div class="admonition-building-indexes-on-secondaries admonition">
+<p class="first admonition-title">Building Indexes on Secondaries</p>
+<p>Background index operations on a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> become foreground indexing operations on secondary
+members of the set. All indexing operations on secondaries block
+replication.</p>
+<p>To build large indexes on secondaries the best approach is to
+restart one secondary at a time in <a class="reference internal" href="../reference/glossary.html#term-standalone"><em class="xref std std-term">standalone</em></a> mode and build the
+index. After building the index, restart as a member of the
+replica set, allow it to catch up with the other members of the
+set, and then build the index on the next secondary. When all the
+secondaries have the new index, step down the primary, restart it
+as a standalone, and build the index on the former primary.</p>
+<p>Remember, the amount of time required to build the index on a
+secondary node must be within the window of the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a>, so
+that the secondary can catch up with the primary.</p>
+<p>See <a class="reference internal" href="../tutorial/build-indexes-on-replica-sets.html#index-building-replica-sets"><em>Build Indexes on Replica Sets</em></a> for more information on
+this process.</p>
+<p>Indexes on secondary members in &#8220;recovering&#8221; mode are always built in
+the foreground to allow them to catch up as soon as possible.</p>
+<p class="last">See <a class="reference internal" href="../tutorial/build-indexes-on-replica-sets.html#index-building-replica-sets"><em>Build Indexes on Replica Sets</em></a> for a complete procedure for
+rebuilding indexes on secondaries.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If MongoDB is building an index in the background, you cannot
+perform other administrative operations involving that collection,
+including <a class="reference internal" href="../reference/command/repairDatabase.html#dbcmd.repairDatabase" title="repairDatabase"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">repairDatabase</span></tt></a>, drop that collection
+(i.e. <a class="reference internal" href="../reference/method/db.collection.drop.html#db.collection.drop" title="db.collection.drop()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.collection.drop()</span></tt></a>,) and
+<a class="reference internal" href="../reference/command/compact.html#dbcmd.compact" title="compact"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">compact</span></tt></a>. These operations will return an error during
+background index builds.</p>
+</div>
+<p>Queries will not use these indexes until the index build is complete.</p>
+<span class="target" id="index-19"></span></div>
+<div class="section" id="drop-duplicates">
+<span id="index-creation-duplicate-dropping"></span><span id="index-20"></span><h3>Drop Duplicates<a class="headerlink" href="#drop-duplicates" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB cannot create a <a class="reference internal" href="#index-type-unique"><em>unique index</em></a> on a
+field that has duplicate values. To force the creation of a unique
+index, you can specify the <tt class="docutils literal"><span class="pre">dropDups</span></tt> option, which will only index
+the first occurrence of a value for the key, and delete all subsequent
+values.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>As in all unique indexes, if a document does not have the indexed
+field, MongoDB will include it in the index with a &#8220;null&#8221; value.</p>
+<p class="last">If subsequent fields <em>do not</em> have the indexed field, and you have
+set <tt class="docutils literal"><span class="pre">{dropDups:</span> <span class="pre">true}</span></tt>, MongoDB will remove these documents from
+the collection when creating the index. If you combine <tt class="docutils literal"><span class="pre">dropDups</span></tt>
+with the <a class="reference internal" href="#index-type-sparse"><em>sparse</em></a> option, this index will
+only include documents in the index that have the value, and the
+documents without the field will remain in the database.</p>
+</div>
+<p>To create a unique index that drops duplicates on the <tt class="docutils literal"><span class="pre">username</span></tt>
+field of the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection, use a command in the following form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">username</span><span class="o">:</span> <span class="mi">1</span> <span class="p">},</span> <span class="p">{</span> <span class="nx">unique</span><span class="o">:</span> <span class="kc">true</span><span class="p">,</span> <span class="nx">dropDups</span><span class="o">:</span> <span class="kc">true</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Specifying <tt class="docutils literal"><span class="pre">{</span> <span class="pre">dropDups:</span> <span class="pre">true</span> <span class="pre">}</span></tt> will delete data from your
+database. Use with extreme caution.</p>
+</div>
+<p>By default, <tt class="docutils literal"><span class="pre">dropDups</span></tt> is <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="index-feature">
+<span id="index-features"></span><span id="id8"></span><h2>Index Features<a class="headerlink" href="#index-feature" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="index-21"></span><div class="section" id="ttl-indexes">
+<span id="index-feature-ttl"></span><span id="index-22"></span><h3>TTL Indexes<a class="headerlink" href="#ttl-indexes" title="Permalink to this headline">¶</a></h3>
+<p>TTL indexes are special indexes that MongoDB can use to automatically
+remove documents from a collection after a certain amount of
+time. This is ideal for some types of information like machine
+generated event data, logs, and session information that only need to
+persist in a database for a limited amount of time.</p>
+<p>These indexes have the following limitations:</p>
+<ul class="simple">
+<li><a class="reference internal" href="#index-type-compound"><em>Compound indexes</em></a> are <em>not</em> supported.</li>
+<li>The indexed field <strong>must</strong> be a date <a class="reference internal" href="../reference/glossary.html#term-bson-types"><em class="xref std std-term">type</em></a>.</li>
+<li>If the field holds an array, and there are multiple date-typed data
+in the index, the document will expire when the <em>lowest</em>
+(i.e. earliest) matches the expiration threshold.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>TTL indexes expire data by removing documents in a background task
+that runs <em>every 60 seconds</em>. As a result, the TTL index provides no
+guarantees that expired documents will not exist in the
+collection. Consider that:</p>
+<ul class="last simple">
+<li>Documents may remain in a collection <em>after</em> they expire and before
+the background process runs.</li>
+<li>The duration of the removal operations depend on the workload of
+your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance.</li>
+</ul>
+</div>
+<p>In all other respects, TTL indexes are normal indexes,
+and if appropriate, MongoDB can use these
+indexes to fulfill arbitrary queries.</p>
+<div class="admonition-see admonition seealso">
+<p class="first admonition-title">See</p>
+<p class="last"><a class="reference internal" href="../tutorial/expire-data.html"><em>Expire Data from Collections by Setting TTL</em></a></p>
+</div>
+<span class="target" id="index-23"></span></div>
+<div class="section" id="geospatial-indexes">
+<span id="index-feature-geospatial"></span><span id="index-24"></span><h3>Geospatial Indexes<a class="headerlink" href="#geospatial-indexes" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB provides &#8220;geospatial indexes&#8221; to support location-based and
+other similar queries in a two dimensional coordinate systems. For
+example, use geospatial indexes when you need to take a collection of
+documents that have coordinates, and return a number of options that
+are &#8220;near&#8221; a given coordinate pair.</p>
+<p>To create a geospatial index, your <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> must
+have a coordinate pair. For maximum compatibility, these coordinate
+pairs should be in the form of a two element array, such as <tt class="docutils literal"><span class="pre">[</span> <span class="pre">x</span> <span class="pre">,</span> <span class="pre">y</span>
+<span class="pre">]</span></tt>. Given the field of <tt class="docutils literal"><span class="pre">loc</span></tt>, that held a coordinate pair, in the
+collection <tt class="docutils literal"><span class="pre">places</span></tt>, you would create a geospatial index as follows:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">places</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span> <span class="o">:</span> <span class="s2">&quot;2d&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>MongoDB will reject documents that have values in the <tt class="docutils literal"><span class="pre">loc</span></tt> field
+beyond the minimum and maximum values.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">MongoDB permits only one geospatial index per collection. Although,
+MongoDB will allow clients to create multiple geospatial indexes, a
+single query can use only one index.</p>
+</div>
+<p>See the <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a>, and the database command
+<a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a> for more information on accessing geospatial
+data.</p>
+<span class="target" id="index-26"></span></div>
+<div class="section" id="geohaystack-indexes">
+<span id="index-geohaystack-index"></span><span id="index-27"></span><h3>Geohaystack Indexes<a class="headerlink" href="#geohaystack-indexes" title="Permalink to this headline">¶</a></h3>
+<p>In addition to conventional <a class="reference internal" href="#index-feature-geospatial"><em>geospatial indexes</em></a>, MongoDB also provides a bucket-based
+geospatial index, called &#8220;geospatial haystack indexes.&#8221; These indexes
+support high performance queries for locations within a small area,
+when the query must filter along another dimension.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p class="last">If you need to return all documents that have coordinates within 25
+miles of a given point <em>and</em> have a type field value of &#8220;museum,&#8221; a
+haystack index would be provide the best support for these queries.</p>
+</div>
+<p>Haystack indexes allow you to tune your bucket size to the
+distribution of your data, so that in general you search only very
+small regions of 2d space for a particular kind of document. These
+indexes are not suited for finding the closest documents to a
+particular location, when the closest documents are far away compared
+to bucket size.</p>
+<span class="target" id="index-29"></span></div>
+<div class="section" id="text-indexes">
+<span id="index-feature-text"></span><span id="index-30"></span><h3><tt class="docutils literal"><span class="pre">text</span></tt> Indexes<a class="headerlink" href="#text-indexes" title="Permalink to this headline">¶</a></h3>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p>MongoDB provides <tt class="docutils literal"><span class="pre">text</span></tt> indexes to support the search of string
+content in documents of a collection. <tt class="docutils literal"><span class="pre">text</span></tt> indexes are
+case-insensitive and can include any field that contains string data.
+<tt class="docutils literal"><span class="pre">text</span></tt> indexes drop language-specific stop words (e.g. in English,
+&#8220;the,&#8221; &#8220;an,&#8221; &#8220;a,&#8221; &#8220;and,&#8221; etc.) and uses simple language-specific suffix
+stemming. See <a class="reference internal" href="../reference/command/text.html#text-search-languages"><em>Text Search Languages</em></a> for the supported languages.</p>
+<p>You can only access the <tt class="docutils literal"><span class="pre">text</span></tt> index with the <a class="reference internal" href="../reference/command/text.html#dbcmd.text" title="text"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">text</span></tt></a>
+command.</p>
+<p>See <a class="reference internal" href="text-search.html"><em>Text Search</em></a> for more information.</p>
+</div>
+</div>
+<div class="section" id="index-behaviors">
+<span id="index-limitations"></span><span id="index-31"></span><h2>Index Behaviors<a class="headerlink" href="#index-behaviors" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="limitations">
+<h3>Limitations<a class="headerlink" href="#limitations" title="Permalink to this headline">¶</a></h3>
+<ul>
+<li><p class="first">A collection may have no more than <a class="reference internal" href="../reference/limits.html#limit-number-of-indexes-per-collection"><em>64 indexes</em></a>.</p>
+</li>
+<li><p class="first">Index keys can be no larger than <a class="reference internal" href="../reference/limits.html#limit-index-size"><em>1024 bytes</em></a>.</p>
+<blockquote>
+<div><p>Documents with fields that have values greater than
+this size cannot be indexed.</p>
+<p>To query for documents that were too large to index, you can use a
+command similar to the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">find</span><span class="p">({</span><span class="o">&lt;</span><span class="nx">key</span><span class="o">&gt;:</span> <span class="o">&lt;</span><span class="nx">value</span> <span class="nx">too</span> <span class="nx">large</span> <span class="nx">to</span> <span class="nx">index</span><span class="o">&gt;</span><span class="p">}).</span><span class="nx">hint</span><span class="p">({</span><span class="nx">$natural</span><span class="o">:</span> <span class="mi">1</span><span class="p">})</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+<li><p class="first">The name of an index, including the <a class="reference internal" href="../reference/glossary.html#term-namespace"><em class="xref std std-term">namespace</em></a> must be
+shorter than <a class="reference internal" href="../reference/limits.html#limit-index-name-length"><em>128 characters</em></a>.</p>
+</li>
+<li><p class="first">Indexes have storage requirements, and impacts insert/update speed
+to some degree.</p>
+</li>
+<li><p class="first">Create indexes to support queries and other operations, but do not
+maintain indexes that your MongoDB instance cannot or will not use.</p>
+</li>
+<li><p class="first">For queries with the <a class="reference internal" href="../reference/operator/or.html#op._S_or" title="$or"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$or</span></tt></a> operator,
+each clause of an <a class="reference internal" href="../reference/operator/or.html#op._S_or" title="$or"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$or</span></tt></a> query executes in parallel, and
+can each use a different index.</p>
+</li>
+<li><p class="first">For queries that use the <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> method and
+use the <a class="reference internal" href="../reference/operator/or.html#op._S_or" title="$or"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$or</span></tt></a> operator, the query <strong>cannot</strong> use the
+indexes on the <a class="reference internal" href="../reference/operator/or.html#op._S_or" title="$or"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$or</span></tt></a> fields.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">2d</span></tt> <a class="reference internal" href="geospatial-indexes.html"><em>geospatial queries</em></a> do not
+support queries that use the <a class="reference internal" href="../reference/operator/or.html#op._S_or" title="$or"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$or</span></tt></a> operator.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="consider-insert-throughput">
+<h3>Consider Insert Throughput<a class="headerlink" href="#consider-insert-throughput" title="Permalink to this headline">¶</a></h3>
+<p>If your application is write-heavy, then be careful when creating new
+indexes, since each additional index with impose a
+write-performance penalty. In general, don&#8217;t be careless about adding
+indexes. Add indexes to complement your queries. Always have
+a good reason for adding a new index, and be sure to benchmark
+alternative strategies.</p>
+<p>MongoDB must update <em>all</em> indexes associated with a collection after
+every insert, update, or delete operation. For update operations, if
+the updated document does not move to a new location, then MongoDB only
+modifies the updated fields in the index. Therefore, every index on a
+collection adds some amount of overhead to these write operations. In
+almost every case, the performance gains that indexes realize for read
+operations are worth the insertion penalty. However, in some cases:</p>
+<ul class="simple">
+<li>An index to support an infrequent query might incur more
+insert-related costs than savings in read-time.</li>
+<li>If you have many related indexes on a collection that receives a
+high volume of write operations, you may find better overall
+performance with a smaller number of indexes, even if some queries
+are less optimally supported by an index.</li>
+<li>If your indexes and queries are not sufficiently <a class="reference internal" href="../tutorial/create-queries-that-ensure-selectivity.html#index-selectivity"><em>selective</em></a>, the speed improvements for query operations
+may not offset the costs of maintaining an index. For more
+information see <a class="reference internal" href="../tutorial/create-queries-that-ensure-selectivity.html#index-selectivity"><em>Create Queries that Ensure Selectivity</em></a>.</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../indexes.html" title="Previous Section: Indexes">&lt; &nbsp; Indexes</a></li>
+              <li id="btnvup"><a href="../indexes.html" title="Parent Section: Indexes" >&#47;&#92;&nbsp; Indexes</a></li>
+              <li id="btnvnx"><a href="../applications/indexes.html" title="Next Section: Indexing Strategies">Indexing Strategies &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../indexes.html">Indexes</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="">Indexing Overview</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/indexes.html">Indexing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/indexes.html">Indexing Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/geospatial-indexes.html">Geospatial Indexes and Queries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="text-search.html">Text Search</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/indexes.txt" target="_blank" title="Edit core/indexes.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/indexes%2Etxt%22" target="_blank" title="Report a problem with core/indexes.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/indexes.txt"'},
+		environment: {'repo': 'docs','source': 'core/indexes'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/indexes'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

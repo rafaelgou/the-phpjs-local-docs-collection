@@ -1,0 +1,639 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Searching &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Hierarchical Data" href="hierarchical-data.html" />
+    <link rel="prev" title="Behaviors" href="behaviors.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="hierarchical-data.html" title="Hierarchical Data"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviors"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="searching">
+<h1>Searching<a class="headerlink" href="#searching" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Searching is a huge topic, hence an entire chapter has been devoted to a
+behavior called <tt class="docutils literal"><span class="pre">Searchable</span></tt>. It is a fulltext indexing and searching
+tool. It can be used for indexing and searching both database and files.</p>
+<p>Consider we have a class called <tt class="docutils literal"><span class="pre">NewsItem</span></tt> with the following
+definition:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/NewsItem.php</span>
+<span class="k">class</span> <span class="nc">NewsItem</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;clob&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">NewsItem</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">body</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">clob</span>
+</pre></div>
+</div>
+<p>Now lets say we have an application where users are allowed to search
+for different news items, an obvious way to implement this would be
+building a form and based on that forms submitted values build DQL
+queries such as:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;NewsItem i&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">where</span><span class="p">(</span><span class="s1">&#39;n.title LIKE ? OR n.content LIKE ?&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>As the application grows these kind of queries become very slow. For
+example when using the previous query with parameters <tt class="docutils literal"><span class="pre">%framework%</span></tt>
+and <tt class="docutils literal"><span class="pre">%framework%</span></tt> (this would be equivalent of &#8216;find all news items
+whose title or content contains word &#8216;framework&#8217;) the database would
+have to traverse through each row in the table, which would naturally be
+very very slow.</p>
+<p>Doctrine solves this with its search component and inverse indexes.
+First lets alter our definition a bit:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/NewsItem.php</span>
+<span class="k">class</span> <span class="nc">NewsItem</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">NewsItem</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">Searchable</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">content</span><span class="p-Indicator">]</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;NewsItem&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">news_item_index</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">keyword</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
+<span class="nx">field</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+<span class="nx">position</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">keyword</span><span class="p">,</span>
+<span class="nx">field</span><span class="p">,</span>
+<span class="nx">position</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">news_item</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">title</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">body</span> <span class="nx">LONGTEXT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="nx">news_item_index</span> <span class="nx">ADD</span> <span class="nx">FOREIGN</span> <span class="nx">KEY</span> <span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">REFERENCES</span> <span class="nx">news_item</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">ON</span> <span class="nx">UPDATE</span> <span class="nx">CASCADE</span> <span class="nx">ON</span> <span class="nx">DELETE</span> <span class="nx">CASCADE</span>
+</pre></div>
+</div>
+<p>Here we tell Doctrine that <tt class="docutils literal"><span class="pre">NewsItem</span></tt> class acts as searchable
+(internally Doctrine loads <a href="#id1"><span class="problematic" id="id2">:php:class:`Doctrine_Template_Searchable`</span></a>) and
+fields <tt class="docutils literal"><span class="pre">title</span></tt> and <tt class="docutils literal"><span class="pre">content</span></tt> are marked as fulltext indexed fields.
+This means that every time a <tt class="docutils literal"><span class="pre">NewsItem</span></tt> is added or updated Doctrine
+will:</p>
+<ol class="arabic simple">
+<li>Update the inverse search index or</li>
+<li>Add new pending entry to the inverse search index (sometimes it can
+be efficient to update the inverse search index in batches)</li>
+</ol>
+</div>
+<div class="section" id="index-structure">
+<h2>Index structure<a class="headerlink" href="#index-structure" title="Permalink to this headline">¶</a></h2>
+<p>The structure of the inverse index Doctrine uses is the following:</p>
+<p>[ (string) keyword] [ (string) field ] [ (integer) position ] [ (mixed) [foreign_keys] ]</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="27%" />
+<col width="73%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Column</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">keyword</span></tt></td>
+<td>The keyword in the text that can be searched for.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">field</span></tt></td>
+<td>The field where the keyword was found.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">position</span></tt></td>
+<td>The position where the keyword was found.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">[foreign_keys]</span></tt></td>
+<td>The foreign keys of the record being indexed.</td>
+</tr>
+</tbody>
+</table>
+<p>In the <tt class="docutils literal"><span class="pre">NewsItem</span></tt> example the <tt class="docutils literal"><span class="pre">[foreign_keys]</span></tt> would simply contain
+one field named <tt class="docutils literal"><span class="pre">id</span></tt> with foreign key references to <tt class="docutils literal"><span class="pre">NewsItem(id)</span></tt>
+and with <tt class="docutils literal"><span class="pre">onDelete</span> <span class="pre">=&gt;</span> <span class="pre">CASCADE</span></tt> constraint.</p>
+<p>An example row in this table might look something like:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="35%" />
+<col width="26%" />
+<col width="24%" />
+<col width="15%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">keyword</th>
+<th class="head">field</th>
+<th class="head">position</th>
+<th class="head">id</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">database</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">title</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">3</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">1</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>In this example the word <tt class="docutils literal"><span class="pre">database</span></tt> is the third word of the <tt class="docutils literal"><span class="pre">title</span></tt>
+field of <tt class="docutils literal"><span class="pre">NewsItem</span></tt> with id of <tt class="docutils literal"><span class="pre">1</span></tt>.</p>
+</div>
+<div class="section" id="index-building">
+<h2>Index Building<a class="headerlink" href="#index-building" title="Permalink to this headline">¶</a></h2>
+<p>Whenever a searchable record is being inserted into database Doctrine
+executes the index building procedure. This happens in the background as
+the procedure is being invoked by the search listener. The phases of
+this procedure are:</p>
+<ol class="arabic simple">
+<li>Analyze the text using a <a href="#id3"><span class="problematic" id="id4">:php:class:`Doctrine_Search_Analyzer`</span></a> based class</li>
+<li>Insert new rows into index table for all analyzed keywords</li>
+</ol>
+<p>Sometimes you may not want to update the index table directly when new
+searchable entries are added. Rather you may want to batch update the
+index table in certain intervals. For disabling the direct update
+functionality you&#8217;ll need to set the batchUpdates option to true when
+you attach the behavior:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/NewsItem.php</span>
+<span class="k">class</span> <span class="nc">NewsItem</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+                <span class="s1">&#39;batchUpdates&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">NewsItem</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">Searchable</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">content</span><span class="p-Indicator">]</span>
+      <span class="l-Scalar-Plain">batchUpdates</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>The actual batch updating procedure can be invoked with the
+<tt class="docutils literal"><span class="pre">batchUpdateIndex()</span></tt> method. It takes two optional arguments:
+<tt class="docutils literal"><span class="pre">limit</span></tt> and <tt class="docutils literal"><span class="pre">offset</span></tt>. Limit can be used for limiting the number of
+batch indexed entries while the offset can be used for setting the first
+entry to start the indexing from.</p>
+<p>First lets insert a new <tt class="docutils literal"><span class="pre">NewsItem</span></tt> records:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItem</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">NewsItem</span><span class="p">();</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Test&#39;</span><span class="p">;</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you don&#8217;t have batch updates enabled then the index will
+be automatically updated for you when you insert or update
+<tt class="docutils literal"><span class="pre">NewsItem</span></tt> records. If you do have batch updates enabled then you
+can perform the batch updates by using the following code:</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItemTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;NewsItem&#39;</span><span class="p">);</span>
+<span class="nv">$newsItemTable</span><span class="o">-&gt;</span><span class="na">batchUpdateIndex</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="text-analyzers">
+<h2>Text Analyzers<a class="headerlink" href="#text-analyzers" title="Permalink to this headline">¶</a></h2>
+<p>By default Doctrine uses <a href="#id5"><span class="problematic" id="id6">:php:class:`Doctrine_Search_Analyzer_Standard`</span></a> for
+analyzing the text. This class performs the following things:</p>
+<ul class="simple">
+<li>Strips out stop-keywords (such as &#8216;and&#8217;, &#8216;if&#8217; etc.) As many commonly
+used words such as &#8216;and&#8217;, &#8216;if&#8217; etc. have no relevance for the search,
+they are being stripped out in order to keep the index size
+reasonable.</li>
+<li>Makes all keywords lowercased. When searching words &#8216;database&#8217; and
+&#8216;DataBase&#8217; are considered equal by the standard analyzer, hence the
+standard analyzer lowercases all keywords.</li>
+<li>Replaces all non alpha-numeric marks with whitespace. In normal text
+many keywords might contain non alpha-numeric chars after them, for
+example &#8216;database.&#8217;. The standard analyzer strips these out so that
+&#8216;database&#8217; matches &#8216;database.&#8217;.</li>
+<li>Replaces all quotation marks with empty strings so that &#8220;O&#8217;Connor&#8221;
+matches &#8220;oconnor&#8221;</li>
+</ul>
+<p>You can write your own analyzer class by making a class that implements
+<a href="#id7"><span class="problematic" id="id8">:php:class:`Doctrine_Search_Analyzer_Interface`</span></a>. Here is an example where we
+create an analyzer named <tt class="docutils literal"><span class="pre">MyAnalyzer</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/MyAnalyzer.php</span>
+<span class="k">class</span> <span class="nc">MyAnalyzer</span> <span class="k">implements</span> <span class="nx">Doctrine_Search_Analyzer_Interface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">analyze</span><span class="p">(</span><span class="nv">$text</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$text</span> <span class="o">=</span> <span class="nx">trim</span><span class="p">(</span><span class="nv">$text</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nv">$text</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The search analyzers must only contain one method named
+<tt class="docutils literal"><span class="pre">analyze()</span></tt> and it should return the modified inputted text to be indexed.</p>
+</div>
+<p>This analyzer can then be applied to the search object as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItemTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;NewsItem&#39;</span><span class="p">);</span>
+<span class="nv">$search</span> <span class="o">=</span> <span class="nv">$newsItemTable</span>
+    <span class="o">-&gt;</span><span class="na">getTemplate</span><span class="p">(</span><span class="s1">&#39;Doctrine_Template_Searchable&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">getPlugin</span><span class="p">();</span>
+
+<span class="nv">$search</span><span class="o">-&gt;</span><span class="na">setOption</span><span class="p">(</span><span class="s1">&#39;analyzer&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">MyAnalyzer</span><span class="p">());</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="query-language">
+<h2>Query language<a class="headerlink" href="#query-language" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id9"><span class="problematic" id="id10">:php:class:`Doctrine_Search`</span></a> provides a query language similar to Apache Lucene.
+The <a href="#id11"><span class="problematic" id="id12">:php:class:`Doctrine_Search_Query`</span></a> converts human readable,
+easy-to-construct search queries to their complex DQL equivalents which
+are then converted to SQL like normal.</p>
+</div>
+<div class="section" id="performing-searches">
+<h2>Performing Searches<a class="headerlink" href="#performing-searches" title="Permalink to this headline">¶</a></h2>
+<p>Here is a simple example to retrieve the record ids and relevance data.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItemTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;NewsItem&#39;</span><span class="p">);</span>
+<span class="nv">$results</span>       <span class="o">=</span> <span class="nv">$newsItemTable</span><span class="o">-&gt;</span><span class="na">search</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$results</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The above code executes the following query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">SELECT</span>
+<span class="nx">COUNT</span><span class="p">(</span><span class="nx">keyword</span><span class="p">)</span> <span class="k">AS</span> <span class="nx">relevance</span><span class="p">,</span>
+<span class="nx">id</span>
+<span class="nx">FROM</span> <span class="nx">article_index</span>
+<span class="nx">WHERE</span> <span class="nx">id</span> <span class="nx">IN</span> <span class="p">(</span><span class="nx">SELECT</span>
+<span class="nx">id</span>
+<span class="nx">FROM</span> <span class="nx">article_index</span> <span class="nx">WHERE</span> <span class="nx">keyword</span> <span class="o">=</span> <span class="o">?</span><span class="p">)</span>
+<span class="k">AND</span> <span class="nx">id</span> <span class="nx">IN</span> <span class="p">(</span><span class="nx">SELECT</span>
+<span class="nx">id</span>
+<span class="nx">FROM</span> <span class="nx">article_index</span>
+<span class="nx">WHERE</span> <span class="nx">keyword</span> <span class="o">=</span> <span class="o">?</span><span class="p">)</span>
+<span class="nx">GROUP</span> <span class="nx">BY</span> <span class="nx">id</span>
+<span class="nx">ORDER</span> <span class="nx">BY</span> <span class="nx">relevance</span> <span class="nx">DESC</span>
+</pre></div>
+</div>
+<p>The output of the code above would be the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>relevance<span class="o">]</span> <span class="o">=</span>&gt; 1
+            <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+<p>Now you can use those results in another query to retrieve the actual
+<tt class="docutils literal"><span class="pre">NewsItem</span></tt> objects:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$ids</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$results</span> <span class="k">as</span> <span class="nv">$result</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$ids</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$result</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;NewsItem i&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">whereIn</span><span class="p">(</span><span class="s1">&#39;i.id&#39;</span><span class="p">,</span> <span class="nv">$ids</span><span class="p">);</span>
+
+<span class="nv">$newsItems</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$newsItems</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+            <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test
+            <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+<p>You can optionally pass the <tt class="docutils literal"><span class="pre">search()</span></tt> function a query object to
+modify with a where condition subquery to limit the results using the
+search index.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;NewsItem i&#39;</span><span class="p">);</span>
+
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Article&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">search</span><span class="p">(</span><span class="s1">&#39;test&#39;</span><span class="p">,</span> <span class="nv">$q</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getSqlQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The above call to <tt class="docutils literal"><span class="pre">getSql()</span></tt> would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">SELECT</span>
+<span class="nx">n</span><span class="o">.</span><span class="nx">id</span> <span class="k">AS</span> <span class="nx">n</span><span class="o">**</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">n</span><span class="o">.</span><span class="nx">title</span> <span class="k">AS</span> <span class="nx">n</span><span class="o">**</span><span class="nx">title</span><span class="p">,</span>
+<span class="nx">n</span><span class="o">.</span><span class="nx">body</span> <span class="k">AS</span> <span class="nx">n__body</span>
+<span class="nx">FROM</span> <span class="nx">news_item</span> <span class="nx">n</span>
+<span class="nx">WHERE</span> <span class="nx">n</span><span class="o">.</span><span class="nx">id</span> <span class="nx">IN</span> <span class="p">(</span><span class="nx">SELECT</span>
+<span class="nx">id</span>
+<span class="nx">FROM</span> <span class="nx">news_item_index</span>
+<span class="nx">WHERE</span> <span class="nx">keyword</span> <span class="o">=</span> <span class="o">?</span>
+<span class="nx">GROUP</span> <span class="nx">BY</span> <span class="nx">id</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now we can execute the query and get the <tt class="docutils literal"><span class="pre">NewsItem</span></tt> objects:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItems</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$newsItems</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+            <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test
+            <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="file-searches">
+<h2>File searches<a class="headerlink" href="#file-searches" title="Permalink to this headline">¶</a></h2>
+<p>As stated before <a href="#id13"><span class="problematic" id="id14">:php:class:`Doctrine_Search`</span></a> can also be used for searching
+files. Lets say we have a directory which we want to be searchable.
+First we need to create an instance of <a href="#id15"><span class="problematic" id="id16">:php:class:`Doctrine_Search_File`</span></a> which
+is a child of <a href="#id17"><span class="problematic" id="id18">:php:class:`Doctrine_Search`</span></a> providing some extra functionality
+needed for the file searches.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$search</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Search_File</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Second thing to do is to generate the index table. By default Doctrine
+names the database index class as <tt class="docutils literal"><span class="pre">FileIndex</span></tt>.</p>
+<p>Lets check the SQL that is generated by the above models created:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;FileIndex&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">file_index</span> <span class="p">(</span><span class="nx">url</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">keyword</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
+<span class="nx">field</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+<span class="nx">position</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">url</span><span class="p">,</span>
+<span class="nx">keyword</span><span class="p">,</span>
+<span class="nx">field</span><span class="p">,</span>
+<span class="nx">position</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+<p>You can create the actual table in the database by using the
+<tt class="docutils literal"><span class="pre">Doctrine_Core::createTablesFromArray()</span></tt> method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">createTablesFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;FileIndex&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>Now we can start using the file searcher. In this example lets just
+index the <tt class="docutils literal"><span class="pre">models</span></tt> directory:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$search</span><span class="o">-&gt;</span><span class="na">indexDirectory</span><span class="p">(</span><span class="s1">&#39;models&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">indexDirectory()</span></tt> iterates recursively through given directory
+and analyzes all files within it updating the index table as necessary.</p>
+<p>Finally we can start searching for pieces of text within the indexed
+files:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$results</span> <span class="o">=</span> <span class="nv">$search</span><span class="o">-&gt;</span><span class="na">search</span><span class="p">(</span><span class="s1">&#39;hasColumn&#39;</span><span class="p">);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$results</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>relevance<span class="o">]</span> <span class="o">=</span>&gt; 2
+            <span class="o">[</span>url<span class="o">]</span> <span class="o">=</span>&gt; models/generated/BaseNewsItem.php
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have learned all about the <tt class="docutils literal"><span class="pre">Searchable</span></tt> behavior we are
+ready to learn in more detail about the <tt class="docutils literal"><span class="pre">NestedSet</span></tt> behavior in the
+<a class="reference internal" href="hierarchical-data.html"><em>Hierarchical Data</em></a> chapter. The <tt class="docutils literal"><span class="pre">NestedSet</span></tt> is a large
+topic like the <tt class="docutils literal"><span class="pre">Searchable</span></tt> behavior so it got its own dedicated
+chapter as well.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Searching</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#index-structure">Index structure</a></li>
+<li><a class="reference internal" href="#index-building">Index Building</a></li>
+<li><a class="reference internal" href="#text-analyzers">Text Analyzers</a></li>
+<li><a class="reference internal" href="#query-language">Query language</a></li>
+<li><a class="reference internal" href="#performing-searches">Performing Searches</a></li>
+<li><a class="reference internal" href="#file-searches">File searches</a></li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="behaviors.html"
+                        title="previous chapter">Behaviors</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="hierarchical-data.html"
+                        title="next chapter">Hierarchical Data</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/searching.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="hierarchical-data.html" title="Hierarchical Data"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviors"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

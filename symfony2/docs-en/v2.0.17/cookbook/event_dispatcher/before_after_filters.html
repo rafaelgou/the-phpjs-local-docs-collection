@@ -1,0 +1,291 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to setup before and after Filters &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Event Dispatcher" href="index.html" />
+    <link rel="next" title="How to extend a Class without using Inheritance" href="class_extension.html" />
+    <link rel="prev" title="Event Dispatcher" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="class_extension.html" title="How to extend a Class without using Inheritance"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Event Dispatcher"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Event Dispatcher</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-setup-before-and-after-filters">
+<span id="index-0"></span><h1>How to setup before and after Filters<a class="headerlink" href="#how-to-setup-before-and-after-filters" title="Permalink to this headline">¶</a></h1>
+<p>It is quite common in web application development to need some logic to be
+executed just before or just after your controller actions acting as filters
+or hooks.</p>
+<p>In Symfony1, this was achieved with the preExecute and postExecute methods,
+most major frameworks have similar methods but there is no such thing in Symfony2.
+The good news is that there is a much better way to interfere with the
+Request -&gt; Response process using the <a class="reference internal" href="../../components/event_dispatcher/introduction.html"><em>EventDispatcher component</em></a>.</p>
+<div class="section" id="token-validation-example">
+<h2>Token validation Example<a class="headerlink" href="#token-validation-example" title="Permalink to this headline">¶</a></h2>
+<p>Imagine that you need to develop an API where some controllers are public
+but some others are restricted to one or some clients. For these private features,
+you might provide a token to your clients to identify themselves.</p>
+<p>So, before executing your controller action, you need to check if the action
+is restricted or not. If it is restricted, you need to validate the provided
+token.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Please note that for simplicity in this recipe, tokens will be defined
+in config and neither database setup nor authentication via
+the Security component will be used.</p>
+</div>
+</div>
+<div class="section" id="creating-a-before-filter-with-a-controller-request-event">
+<h2>Creating a before filter with a controller.request event<a class="headerlink" href="#creating-a-before-filter-with-a-controller-request-event" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="basic-setup">
+<h3>Basic Setup<a class="headerlink" href="#basic-setup" title="Permalink to this headline">¶</a></h3>
+<p>You can add basic token configuration using <tt class="docutils literal"><span class="pre">config.yml</span></tt> and the parameters key:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">tokens</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">client1</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass1</span>
+        <span class="l-Scalar-Plain">client2</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass2</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;tokens&quot;</span> <span class="na">type=</span><span class="s">&quot;collection&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;client1&quot;</span><span class="nt">&gt;</span>pass1<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;client2&quot;</span><span class="nt">&gt;</span>pass2<span class="nt">&lt;/parameter&gt;</span>
+    <span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;tokens&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;client1&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;pass1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;client2&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;pass2&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="tag-controllers-to-be-checked">
+<h2>Tag Controllers to be checked<a class="headerlink" href="#tag-controllers-to-be-checked" title="Permalink to this headline">¶</a></h2>
+<p>A <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> listener gets notified on every request, right before
+the controller is executed. First, you need some way to identify if the controller
+that matches the request needs token validation.</p>
+<p>A clean and easy way is to create an empty interface and make the controllers
+implement it:</p>
+<div class="highlight-python"><pre>namespace Acme\DemoBundle\Controller;
+
+interface TokenAuthenticatedController
+{
+    // Nothing here
+}</pre>
+</div>
+<p>A controller that implements this interface simply looks like this:</p>
+<div class="highlight-python"><pre>class FooController implements TokenAuthenticatedController
+{
+    // ... Your actions that need authentication
+}</pre>
+</div>
+</div>
+<div class="section" id="creating-an-event-listener">
+<h2>Creating an Event Listener<a class="headerlink" href="#creating-an-event-listener" title="Permalink to this headline">¶</a></h2>
+<p>Next, you&#8217;ll need to create an event listener, which will hold the logic
+that you want executed before your controllers. If you&#8217;re not familiar with
+event listeners, you can learn more about them at <a class="reference internal" href="../service_container/event_listener.html"><em>How to create an Event Listener</em></a>:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/EventListener/BeforeListener.php
+namespace Acme\DemoBundle\EventListener;
+
+use Acme\DemoBundle\Controller\TokenAuthenticatedController;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Event\FilterControllerEvent;
+
+class BeforeListener
+{
+    private $tokens;
+
+    public function __construct($tokens)
+    {
+        $this-&gt;tokens = $tokens;
+    }
+
+    public function onKernelController(FilterControllerEvent $event)
+    {
+        $controller = $event-&gt;getController();
+
+        /*
+         * $controller passed can be either a class or a Closure. This is not usual in Symfony2 but it may happen.
+         * If it is a class, it comes in array format
+         */
+        if (!is_array($controller)) {
+            return;
+        }
+
+        if ($controller[0] instanceof TokenAuthenticatedController) {
+            $token = $event-&gt;getRequest()-&gt;get('token');
+            if (!in_array($token, $this-&gt;tokens)) {
+                throw new AccessDeniedHttpException('This action needs a valid token!');
+            }
+        }
+    }
+}</pre>
+</div>
+</div>
+<div class="section" id="registering-the-listener">
+<h2>Registering the Listener<a class="headerlink" href="#registering-the-listener" title="Permalink to this headline">¶</a></h2>
+<p>Finally, register your listener as a service and tag it as an event listener.
+By listening on <tt class="docutils literal"><span class="pre">kernel.controller</span></tt>, you&#8217;re telling Symfony that you want
+your listener to be called just before any controller is executed:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><pre># app/config/config.yml (or inside your services.yml)
+services:
+    demo.tokens.action_listener:
+        class: Acme\DemoBundle\EventListener\BeforeListener
+        arguments: [ %tokens% ]
+        tags:
+            - { name: kernel.event_listener, event: kernel.controller, method: onKernelController }</pre>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml (or inside your services.xml) --&gt;</span>
+<span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;demo.tokens.action_listener&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\EventListener\BeforeListener&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%tokens%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;kernel.event_listener&quot;</span> <span class="na">event=</span><span class="s">&quot;kernel.controller&quot;</span> <span class="na">method=</span><span class="s">&quot;onKernelController&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php (or inside your services.php)</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$listener</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\DemoBundle\EventListener\BeforeListener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;%tokens%&#39;</span><span class="p">));</span>
+<span class="nv">$listener</span><span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;kernel.event_listener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;event&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;kernel.controller&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;onKernelController&#39;</span><span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;demo.tokens.action_listener&#39;</span><span class="p">,</span> <span class="nv">$listener</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to setup before and after Filters</a><ul>
+<li><a class="reference internal" href="#token-validation-example">Token validation Example</a></li>
+<li><a class="reference internal" href="#creating-a-before-filter-with-a-controller-request-event">Creating a before filter with a controller.request event</a><ul>
+<li><a class="reference internal" href="#basic-setup">Basic Setup</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#tag-controllers-to-be-checked">Tag Controllers to be checked</a></li>
+<li><a class="reference internal" href="#creating-an-event-listener">Creating an Event Listener</a></li>
+<li><a class="reference internal" href="#registering-the-listener">Registering the Listener</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Event Dispatcher</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="class_extension.html"
+                        title="next chapter">How to extend a Class without using Inheritance</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/event_dispatcher/before_after_filters.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="class_extension.html" title="How to extend a Class without using Inheritance"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Event Dispatcher"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Event Dispatcher</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

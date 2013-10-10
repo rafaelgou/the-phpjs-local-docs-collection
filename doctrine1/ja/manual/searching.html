@@ -1,0 +1,371 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>はじめに &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="hierarchical-data.html" />
+    <link rel="prev" title="Behaviours" href="behaviors.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="hierarchical-data.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviours"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="id1">
+<h1>はじめに<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>検索は巨大なトピックなので、この章全体では``Searchable``と呼ばれるビヘイビアを専門に扱います。これは全文インデックス作成と検索ツールでデータベースとファイルの両方で使うことができます。</p>
+<p>次の定義を持つ``NewsItem``クラスを考えてみましょう:</p>
+<blockquote>
+<div>// models/NewsItem.php</div></blockquote>
+<p>class NewsItem extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;body&#8217;, &#8216;clob&#8217;); } }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>NewsItem: columns: title: string(255) body: clob</p>
+<p>ユーザーが異なるニュースの項目を検索できるアプリケーションを考えてみましょう。これを実装する明らかな方法はフォームを構築し投稿された値に基づいて次のようなDQLクエリを構築することです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;NewsItem i&#8217;)
+-&gt;where(&#8216;n.title LIKE ? OR n.content LIKE ?&#8217;);</p>
+<p>アプリケーションが成長するにつれてこの種のクエリはとても遅くなります。例えば``%framework%``パラメータで以前のクエリを使うとき、(<a href="#id2"><span class="problematic" id="id3">``</span></a>framework``という単語を含むタイトルもしくは内容を持つすべてのニュースの項目を見つけることと同等です)データベースはテーブルのそれぞれの列をトラバースしなければなりません。当然ながらこれは非常に遅くなります。</p>
+<p>Doctrineはこの問題を検索コンポーネントとインバースインデックスで解決します。最初に定義を少し変えてみましょう:</p>
+<blockquote>
+<div>// models/NewsItem.php</div></blockquote>
+<p>class NewsItem extends Doctrine_Record { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>NewsItem: actAs: Searchable: fields: [title, content] # ...</p>
+<p>上記のモデルで生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;NewsItem&#8217;));
+echo $sql[0] . &#8220;&#8221;; echo $sql[1] . &#8220;&#8221;; echo $sql[2];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE news_item_index (id BIGINT, keyword VARCHAR(200), field</div></blockquote>
+<p>VARCHAR(50), position BIGINT, PRIMARY KEY(id, keyword, field, position))
+ENGINE = INNODB CREATE TABLE news_item (id BIGINT AUTO_INCREMENT,
+title VARCHAR(255), body LONGTEXT, PRIMARY KEY(id)) ENGINE = INNODB
+ALTER TABLE news_item_index ADD FOREIGN KEY (id) REFERENCES
+news_item(id) ON UPDATE CASCADE ON DELETE CASCADE</p>
+<p>Here we tell Doctrine that
+<a href="#id4"><span class="problematic" id="id5">``</span></a>NewsItem``クラスがsearchable(内部ではDoctrineが``Doctrine_Template_Searchable``をロードする)として振る舞い``title``と``content``フィールドは全文検索用のインデックス付きフィールドとしてマークされます。これは``NewsItem``が追加もしくは更新されるたびにDoctrineは次のことを行うことを意味します:</p>
+<ol class="arabic simple">
+<li>インバース検索インデックスを更新するもしくは</li>
+<li>インバース検索インデックスに新しいエントリを追加する(バッチでインバース検索インデックスを更新するのが効率的であることがあります)</li>
+</ol>
+</div>
+<div class="section" id="id6">
+<h1>インデックス構造<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineが使用するインバースインデックスの構造は次の通りです:</p>
+<p>[ (string) keyword] [ (string) field ] [ (integer) position ] [ (mixed)
+[foreign_keys] ]</p>
+<p>||~ カラム ||~ 説明 || || <tt class="docutils literal"><span class="pre">keyword</span></tt> ||
+検索できるテキストのキーワード || || <tt class="docutils literal"><span class="pre">field</span></tt> ||
+キーワードが見つかるフィールド || || <tt class="docutils literal"><span class="pre">position</span></tt> ||
+キーワードが見つかる位置 || || <tt class="docutils literal"><span class="pre">[foreign_keys]</span></tt> ||
+インデックスが作成されるレコードの外部キー ||</p>
+<p><a href="#id7"><span class="problematic" id="id8">``</span></a>NewsItem``の例において``[foreign_keys]``は``NewsItem(id)``への外部キー参照と``onDelete
+=&gt; CASCADE``制約を持つ1つの``id``フィールドを格納します。</p>
+<p>このテーブルの列のようになりますの例は次のようになります:</p>
+<p>||~ キーワード ||~ フィールド ||~ 位置 ||~ id || ||
+<tt class="docutils literal"><span class="pre">database</span></tt> || <tt class="docutils literal"><span class="pre">title</span></tt> || <tt class="docutils literal"><span class="pre">3</span></tt> || <tt class="docutils literal"><span class="pre">1</span></tt>||</p>
+<p>この例において単語の``database``は``1``の``id``を持つ``NewsItem``の``title``フィールドの3番目の単語です。</p>
+</div>
+<div class="section" id="id9">
+<h1>インデックスのビルド<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h1>
+<p>検索可能なレコードがデータベースにinsertされるときDoctrineはインデックスビルドのプロシージャを実行します。プロシージャが検索リスナーによって起動されているときこれはバックグラウンドで行われます。このプロシージャのフェーズは次の通りです:</p>
+<ol class="arabic simple">
+<li><a href="#id10"><span class="problematic" id="id11">``</span></a>Doctrine_Search_Analyzer``基底クラスを使用してテキストを分析する</li>
+<li>分析されたすべてのキーワード用に新しい列をインデックステーブルに挿入する</li>
+</ol>
+<p>新しい検索可能なエントリが追加されるときインデックステーブルを更新したくなく、むしろ特定の間隔でインデックステーブルをバッチ更新したい場合があります。直接の更新機能を無効にするにはビヘイビアを添付する際にbatchUpdatesオプションをtrueに設定する必要があります:</p>
+<blockquote>
+<div>// models/NewsItem.php</div></blockquote>
+<p>class NewsItem extends Doctrine_Record { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+            <span class="s1">&#39;batchUpdates&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>NewsItem: actAs: Searchable: fields: [title, content] batchUpdates: true
+# ...</p>
+<p>更新プロシージャの実際のバッチは``batchUpdateIndex()``メソッドによって起動します。これは2つのオプション引数:
+<a href="#id12"><span class="problematic" id="id13">``</span></a>limit``と``offset``を受けとります。バッチでインデックス化されるエントリ数を制限するためにlimitが使用できoffsetはインデックス作成を始める最初のエントリを設定するために使用できます。</p>
+<p>最初に新しい``NewsItem``レコードを挿入してみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItem = new NewsItem(); $newsItem-&gt;title = &#8216;Test&#8217;;
+$newsItem-&gt;body = &#8216;test&#8217;; $newsItem-&gt;save();</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+バッチ更新を有効にしない場合``NewsItem``レコードを挿入もしくは更新するときにインデックスは自動的に更新されます。バッチ更新を有功にする場合次のコードでバッチ更新を実行できます:</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $newsItemTable = Doctrine_Core::getTable(&#8216;NewsItem&#8217;);
+$newsItemTable-&gt;batchUpdateIndex();</p>
+</div>
+<div class="section" id="id14">
+<h1>テキストアナライザー<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h1>
+<p>デフォルトではDoctrineはテキスト分析のために``Doctrine_Search_Analyzer_Standard``を使用します。このクラスは次のことを実行します:</p>
+<ul class="simple">
+<li>&#8216;and&#8217;、&#8217;if&#8217;などのストップワードをはぎとる。よく使われ検索には関係ないのと、インデックスのサイズを適切なものにするため。</li>
+<li>すべてのキーワードを小文字にする。標準アナライザーはすべてのキーワードを小文字にするので単語を検索するとき&#8217;database&#8217;と&#8217;DataBase&#8217;は等しいものとしてみなされる。</li>
+<li>アルファベットと数字ではないすべての文字はホワイトスペースに置き換える。通常のテキストでは例えば&#8217;database.&#8217;などアルファベットと数字ではない文字がキーワードに含まれるからである。標準のアナライザーはこれらをはぎとるので&#8217;database&#8217;は&#8217;database.&#8217;にマッチします</li>
+<li>すべてのクォテーション記号を空の文字列に置き換えるので&#8221;O&#8217;Connor&#8221;は&#8221;oconnor&#8221;にマッチします</li>
+</ul>
+<p><a href="#id15"><span class="problematic" id="id16">``</span></a>Doctrine_Search_Analyzer_Interface``を実装することで独自のアナライザークラスを書くことができます。<a href="#id17"><span class="problematic" id="id18">``</span></a>MyAnalyzer``という名前のアナライザーを作成する例は次の通りです:</p>
+<blockquote>
+<div>// models/MyAnalyzer.php</div></blockquote>
+<p>class MyAnalyzer implements Doctrine_Search_Analyzer_Interface {
+public function analyze($text) { <tt class="code docutils literal"><span class="pre">text</span> <span class="pre">=</span> <span class="pre">trim(</span></tt>text); return
+$text; } }</p>
+<blockquote>
+<div><strong>NOTE</strong>
+検索アナライザーは``analyze()``という名前の1つのメソッドを持たなければなりません。このメソッドはインデックス化される入力テキストの修正版を返します。</div></blockquote>
+<p>このアナライザーは検索オブジェクトに次のように適用されます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItemTable = Doctrine_Core::getTable(&#8216;NewsItem&#8217;); $search =
+$newsItemTable -&gt;getTemplate(&#8216;Doctrine_Template_Searchable&#8217;)
+-&gt;getPlugin();</p>
+<p>$search-&gt;setOption(&#8216;analyzer&#8217;, new MyAnalyzer());</p>
+</div>
+<div class="section" id="id19">
+<h1>クエリ言語<a class="headerlink" href="#id19" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id20"><span class="problematic" id="id21">``</span></a>Doctrine_Search``はApache
+Luceneに似たクエリ言語を提供します。<a href="#id22"><span class="problematic" id="id23">``</span></a>Doctrine_Search_Query``は人間が読解でき、構築が簡単なクエリ言語を同等の複雑なDQLに変換します。そしてこのDQLは通常のSQLに変換されます。</p>
+</div>
+<div class="section" id="id24">
+<h1>検索を実行する<a class="headerlink" href="#id24" title="Permalink to this headline">¶</a></h1>
+<p>次のコードはレコードのidと関連データを読み取るシンプルな例です。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItemTable = Doctrine_Core::getTable(&#8216;NewsItem&#8217;);</p>
+<p>$results = <tt class="code docutils literal"><span class="pre">newsItemTable-&gt;search('test');</span> <span class="pre">print_r(</span></tt>results);</p>
+<p>上記のコードは次のクエリを実行します:</p>
+<blockquote>
+<div>SELECT COUNT(keyword) AS relevance, id FROM article_index WHERE id IN</div></blockquote>
+<p>(SELECT id FROM article_index WHERE keyword = ?) AND id IN (SELECT id
+FROM article_index WHERE keyword = ?) GROUP BY id ORDER BY relevance
+DESC</p>
+<p>コードの出力は次の通りです:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [relevance] =&gt; 1 [id] =&gt; 1 )</div></blockquote>
+<p>)</p>
+<p>実際の``NewsItem``オブジェクトを読み取るために別のクエリでこれらの結果を使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... <tt class="code docutils literal"><span class="pre">ids</span> <span class="pre">=</span> <span class="pre">array();</span> <span class="pre">foreach</span> <span class="pre">(</span></tt>results as $result) { $ids[] =
+$result[&#8216;id&#8217;]; }</p>
+<p>$q = Doctrine_Query::create() -&gt;from(&#8216;NewsItem i&#8217;) -&gt;whereIn(&#8216;i.id&#8217;,
+$ids);</p>
+<p>$newsItems = $q-&gt;execute();</p>
+<p>print_r($newsItems-&gt;toArray());</p>
+<p>上記の例は次の出力を生み出します:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [id] =&gt; 1 [title] =&gt; Test [body]</div></blockquote>
+<p>=&gt; test )</p>
+<p>)</p>
+<p>オプションとして検索インデックスを使用して結果を制限するwhere条件サブクエリで修正するために``search()``メソッドにクエリオブジェクトを渡すことができます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;NewsItem i&#8217;);</p>
+<p>$q = Doctrine_Core::getTable(&#8216;Article&#8217;) -&gt;search(&#8216;test&#8217;, $q);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記の``getSql()``の呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT n.id AS n**id, n.title AS n**title, n.body AS n__body FROM</div></blockquote>
+<p>news_item n WHERE n.id IN (SELECT id FROM news_item_index WHERE
+keyword = ? GROUP BY id)</p>
+<p>クエリを実行して``NewsItem``オブジェクトを取得できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItems = $q-&gt;execute();</p>
+<p>print_r($newsItems-&gt;toArray());</p>
+<p>上記の例は次の出力を生み出します:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [id] =&gt; 1 [title] =&gt; Test [body]</div></blockquote>
+<p>=&gt; test )</p>
+<p>)</p>
+</div>
+<div class="section" id="id25">
+<h1>ファイル検索<a class="headerlink" href="#id25" title="Permalink to this headline">¶</a></h1>
+<p>前に述べたように``Doctrine_Search``はファイル検索にも使うことができます。検索可能なディレクトリを用意したい場合を考えてみましょう。最初に``Doctrine_Search_File``のインスタンスを作る必要があります。これは``Doctrine_Search``の子クラスでファイル検索に必要な機能を提供します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $search = new Doctrine_Search_File();</p>
+<p>2番目に行うことはインデックステーブルを生成することです。デフォルトではDoctrineはデータベースのインデックスクラスを``FileIndex``
+と名づけます。</p>
+<p>上記のモデルによって生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;FileIndex&#8217;));</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE file_index (url VARCHAR(255), keyword VARCHAR(200), field</div></blockquote>
+<p>VARCHAR(50), position BIGINT, PRIMARY KEY(url, keyword, field,
+position)) ENGINE = INNODB</p>
+<p><a href="#id26"><span class="problematic" id="id27">``</span></a>Doctrine_Core::createTablesFromArray()``メソッドを使用することでデータベースで実際のテーブルを作ることができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... Doctrine_Core::createTablesFromArray(array(&#8216;FileIndex&#8217;));</p>
+<p>ファイルサーチャーを使い始めることができます。この例では``models``ディレクトリのインデックスを作りましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $search-&gt;indexDirectory(&#8216;models&#8217;);</p>
+<p><a href="#id28"><span class="problematic" id="id29">``</span></a>indexDirectory()``はディレクトリを再帰的にイテレートしインデックステーブルを更新しながらその範囲のすべてのファイルを分析します。</p>
+<p>最後にインデックス化されたファイルの範囲内でテキストのピースの検索を始めることができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $results = <tt class="code docutils literal"><span class="pre">search-&gt;search('hasColumn');</span> <span class="pre">print_r(</span></tt>results);</p>
+<p>上記の例は次の出力を生み出します:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [relevance] =&gt; 2 [url] =&gt;</div></blockquote>
+<p>models/generated/BaseNewsItem.php )</p>
+<p>)</p>
+</div>
+<div class="section" id="id30">
+<h1>まとめ<a class="headerlink" href="#id30" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id31"><span class="problematic" id="id32">``</span></a>Searchable``ビヘイビアのすべてを学んだので[doc hierarchical-data
+:name]の章で``NestedSet``ビヘイビアの詳細を学ぶ準備ができています。<a href="#id33"><span class="problematic" id="id34">``</span></a>NestedSet``は``Searchable``ビヘイビアのように大きなトピックなので1つの章全体で扱います。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">はじめに</a></li>
+<li><a class="reference internal" href="#id6">インデックス構造</a></li>
+<li><a class="reference internal" href="#id9">インデックスのビルド</a></li>
+<li><a class="reference internal" href="#id14">テキストアナライザー</a></li>
+<li><a class="reference internal" href="#id19">クエリ言語</a></li>
+<li><a class="reference internal" href="#id24">検索を実行する</a></li>
+<li><a class="reference internal" href="#id25">ファイル検索</a></li>
+<li><a class="reference internal" href="#id30">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="behaviors.html"
+                        title="previous chapter">Behaviours</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="hierarchical-data.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/searching.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="hierarchical-data.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviours"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

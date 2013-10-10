@@ -1,0 +1,240 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to simplify configuration of multiple Bundles &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Bundles" href="index.html" />
+    <link rel="next" title="Email" href="../email/index.html" />
+    <link rel="prev" title="How to expose a Semantic Configuration for a Bundle" href="extension.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../email/index.html" title="Email"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="extension.html" title="How to expose a Semantic Configuration for a Bundle"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Bundles</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-simplify-configuration-of-multiple-bundles">
+<span id="index-0"></span><h1>How to simplify configuration of multiple Bundles<a class="headerlink" href="#how-to-simplify-configuration-of-multiple-bundles" title="Permalink to this headline">¶</a></h1>
+<p>When building reusable and extensible applications, developers are often
+faced with a choice: either create a single large Bundle or multiple smaller
+Bundles. Creating a single Bundle has the draw back that it&#8217;s impossible for
+users to choose to remove functionality they are not using. Creating multiple
+Bundles has the draw back that configuration becomes more tedious and settings
+often need to be repeated for various Bundles.</p>
+<p>Using the below approach, it is possible to remove the disadvantage of the
+multiple Bundle approach by enabling a single Extension to prepend the settings
+for any Bundle. It can use the settings defined in the <tt class="docutils literal"><span class="pre">app/config/config.yml</span></tt>
+to prepend settings just as if they would have been written explicitly by the
+user in the application configuration.</p>
+<p>For example, this could be used to configure the entity manager name to use in
+multiple Bundles. Or it can be used to enable an optional feature that depends
+on another Bundle being loaded as well.</p>
+<p>To give an Extension the power to do this, it needs to implement
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Extension/PrependExtensionInterface.html" title="Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface"><span class="pre">PrependExtensionInterface</span></a></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/HelloBundle/DependencyInjection/AcmeHelloExtension.php
+namespace Acme\HelloBundle\DependencyInjection;
+
+use Symfony\Component\HttpKernel\DependencyInjection\Extension;
+use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+
+class AcmeHelloExtension extends Extension implements PrependExtensionInterface
+{
+    // ...
+
+    public function prepend(ContainerBuilder $container)
+    {
+        // ...
+    }
+}</pre>
+</div>
+<p>Inside the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Extension/PrependExtensionInterface.html#method_prepend" title="Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface::prepend()"><span class="pre">prepend()</span></a></tt>
+method, developers have full access to the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/ContainerBuilder.html" title="Symfony\Component\DependencyInjection\ContainerBuilder"><span class="pre">ContainerBuilder</span></a></tt>
+instance just before the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Extension/ExtensionInterface.html#method_load" title="Symfony\Component\DependencyInjection\Extension\ExtensionInterface::load()"><span class="pre">load()</span></a></tt>
+method is called on each of the registered Bundle Extensions. In order to
+prepend settings to a Bundle extension developers can use the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/ContainerBuilder.html#method_prependExtensionConfig" title="Symfony\Component\DependencyInjection\ContainerBuilder::prependExtensionConfig()"><span class="pre">prependExtensionConfig()</span></a></tt>
+method on the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/ContainerBuilder.html" title="Symfony\Component\DependencyInjection\ContainerBuilder"><span class="pre">ContainerBuilder</span></a></tt>
+instance. As this method only prepends settings, any other settings done explicitly
+inside the <tt class="docutils literal"><span class="pre">app/config/config.yml</span></tt> would override these prepended settings.</p>
+<p>The following example illustrates how to prepend
+a configuration setting in multiple Bundles as well as disable a flag in multiple Bundles
+in case a specific other Bundle is not registered:</p>
+<div class="highlight-python"><pre>public function prepend(ContainerBuilder $container)
+{
+    // get all Bundles
+    $bundles = $container-&gt;getParameter('kernel.bundles');
+    // determine if AcmeGoodbyeBundle is registered
+    if (!isset($bundles['AcmeGoodbyeBundle'])) {
+        // disable AcmeGoodbyeBundle in Bundles
+        $config = array('use_acme_goodbye' =&gt; false);
+        foreach ($container-&gt;getExtensions() as $name =&gt; $extension) {
+            switch ($name) {
+                case 'acme_something':
+                case 'acme_other':
+                    // set use_acme_goodbye to false in the config of acme_something and acme_other
+                    // note that if the user manually configured use_acme_goodbye to true in the
+                    // app/config/config.yml then the setting would in the end be true and not false
+                    $container-&gt;prependExtensionConfig($name, $config);
+                    break;
+            }
+        }
+    }
+
+    // process the configuration of AcmeHelloExtension
+    $configs = $container-&gt;getExtensionConfig($this-&gt;getAlias());
+    // use the Configuration class to generate a config array with the settings ``acme_hello``
+    $config = $this-&gt;processConfiguration(new Configuration(), $configs);
+
+    // check if entity_manager_name is set in the ``acme_hello`` configuration
+    if (isset($config['entity_manager_name'])) {
+        // prepend the acme_something settings with the entity_manager_name
+        $config = array('entity_manager_name' =&gt; $config['entity_manager_name']);
+        $container-&gt;prependExtensionConfig('acme_something', $config);
+    }
+}</pre>
+</div>
+<p>The above would be the equivalent of writing the following into the <tt class="docutils literal"><span class="pre">app/config/config.yml</span></tt>
+in case <tt class="docutils literal"><span class="pre">AcmeGoodbyeBundle</span></tt> is not registered and the <tt class="docutils literal"><span class="pre">entity_manager_name</span></tt> setting
+for <tt class="docutils literal"><span class="pre">acme_hello</span></tt> is set to <tt class="docutils literal"><span class="pre">non_default</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+
+<span class="l-Scalar-Plain">acme_something</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">use_acme_goodbye</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+    <span class="l-Scalar-Plain">entity_manager_name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">non_default</span>
+
+<span class="l-Scalar-Plain">acme_other</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">use_acme_goodbye</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+
+<span class="nt">&lt;acme-something:config</span> <span class="na">use-acme-goodbye=</span><span class="s">&quot;false&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;acme-something:entity-manager-name&gt;</span>non_default<span class="nt">&lt;/acme-something:entity-manager-name&gt;</span>
+<span class="nt">&lt;/acme-something:config&gt;</span>
+
+<span class="nt">&lt;acme-other:config</span> <span class="na">use-acme-goodbye=</span><span class="s">&quot;false&quot;</span> <span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;acme_something&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="s1">&#39;use_acme_goodbye&#39;</span> <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+    <span class="s1">&#39;entity_manager_name&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;non_default&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;acme_other&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="s1">&#39;use_acme_goodbye&#39;</span> <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="extension.html"
+                        title="previous chapter">How to expose a Semantic Configuration for a Bundle</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../email/index.html"
+                        title="next chapter">Email</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/bundles/prepend_extension.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../email/index.html" title="Email"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="extension.html" title="How to expose a Semantic Configuration for a Bundle"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Bundles</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

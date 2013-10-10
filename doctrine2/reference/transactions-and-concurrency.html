@@ -1,0 +1,646 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>13. Transactions and Concurrency &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="14. Batch Processing" href="batch-processing.html" />
+    <link rel="prev" title="12. Association Updates: Owning Side and Inverse Side" href="unitofwork-associations.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="batch-processing.html" title="14. Batch Processing"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="unitofwork-associations.html" title="12. Association Updates: Owning Side and Inverse Side"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="transactions-and-concurrency">
+<h1>13. Transactions and Concurrency<a class="headerlink" href="#transactions-and-concurrency" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="transaction-demarcation">
+<h2>13.1. Transaction Demarcation<a class="headerlink" href="#transaction-demarcation" title="Permalink to this headline">¶</a></h2>
+<p>Transaction demarcation is the task of defining your transaction
+boundaries. Proper transaction demarcation is very important
+because if not done properly it can negatively affect the
+performance of your application. Many databases and database
+abstraction layers like PDO by default operate in auto-commit mode,
+which means that every single SQL statement is wrapped in a small
+transaction. Without any explicit transaction demarcation from your
+side, this quickly results in poor performance because transactions
+are not cheap.</p>
+<p>For the most part, Doctrine 2 already takes care of proper
+transaction demarcation for you: All the write operations
+(INSERT/UPDATE/DELETE) are queued until <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt>
+is invoked which wraps all of these changes in a single
+transaction.</p>
+<p>However, Doctrine 2 also allows (and encourages) you to take over
+and control transaction demarcation yourself.</p>
+<p>These are two ways to deal with transactions when using the
+Doctrine ORM and are now described in more detail.</p>
+<div class="section" id="approach-1-implicitly">
+<h3>13.1.1. Approach 1: Implicitly<a class="headerlink" href="#approach-1-implicitly" title="Permalink to this headline">¶</a></h3>
+<p>The first approach is to use the implicit transaction handling
+provided by the Doctrine ORM EntityManager. Given the following
+code snippet, without any explicit transaction demarcation:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">setName</span><span class="p">(</span><span class="s1">&#39;George&#39;</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">persist</span><span class="p">(</span><span class="nv">$user</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Since we do not do any custom transaction demarcation in the above
+code, <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> will begin and commit/rollback a
+transaction. This behavior is made possible by the aggregation of
+the DML operations by the Doctrine ORM and is sufficient if all the
+data manipulation that is part of a unit of work happens through
+the domain model and thus the ORM.</p>
+</div>
+<div class="section" id="approach-2-explicitly">
+<h3>13.1.2. Approach 2: Explicitly<a class="headerlink" href="#approach-2-explicitly" title="Permalink to this headline">¶</a></h3>
+<p>The explicit alternative is to use the <tt class="docutils literal"><span class="pre">Doctrine\DBAL\Connection</span></tt>
+API directly to control the transaction boundaries. The code then
+looks like this:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getConnection</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">beginTransaction</span><span class="p">();</span> <span class="c1">// suspend auto-commit</span>
+<span class="k">try</span> <span class="p">{</span>
+    <span class="c1">//... do some work</span>
+    <span class="nv">$user</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">;</span>
+    <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">setName</span><span class="p">(</span><span class="s1">&#39;George&#39;</span><span class="p">);</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">persist</span><span class="p">(</span><span class="nv">$user</span><span class="p">);</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getConnection</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">commit</span><span class="p">();</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="nx">Exception</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getConnection</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">rollback</span><span class="p">();</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">close</span><span class="p">();</span>
+    <span class="k">throw</span> <span class="nv">$e</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Explicit transaction demarcation is required when you want to
+include custom DBAL operations in a unit of work or when you want
+to make use of some methods of the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> API that
+require an active transaction. Such methods will throw a
+<tt class="docutils literal"><span class="pre">TransactionRequiredException</span></tt> to inform you of that
+requirement.</p>
+<p>A more convenient alternative for explicit transaction demarcation
+is the use of provided control abstractions in the form of
+<tt class="docutils literal"><span class="pre">Connection#transactional($func)</span></tt> and
+<tt class="docutils literal"><span class="pre">EntityManager#transactional($func)</span></tt>. When used, these control
+abstractions ensure that you never forget to rollback the
+transaction or close the <tt class="docutils literal"><span class="pre">EntityManager</span></tt>, apart from the obvious
+code reduction. An example that is functionally equivalent to the
+previously shown code looks as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">transactional</span><span class="p">(</span><span class="k">function</span><span class="p">(</span><span class="nv">$em</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">//... do some work</span>
+    <span class="nv">$user</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">;</span>
+    <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">setName</span><span class="p">(</span><span class="s1">&#39;George&#39;</span><span class="p">);</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">persist</span><span class="p">(</span><span class="nv">$user</span><span class="p">);</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The difference between <tt class="docutils literal"><span class="pre">Connection#transactional($func)</span></tt> and
+<tt class="docutils literal"><span class="pre">EntityManager#transactional($func)</span></tt> is that the latter
+abstraction flushes the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> prior to transaction
+commit and also closes the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> properly when an
+exception occurs (in addition to rolling back the transaction).</p>
+</div>
+<div class="section" id="exception-handling">
+<h3>13.1.3. Exception Handling<a class="headerlink" href="#exception-handling" title="Permalink to this headline">¶</a></h3>
+<p>When using implicit transaction demarcation and an exception occurs
+during <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt>, the transaction is automatically
+rolled back and the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> closed.</p>
+<p>When using explicit transaction demarcation and an exception
+occurs, the transaction should be rolled back immediately and the
+<tt class="docutils literal"><span class="pre">EntityManager</span></tt> closed by invoking <tt class="docutils literal"><span class="pre">EntityManager#close()</span></tt> and
+subsequently discarded, as demonstrated in the example above. This
+can be handled elegantly by the control abstractions shown earlier.
+Note that when catching <tt class="docutils literal"><span class="pre">Exception</span></tt> you should generally re-throw
+the exception. If you intend to recover from some exceptions, catch
+them explicitly in earlier catch blocks (but do not forget to
+rollback the transaction and close the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> there as
+well). All other best practices of exception handling apply
+similarly (i.e. either log or re-throw, not both, etc.).</p>
+<p>As a result of this procedure, all previously managed or removed
+instances of the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> become detached. The state of
+the detached objects will be the state at the point at which the
+transaction was rolled back. The state of the objects is in no way
+rolled back and thus the objects are now out of synch with the
+database. The application can continue to use the detached objects,
+knowing that their state is potentially no longer accurate.</p>
+<p>If you intend to start another unit of work after an exception has
+occurred you should do that with a new <tt class="docutils literal"><span class="pre">EntityManager</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="locking-support">
+<h2>13.2. Locking Support<a class="headerlink" href="#locking-support" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine 2 offers support for Pessimistic- and Optimistic-locking
+strategies natively. This allows to take very fine-grained control
+over what kind of locking is required for your Entities in your
+application.</p>
+<div class="section" id="optimistic-locking">
+<h3>13.2.1. Optimistic Locking<a class="headerlink" href="#optimistic-locking" title="Permalink to this headline">¶</a></h3>
+<p>Database transactions are fine for concurrency control during a
+single request. However, a database transaction should not span
+across requests, the so-called &#8220;user think time&#8221;. Therefore a
+long-running &#8220;business transaction&#8221; that spans multiple requests
+needs to involve several database transactions. Thus, database
+transactions alone can no longer control concurrency during such a
+long-running business transaction. Concurrency control becomes the
+partial responsibility of the application itself.</p>
+<p>Doctrine has integrated support for automatic optimistic locking
+via a version field. In this approach any entity that should be
+protected against concurrent modifications during long-running
+business transactions gets a version field that is either a simple
+number (mapping type: integer) or a timestamp (mapping type:
+datetime). When changes to such an entity are persisted at the end
+of a long-running conversation the version of the entity is
+compared to the version in the database and if they don&#8217;t match, an
+<tt class="docutils literal"><span class="pre">OptimisticLockException</span></tt> is thrown, indicating that the entity
+has been modified by someone else already.</p>
+<p>You designate a version field in an entity as follows. In this
+example we&#8217;ll use an integer.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">class</span> <span class="nc">User</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="sd">/** @Version @Column(type=&quot;integer&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$version</span><span class="p">;</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Alternatively a datetime type can be used (which maps to a SQL
+timestamp or datetime):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">class</span> <span class="nc">User</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="sd">/** @Version @Column(type=&quot;datetime&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$version</span><span class="p">;</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Version numbers (not timestamps) should however be preferred as
+they can not potentially conflict in a highly concurrent
+environment, unlike timestamps where this is a possibility,
+depending on the resolution of the timestamp on the particular
+database platform.</p>
+<p>When a version conflict is encountered during
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt>, an <tt class="docutils literal"><span class="pre">OptimisticLockException</span></tt> is thrown
+and the active transaction rolled back (or marked for rollback).
+This exception can be caught and handled. Potential responses to an
+OptimisticLockException are to present the conflict to the user or
+to refresh or reload objects in a new transaction and then retrying
+the transaction.</p>
+<p>With PHP promoting a share-nothing architecture, the time between
+showing an update form and actually modifying the entity can in the
+worst scenario be as long as your applications session timeout. If
+changes happen to the entity in that time frame you want to know
+directly when retrieving the entity that you will hit an optimistic
+locking exception:</p>
+<p>You can always verify the version of an entity during a request
+either when calling <tt class="docutils literal"><span class="pre">EntityManager#find()</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">use</span> <span class="nx">Doctrine\DBAL\LockMode</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Doctrine\ORM\OptimisticLockException</span><span class="p">;</span>
+
+<span class="nv">$theEntityId</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="nv">$expectedVersion</span> <span class="o">=</span> <span class="mi">184</span><span class="p">;</span>
+
+<span class="k">try</span> <span class="p">{</span>
+    <span class="nv">$entity</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="nv">$theEntityId</span><span class="p">,</span> <span class="nx">LockMode</span><span class="o">::</span><span class="na">OPTIMISTIC</span><span class="p">,</span> <span class="nv">$expectedVersion</span><span class="p">);</span>
+
+    <span class="c1">// do the work</span>
+
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+<span class="p">}</span> <span class="k">catch</span><span class="p">(</span><span class="nx">OptimisticLockException</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;Sorry, but someone else has already changed this entity. Please apply the changes again!&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Or you can use <tt class="docutils literal"><span class="pre">EntityManager#lock()</span></tt> to find out:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">use</span> <span class="nx">Doctrine\DBAL\LockMode</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Doctrine\ORM\OptimisticLockException</span><span class="p">;</span>
+
+<span class="nv">$theEntityId</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="nv">$expectedVersion</span> <span class="o">=</span> <span class="mi">184</span><span class="p">;</span>
+
+<span class="nv">$entity</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="nv">$theEntityId</span><span class="p">);</span>
+
+<span class="k">try</span> <span class="p">{</span>
+    <span class="c1">// assert version</span>
+    <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">lock</span><span class="p">(</span><span class="nv">$entity</span><span class="p">,</span> <span class="nx">LockMode</span><span class="o">::</span><span class="na">OPTIMISTIC</span><span class="p">,</span> <span class="nv">$expectedVersion</span><span class="p">);</span>
+
+<span class="p">}</span> <span class="k">catch</span><span class="p">(</span><span class="nx">OptimisticLockException</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;Sorry, but someone else has already changed this entity. Please apply the changes again!&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="section" id="important-implementation-notes">
+<h4>13.2.1.1. Important Implementation Notes<a class="headerlink" href="#important-implementation-notes" title="Permalink to this headline">¶</a></h4>
+<p>You can easily get the optimistic locking workflow wrong if you
+compare the wrong versions. Say you have Alice and Bob editing a
+hypothetical blog post:</p>
+<ul class="simple">
+<li>Alice reads the headline of the blog post being &#8220;Foo&#8221;, at
+optimistic lock version 1 (GET Request)</li>
+<li>Bob reads the headline of the blog post being &#8220;Foo&#8221;, at
+optimistic lock version 1 (GET Request)</li>
+<li>Bob updates the headline to &#8220;Bar&#8221;, upgrading the optimistic lock
+version to 2 (POST Request of a Form)</li>
+<li>Alice updates the headline to &#8220;Baz&#8221;, ... (POST Request of a
+Form)</li>
+</ul>
+<p>Now at the last stage of this scenario the blog post has to be read
+again from the database before Alice&#8217;s headline can be applied. At
+this point you will want to check if the blog post is still at
+version 1 (which it is not in this scenario).</p>
+<p>Using optimistic locking correctly, you <em>have</em> to add the version
+as an additional hidden field (or into the SESSION for more
+safety). Otherwise you cannot verify the version is still the one
+being originally read from the database when Alice performed her
+GET request for the blog post. If this happens you might see lost
+updates you wanted to prevent with Optimistic Locking.</p>
+<p>See the example code, The form (GET Request):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$post</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;BlogPost&#39;</span><span class="p">,</span> <span class="mi">123456</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="s1">&#39;&lt;input type=&quot;hidden&quot; name=&quot;id&quot; value=&quot;&#39;</span> <span class="o">.</span> <span class="nv">$post</span><span class="o">-&gt;</span><span class="na">getId</span><span class="p">()</span> <span class="o">.</span> <span class="s1">&#39;&quot; /&gt;&#39;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="s1">&#39;&lt;input type=&quot;hidden&quot; name=&quot;version&quot; value=&quot;&#39;</span> <span class="o">.</span> <span class="nv">$post</span><span class="o">-&gt;</span><span class="na">getCurrentVersion</span><span class="p">()</span> <span class="o">.</span> <span class="s1">&#39;&quot; /&gt;&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>And the change headline action (POST Request):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$postId</span> <span class="o">=</span> <span class="p">(</span><span class="nx">int</span><span class="p">)</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">&#39;id&#39;</span><span class="p">];</span>
+<span class="nv">$postVersion</span> <span class="o">=</span> <span class="p">(</span><span class="nx">int</span><span class="p">)</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">&#39;version&#39;</span><span class="p">];</span>
+
+<span class="nv">$post</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;BlogPost&#39;</span><span class="p">,</span> <span class="nv">$postId</span><span class="p">,</span> <span class="nx">\Doctrine\DBAL\LockMode</span><span class="o">::</span><span class="na">OPTIMISTIC</span><span class="p">,</span> <span class="nv">$postVersion</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="pessimistic-locking">
+<h3>13.2.2. Pessimistic Locking<a class="headerlink" href="#pessimistic-locking" title="Permalink to this headline">¶</a></h3>
+<p>Doctrine 2 supports Pessimistic Locking at the database level. No
+attempt is being made to implement pessimistic locking inside
+Doctrine, rather vendor-specific and ANSI-SQL commands are used to
+acquire row-level locks. Every Entity can be part of a pessimistic
+lock, there is no special metadata required to use this feature.</p>
+<p>However for Pessimistic Locking to work you have to disable the
+Auto-Commit Mode of your Database and start a transaction around
+your pessimistic lock use-case using the &#8220;Approach 2: Explicit
+Transaction Demarcation&#8221; described above. Doctrine 2 will throw an
+Exception if you attempt to acquire an pessimistic lock and no
+transaction is running.</p>
+<p>Doctrine 2 currently supports two pessimistic lock modes:</p>
+<ul class="simple">
+<li>Pessimistic Write
+(<tt class="docutils literal"><span class="pre">Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE</span></tt>), locks the
+underlying database rows for concurrent Read and Write Operations.</li>
+<li>Pessimistic Read (<tt class="docutils literal"><span class="pre">Doctrine\DBAL\LockMode::PESSIMISTIC_READ</span></tt>),
+locks other concurrent requests that attempt to update or lock rows
+in write mode.</li>
+</ul>
+<p>You can use pessimistic locks in three different scenarios:</p>
+<ol class="arabic simple">
+<li>Using
+<tt class="docutils literal"><span class="pre">EntityManager#find($className,</span> <span class="pre">$id,</span> <span class="pre">\Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE)</span></tt>
+or
+<tt class="docutils literal"><span class="pre">EntityManager#find($className,</span> <span class="pre">$id,</span> <span class="pre">\Doctrine\DBAL\LockMode::PESSIMISTIC_READ)</span></tt></li>
+<li>Using
+<tt class="docutils literal"><span class="pre">EntityManager#lock($entity,</span> <span class="pre">\Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE)</span></tt>
+or
+<tt class="docutils literal"><span class="pre">EntityManager#lock($entity,</span> <span class="pre">\Doctrine\DBAL\LockMode::PESSIMISTIC_READ)</span></tt></li>
+<li>Using
+<tt class="docutils literal"><span class="pre">Query#setLockMode(\Doctrine\DBAL\LockMode::PESSIMISTIC_WRITE)</span></tt>
+or
+<tt class="docutils literal"><span class="pre">Query#setLockMode(\Doctrine\DBAL\LockMode::PESSIMISTIC_READ)</span></tt></li>
+</ol>
+</div>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">13. Transactions and Concurrency</a><ul>
+<li><a class="reference internal" href="#transaction-demarcation">13.1. Transaction Demarcation</a><ul>
+<li><a class="reference internal" href="#approach-1-implicitly">13.1.1. Approach 1: Implicitly</a></li>
+<li><a class="reference internal" href="#approach-2-explicitly">13.1.2. Approach 2: Explicitly</a></li>
+<li><a class="reference internal" href="#exception-handling">13.1.3. Exception Handling</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#locking-support">13.2. Locking Support</a><ul>
+<li><a class="reference internal" href="#optimistic-locking">13.2.1. Optimistic Locking</a><ul>
+<li><a class="reference internal" href="#important-implementation-notes">13.2.1.1. Important Implementation Notes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#pessimistic-locking">13.2.2. Pessimistic Locking</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="unitofwork-associations.html"
+                                  title="previous chapter">12. Association Updates: Owning Side and Inverse Side</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="batch-processing.html"
+                                  title="next chapter">14. Batch Processing</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/reference/transactions-and-concurrency.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/reference/transactions-and-concurrency.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/reference/transactions-and-concurrency.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

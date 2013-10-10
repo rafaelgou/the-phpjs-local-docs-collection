@@ -1,0 +1,591 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Deploy MongoDB with Kerberos Authentication &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/control-access-to-mongodb-with-kerberos-authentication.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/control-access-to-mongodb-with-kerberos-authentication" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Security" href="../security.html" />
+<link rel="next" title="User Privilege Roles in MongoDB" href="../reference/user-privileges.html" />
+<link rel="prev" title="Generate a Key File" href="generate-key-file.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../security.html">Security</a><span class="bcpoint"> > </span></li>
+          <li>Deploy MongoDB with Kerberos Authentication</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="deploy-mongodb-with-kerberos-authentication">
+<h1>Deploy MongoDB with Kerberos Authentication<a class="headerlink" href="#deploy-mongodb-with-kerberos-authentication" title="Permalink to this headline">¶</a></h1>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p>MongoDB Enterprise supports authentication using a
+Kerberos service to manage the authentication process. Kerberos is an
+industry standard authentication protocol for large client/server
+system. With Kerberos MongoDB and application ecosystems can take
+advantage of existing authentication infrastructure and processes.</p>
+<p>Setting up and configuring a Kerberos deployment is beyond the scope
+of this document. In order to use MongoDB with Kerberos, you must
+have a properly configured Kerberos deployment and the ability to
+generate a valid <em>keytab</em> file for each <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance in
+your MongoDB deployment.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The following assumes that you have a valid Kerberos keytab file
+for your realm accessible on your system. The examples below assume
+that the keytab file is valid and is located at
+<tt class="docutils literal"><span class="pre">/opt/mongodb/mongod.keytab</span></tt> and is <em>only</em> accessible to the user
+that runs the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> process.</p>
+</div>
+<div class="section" id="process-overview">
+<h2>Process Overview<a class="headerlink" href="#process-overview" title="Permalink to this headline">¶</a></h2>
+<p>To run MongoDB with Kerberos support, you must:</p>
+<ul class="simple">
+<li>Configure a Kerberos service principal for each <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance in your MongoDB deployment.</li>
+<li>Generate and distribute keytab files for each MongoDB component
+(i.e. <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>)in your
+deployment. Ensure that you <em>only</em> transmit keytab files over secure
+channels.</li>
+<li>Optional. Start the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance <em>without</em>
+<a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a> and create users inside of MongoDB that you can use
+to bootstrap your deployment.</li>
+<li>Start <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> with the
+<tt class="docutils literal"><span class="pre">KRB5_KTNAME</span></tt> environment variable as well as a number of required
+run time options.</li>
+<li>If you did not create Kerberos user accounts, you can use the
+<a class="reference internal" href="add-user-administrator.html#localhost-exception"><em>localhost exception</em></a>
+to create users
+at this point until you create the first user on the <tt class="docutils literal"><span class="pre">admin</span></tt>
+database.</li>
+<li>Authenticate clients, including the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell using
+Kerberos.</li>
+</ul>
+</div>
+<div class="section" id="operations">
+<h2>Operations<a class="headerlink" href="#operations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="create-users-and-privilege-documents">
+<span id="kerberos-create-users"></span><h3>Create Users and Privilege Documents<a class="headerlink" href="#create-users-and-privilege-documents" title="Permalink to this headline">¶</a></h3>
+<p>For every user that you want to be able to authenticate using Kerberos,
+you must create corresponding privilege documents in the
+<a class="reference internal" href="../reference/privilege-documents.html#&lt;database&gt;.system.users" title="&lt;database&gt;.system.users"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">system.users</span></tt></a> collection to provision
+access to users. Consider the following document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">user</span><span class="o">:</span> <span class="s2">&quot;application/reporting@EXAMPLE.NET&quot;</span><span class="p">,</span>
+  <span class="nx">roles</span><span class="o">:</span> <span class="p">[</span><span class="s2">&quot;read&quot;</span><span class="p">],</span>
+  <span class="nx">userSource</span><span class="o">:</span> <span class="s2">&quot;$external&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This grants the Kerberos user principal
+<tt class="docutils literal"><span class="pre">application/reporting&#64;EXAMPLE.NET</span></tt> read only access to a
+database. The <a class="reference internal" href="../reference/privilege-documents.html#&lt;database&gt;.system.users.userSource" title="&lt;database&gt;.system.users.userSource"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">userSource</span></tt></a>
+<tt class="docutils literal"><span class="pre">$external</span></tt> reference allows <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> to consult an
+external source (i.e. Kerberos) to authenticate this user.</p>
+<p>In the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell you can pass the <a class="reference internal" href="../reference/method/db.addUser.html#db.addUser" title="db.addUser()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.addUser()</span></tt></a>
+a user privilege document to provision access to users, as in the
+following operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span> <span class="o">=</span> <span class="nx">db</span><span class="p">.</span><span class="nx">getSiblingDB</span><span class="p">(</span><span class="s2">&quot;records&quot;</span><span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">addUser</span><span class="p">(</span> <span class="p">{</span>
+              <span class="s2">&quot;user&quot;</span><span class="o">:</span> <span class="s2">&quot;application/reporting@EXAMPLE.NET&quot;</span><span class="p">,</span>
+              <span class="s2">&quot;roles&quot;</span><span class="o">:</span> <span class="p">[</span> <span class="s2">&quot;read&quot;</span> <span class="p">],</span>
+              <span class="s2">&quot;userSource&quot;</span><span class="o">:</span> <span class="s2">&quot;$external&quot;</span>
+            <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>These operations grants the Kerberos user
+<tt class="docutils literal"><span class="pre">application/reporting&#64;EXAMPLE.NET</span></tt> access to the <tt class="docutils literal"><span class="pre">records</span></tt>
+database.</p>
+<p>To remove access to a user, use the <a class="reference internal" href="../reference/method/db.collection.remove.html#db.collection.remove" title="db.collection.remove()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">remove()</span></tt></a>
+method, as in the following example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">system</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">remove</span><span class="p">(</span> <span class="p">{</span> <span class="nx">user</span><span class="o">:</span> <span class="s2">&quot;application/reporting@EXAMPLE.NET&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>To modify a user document, use <a class="reference internal" href="../core/update.html"><em>update</em></a>
+operations on documents in the <a class="reference internal" href="../reference/privilege-documents.html#&lt;database&gt;.system.users" title="&lt;database&gt;.system.users"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">system.users</span></tt></a> collection.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../reference/privilege-documents.html"><em>system.users Privilege Documents</em></a> and
+<a class="reference internal" href="../reference/user-privileges.html"><em>User Privilege Roles in MongoDB</em></a>.</p>
+</div>
+</div>
+<div class="section" id="start-mongod-with-kerberos-support">
+<h3>Start <tt class="docutils literal"><span class="pre">mongod</span></tt> with Kerberos Support<a class="headerlink" href="#start-mongod-with-kerberos-support" title="Permalink to this headline">¶</a></h3>
+<p>Once you have provisioned privileges to users in the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, <em>and</em> obtained a valid keytab file, you must start
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> using a command in the following form:</p>
+<div class="highlight-sh"><div class="highlight"><pre>env <span class="nv">KRB5_KTNAME</span><span class="o">=</span>&lt;path to keytab file&gt; &lt;mongod invocation&gt;
+</pre></div>
+</div>
+<p>For successful operation with <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> use the following run
+time options in addition to your normal default configuration options:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--setParameter"><em class="xref std std-option">--setParameter</em></a> with the
+<tt class="docutils literal"><span class="pre">authenticationMechanisms=GSSAPI</span></tt> argument to enable support for
+Kerberos.</li>
+<li><a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--auth"><em class="xref std std-option">--auth</em></a> to enable authentication.</li>
+<li><a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--keyFile"><em class="xref std std-option">--keyFile</em></a> to allow components of a
+single MongoDB deployment to communicate with each other, if needed
+to support replica set and sharded cluster
+operations. <a class="reference internal" href="../reference/configuration-options.html#keyFile" title="keyFile"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">keyFile</span></tt></a> implies <a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a>.</li>
+</ul>
+<p>For example, consider the following invocation:</p>
+<div class="highlight-sh"><div class="highlight"><pre>env <span class="nv">KRB5_KTNAME</span><span class="o">=</span>/opt/mongodb/mongod.keytab <span class="se">\</span>
+    /opt/mongodb/bin/mongod --dbpath /opt/mongodb/data <span class="se">\</span>
+    --fork --logpath /opt/mongodb/log/mongod.log <span class="se">\</span>
+    --auth --setParameter <span class="nv">authenticationMechanisms</span><span class="o">=</span>GSSAPI
+</pre></div>
+</div>
+<p>You can also specify these options using the configuration
+file. As in the following:</p>
+<div class="highlight-none"><div class="highlight"><pre># /opt/mongodb/mongod.conf, Example configuration file.
+
+fork = true
+auth = true
+
+dbpath = /opt/mongodb/data
+logpath = /opt/mongodb/log/mongod.log
+setParameter = authenticationMechanisms=GSSAPI
+</pre></div>
+</div>
+<p>To use this configuration file, start <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> as in the
+following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>env <span class="nv">KRB5_KTNAME</span><span class="o">=</span>/opt/mongodb/mongod.keytab <span class="se">\</span>
+    /opt/mongodb/bin/mongod --config /opt/mongodb/mongod.conf
+</pre></div>
+</div>
+<p>To start a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance using Kerberos, you must create
+a Kerberos service principal and deploy a keytab file for this
+instance, and then start the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> with the following
+invocation:</p>
+<div class="highlight-sh"><div class="highlight"><pre>env <span class="nv">KRB5_KTNAME</span><span class="o">=</span>/opt/mongodb/mongos.keytab <span class="se">\</span>
+    /opt/mongodb/bin/mongos
+    --configdb shard0.example.net,shard1.example.net,shard2.example.net <span class="se">\</span>
+    --setParameter <span class="nv">authenticationMechanisms</span><span class="o">=</span>GSSAPI <span class="se">\</span>
+    --keyFile /opt/mongodb/mongos.keyfile
+</pre></div>
+</div>
+<p>If you encounter problems when trying to start <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>, please see the <a class="reference internal" href="#kerberos-troubleshooting"><em>troubleshooting section</em></a> for more information.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Before users can authenticate to MongoDB using Kerberos
+you must <a class="reference internal" href="#kerberos-create-users"><em>create users</em></a> and grant them
+privileges within MongoDB. If you have not created users when you
+start MongoDB with Kerberos you can use the <a class="reference internal" href="add-user-administrator.html#localhost-exception"><em>localhost
+authentication exception</em></a>
+to add
+users. See the <a class="reference internal" href="#kerberos-create-users"><em>Create Users and Privilege Documents</em></a> section and the
+<a class="reference internal" href="../reference/user-privileges.html"><em>User Privilege Roles in MongoDB</em></a> document for more information.</p>
+</div>
+</div>
+<div class="section" id="authenticate-mongo-shell-with-kerberos">
+<h3>Authenticate <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell with Kerberos<a class="headerlink" href="#authenticate-mongo-shell-with-kerberos" title="Permalink to this headline">¶</a></h3>
+<p>To connect to a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance using the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell you must begin by using the <tt class="docutils literal"><span class="pre">kinit</span></tt> program to initialize and
+authenticate a Kerberos session. Then, start a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+instance, and use the <a class="reference internal" href="../reference/method/db.auth.html#db.auth" title="db.auth()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.auth()</span></tt></a> method, to authenticate
+against the special <tt class="docutils literal"><span class="pre">$external</span></tt> database, as in the following
+operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">use</span> <span class="nx">$external</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">auth</span><span class="p">(</span> <span class="p">{</span> <span class="nx">mechanism</span><span class="o">:</span> <span class="s2">&quot;GSSAPI&quot;</span><span class="p">,</span> <span class="nx">user</span><span class="o">:</span> <span class="s2">&quot;application/reporting@EXAMPLE.NET&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Alternately, you can authenticate using command line options to
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>, as in the following equivalent example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo --authenticationMechanism<span class="o">=</span>GSSAPI
+      --authenticationDatabase<span class="o">=</span><span class="s1">&#39;$external&#39;</span> <span class="se">\</span>
+      --username application/reporting@EXAMPLE.NET
+</pre></div>
+</div>
+<p>These operations authenticates the Kerberos principal name
+<tt class="docutils literal"><span class="pre">application/reporting&#64;EXAMPLE.NET</span></tt> to the connected
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, and will automatically acquire all available
+privileges as needed.</p>
+</div>
+<div class="section" id="use-mongodb-drivers-to-authenticate-with-kerberos">
+<h3>Use MongoDB Drivers to Authenticate with Kerberos<a class="headerlink" href="#use-mongodb-drivers-to-authenticate-with-kerberos" title="Permalink to this headline">¶</a></h3>
+<p>At the time of release, the C++, Java, and C# drivers all
+provide support for Kerberos authentication to MongoDB. Consider the
+following tutorials for more information:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://docs.mongodb.org/ecosystem/tutorial/authenticate-with-java-driver/">Java</a></li>
+<li><a class="reference external" href="http://docs.mongodb.org/ecosystem/tutorial/authenticate-with-csharp-driver/">C#</a></li>
+<li><a class="reference external" href="http://docs.mongodb.org/ecosystem/tutorial/authenticate-with-cpp-driver/">C++</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="troubleshooting">
+<span id="kerberos-troubleshooting"></span><h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="kerberos-configuration-checklist">
+<span id="kerberos-troubleshooting-checklist"></span><h3>Kerberos Configuration Checklist<a class="headerlink" href="#kerberos-configuration-checklist" title="Permalink to this headline">¶</a></h3>
+<p>If you&#8217;re having trouble getting <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> to start with
+Kerberos, there are a number of Kerberos-specific issues that can
+prevent successful authentication. As you begin troubleshooting
+your Kerberos deployment, ensure that:</p>
+<ul class="simple">
+<li>The <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> is from MongoDB Enterprise.</li>
+<li>You have a valid keytab file specified in the
+environment running the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>. For the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instance running on the <tt class="docutils literal"><span class="pre">db0.example.net</span></tt> host, the service
+principal should be <tt class="docutils literal"><span class="pre">mongodb/db0.example.net</span></tt>.</li>
+<li>DNS allows the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> to resolve the components of the
+Kerberos infrastructure. You should have both <tt class="docutils literal"><span class="pre">A</span></tt> and <tt class="docutils literal"><span class="pre">PTR</span></tt>
+records (i.e. forward and reverse DNS) for the system that runs
+the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance.</li>
+<li>The canonical system hostname of the system that runs the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance is the resolvable fully qualified
+domain for this host. Test system hostname resolution with the
+<tt class="docutils literal"><span class="pre">hostname</span> <span class="pre">-f</span></tt> command at the system prompt.</li>
+<li>Both the Kerberos <em>KDC</em> and the system running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instance must be able to resolve each other using DNS <a class="footnote-reference" href="#kerb5-conf" id="id1">[1]</a></li>
+<li>The time systems of the systems running the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances and the Kerberos infrastructure are synchronized. Time
+differences greater than 5 minutes will prevent successful
+authentication.</li>
+</ul>
+<p>If you still encounter problems with Kerberos, you can start both
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> (or another client) with the
+environment variable <tt class="docutils literal"><span class="pre">KRB5_TRACE</span></tt> set to different files to produce
+more verbose logging of the Kerberos process to help further
+troubleshooting, as in the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>env <span class="nv">KRB5_KTNAME</span><span class="o">=</span>/opt/mongodb/mongod.keytab <span class="se">\</span>
+    <span class="nv">KRB5_TRACE</span><span class="o">=</span>/opt/mongodb/log/mongodb-kerberos.log <span class="se">\</span>
+    /opt/mongodb/bin/mongod --dbpath /opt/mongodb/data <span class="se">\</span>
+    --fork --logpath /opt/mongodb/log/mongod.log <span class="se">\</span>
+    --auth --setParameter <span class="nv">authenticationMechanisms</span><span class="o">=</span>GSSAPI
+</pre></div>
+</div>
+<table class="docutils footnote" frame="void" id="kerb5-conf" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>By default, Kerberos attempts to resolve hosts using
+the content of the <tt class="docutils literal"><span class="pre">/etc/kerb5.conf</span></tt> before using DNS to resolve
+hosts.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="common-error-messages">
+<h3>Common Error Messages<a class="headerlink" href="#common-error-messages" title="Permalink to this headline">¶</a></h3>
+<p>In some situations, MongoDB will return error messages from the GSSAPI
+interface if there is a problem with the Kerberos service.</p>
+<p><tt class="docutils literal"><span class="pre">GSSAPI</span> <span class="pre">error</span> <span class="pre">in</span> <span class="pre">client</span> <span class="pre">while</span> <span class="pre">negotiating</span> <span class="pre">security</span> <span class="pre">context.</span></tt></p>
+<blockquote>
+<div><p>This error occurs on the client and reflects insufficient
+credentials or a malicious attempt to authenticate.</p>
+<p>If you receive this error ensure that you&#8217;re using the correct
+credentials and the correct fully qualified domain name when
+connecting to the host.</p>
+</div></blockquote>
+<p><tt class="docutils literal"><span class="pre">GSSAPI</span> <span class="pre">error</span> <span class="pre">acquiring</span> <span class="pre">credentials.</span></tt></p>
+<blockquote>
+<div><p>This error only occurs when attempting to start the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> and reflects improper
+configuration of system hostname or a missing or incorrectly
+configured keytab file.  If you encounter this problem, consider
+all the items in the <a class="reference internal" href="#kerberos-troubleshooting-checklist"><em>Kerberos Configuration Checklist</em></a>, in
+particular:</p>
+<ul>
+<li><p class="first">examine the keytab file, with the following command:</p>
+<div class="highlight-sh"><div class="highlight"><pre>klist -k &lt;keytab&gt;
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">&lt;keytab&gt;</span></tt> with the path to your keytab file.</p>
+</li>
+<li><p class="first">check the configured hostname for your system, with the
+following command:</p>
+<div class="highlight-sh"><div class="highlight"><pre>hostname -f
+</pre></div>
+</div>
+<p>Ensure that this name matches the name in the keytab file, or use
+the <a class="reference internal" href="../reference/parameters.html#param.saslHostName" title="saslHostName"><tt class="xref mongodb mongodb-parameter docutils literal"><span class="pre">saslHostName</span></tt></a> to pass MongoDB the correct
+hostname.</p>
+</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="enable-the-traditional-mongodb-authentication-mechanism">
+<h3>Enable the Traditional MongoDB Authentication Mechanism<a class="headerlink" href="#enable-the-traditional-mongodb-authentication-mechanism" title="Permalink to this headline">¶</a></h3>
+<p>For testing and development purposes you can enable both the Kerberos
+(i.e. <tt class="docutils literal"><span class="pre">GSSAPI</span></tt>) authentication mechanism in combination with the
+traditional MongoDB challenge/response authentication mechanism
+(i.e. <tt class="docutils literal"><span class="pre">MONGODB-CR</span></tt>), using the following <a class="reference internal" href="../reference/configuration-options.html#setParameter" title="setParameter"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">setParameter</span></tt></a>
+run-time option:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --setParameter <span class="nv">authenticationMechanisms</span><span class="o">=</span>GSSAPI,MONGODB-CR
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">All <a class="reference internal" href="../reference/configuration-options.html#keyFile" title="keyFile"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">keyFile</span></tt></a> <em>internal</em> authentication between members of
+a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> or <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> still uses the
+<tt class="docutils literal"><span class="pre">MONGODB-CR</span></tt> authentication mechanism, even if <tt class="docutils literal"><span class="pre">MONGODB-CR</span></tt> is
+not enabled. All client authentication will still use Kerberos.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="generate-key-file.html" title="Previous Section: Generate a Key File">&lt; &nbsp; Generate a Key File</a></li>
+              <li id="btnvup"><a href="../security.html" title="Parent Section: Security" >&#47;&#92;&nbsp; Security</a></li>
+              <li id="btnvnx"><a href="../reference/user-privileges.html" title="Next Section: User Privilege Roles in MongoDB">User Privilege Roles in MongoDB &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../security.html">Security</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/security.html">Security Practices and Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/access-control.html">Access Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure-linux-iptables-firewall.html">Configure Linux <tt class="docutils literal"><span class="pre">iptables</span></tt> Firewall for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure-windows-netsh-firewall.html">Configure Windows <tt class="docutils literal"><span class="pre">netsh</span></tt> Firewall for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create-a-vulnerability-report.html">Create a Vulnerability Report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="enable-authentication.html">Enable Authentication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add-user-administrator.html">Create a User Administrator</a></li>
+<li class="toctree-l2"><a class="reference internal" href="add-user-to-database.html">Add a User to a Database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generate-key-file.html">Generate a Key File</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Deploy MongoDB with Kerberos Authentication</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/user-privileges.html">User Privilege Roles in MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/privilege-documents.html"><tt class="docutils literal"><span class="pre">system.users</span></tt> Privilege Documents</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/password-hashing-insecurity.html">Password Hashing Insecurity</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/control-access-to-mongodb-with-kerberos-authentication.txt" target="_blank" title="Edit tutorial/control-access-to-mongodb-with-kerberos-authentication.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/control-access-to-mongodb-with-kerberos-authentication%2Etxt%22" target="_blank" title="Report a problem with tutorial/control-access-to-mongodb-with-kerberos-authentication.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/control-access-to-mongodb-with-kerberos-authentication.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/control-access-to-mongodb-with-kerberos-authentication'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/control-access-to-mongodb-with-kerberos-authentication'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

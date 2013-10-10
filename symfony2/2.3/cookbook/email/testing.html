@@ -1,0 +1,176 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to test that an Email is sent in a functional Test &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Email" href="index.html" />
+    <link rel="next" title="Testing" href="../testing/index.html" />
+    <link rel="prev" title="How to Spool Emails" href="spool.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../testing/index.html" title="Testing"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="spool.html" title="How to Spool Emails"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Email</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-test-that-an-email-is-sent-in-a-functional-test">
+<span id="index-0"></span><h1>How to test that an Email is sent in a functional Test<a class="headerlink" href="#how-to-test-that-an-email-is-sent-in-a-functional-test" title="Permalink to this headline">¶</a></h1>
+<p>Sending e-mails with Symfony2 is pretty straightforward thanks to the
+<tt class="docutils literal"><span class="pre">SwiftmailerBundle</span></tt>, which leverages the power of the <a class="reference external" href="http://swiftmailer.org/">Swiftmailer</a> library.</p>
+<p>To functionally test that an email was sent, and even assert the email subject,
+content or any other headers, you can use <a class="reference internal" href="../../book/internals.html#internals-profiler"><em>the Symfony2 Profiler</em></a>.</p>
+<p>Start with an easy controller action that sends an e-mail:</p>
+<div class="highlight-python"><pre>public function sendEmailAction($name)
+{
+    $message = \Swift_Message::newInstance()
+        -&gt;setSubject('Hello Email')
+        -&gt;setFrom('send@example.com')
+        -&gt;setTo('recipient@example.com')
+        -&gt;setBody('You should see me from the profiler!')
+    ;
+
+    $this-&gt;get('mailer')-&gt;send($message);
+
+    return $this-&gt;render(...);
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Don&#8217;t forget to enable the profiler as explained in <a class="reference internal" href="../testing/profiling.html"><em>How to use the Profiler in a Functional Test</em></a>.</p>
+</div>
+<p>In your functional test, use the <tt class="docutils literal"><span class="pre">swiftmailer</span></tt> collector on the profiler
+to get information about the messages send on the previous request:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Tests/Controller/MailControllerTest.php
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+
+class MailControllerTest extends WebTestCase
+{
+    public function testMailIsSentAndContentIsOk()
+    {
+        $client = static::createClient();
+
+        // Enable the profiler for the next request (it does nothing if the profiler is not available)
+        $client-&gt;enableProfiler();
+
+        $crawler = $client-&gt;request('POST', '/path/to/above/action');
+
+        $mailCollector = $client-&gt;getProfile()-&gt;getCollector('swiftmailer');
+
+        // Check that an e-mail was sent
+        $this-&gt;assertEquals(1, $mailCollector-&gt;getMessageCount());
+
+        $collectedMessages = $mailCollector-&gt;getMessages();
+        $message = $collectedMessages[0];
+
+        // Asserting e-mail data
+        $this-&gt;assertInstanceOf('Swift_Message', $message);
+        $this-&gt;assertEquals('Hello Email', $message-&gt;getSubject());
+        $this-&gt;assertEquals('send@example.com', key($message-&gt;getFrom()));
+        $this-&gt;assertEquals('recipient@example.com', key($message-&gt;getTo()));
+        $this-&gt;assertEquals(
+            'You should see me from the profiler!',
+            $message-&gt;getBody()
+        );
+    }
+}</pre>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="spool.html"
+                        title="previous chapter">How to Spool Emails</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../testing/index.html"
+                        title="next chapter">Testing</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/email/testing.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../testing/index.html" title="Testing"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="spool.html" title="How to Spool Emails"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Email</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,338 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Compiling the Container &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Dependency Injection" href="index.html" />
+    <link rel="next" title="Working with Tagged Services" href="tags.html" />
+    <link rel="prev" title="Working with Container Parameters and Definitions" href="definitions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="tags.html" title="Working with Tagged Services"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="definitions.html" title="Working with Container Parameters and Definitions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="compiling-the-container">
+<span id="index-0"></span><h1>Compiling the Container<a class="headerlink" href="#compiling-the-container" title="Permalink to this headline">¶</a></h1>
+<p>The service container can be compiled for various reasons. These reasons
+include checking for any potential issues such as circular references and
+making the container more efficient by resolving parameters and removing
+unused services.</p>
+<p>It is compiled by running:</p>
+<div class="highlight-python"><pre>$container-&gt;compile();</pre>
+</div>
+<p>The compile method uses <em>Compiler Passes</em> for the compilation. The <em>Dependency Injection</em>
+component comes with several passes which are automatically registered for
+compilation. For example the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Compiler/CheckDefinitionValidityPass.html" title="Symfony\Component\DependencyInjection\Compiler\CheckDefinitionValidityPass"><span class="pre">CheckDefinitionValidityPass</span></a></tt>
+checks for various potential issues with the definitions that have been set
+in the container. After this and several other passes that check the container&#8217;s
+validity, further compiler passes are used to optimize the configuration
+before it is cached. For example, private services and abstract services
+are removed, and aliases are resolved.</p>
+<div class="section" id="creating-a-compiler-pass">
+<h2>Creating a Compiler Pass<a class="headerlink" href="#creating-a-compiler-pass" title="Permalink to this headline">¶</a></h2>
+<p>You can also create and register your own compiler passes with the container.
+To create a compiler pass it needs to implements the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Compiler/CompilerPassInterface.html" title="Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface"><span class="pre">CompilerPassInterface</span></a></tt>
+interface. The compiler pass gives you an opportunity to manipulate the service
+definitions that have been compiled. This can be very powerful, but is not
+something needed in everyday use.</p>
+<p>The compiler pass must have the <tt class="docutils literal"><span class="pre">process</span></tt> method which is passed the container
+being compiled:</p>
+<div class="highlight-python"><pre>class CustomCompilerPass
+{
+    public function process(ContainerBuilder $container)
+    {
+       // ...
+    }
+}</pre>
+</div>
+<p>The container&#8217;s parameters and definitions can be manipulated using the
+methods described in the <a class="reference internal" href="definitions.html"><em>Working with Container Parameters and Definitions</em></a>.
+One common thing to do in a compiler pass is to search for all services that
+have a certain tag in order to process them in some way or dynamically plug
+each into some other service.</p>
+</div>
+<div class="section" id="registering-a-compiler-pass">
+<h2>Registering a Compiler Pass<a class="headerlink" href="#registering-a-compiler-pass" title="Permalink to this headline">¶</a></h2>
+<p>You need to register your custom pass with the container. Its process method
+will then be called when the container is compiled:</p>
+<div class="highlight-python"><pre>use Symfony\Component\DependencyInjection\ContainerBuilder;
+
+$container = new ContainerBuilder();
+$container-&gt;addCompilerPass(new CustomCompilerPass);</pre>
+</div>
+<div class="section" id="controlling-the-pass-ordering">
+<h3>Controlling the Pass Ordering<a class="headerlink" href="#controlling-the-pass-ordering" title="Permalink to this headline">¶</a></h3>
+<p>The default compiler passes are grouped into optimization passes and removal
+passes. The optimization passes run first and include tasks such as resolving
+references within the definitions. The removal passes perform tasks such as removing
+private aliases and unused services. You can choose where in the order any custom
+passes you add are run. By default they will be run before the optimization passes.</p>
+<p>You can use the following constants as the second argument when registering
+a pass with the container to control where it goes in the order:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">PassConfig::TYPE_BEFORE_OPTIMIZATION</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">PassConfig::TYPE_OPTIMIZE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">PassConfig::TYPE_BEFORE_REMOVING</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">PassConfig::TYPE_REMOVE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">PassConfig::TYPE_AFTER_REMOVING</span></tt></li>
+</ul>
+<p>For example, to run your custom pass after the default removal passes have been run:</p>
+<div class="highlight-python"><pre>use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
+
+$container = new ContainerBuilder();
+$container-&gt;addCompilerPass(new CustomCompilerPass, PassConfig::TYPE_AFTER_REMOVING);</pre>
+</div>
+</div>
+</div>
+<div class="section" id="managing-configuration-with-extensions">
+<h2>Managing Configuration with Extensions<a class="headerlink" href="#managing-configuration-with-extensions" title="Permalink to this headline">¶</a></h2>
+<p>As well as loading configuration directly into the container as shown in
+<a class="reference internal" href="introduction.html"><em>The Dependency Injection Component</em></a>, you can manage it by registering
+extensions with the container. The extensions must implement  <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Extension/ExtensionInterface.html" title="Symfony\Component\DependencyInjection\Extension\ExtensionInterface"><span class="pre">ExtensionInterface</span></a></tt>
+and can be registered with the container with:</p>
+<div class="highlight-python"><pre>$container-&gt;registerExtension($extension);</pre>
+</div>
+<p>The main work of the extension is done in the <tt class="docutils literal"><span class="pre">load</span></tt> method. In the load method
+you can load configuration from one or more configuration files as well as
+manipulate the container definitions using the methods shown in <a class="reference internal" href="definitions.html"><em>Working with Container Parameters and Definitions</em></a>.</p>
+<p>The <tt class="docutils literal"><span class="pre">load</span></tt> method is passed a fresh container to set up, which is then
+merged afterwards into the container it is registered with. This allows you
+to have several extensions managing container definitions independently.
+The extensions do not add to the containers configuration when they are added
+but are processed when the container&#8217;s <tt class="docutils literal"><span class="pre">compile</span></tt> method is called.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you need to manipulate the configuration loaded by an extension then
+you cannot do it from another extension as it uses a fresh container.
+You should instead use a compiler pass which works with the full container
+after the extensions have been processed.</p>
+</div>
+</div>
+<div class="section" id="dumping-the-configuration-for-performance">
+<h2>Dumping the Configuration for Performance<a class="headerlink" href="#dumping-the-configuration-for-performance" title="Permalink to this headline">¶</a></h2>
+<p>Using configuration files to manage the service container can be much easier
+to understand than using PHP once there are a lot of services. This ease comes
+at a price though when it comes to performance as the config files need to be
+parsed and the PHP configuration built from them. The compilation process makes
+the container more efficient but it takes time to run. You can have the best of both
+worlds though by using configuration files and then dumping and caching the resulting
+configuration. The <tt class="docutils literal"><span class="pre">PhpDumper</span></tt> makes dumping the compiled container easy:</p>
+<div class="highlight-python"><pre>use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Dumper\PhpDumper
+
+$file = __DIR__ .'/cache/container.php';
+
+if (file_exists($file)) {
+    require_once $file;
+    $container = new ProjectServiceContiner();
+} else {
+    $container = new ContainerBuilder();
+    //--
+    $container-&gt;compile();
+
+    $dumper = new PhpDumper($container);
+    file_put_contents($file, $dumper-&gt;dump());
+}</pre>
+</div>
+<p><tt class="docutils literal"><span class="pre">ProjectServiceContiner</span></tt> is the default name given to the dumped container
+class, you can change this though this with the <tt class="docutils literal"><span class="pre">class</span></tt> option when you dump
+it:</p>
+<div class="highlight-python"><pre>// ...
+$file = __DIR__ .'/cache/container.php';
+
+if (file_exists($file)) {
+    require_once $file;
+    $container = new MyCachedContainer();
+} else {
+    $container = new ContainerBuilder();
+    // ...
+    $container-&gt;compile();
+
+    $dumper = new PhpDumper($container);
+    file_put_contents($file, $dumper-&gt;dump(array('class' =&gt; 'MyCachedContainer')));
+}</pre>
+</div>
+<p>You will now get the speed of the PHP configured container with the ease of using
+configuration files. Additionally dumping the container in this way further optimizes
+how the services are created by the container.</p>
+<p>In the above example you will need to delete the cached container file whenever
+you make any changes. Adding a check for a variable that determines if you are
+in debug mode allows you to keep the speed of the cached container in production
+but getting an up to date configuration whilst developing your application:</p>
+<div class="highlight-python"><pre>// ...
+
+// set $isDebug based on something in your project
+
+$file = __DIR__ .'/cache/container.php';
+
+if (!$isDebug &amp;&amp; file_exists($file)) {
+    require_once $file;
+    $container = new MyCachedContainer();
+} else {
+    $container = new ContainerBuilder();
+    //--
+    $container-&gt;compile();
+
+    if(!$isDebug)
+        $dumper = new PhpDumper($container);
+        file_put_contents($file, $dumper-&gt;dump(array('class' =&gt; 'MyCachedContainer')));
+    }
+}</pre>
+</div>
+<p>This could be further improved by only recompiling the container in debug
+mode when changes have been made to its configuration rather than on every
+request. This can be done by caching the resource files used to configure
+the container in the way describe in &#8220;<a class="reference internal" href="../config/caching.html"><em>Caching based on resources</em></a>&#8221;
+in the config component documentation.</p>
+<p>You do not need to work out which files to cache as the container builder
+keeps track of all the resources used to configure it, not just the configuration
+files but the extension classes and compiler passes as well. This means that
+any changes to any of these files will invalidate the cache and trigger the
+container being rebuilt. You just need to ask the container for these resources
+and use them as metadata for the cache:</p>
+<div class="highlight-python"><pre>// ...
+
+// set $isDebug based on something in your project
+
+$file = __DIR__ .'/cache/container.php';
+$containerConfigCache = new ConfigCache($file, $isDebug);
+
+if (!$containerConfigCache-&gt;isFresh()) {
+    $containerBuilder = new ContainerBuilder();
+    //--
+    $containerBuilder-&gt;compile();
+
+    $dumper = new PhpDumper($containerBuilder);
+    $containerConfigCache-&gt;write(
+        $dumper-&gt;dump(array('class' =&gt; 'MyCachedContainer')),
+        $containerBuilder-&gt;getResources()
+    );
+}
+
+require_once $file;
+$container = new MyCachedContainer();</pre>
+</div>
+<p>Now the cached dumped container is used regardless of whether debug mode is on or not.
+The difference is that the <tt class="docutils literal"><span class="pre">ConfigCache</span></tt> is set to debug mode with its second
+constructor argument. When the cache is not in debug mode the cached container
+will always be used if it exists. In debug mode, an additional metadata file
+is written with the timestamps of all the resource files. These are then checked
+to see if the files have changed, if they have the cache will be considered stale.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Compiling the Container</a><ul>
+<li><a class="reference internal" href="#creating-a-compiler-pass">Creating a Compiler Pass</a></li>
+<li><a class="reference internal" href="#registering-a-compiler-pass">Registering a Compiler Pass</a><ul>
+<li><a class="reference internal" href="#controlling-the-pass-ordering">Controlling the Pass Ordering</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#managing-configuration-with-extensions">Managing Configuration with Extensions</a></li>
+<li><a class="reference internal" href="#dumping-the-configuration-for-performance">Dumping the Configuration for Performance</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="definitions.html"
+                        title="previous chapter">Working with Container Parameters and Definitions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="tags.html"
+                        title="next chapter">Working with Tagged Services</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/dependency_injection/compilation.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="tags.html" title="Working with Tagged Services"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="definitions.html" title="Working with Container Parameters and Definitions"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

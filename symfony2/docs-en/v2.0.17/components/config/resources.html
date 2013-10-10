@@ -1,0 +1,198 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Loading resources &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Config" href="index.html" />
+    <link rel="next" title="Caching based on resources" href="caching.html" />
+    <link rel="prev" title="The Config Component" href="introduction.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="Caching based on resources"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="The Config Component"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Config</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="loading-resources">
+<span id="index-0"></span><h1>Loading resources<a class="headerlink" href="#loading-resources" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="locating-resources">
+<h2>Locating resources<a class="headerlink" href="#locating-resources" title="Permalink to this headline">¶</a></h2>
+<p>Loading the configuration normally starts with a search for resources – in
+most cases: files. This can be done with the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/FileLocator.html" title="Symfony\Component\Config\FileLocator"><span class="pre">FileLocator</span></a></tt>:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Config\FileLocator;
+
+$configDirectories = array(__DIR__.'/app/config');
+
+$locator = new FileLocator($configDirectories);
+$yamlUserFiles = $locator-&gt;locate('users.yml', null, false);</pre>
+</div>
+<p>The locator receives a collection of locations where it should look for files.
+The first argument of <tt class="docutils literal"><span class="pre">locate()</span></tt> is the name of the file to look for. The
+second argument may be the current path and when supplied, the locator will
+look in this directory first. The third argument indicates whether or not the
+locator should return the first file it has found, or an array containing
+all matches.</p>
+</div>
+<div class="section" id="resource-loaders">
+<h2>Resource loaders<a class="headerlink" href="#resource-loaders" title="Permalink to this headline">¶</a></h2>
+<p>For each type of resource (Yaml, XML, annotation, etc.) a loader must be defined.
+Each loader should implement <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html" title="Symfony\Component\Config\Loader\LoaderInterface"><span class="pre">LoaderInterface</span></a></tt>
+or extend the abstract <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/FileLoader.html" title="Symfony\Component\Config\Loader\FileLoader"><span class="pre">FileLoader</span></a></tt>
+class, which allows for recursively importing other resources:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Config\Loader\FileLoader;
+use Symfony\Component\Yaml\Yaml;
+
+class YamlUserLoader extends FileLoader
+{
+    public function load($resource, $type = null)
+    {
+        $configValues = Yaml::parse($resource);
+
+        // ... handle the config values
+
+        // maybe import some other resource:
+
+        // $this-&gt;import('extra_users.yml');
+    }
+
+    public function supports($resource, $type = null)
+    {
+        return is_string($resource) &amp;&amp; 'yml' === pathinfo($resource, PATHINFO_EXTENSION);
+    }
+}</pre>
+</div>
+</div>
+<div class="section" id="finding-the-right-loader">
+<h2>Finding the right loader<a class="headerlink" href="#finding-the-right-loader" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderResolver.html" title="Symfony\Component\Config\Loader\LoaderResolver"><span class="pre">LoaderResolver</span></a></tt> receives as
+its first constructor argument a collection of loaders. When a resource (for
+instance an XML file) should be loaded, it loops through this collection
+of loaders and returns the loader which supports this particular resource type.</p>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/DelegatingLoader.html" title="Symfony\Component\Config\Loader\DelegatingLoader"><span class="pre">DelegatingLoader</span></a></tt> makes use
+of the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderResolver.html" title="Symfony\Component\Config\Loader\LoaderResolver"><span class="pre">LoaderResolver</span></a></tt>. When
+it is asked to load a resource, it delegates this question to the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderResolver.html" title="Symfony\Component\Config\Loader\LoaderResolver"><span class="pre">LoaderResolver</span></a></tt>. In case the resolver
+has found a suitable loader, this loader will be asked to load the resource:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Config\Loader\LoaderResolver;
+use Symfony\Component\Config\Loader\DelegatingLoader;
+
+$loaderResolver = new LoaderResolver(array(new YamlUserLoader($locator)));
+$delegatingLoader = new DelegatingLoader($loaderResolver);
+
+$delegatingLoader-&gt;load(__DIR__.'/users.yml');
+/*
+The YamlUserLoader will be used to load this resource,
+since it supports files with a "yml" extension
+*/</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Loading resources</a><ul>
+<li><a class="reference internal" href="#locating-resources">Locating resources</a></li>
+<li><a class="reference internal" href="#resource-loaders">Resource loaders</a></li>
+<li><a class="reference internal" href="#finding-the-right-loader">Finding the right loader</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="introduction.html"
+                        title="previous chapter">The Config Component</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="caching.html"
+                        title="next chapter">Caching based on resources</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/config/resources.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="Caching based on resources"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="The Config Component"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Config</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,268 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Dynamically Generate Forms Using Form Events &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Form" href="index.html" />
+    <link rel="next" title="How to Embed a Collection of Forms" href="form_collections.html" />
+    <link rel="prev" title="How to use Data Transformers" href="data_transformers.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="form_collections.html" title="How to Embed a Collection of Forms"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="data_transformers.html" title="How to use Data Transformers"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Form</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-dynamically-generate-forms-using-form-events">
+<span id="index-0"></span><h1>How to Dynamically Generate Forms Using Form Events<a class="headerlink" href="#how-to-dynamically-generate-forms-using-form-events" title="Permalink to this headline">¶</a></h1>
+<p>Before jumping right into dynamic form generation, let&#8217;s have a quick review
+of what a bare form class looks like:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Form/Type/ProductType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+
+class ProductType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $builder-&gt;add('name');
+        $builder-&gt;add('price');
+    }
+
+    public function getName()
+    {
+        return 'product';
+    }
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If this particular section of code isn&#8217;t already familiar to you, you
+probably need to take a step back and first review the <a class="reference internal" href="../../book/forms.html"><em>Forms chapter</em></a>
+before proceeding.</p>
+</div>
+<p>Let&#8217;s assume for a moment that this form utilizes an imaginary &#8220;Product&#8221; class
+that has only two relevant properties (&#8220;name&#8221; and &#8220;price&#8221;). The form generated
+from this class will look the exact same regardless of a new Product is being created
+or if an existing product is being edited (e.g. a product fetched from the database).</p>
+<p>Suppose now, that you don&#8217;t want the user to be able to change the <tt class="docutils literal"><span class="pre">name</span></tt> value
+once the object has been created. To do this, you can rely on Symfony&#8217;s <a class="reference internal" href="../../components/event_dispatcher/introduction.html"><em>Event Dispatcher</em></a>
+system to analyze the data on the object and modify the form based on the
+Product object&#8217;s data. In this entry, you&#8217;ll learn how to add this level of
+flexibility to your forms.</p>
+<div class="section" id="adding-an-event-subscriber-to-a-form-class">
+<span id="cookbook-forms-event-subscriber"></span><h2>Adding An Event Subscriber To A Form Class<a class="headerlink" href="#adding-an-event-subscriber-to-a-form-class" title="Permalink to this headline">¶</a></h2>
+<p>So, instead of directly adding that &#8220;name&#8221; widget via our ProductType form
+class, let&#8217;s delegate the responsibility of creating that particular field
+to an Event Subscriber:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Form/Type/ProductType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+use Acme\DemoBundle\Form\EventListener\AddNameFieldSubscriber;
+
+class ProductType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $subscriber = new AddNameFieldSubscriber($builder-&gt;getFormFactory());
+        $builder-&gt;addEventSubscriber($subscriber);
+        $builder-&gt;add('price');
+    }
+
+    public function getName()
+    {
+        return 'product';
+    }
+}</pre>
+</div>
+<p>The event subscriber is passed the FormFactory object in its constructor so
+that our new subscriber is capable of creating the form widget once it is
+notified of the dispatched event during form creation.</p>
+</div>
+<div class="section" id="inside-the-event-subscriber-class">
+<span id="cookbook-forms-inside-subscriber-class"></span><h2>Inside the Event Subscriber Class<a class="headerlink" href="#inside-the-event-subscriber-class" title="Permalink to this headline">¶</a></h2>
+<p>The goal is to create a &#8220;name&#8221; field <em>only</em> if the underlying Product object
+is new (e.g. hasn&#8217;t been persisted to the database). Based on that, the subscriber
+might look like the following:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Form/EventListener/AddNameFieldSubscriber.php
+namespace Acme\DemoBundle\Form\EventListener;
+
+use Symfony\Component\Form\Event\DataEvent;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Form\FormEvents;
+
+class AddNameFieldSubscriber implements EventSubscriberInterface
+{
+    private $factory;
+
+    public function __construct(FormFactoryInterface $factory)
+    {
+        $this-&gt;factory = $factory;
+    }
+
+    public static function getSubscribedEvents()
+    {
+        // Tells the dispatcher that we want to listen on the form.pre_set_data
+        // event and that the preSetData method should be called.
+        return array(FormEvents::PRE_SET_DATA =&gt; 'preSetData');
+    }
+
+    public function preSetData(DataEvent $event)
+    {
+        $data = $event-&gt;getData();
+        $form = $event-&gt;getForm();
+
+        // During form creation setData() is called with null as an argument
+        // by the FormBuilder constructor. We're only concerned with when
+        // setData is called with an actual Entity object in it (whether new,
+        // or fetched with Doctrine). This if statement let's us skip right
+        // over the null condition.
+        if (null === $data) {
+            return;
+        }
+
+        // check if the product object is "new"
+        if (!$data-&gt;getId()) {
+            $form-&gt;add($this-&gt;factory-&gt;createNamed('text', 'name'));
+        }
+    }
+}</pre>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">It is easy to misunderstand the purpose of the <tt class="docutils literal"><span class="pre">if</span> <span class="pre">(null</span> <span class="pre">===</span> <span class="pre">$data)</span></tt> segment
+of this event subscriber. To fully understand its role, you might consider
+also taking a look at the <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Form.php">Form class</a> and paying special attention to
+where setData() is called at the end of the constructor, as well as the
+setData() method itself.</p>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">FormEvents::PRE_SET_DATA</span></tt> line actually resolves to the string <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt>.
+The <a class="reference external" href="https://github.com/symfony/Form/blob/master/FormEvents.php">FormEvents class</a> serves an organizational purpose. It is a centralized location
+in which you can find all of the various form events available.</p>
+<p>While this example could have used the <tt class="docutils literal"><span class="pre">form.set_data</span></tt> event or even the <tt class="docutils literal"><span class="pre">form.post_set_data</span></tt>
+events just as effectively, by using <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt> we guarantee that
+the data being retrieved from the <tt class="docutils literal"><span class="pre">Event</span></tt> object has in no way been modified
+by any other subscribers or listeners. This is because <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt>
+passes a <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/DataEvent.php">DataEvent</a> object instead of the <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/FilterDataEvent.php">FilterDataEvent</a> object passed
+by the <tt class="docutils literal"><span class="pre">form.set_data</span></tt> event. <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/DataEvent.php">DataEvent</a>, unlike its child <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/FilterDataEvent.php">FilterDataEvent</a>,
+lacks a setData() method.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You may view the full list of form events via the <a class="reference external" href="https://github.com/symfony/Form/blob/master/FormEvents.php">FormEvents class</a>,
+found in the form bundle.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Dynamically Generate Forms Using Form Events</a><ul>
+<li><a class="reference internal" href="#adding-an-event-subscriber-to-a-form-class">Adding An Event Subscriber To A Form Class</a></li>
+<li><a class="reference internal" href="#inside-the-event-subscriber-class">Inside the Event Subscriber Class</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="data_transformers.html"
+                        title="previous chapter">How to use Data Transformers</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="form_collections.html"
+                        title="next chapter">How to Embed a Collection of Forms</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/dynamic_form_generation.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="form_collections.html" title="How to Embed a Collection of Forms"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="data_transformers.html" title="How to use Data Transformers"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Form</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

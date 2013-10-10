@@ -1,0 +1,244 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The Firewall and Security Context &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Security" href="index.html" />
+    <link rel="next" title="Authentication" href="authentication.html" />
+    <link rel="prev" title="The Security Component" href="introduction.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="authentication.html" title="Authentication"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="The Security Component"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Security</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-firewall-and-security-context">
+<span id="index-0"></span><h1>The Firewall and Security Context<a class="headerlink" href="#the-firewall-and-security-context" title="Permalink to this headline">¶</a></h1>
+<p>Central to the Security Component is the security context, which is an instance
+of <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/SecurityContextInterface.html" title="Symfony\Component\Security\Core\SecurityContextInterface"><span class="pre">SecurityContextInterface</span></a></tt>. When all
+steps in the process of authenticating the user have been taken successfully,
+you can ask the security context if the authenticated user has access to a
+certain action or resource of the application:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\SecurityContext;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+
+$securityContext = new SecurityContext();
+
+// ... authenticate the user
+
+if (!$securityContext-&gt;isGranted('ROLE_ADMIN')) {
+    throw new AccessDeniedException();
+}</pre>
+</div>
+<div class="section" id="a-firewall-for-http-requests">
+<span id="firewall"></span><h2>A Firewall for HTTP Requests<a class="headerlink" href="#a-firewall-for-http-requests" title="Permalink to this headline">¶</a></h2>
+<p>Authenticating a user is done by the firewall. An application may have
+multiple secured areas, so the firewall is configured using a map of these
+secured areas. For each of these areas, the map contains a request matcher
+and a collection of listeners. The request matcher gives the firewall the
+ability to find out if the current request points to a secured area.
+The listeners are then asked if the current request can be used to authenticate
+the user:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Http\FirewallMap;
+use Symfony\Component\HttpFoundation\RequestMatcher;
+use Symfony\Component\Security\Http\Firewall\ExceptionListener;
+
+$map = new FirewallMap();
+
+$requestMatcher = new RequestMatcher('^/secured-area/');
+
+// instances of Symfony\Component\Security\Http\Firewall\ListenerInterface
+$listeners = array(...);
+
+$exceptionListener = new ExceptionListener(...);
+
+$map-&gt;add($requestMatcher, $listeners, $exceptionListener);</pre>
+</div>
+<p>The firewall map will be given to the firewall as its first argument, together
+with the event dispatcher that is used by the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html" title="Symfony\Component\HttpKernel\HttpKernel"><span class="pre">HttpKernel</span></a></tt>:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Http\Firewall;
+use Symfony\Component\HttpKernel\KernelEvents;
+
+// the EventDispatcher used by the HttpKernel
+$dispatcher = ...;
+
+$firewall = new Firewall($map, $dispatcher);
+
+$dispatcher-&gt;addListener(KernelEvents::REQUEST, array($firewall, 'onKernelRequest');</pre>
+</div>
+<p>The firewall is registered to listen to the <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event that
+will be dispatched by the <tt class="docutils literal"><span class="pre">HttpKernel</span></tt> at the beginning of each request
+it processes. This way, the firewall may prevent the user from going any
+further than allowed.</p>
+<div class="section" id="firewall-listeners">
+<span id="id1"></span><h3>Firewall listeners<a class="headerlink" href="#firewall-listeners" title="Permalink to this headline">¶</a></h3>
+<p>When the firewall gets notified of the <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event, it asks
+the firewall map if the request matches one of the secured areas. The first
+secured area that matches the request will return a set of corresponding
+firewall listeners (which each implement <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/Firewall/ListenerInterface.html" title="Symfony\Component\Security\Http\Firewall\ListenerInterface"><span class="pre">ListenerInterface</span></a></tt>).
+These listeners will all be asked to handle the current request. This basically
+means: find out if the current request contains any information by which
+the user might be authenticated (for instance the Basic HTTP authentication
+listener checks if the request has a header called <tt class="docutils literal"><span class="pre">PHP_AUTH_USER</span></tt>).</p>
+</div>
+<div class="section" id="exception-listener">
+<h3>Exception listener<a class="headerlink" href="#exception-listener" title="Permalink to this headline">¶</a></h3>
+<p>If any of the listeners throws an <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Exception/AuthenticationException.html" title="Symfony\Component\Security\Core\Exception\AuthenticationException"><span class="pre">AuthenticationException</span></a></tt>,
+the exception listener that was provided when adding secured areas to the
+firewall map will jump in.</p>
+<p>The exception listener determines what happens next, based on the arguments
+it received when it was created. It may start the authentication procedure,
+perhaps ask the user to supply his credentials again (when he has only been
+authenticated based on a &#8220;remember-me&#8221; cookie), or transform the exception
+into an <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Exception/AccessDeniedHttpException.html" title="Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException"><span class="pre">AccessDeniedHttpException</span></a></tt>,
+which will eventually result in an &#8220;HTTP/1.1 403: Access Denied&#8221; response.</p>
+</div>
+<div class="section" id="entry-points">
+<h3>Entry points<a class="headerlink" href="#entry-points" title="Permalink to this headline">¶</a></h3>
+<p>When the user is not authenticated at all (i.e. when the security context
+has no token yet), the firewall&#8217;s entry point will be called to &#8220;start&#8221;
+the authentication process. An entry point should implement
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/EntryPoint/AuthenticationEntryPointInterface.html" title="Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface"><span class="pre">AuthenticationEntryPointInterface</span></a></tt>,
+which has only one method: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/EntryPoint/AuthenticationEntryPointInterface.html#method_start" title="Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface::start()"><span class="pre">start()</span></a></tt>.
+This method receives the current <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt>
+object and the exception by which the exception listener was triggered.
+The method should return a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html" title="Symfony\Component\HttpFoundation\Response"><span class="pre">Response</span></a></tt>
+object. This could be, for instance, the page containing the login form or,
+in the case of Basic HTTP authentication, a response with a <tt class="docutils literal"><span class="pre">WWW-Authenticate</span></tt>
+header, which will prompt the user to supply his username and password.</p>
+</div>
+</div>
+<div class="section" id="flow-firewall-authentication-authorization">
+<h2>Flow: Firewall, Authentication, Authorization<a class="headerlink" href="#flow-firewall-authentication-authorization" title="Permalink to this headline">¶</a></h2>
+<p>Hopefully you can now see a little bit about how the &#8220;flow&#8221; of the security
+context works:</p>
+<ol class="arabic simple">
+<li>the Firewall is registered as a listener on the <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event;</li>
+<li>at the beginning of the request, the Firewall checks the firewall map
+to see if any firewall should be active for this URL;</li>
+<li>If a firewall is found in the map for this URL, its listeners are notified</li>
+<li>each listener checks to see if the current request contains any authentication
+information - a listener may (a) authenticate a user, (b) throw an
+<tt class="docutils literal"><span class="pre">AuthenticationException</span></tt>, or (c) do nothing (because there is no
+authentication information on the request);</li>
+<li>Once a user is authenticated, you&#8217;ll use <a class="reference internal" href="authorization.html"><em>Authorization</em></a>
+to deny access to certain resources.</li>
+</ol>
+<p>Read the next sections to find out more about <a class="reference internal" href="authentication.html"><em>Authentication</em></a>
+and <a class="reference internal" href="authorization.html"><em>Authorization</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">The Firewall and Security Context</a><ul>
+<li><a class="reference internal" href="#a-firewall-for-http-requests">A Firewall for HTTP Requests</a><ul>
+<li><a class="reference internal" href="#firewall-listeners">Firewall listeners</a></li>
+<li><a class="reference internal" href="#exception-listener">Exception listener</a></li>
+<li><a class="reference internal" href="#entry-points">Entry points</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#flow-firewall-authentication-authorization">Flow: Firewall, Authentication, Authorization</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="introduction.html"
+                        title="previous chapter">The Security Component</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="authentication.html"
+                        title="next chapter">Authentication</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/security/firewall.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="authentication.html" title="Authentication"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="introduction.html" title="The Security Component"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Security</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

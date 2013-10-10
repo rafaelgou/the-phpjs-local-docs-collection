@@ -1,0 +1,641 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Manage Chunks in a Sharded Cluster &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/manage-chunks-in-sharded-cluster.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/manage-chunks-in-sharded-cluster" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Sharded Cluster Administration" href="../administration/sharded-clusters.html" />
+<link rel="next" title="Configure Behavior of Balancer Process in Sharded Clusters" href="configure-sharded-cluster-balancer.html" />
+<link rel="prev" title="Backup Cluster Metadata" href="backup-sharded-cluster-metadata.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../sharding.html">Sharding</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/sharded-clusters.html">Sharded Cluster Administration</a><span class="bcpoint"> > </span></li>
+          <li>Manage Chunks in a Sharded Cluster</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="manage-chunks-in-a-sharded-cluster">
+<h1>Manage Chunks in a Sharded Cluster<a class="headerlink" href="#manage-chunks-in-a-sharded-cluster" title="Permalink to this headline">¶</a></h1>
+<p>This page describes various operations on <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> in
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded clusters</em></a>. MongoDB automates most
+chunk management operations. However, these chunk management
+operations are accessible to administrators for use in some
+situations, typically surrounding initial setup, deployment, and data
+ingestion.</p>
+<div class="section" id="split-chunks">
+<span id="sharding-procedure-create-split"></span><h2>Split Chunks<a class="headerlink" href="#split-chunks" title="Permalink to this headline">¶</a></h2>
+<p>Normally, MongoDB splits a <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunk</em></a> following inserts when a
+chunk exceeds the <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-chunk-size"><em>chunk size</em></a>. The
+<a class="reference internal" href="../reference/glossary.html#term-balancer"><em class="xref std std-term">balancer</em></a> may migrate recently split chunks to a new shard
+immediately if <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> predicts future insertions will
+benefit from the move.</p>
+<p>MongoDB treats all chunks the same, whether split manually or
+automatically by the system.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">You cannot merge or combine chunks once you have split them.</p>
+</div>
+<p>You may want to split chunks manually if:</p>
+<ul class="simple">
+<li>you have a large amount of data in your cluster and very few
+<a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a>,
+as is the case after deploying a cluster using existing data.</li>
+<li>you expect to add a large amount of data that would
+initially reside in a single chunk or shard.</li>
+</ul>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p class="last">You plan to insert a large amount of data with <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>
+values between <tt class="docutils literal"><span class="pre">300</span></tt> and <tt class="docutils literal"><span class="pre">400</span></tt>, <em>but</em> all values of your shard
+keys are between <tt class="docutils literal"><span class="pre">250</span></tt> and <tt class="docutils literal"><span class="pre">500</span></tt> are in a single chunk.</p>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Be careful when splitting data in a sharded collection to create
+new chunks. When you shard a collection that has existing data,
+MongoDB automatically creates chunks to evenly distribute the
+collection. To split data effectively in a sharded cluster you must
+consider the number of documents in a chunk and the average
+document size to create a uniform chunk size. When chunks have
+irregular sizes, shards may have an equal number of chunks but have
+very different data sizes. Avoid creating splits that lead to a
+collection with differently sized chunks.</p>
+</div>
+<p>Use <a class="reference internal" href="../reference/method/sh.status.html#sh.status" title="sh.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.status()</span></tt></a> to determine the current chunks ranges across
+the cluster.</p>
+<p>To split chunks manually, use the <a class="reference internal" href="../reference/command/split.html#dbcmd.split" title="split"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">split</span></tt></a> command with
+operators: <tt class="docutils literal"><span class="pre">middle</span></tt> and <tt class="docutils literal"><span class="pre">find</span></tt>. The equivalent shell helpers are
+<a class="reference internal" href="../reference/method/sh.splitAt.html#sh.splitAt" title="sh.splitAt()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitAt()</span></tt></a> or <a class="reference internal" href="../reference/method/sh.splitFind.html#sh.splitFind" title="sh.splitFind()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitFind()</span></tt></a>.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>The following command will split the chunk that contains
+the value of <tt class="docutils literal"><span class="pre">63109</span></tt> for the <tt class="docutils literal"><span class="pre">zipcode</span></tt> field in the <tt class="docutils literal"><span class="pre">people</span></tt>
+collection of the <tt class="docutils literal"><span class="pre">records</span></tt> database:</p>
+<div class="last highlight-javascript"><div class="highlight"><pre><span class="nx">sh</span><span class="p">.</span><span class="nx">splitFind</span><span class="p">(</span> <span class="s2">&quot;records.people&quot;</span><span class="p">,</span> <span class="p">{</span> <span class="s2">&quot;zipcode&quot;</span><span class="o">:</span> <span class="mi">63109</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p><a class="reference internal" href="../reference/method/sh.splitFind.html#sh.splitFind" title="sh.splitFind()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitFind()</span></tt></a> will split the chunk that contains the
+<em>first</em> document returned that matches this query into two equally
+sized chunks. You must specify the full namespace
+(i.e. &#8220;<tt class="docutils literal"><span class="pre">&lt;database&gt;.&lt;collection&gt;</span></tt>&#8221;) of the sharded collection to
+<a class="reference internal" href="../reference/method/sh.splitFind.html#sh.splitFind" title="sh.splitFind()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitFind()</span></tt></a>. The query in <a class="reference internal" href="../reference/method/sh.splitFind.html#sh.splitFind" title="sh.splitFind()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitFind()</span></tt></a> need
+not contain the shard key, though it almost always makes sense to
+query for the shard key in this case, and including the shard key will
+expedite the operation.</p>
+<p>Use <a class="reference internal" href="../reference/method/sh.splitAt.html#sh.splitAt" title="sh.splitAt()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.splitAt()</span></tt></a> to split a chunk in two using the queried
+document as the partition point:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">sh</span><span class="p">.</span><span class="nx">splitAt</span><span class="p">(</span> <span class="s2">&quot;records.people&quot;</span><span class="p">,</span> <span class="p">{</span> <span class="s2">&quot;zipcode&quot;</span><span class="o">:</span> <span class="mi">63109</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>However, the location of the document that this query finds with
+respect to the other documents in the chunk does not affect how the
+chunk splits.</p>
+</div>
+<div class="section" id="create-chunks-pre-splitting">
+<span id="sharding-administration-create-chunks"></span><span id="sharding-administration-pre-splitting"></span><h2>Create Chunks (Pre-Splitting)<a class="headerlink" href="#create-chunks-pre-splitting" title="Permalink to this headline">¶</a></h2>
+<p>Pre-splitting the chunk ranges in an empty sharded collection, allows
+clients to insert data into an already-partitioned collection. In most
+situations a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> will create and distribute chunks
+automatically without user intervention. However, in a limited number
+of use profiles, MongoDB cannot create enough chunks or distribute
+data fast enough to support required throughput.  For example, if:</p>
+<ul>
+<li><p class="first">you must partition an existing data collection that resides on a
+single shard.</p>
+</li>
+<li><p class="first">you must ingest a large volume of data into a cluster that
+isn&#8217;t balanced, or where the ingestion of data will lead to an
+imbalance of data.</p>
+<p>This can arise in an initial data loading, or in a case where you
+must insert a large volume of data into a single chunk, as is the
+case when you must insert at the beginning or end of the chunk
+range, as is the case for monotonically increasing or decreasing
+shard keys.</p>
+</li>
+</ul>
+<p>Preemptively splitting chunks increases cluster throughput for these
+operations, by reducing the overhead of migrating chunks that hold
+data during the write operation. MongoDB only creates splits after an
+insert operation and can migrate only a single chunk at a time. Chunk
+migrations are resource intensive and further complicated by large
+write volume to the migrating chunk.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">You can only pre-split an empty collection.  When you enable
+sharding for a collection that contains data MongoDB automatically
+creates splits. Subsequent attempts to create splits manually, can
+lead to unpredictable chunk ranges and sizes as well as inefficient
+or ineffective balancing behavior.</p>
+</div>
+<p>To create and migrate chunks manually, use the following procedure:</p>
+<ol class="arabic">
+<li><p class="first">Split empty chunks in your collection by manually performing
+<a class="reference internal" href="../reference/command/split.html#dbcmd.split" title="split"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">split</span></tt></a> command on chunks.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>To create chunks for documents in the <tt class="docutils literal"><span class="pre">myapp.users</span></tt>
+collection, using the <tt class="docutils literal"><span class="pre">email</span></tt> field as the <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>,
+use the following operation in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<blockquote>
+<div><div class="highlight-javascript"><div class="highlight"><pre><span class="k">for</span> <span class="p">(</span> <span class="kd">var</span> <span class="nx">x</span><span class="o">=</span><span class="mi">97</span><span class="p">;</span> <span class="nx">x</span><span class="o">&lt;</span><span class="mi">97</span><span class="o">+</span><span class="mi">26</span><span class="p">;</span> <span class="nx">x</span><span class="o">++</span> <span class="p">){</span>
+  <span class="k">for</span><span class="p">(</span> <span class="kd">var</span> <span class="nx">y</span><span class="o">=</span><span class="mi">97</span><span class="p">;</span> <span class="nx">y</span><span class="o">&lt;</span><span class="mi">97</span><span class="o">+</span><span class="mi">26</span><span class="p">;</span> <span class="nx">y</span><span class="o">+=</span><span class="mi">6</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">prefix</span> <span class="o">=</span> <span class="nb">String</span><span class="p">.</span><span class="nx">fromCharCode</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="o">+</span> <span class="nb">String</span><span class="p">.</span><span class="nx">fromCharCode</span><span class="p">(</span><span class="nx">y</span><span class="p">);</span>
+    <span class="nx">db</span><span class="p">.</span><span class="nx">runCommand</span><span class="p">(</span> <span class="p">{</span> <span class="nx">split</span> <span class="o">:</span> <span class="s2">&quot;myapp.users&quot;</span> <span class="p">,</span> <span class="nx">middle</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">email</span> <span class="o">:</span> <span class="nx">prefix</span> <span class="p">}</span> <span class="p">}</span> <span class="p">);</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p class="last">This assumes a collection size of 100 million documents.</p>
+</div>
+</li>
+<li><p class="first">Migrate chunks manually using the <a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command:</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>To migrate all of the manually created user profiles evenly,
+putting each prefix chunk on the next shard from the other, run
+the following commands in the mongo shell:</p>
+<blockquote class="last">
+<div><div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">shServer</span> <span class="o">=</span> <span class="p">[</span> <span class="s2">&quot;sh0.example.net&quot;</span><span class="p">,</span> <span class="s2">&quot;sh1.example.net&quot;</span><span class="p">,</span> <span class="s2">&quot;sh2.example.net&quot;</span><span class="p">,</span> <span class="s2">&quot;sh3.example.net&quot;</span><span class="p">,</span> <span class="s2">&quot;sh4.example.net&quot;</span> <span class="p">];</span>
+<span class="k">for</span> <span class="p">(</span> <span class="kd">var</span> <span class="nx">x</span><span class="o">=</span><span class="mi">97</span><span class="p">;</span> <span class="nx">x</span><span class="o">&lt;</span><span class="mi">97</span><span class="o">+</span><span class="mi">26</span><span class="p">;</span> <span class="nx">x</span><span class="o">++</span> <span class="p">){</span>
+  <span class="k">for</span><span class="p">(</span> <span class="kd">var</span> <span class="nx">y</span><span class="o">=</span><span class="mi">97</span><span class="p">;</span> <span class="nx">y</span><span class="o">&lt;</span><span class="mi">97</span><span class="o">+</span><span class="mi">26</span><span class="p">;</span> <span class="nx">y</span><span class="o">+=</span><span class="mi">6</span> <span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">prefix</span> <span class="o">=</span> <span class="nb">String</span><span class="p">.</span><span class="nx">fromCharCode</span><span class="p">(</span><span class="nx">x</span><span class="p">)</span> <span class="o">+</span> <span class="nb">String</span><span class="p">.</span><span class="nx">fromCharCode</span><span class="p">(</span><span class="nx">y</span><span class="p">);</span>
+    <span class="nx">db</span><span class="p">.</span><span class="nx">adminCommand</span><span class="p">({</span><span class="nx">moveChunk</span> <span class="o">:</span> <span class="s2">&quot;myapp.users&quot;</span><span class="p">,</span> <span class="nx">find</span> <span class="o">:</span> <span class="p">{</span><span class="nx">email</span> <span class="o">:</span> <span class="nx">prefix</span><span class="p">},</span> <span class="nx">to</span> <span class="o">:</span> <span class="nx">shServer</span><span class="p">[(</span><span class="nx">y</span><span class="o">-</span><span class="mi">97</span><span class="p">)</span><span class="o">/</span><span class="mi">6</span><span class="p">]})</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+</div>
+<p>You can also let the balancer automatically distribute the new
+chunks. For an introduction to balancing, see
+<a class="reference internal" href="../core/sharded-clusters.html#sharding-balancing"><em>Shard Balancing</em></a>. For lower level information on balancing,
+see <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-balancing-internals"><em>Cluster Balancer</em></a>.</p>
+</li>
+</ol>
+</div>
+<div class="section" id="modify-chunk-size">
+<span id="sharding-balancing-modify-chunk-size"></span><h2>Modify Chunk Size<a class="headerlink" href="#modify-chunk-size" title="Permalink to this headline">¶</a></h2>
+<p>When you initialize a sharded cluster, <a class="footnote-reference" href="#mongos-initialization" id="id1">[1]</a> the
+default chunk size is 64 megabytes. This default chunk size works well
+for most deployments; however, if you notice that automatic migrations
+are incurring a level of I/O that your hardware cannot handle, you may
+want to reduce the chunk size. For the automatic splits and
+migrations, a small chunk size leads to more rapid and frequent
+migrations.</p>
+<p>to modify the chunk size, use the following procedure:</p>
+<ol class="arabic">
+<li><p class="first">connect to any <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> in the cluster using the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell.</p>
+</li>
+<li><p class="first">issue the following command to switch to the <a class="reference internal" href="../reference/config-database.html#config-database"><em>Config Database</em></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">use</span> <span class="nx">config</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Issue the following <a class="reference internal" href="../reference/method/db.collection.save.html#db.collection.save" title="db.collection.save()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">save()</span></tt></a>
+operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">settings</span><span class="p">.</span><span class="nx">save</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span><span class="s2">&quot;chunksize&quot;</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="o">&lt;</span><span class="nx">size</span><span class="o">&gt;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Where the value of <tt class="docutils literal"><span class="pre">&lt;size&gt;</span></tt> reflects the new chunk size in
+megabytes. Here, you&#8217;re essentially writing a document whose values
+store the global chunk size configuration value.</p>
+</li>
+</ol>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The <a class="reference internal" href="../reference/configuration-options.html#chunkSize" title="chunkSize"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">chunkSize</span></tt></a> and
+<a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--chunkSize"><em class="xref std std-option">--chunkSize</em></a>
+options, passed at runtime to the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+<strong>do not</strong> affect the chunk size after you have initialized the
+cluster. <a class="footnote-reference" href="#mongos-initialization" id="id2">[1]</a></p>
+<p class="last">To eliminate confusion you should <em>always</em> set chunk size using the
+above procedure and never use the runtime options.</p>
+</div>
+<p>Modifying the chunk size has several limitations:</p>
+<ul class="simple">
+<li>Automatic splitting only occurs when inserting <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> or updating existing documents.</li>
+<li>If you lower the chunk size it may take time for all chunks to split to
+the new size.</li>
+<li>Splits cannot be &#8220;undone.&#8221;</li>
+</ul>
+<p>If you increase the chunk size, existing chunks must grow through
+insertion or updates until they reach the new size.</p>
+<table class="docutils footnote" frame="void" id="mongos-initialization" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label">[1]</td><td><em>(<a class="fn-backref" href="#id1">1</a>, <a class="fn-backref" href="#id2">2</a>)</em> The first <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> that connects
+to a set of <a class="reference internal" href="../reference/glossary.html#term-config-database"><em class="xref std std-term">config servers</em></a> initializes
+the sharded cluster.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="migrate-chunks">
+<span id="sharding-balancing-manual-migration"></span><h2>Migrate Chunks<a class="headerlink" href="#migrate-chunks" title="Permalink to this headline">¶</a></h2>
+<p>In most circumstances, you should let the automatic balancer
+migrate <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> between <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a>.
+However, you may want to migrate chunks manually in a few cases:</p>
+<ul class="simple">
+<li>If you create chunks by <a class="reference internal" href="../reference/glossary.html#term-pre-splitting"><em class="xref std std-term">pre-splitting</em></a> the data in your
+collection, you will have to migrate chunks manually to distribute
+chunks evenly across the shards. Use pre-splitting in limited
+situations, to support bulk data ingestion.</li>
+<li>If the balancer in an active cluster cannot distribute chunks within
+the balancing window, then you will have to migrate chunks manually.</li>
+</ul>
+<p>For more information on how chunks move between shards, see
+<a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-balancing-internals"><em>Cluster Balancer</em></a>, in particular the section
+<a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-chunk-migration"><em>Chunk Migration</em></a>.</p>
+<p>To migrate chunks, use the <a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>To return a list of shards, use the <a class="reference internal" href="../reference/command/listShards.html#dbcmd.listShards" title="listShards"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">listShards</span></tt></a>
+command.</p>
+<p class="last">Specify shard names using the <a class="reference internal" href="../reference/command/addShard.html#dbcmd.addShard" title="addShard"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">addShard</span></tt></a> command
+using the <tt class="docutils literal"><span class="pre">name</span></tt> argument. If you do not specify a name in the
+<a class="reference internal" href="../reference/command/addShard.html#dbcmd.addShard" title="addShard"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">addShard</span></tt></a> command, MongoDB will assign a name
+automatically.</p>
+</div>
+<p>The following example assumes that the field <tt class="docutils literal"><span class="pre">username</span></tt> is the
+<a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a> for a collection named <tt class="docutils literal"><span class="pre">users</span></tt> in the <tt class="docutils literal"><span class="pre">myapp</span></tt>
+database, and that the value <tt class="docutils literal"><span class="pre">smith</span></tt> exists within the <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunk</em></a>
+you want to migrate.</p>
+<p>To move this chunk, you would issue the following command from a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell connected to any <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">adminCommand</span><span class="p">(</span> <span class="p">{</span> <span class="nx">moveChunk</span> <span class="o">:</span> <span class="s2">&quot;myapp.users&quot;</span><span class="p">,</span>
+                   <span class="nx">find</span> <span class="o">:</span> <span class="p">{</span><span class="nx">username</span> <span class="o">:</span> <span class="s2">&quot;smith&quot;</span><span class="p">},</span>
+                   <span class="nx">to</span> <span class="o">:</span> <span class="s2">&quot;mongodb-shard3.example.net&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>This command moves the chunk that includes the shard key value &#8220;smith&#8221; to the
+<a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shard</em></a> named <tt class="docutils literal"><span class="pre">mongodb-shard3.example.net</span></tt>. The command will
+block until the migration is complete.</p>
+<p>See <a class="reference internal" href="#sharding-administration-create-chunks"><em>Create Chunks (Pre-Splitting)</em></a> for an introduction
+to pre-splitting.</p>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.2: </span><a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command has the: <tt class="docutils literal"><span class="pre">_secondaryThrottle</span></tt>
+parameter. When set to <tt class="docutils literal"><span class="pre">true</span></tt>, MongoDB ensures that changes to
+shards as part of chunk migrations replicate to <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondaries</em></a> throughout the migration operation. For more
+information, see <a class="reference internal" href="configure-sharded-cluster-balancer.html#sharded-cluster-config-secondary-throttle"><em>Require Replication before Chunk Migration (Secondary Throttle)</em></a>.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.4: </span>In 2.4, <tt class="docutils literal"><span class="pre">_secondaryThrottle</span></tt> is <tt class="docutils literal"><span class="pre">true</span></tt> by default.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>The <a class="reference internal" href="../reference/command/moveChunk.html#dbcmd.moveChunk" title="moveChunk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">moveChunk</span></tt></a> command may produce the following error
+message:</p>
+<div class="highlight-none"><div class="highlight"><pre>The collection&#39;s metadata lock is already taken.
+</pre></div>
+</div>
+<p class="last">These errors occur when clients have too many open <a class="reference internal" href="../reference/glossary.html#term-cursor"><em class="xref std std-term">cursors</em></a> that access the chunk you are migrating. You can either
+wait until the cursors complete their operation or close the
+cursors manually.</p>
+</div>
+</div>
+<div class="section" id="strategies-for-bulk-inserts-in-sharded-clusters">
+<span id="sharding-bulk-inserts"></span><span id="index-1"></span><h2>Strategies for Bulk Inserts in Sharded Clusters<a class="headerlink" href="#strategies-for-bulk-inserts-in-sharded-clusters" title="Permalink to this headline">¶</a></h2>
+<p>Large bulk insert operations, including initial data ingestion or
+routine data import, can have a significant impact on a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded
+cluster</em></a>. For bulk insert operations, consider the following strategies:</p>
+<ul>
+<li><p class="first">If the collection does not have data, then there is only one
+<a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunk</em></a>, which must reside on a single shard. MongoDB must
+receive data, create splits, and distribute chunks to the available
+shards. To avoid this performance cost, you can pre-split the
+collection, as described in <a class="reference internal" href="#sharding-administration-pre-splitting"><em>Create Chunks (Pre-Splitting)</em></a>.</p>
+</li>
+<li><p class="first">You can parallelize import processes by sending insert operations to
+more than one <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance. If the collection is
+empty, pre-split first, as described in
+<a class="reference internal" href="#sharding-administration-pre-splitting"><em>Create Chunks (Pre-Splitting)</em></a>.</p>
+</li>
+<li><p class="first">If your shard key increases monotonically during an insert then all
+the inserts will go to the last chunk in the collection, which will
+always end up on a single shard. Therefore, the insert capacity of the
+cluster will never exceed the insert capacity of a single shard.</p>
+<p>If your insert volume is never larger than what a single shard can
+process, then there is no problem; however, if the insert volume
+exceeds that range, and you cannot avoid a monotonically
+increasing shard key, then consider the following modifications to
+your application:</p>
+<ul class="simple">
+<li>Reverse all the bits of the shard key to preserve the information
+while avoiding the correlation of insertion order and increasing
+sequence of values.</li>
+<li>Swap the first and last 16-bit words to &#8220;shuffle&#8221; the inserts.</li>
+</ul>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>The following example, in C++, swaps the leading and
+trailing 16-bit word of <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectIds</em></a>
+generated so that they are no longer monotonically increasing.</p>
+<div class="last highlight-cpp"><div class="highlight"><pre><span class="k">using</span> <span class="k">namespace</span> <span class="n">mongo</span><span class="p">;</span>
+<span class="n">OID</span> <span class="n">make_an_id</span><span class="p">()</span> <span class="p">{</span>
+  <span class="n">OID</span> <span class="n">x</span> <span class="o">=</span> <span class="n">OID</span><span class="o">::</span><span class="n">gen</span><span class="p">();</span>
+  <span class="k">const</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="o">*</span><span class="n">p</span> <span class="o">=</span> <span class="n">x</span><span class="p">.</span><span class="n">getData</span><span class="p">();</span>
+  <span class="n">swap</span><span class="p">(</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">short</span><span class="o">&amp;</span><span class="p">)</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">short</span><span class="o">&amp;</span><span class="p">)</span> <span class="n">p</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="p">);</span>
+  <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">void</span> <span class="n">foo</span><span class="p">()</span> <span class="p">{</span>
+  <span class="c1">// create an object</span>
+  <span class="n">BSONObj</span> <span class="n">o</span> <span class="o">=</span> <span class="n">BSON</span><span class="p">(</span> <span class="s">&quot;_id&quot;</span> <span class="o">&lt;&lt;</span> <span class="n">make_an_id</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;x&quot;</span> <span class="o">&lt;&lt;</span> <span class="mi">3</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;name&quot;</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;jane&quot;</span> <span class="p">);</span>
+  <span class="c1">// now we might insert o into a sharded collection...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<p>For information on choosing a shard key, see <a class="reference internal" href="../core/sharded-clusters.html#sharding-shard-key"><em>Shard Keys</em></a>
+and see <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-internals-shard-keys"><em>Shard Key Internals</em></a> (in
+particular, <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-internals-operations-and-reliability"><em>Operations and Reliability</em></a> and
+<a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-internals-choose-shard-key"><em>Choosing a Shard Key</em></a>).</p>
+</li>
+</ul>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="backup-sharded-cluster-metadata.html" title="Previous Section: Backup Cluster Metadata">&lt; &nbsp; Backup Cluster Metadata</a></li>
+              <li id="btnvup"><a href="../sharding.html" title="Parent Section: Sharding" >&#47;&#92;&nbsp; Sharding</a></li>
+              <li id="btnvnx"><a href="configure-sharded-cluster-balancer.html" title="Next Section: Configure Behavior of Balancer Process in Sharded Clusters">Configure Behavior of Balancer Process in Sharded Clusters &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../sharding.html">Sharding</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/sharded-clusters.html">Sharded Cluster Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/sharded-cluster-architectures.html">Sharded Cluster Architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/sharded-cluster-query-routing.html">Query Routing in Sharded Clusters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/sharded-cluster-security.html">Security Practices for Sharded Clusters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/sharded-cluster-internals.html">Sharded Cluster Internals</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/sharded-clusters.html">Sharded Cluster Administration</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="deploy-shard-cluster.html">Deploy a Sharded Cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="select-shard-key.html">Select a Shard Key</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shard-collection-with-a-hashed-shard-key.html">Hashed Sharding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="enable-authentication-in-sharded-cluster.html">Enable Authentication in a Sharded Cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="view-sharded-cluster-configuration.html">View Cluster Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="add-shards-to-shard-cluster.html">Add Shards to a Cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-replica-set-to-replicated-shard-cluster.html">Convert a Replica Set to a Replicated Sharded Cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="administer-shard-tags.html">Administer and Manage Shard Tags</a></li>
+<li class="toctree-l3"><a class="reference internal" href="deploy-config-servers.html">Deploy Three Config Servers for Production Deployments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="migrate-config-servers-with-same-hostname.html">Migrate Config Servers with the Same Hostname</a></li>
+<li class="toctree-l3"><a class="reference internal" href="migrate-config-servers-with-different-hostnames.html">Migrate Config Servers with Different Hostnames</a></li>
+<li class="toctree-l3"><a class="reference internal" href="replace-config-server.html">Replace a Config Server</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-sharded-cluster-metadata.html">Backup Cluster Metadata</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Manage Chunks in a Sharded Cluster</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="configure-sharded-cluster-balancer.html">Configure Behavior of Balancer Process in Sharded Clusters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="manage-sharded-cluster-balancer.html">Manage Sharded Cluster Balancer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="remove-shards-from-cluster.html">Remove Shards from an Existing Sharded Cluster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/tag-aware-sharding.html">Tag Aware Sharding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="enforce-unique-keys-for-sharded-collections.html">Enforce Unique Keys for Sharded Collections</a></li>
+<li class="toctree-l3"><a class="reference internal" href="shard-gridfs-data.html">Shard GridFS Data Store</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/sharding-commands.html">Sharding Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/config-database.html">Config Database</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/manage-chunks-in-sharded-cluster.txt" target="_blank" title="Edit tutorial/manage-chunks-in-sharded-cluster.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/manage-chunks-in-sharded-cluster%2Etxt%22" target="_blank" title="Report a problem with tutorial/manage-chunks-in-sharded-cluster.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/manage-chunks-in-sharded-cluster.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/manage-chunks-in-sharded-cluster'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/manage-chunks-in-sharded-cluster'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

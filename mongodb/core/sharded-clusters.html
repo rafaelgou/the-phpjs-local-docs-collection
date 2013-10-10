@@ -1,0 +1,419 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Sharded Cluster Overview &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/sharded-clusters.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/sharded-clusters" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Sharding" href="../sharding.html" />
+<link rel="next" title="Sharded Cluster Architectures" href="sharded-cluster-architectures.html" />
+<link rel="prev" title="Sharding" href="../sharding.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../sharding.html">Sharding</a><span class="bcpoint"> > </span></li>
+          <li>Sharded Cluster Overview</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="sharded-cluster-overview">
+<span id="sharding-fundamentals"></span><span id="index-0"></span><h1>Sharded Cluster Overview<a class="headerlink" href="#sharded-cluster-overview" title="Permalink to this headline">¶</a></h1>
+<p>Sharding is MongoDB’s approach to scaling out. Sharding partitions a
+collection and stores the different portions on different
+machines. When a database&#8217;s collections become too large for existing
+storage, you need only add a new machine. Sharding automatically
+distributes collection data to the new server.</p>
+<p>Sharding automatically balances data and load across machines. Sharding
+provides additional write capacity by distributing the write load over a
+number of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances. Sharding allows users to increase
+the potential amount of data in the <a class="reference internal" href="../reference/glossary.html#term-working-set"><em class="xref std std-term">working set</em></a>.</p>
+<span class="target" id="index-1"></span><div class="section" id="sharding">
+<span id="sharding-shards"></span><span id="index-2"></span><h2>Sharding<a class="headerlink" href="#sharding" title="Permalink to this headline">¶</a></h2>
+<p>Sharding occurs within a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>. A sharded cluster
+consists of the following components:</p>
+<ul>
+<li><p class="first"><strong>Shards</strong>. A shard is a container that holds a
+subset of a collection’s data. Each shard is either a single
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance or a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>. In production,
+all shards should be replica sets.</p>
+<p>Applications do not access shards directly but instead access
+<a class="reference internal" href="sharded-cluster-query-routing.html#sharding-mongos"><em>mongos instances</em></a>.</p>
+</li>
+<li><p class="first"><strong>Config servers</strong>. Each <a class="reference internal" href="sharded-cluster-internals.html#sharding-config-server"><em>config server</em></a>
+is a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance that holds metadata about the cluster.
+The metadata maps <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> to shards.</p>
+</li>
+<li><p class="first"><strong>mongos instances</strong>. The <a class="reference internal" href="sharded-cluster-query-routing.html#sharding-mongos"><em>mongos instances</em></a>
+route the reads and writes from applications to the shards.
+Applications do not access the shards directly.</p>
+</li>
+</ul>
+<p>Within a sharded cluster, you enable sharding on a per-database basis.
+When you enable sharding on a database, MongoDB distributes the collections
+across the shards. MongoDB does not yet distribute data within a collection.</p>
+<p>After enabling sharding for a database, you choose which collections to
+shard. For each sharded collection, you specify a <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a>.</p>
+<p>To set up a sharded cluster, see <a class="reference internal" href="../tutorial/deploy-shard-cluster.html#sharding-procedure-setup"><em>Deploy a Sharded Cluster</em></a>.</p>
+</div>
+<div class="section" id="shard-keys">
+<span id="shard-key"></span><span id="sharding-shard-key"></span><h2>Shard Keys<a class="headerlink" href="#shard-keys" title="Permalink to this headline">¶</a></h2>
+<p>The shard key determines the distribution of the collection&#8217;s
+<a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> among the cluster&#8217;s <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a>.
+The shard key is a <a class="reference internal" href="../reference/glossary.html#term-field"><em class="xref std std-term">field</em></a> that exists in every document in the
+collection. MongoDB distributes documents according to ranges of values
+in the shard key. A given shard holds documents for which the shard key
+falls within a specific range of values. Shard keys, like <a class="reference internal" href="../reference/glossary.html#term-index"><em class="xref std std-term">indexes</em></a>, can be either a single field or multiple fields.</p>
+<p>Within a shard, MongoDB further partitions documents into <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a>. Each chunk represents a smaller range of values within the
+shard&#8217;s range. When a chunk grows beyond the <a class="reference internal" href="sharded-cluster-internals.html#sharding-chunk-size"><em>chunk size</em></a>, MongoDB <a class="reference internal" href="../reference/glossary.html#term-split"><em class="xref std std-term">splits</em></a> the chunk into
+smaller chunks, always based on ranges in the shard key.</p>
+<p>To select a shard key, see <a class="reference internal" href="../tutorial/select-shard-key.html"><em>Select a Shard Key</em></a>.</p>
+</div>
+<div class="section" id="hashed-sharding">
+<span id="sharding-hashed-sharding"></span><h2>Hashed Sharding<a class="headerlink" href="#hashed-sharding" title="Permalink to this headline">¶</a></h2>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4.</span></p>
+<p><a class="reference internal" href="sharded-cluster-internals.html#sharding-hashed-shard-key-internals"><em>Hashed shard keys</em></a> use a
+<a class="reference internal" href="../tutorial/create-a-hashed-index.html#index-hashed-index"><em>hashed index</em></a> of a single field as the
+<a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a> to partition data across your sharded cluster.</p>
+<p>The field you choose as your hashed shard key should have a good
+cardinality, or large number of different values. Hashed keys work
+well with fields that increase monotonically like <a class="reference internal" href="../reference/glossary.html#term-objectid"><em class="xref std std-term">ObjectId</em></a>
+values or timestamps.</p>
+<p>If you shard an empty collection using a hashed shard key, MongoDB
+will automatically create and migrate chunks so that each shard has
+two chunks.  You can control how many chunks MongoDB will create with
+the <tt class="docutils literal"><span class="pre">numInitialChunks</span></tt> parameter to <a class="reference internal" href="../reference/command/shardCollection.html#dbcmd.shardCollection" title="shardCollection"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">shardCollection</span></tt></a> or
+by manually creating chunks on the empty collection using the
+<a class="reference internal" href="../reference/command/split.html#dbcmd.split" title="split"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">split</span></tt></a> command.</p>
+<p>To shard a collection using a hashed shard key, see
+<a class="reference internal" href="../tutorial/shard-collection-with-a-hashed-shard-key.html"><em>Hashed Sharding</em></a>.</p>
+</div>
+<div class="section" id="shard-balancing">
+<span id="sharding-balancing"></span><span id="index-3"></span><h2>Shard Balancing<a class="headerlink" href="#shard-balancing" title="Permalink to this headline">¶</a></h2>
+<p>Balancing is the process MongoDB uses to redistribute data within a
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>. When a <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shard</em></a> has too many
+<a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> when compared to other shards, MongoDB
+automatically balances the shards. MongoDB balances the shards without
+intervention from the application layer.</p>
+<p>The balancing process attempts to minimize the impact that balancing can
+have on the cluster, by:</p>
+<ul class="simple">
+<li>Moving only one chunk at a time.</li>
+<li>Initiating a balancing round <strong>only</strong> when the difference in the number of
+chunks between the shard with the greatest number and the shard with the
+lowest exceeds the <a class="reference internal" href="sharded-cluster-internals.html#sharding-migration-thresholds"><em>migration threshold</em></a>.</li>
+</ul>
+<p>You may disable the balancer on a temporary basis for
+maintenance and limit the window during which it runs to prevent the
+balancing process from impacting production traffic.</p>
+<p>To disable the balancer, see <a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html#sharding-balancing-disable-temporally"><em>Disable the Balancer</em></a>.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html"><em>Manage Sharded Cluster Balancer</em></a>.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The balancing procedure for <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded clusters</em></a>
+is entirely transparent to the user and application layer. This
+documentation is only included for your edification and possible
+troubleshooting purposes.</p>
+</div>
+</div>
+<div class="section" id="when-to-use-sharding">
+<h2>When to Use Sharding<a class="headerlink" href="#when-to-use-sharding" title="Permalink to this headline">¶</a></h2>
+<p>While sharding is a powerful and compelling feature, it comes with
+significant infrastructure requirements
+and some limited complexity costs. As a result, use
+sharding only as necessary and when indicated by actual operational
+requirements.</p>
+<p>You should consider deploying a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> if:</p>
+<ul class="simple">
+<li>your data set approaches or exceeds the storage capacity of a single
+node in your system.</li>
+<li>the size of your system&#8217;s active <a class="reference internal" href="../reference/glossary.html#term-working-set"><em class="xref std std-term">working set</em></a> <em>will soon</em>
+exceed the capacity of the <em>maximum</em> amount of RAM for your system.</li>
+<li>your system has a large amount of write activity, a single
+MongoDB instance cannot write data fast enough to meet demand, and
+all other approaches have not reduced contention.</li>
+</ul>
+<p>If these attributes are not present in your system, sharding will only
+add additional complexity to your system without providing much
+benefit. When designing your data model, if you will eventually need a
+sharded cluster, consider which collections you will want to shard and
+the corresponding shard keys.</p>
+<div class="admonition warning" id="sharding-capacity-planning">
+<p class="first admonition-title">Warning</p>
+<p>It takes time and resources to deploy sharding, and if your system
+has <em>already</em> reached or exceeded its capacity, you will have a
+difficult time deploying sharding without impacting your
+application.</p>
+<p class="last">As a result, if you think you will need to partition your database
+in the future, <strong>do not</strong> wait until your system is overcapacity to
+enable sharding.</p>
+</div>
+<p>For information on requirements, see the following:</p>
+<ul class="simple">
+<li><a class="reference internal" href="sharded-cluster-architectures.html#sharding-requirements-infrastructure"><em>Infrastructure Requirements for Sharded Clusters</em></a></li>
+<li><a class="reference internal" href="sharded-cluster-architectures.html#sharding-requirements-data"><em>Data Quantity Requirements for Sharded Clusters</em></a></li>
+</ul>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../sharding.html" title="Previous Section: Sharding">&lt; &nbsp; Sharding</a></li>
+              <li id="btnvup"><a href="../sharding.html" title="Parent Section: Sharding" >&#47;&#92;&nbsp; Sharding</a></li>
+              <li id="btnvnx"><a href="sharded-cluster-architectures.html" title="Next Section: Sharded Cluster Architectures">Sharded Cluster Architectures &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../sharding.html">Sharding</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="">Sharded Cluster Overview</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-architectures.html">Sharded Cluster Architectures</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-query-routing.html">Query Routing in Sharded Clusters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-security.html">Security Practices for Sharded Clusters</a></li>
+<li class="toctree-l2"><a class="reference internal" href="sharded-cluster-internals.html">Sharded Cluster Internals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/sharded-clusters.html">Sharded Cluster Administration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/sharding-commands.html">Sharding Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/config-database.html">Config Database</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/sharded-clusters.txt" target="_blank" title="Edit core/sharded-clusters.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/sharded-clusters%2Etxt%22" target="_blank" title="Report a problem with core/sharded-clusters.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/sharded-clusters.txt"'},
+		environment: {'repo': 'docs','source': 'core/sharded-clusters'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/sharded-clusters'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Unit Test your Forms &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Form" href="index.html" />
+    <link rel="next" title="How to configure Empty Data for a Form Class" href="use_empty_data.html" />
+    <link rel="prev" title="How to Reduce Code Duplication with “inherit_data”" href="inherit_data_option.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="use_empty_data.html" title="How to configure Empty Data for a Form Class"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="inherit_data_option.html" title="How to Reduce Code Duplication with “inherit_data”"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Form</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-unit-test-your-forms">
+<span id="index-0"></span><h1>How to Unit Test your Forms<a class="headerlink" href="#how-to-unit-test-your-forms" title="Permalink to this headline">¶</a></h1>
+<p>The Form Component consists of 3 core objects: a form type (implementing
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/FormTypeInterface.html" title="Symfony\Component\Form\FormTypeInterface"><span class="pre">FormTypeInterface</span></a></tt>), the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/Form.html" title="Symfony\Component\Form\Form"><span class="pre">Form</span></a></tt> and the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/FormView.html" title="Symfony\Component\Form\FormView"><span class="pre">FormView</span></a></tt>.</p>
+<p>The only class that is usually manipulated by programmers is the form type class
+which serves as a form blueprint. It is used to generate the <tt class="docutils literal"><span class="pre">Form</span></tt> and the
+<tt class="docutils literal"><span class="pre">FormView</span></tt>. You could test it directly by mocking its interactions with the
+factory but it would be complex. It is better to pass it to FormFactory like it
+is done in a real application. It is simple to bootstrap and you can trust
+the Symfony components enough to use them as a testing base.</p>
+<p>There is already a class that you can benefit from for simple FormTypes
+testing: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/Test/TypeTestCase.html" title="Symfony\Component\Form\Test\TypeTestCase"><span class="pre">TypeTestCase</span></a></tt>. It is used to
+test the core types and you can use it to test your types too.</p>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.3: </span>The <tt class="docutils literal"><span class="pre">TypeTestCase</span></tt> has moved to the <tt class="docutils literal"><span class="pre">Symfony\Component\Form\Test</span></tt>
+namespace in 2.3. Previously, the class was located in
+<tt class="docutils literal"><span class="pre">Symfony\Component\Form\Tests\Core\Extension\Type</span></tt>.</p>
+<div class="section" id="the-basics">
+<h2>The Basics<a class="headerlink" href="#the-basics" title="Permalink to this headline">¶</a></h2>
+<p>The simplest <tt class="docutils literal"><span class="pre">TypeTestCase</span></tt> implementation looks like the following:</p>
+<div class="highlight-python"><pre>// src/Acme/TestBundle/Tests/Form/Type/TestedTypeTests.php
+namespace Acme\TestBundle\Tests\Form\Type;
+
+use Acme\TestBundle\Form\Type\TestedType;
+use Acme\TestBundle\Model\TestObject;
+use Symfony\Component\Form\Test\TypeTestCase;
+
+class TestedTypeTest extends TypeTestCase
+{
+    public function testSubmitValidData()
+    {
+        $formData = array(
+            'test' =&gt; 'test',
+            'test2' =&gt; 'test2',
+        );
+
+        $type = new TestedType();
+        $form = $this-&gt;factory-&gt;create($type);
+
+        $object = new TestObject();
+        $object-&gt;fromArray($formData);
+
+        // submit the data to the form directly
+        $form-&gt;submit($formData);
+
+        $this-&gt;assertTrue($form-&gt;isSynchronized());
+        $this-&gt;assertEquals($object, $form-&gt;getData());
+
+        $view = $form-&gt;createView();
+        $children = $view-&gt;children;
+
+        foreach (array_keys($formData) as $key) {
+            $this-&gt;assertArrayHasKey($key, $children);
+        }
+    }
+}</pre>
+</div>
+<p>So, what does it test? Let&#8217;s explain it line by line.</p>
+<p>First you verify if the <tt class="docutils literal"><span class="pre">FormType</span></tt> compiles. This includes basic class
+inheritance, the <tt class="docutils literal"><span class="pre">buildForm</span></tt> function and options resolution. This should
+be the first test you write:</p>
+<div class="highlight-python"><pre>$type = new TestedType();
+$form = $this-&gt;factory-&gt;create($type);</pre>
+</div>
+<p>This test checks that none of your data transformers used by the form
+failed. The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/FormInterface.html#method_isSynchronized`" title="Symfony\Component\Form\FormInterface::isSynchronized`()"><span class="pre">isSynchronized`()</span></a></tt>
+method is only set to <tt class="docutils literal"><span class="pre">false</span></tt> if a data transformer throws an exception:</p>
+<div class="highlight-python"><pre>$form-&gt;submit($formData);
+$this-&gt;assertTrue($form-&gt;isSynchronized());</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Don&#8217;t test the validation: it is applied by a listener that is not
+active in the test case and it relies on validation configuration.
+Instead, unit test your custom constraints directly.</p>
+</div>
+<p>Next, verify the submission and mapping of the form. The test below
+checks if all the fields are correctly specified:</p>
+<div class="highlight-python"><pre>$this-&gt;assertEquals($object, $form-&gt;getData());</pre>
+</div>
+<p>Finally, check the creation of the <tt class="docutils literal"><span class="pre">FormView</span></tt>. You should check if all
+widgets you want to display are available in the children property:</p>
+<div class="highlight-python"><pre>$view = $form-&gt;createView();
+$children = $view-&gt;children;
+
+foreach (array_keys($formData) as $key) {
+    $this-&gt;assertArrayHasKey($key, $children);
+}</pre>
+</div>
+</div>
+<div class="section" id="adding-a-type-your-form-depends-on">
+<h2>Adding a Type your Form depends on<a class="headerlink" href="#adding-a-type-your-form-depends-on" title="Permalink to this headline">¶</a></h2>
+<p>Your form may depend on other types that are defined as services. It
+might look like this:</p>
+<div class="highlight-python"><pre>// src/Acme/TestBundle/Form/Type/TestedType.php
+
+// ... the buildForm method
+$builder-&gt;add('acme_test_child_type');</pre>
+</div>
+<p>To create your form correctly, you need to make the type available to the
+form factory in your test. The easiest way is to register it manually
+before creating the parent form using PreloadedExtension class:</p>
+<div class="highlight-python"><pre>// src/Acme/TestBundle/Tests/Form/Type/TestedTypeTests.php
+namespace Acme\TestBundle\Tests\Form\Type;
+
+use Acme\TestBundle\Form\Type\TestedType;
+use Acme\TestBundle\Model\TestObject;
+use Symfony\Component\Form\Test\TypeTestCase;
+use Symfony\Component\Form\PreloadedExtension;
+
+class TestedTypeTest extends TypeTestCase
+{
+    protected function getExtensions()
+    {
+        $childType = new TestChildType();
+        return array(new PreloadedExtension(array(
+            $childType-&gt;getName() =&gt; $childType,
+        ), array()));
+    }
+
+    public function testSubmitValidData()
+    {
+        $type = new TestedType();
+        $form = $this-&gt;factory-&gt;create($type);
+
+        // ... your test
+    }
+}</pre>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Make sure the child type you add is well tested. Otherwise you may
+be getting errors that are not related to the form you are currently
+testing but to its children.</p>
+</div>
+</div>
+<div class="section" id="adding-custom-extensions">
+<h2>Adding custom Extensions<a class="headerlink" href="#adding-custom-extensions" title="Permalink to this headline">¶</a></h2>
+<p>It often happens that you use some options that are added by
+<a class="reference internal" href="create_form_type_extension.html"><em>form extensions</em></a>. One of the
+cases may be the <tt class="docutils literal"><span class="pre">ValidatorExtension</span></tt> with its <tt class="docutils literal"><span class="pre">invalid_message</span></tt> option.
+The <tt class="docutils literal"><span class="pre">TypeTestCase</span></tt> loads only the core form extension so an &#8220;Invalid option&#8221;
+exception will be raised if you try to use it for testing a class that depends
+on other extensions. You need add those extensions to the factory object:</p>
+<div class="highlight-python"><pre>// src/Acme/TestBundle/Tests/Form/Type/TestedTypeTests.php
+namespace Acme\TestBundle\Tests\Form\Type;
+
+use Acme\TestBundle\Form\Type\TestedType;
+use Acme\TestBundle\Model\TestObject;
+use Symfony\Component\Form\Test\TypeTestCase;
+
+class TestedTypeTest extends TypeTestCase
+{
+    protected function setUp()
+    {
+        parent::setUp();
+
+        $this-&gt;factory = Forms::createFormFactoryBuilder()
+            -&gt;addTypeExtension(
+                new FormTypeValidatorExtension(
+                    $this-&gt;getMock('Symfony\Component\Validator\ValidatorInterface')
+                )
+            )
+            -&gt;addTypeGuesser(
+                $this-&gt;getMockBuilder(
+                    'Symfony\Component\Form\Extension\Validator\ValidatorTypeGuesser'
+                )
+                    -&gt;disableOriginalConstructor()
+                    -&gt;getMock()
+            )
+            -&gt;getFormFactory();
+
+        $this-&gt;dispatcher = $this-&gt;getMock('Symfony\Component\EventDispatcher\EventDispatcherInterface');
+        $this-&gt;builder = new FormBuilder(null, null, $this-&gt;dispatcher, $this-&gt;factory);
+    }
+
+    // ... your tests
+}</pre>
+</div>
+</div>
+<div class="section" id="testing-against-different-sets-of-data">
+<h2>Testing against different Sets of Data<a class="headerlink" href="#testing-against-different-sets-of-data" title="Permalink to this headline">¶</a></h2>
+<p>If you are not familiar yet with PHPUnit&#8217;s <a class="reference external" href="http://www.phpunit.de/manual/current/en/writing-tests-for-phpunit.html#writing-tests-for-phpunit.data-providers">data providers</a>, this might be
+a good opportunity to use them:</p>
+<div class="highlight-python"><pre>// src/Acme/TestBundle/Tests/Form/Type/TestedTypeTests.php
+namespace Acme\TestBundle\Tests\Form\Type;
+
+use Acme\TestBundle\Form\Type\TestedType;
+use Acme\TestBundle\Model\TestObject;
+use Symfony\Component\Form\Test\TypeTestCase;
+
+class TestedTypeTest extends TypeTestCase
+{
+
+    /**
+     * @dataProvider getValidTestData
+     */
+    public function testForm($data)
+    {
+        // ... your test
+    }
+
+    public function getValidTestData()
+    {
+        return array(
+            array(
+                'data' =&gt; array(
+                    'test' =&gt; 'test',
+                    'test2' =&gt; 'test2',
+                ),
+            ),
+            array(
+                'data' =&gt; array(),
+            ),
+            array(
+                'data' =&gt; array(
+                    'test' =&gt; null,
+                    'test2' =&gt; null,
+                ),
+            ),
+        );
+    }
+}</pre>
+</div>
+<p>The code above will run your test three times with 3 different sets of
+data. This allows for decoupling the test fixtures from the tests and
+easily testing against multiple sets of data.</p>
+<p>You can also pass another argument, such as a boolean if the form has to
+be synchronized with the given set of data or not etc.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Unit Test your Forms</a><ul>
+<li><a class="reference internal" href="#the-basics">The Basics</a></li>
+<li><a class="reference internal" href="#adding-a-type-your-form-depends-on">Adding a Type your Form depends on</a></li>
+<li><a class="reference internal" href="#adding-custom-extensions">Adding custom Extensions</a></li>
+<li><a class="reference internal" href="#testing-against-different-sets-of-data">Testing against different Sets of Data</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="inherit_data_option.html"
+                        title="previous chapter">How to Reduce Code Duplication with &#8220;inherit_data&#8221;</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="use_empty_data.html"
+                        title="next chapter">How to configure Empty Data for a Form Class</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/unit_testing.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="use_empty_data.html" title="How to configure Empty Data for a Form Class"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="inherit_data_option.html" title="How to Reduce Code Duplication with “inherit_data”"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Form</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

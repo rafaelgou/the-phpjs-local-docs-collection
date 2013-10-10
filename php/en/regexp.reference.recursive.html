@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Recursive patterns</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.comments.html">Comments</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.performance.html">Performance</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="regexp.reference.recursive" class="section">
+  <h2 class="title">Recursive patterns</h2>
+  <p class="para">
+   Consider the problem of matching a  string  in  parentheses,
+   allowing  for  unlimited nested parentheses. Without the use
+   of recursion, the best that can be done is to use a  pattern
+   that  matches  up  to some fixed depth of nesting. It is not
+   possible to handle an arbitrary nesting depth. Perl 5.6  has
+   provided   an  experimental  facility  that  allows  regular
+   expressions to recurse (among other things).  The  special 
+   item (?R) is  provided for  the specific  case of recursion. 
+   This PCRE  pattern  solves the  parentheses  problem (assume 
+   the <a href="reference.pcre.pattern.modifiers.html" class="link">PCRE_EXTENDED</a>
+   option is set so that white space is 
+   ignored):
+   
+   <em>\( ( (?&gt;[^()]+) | (?R) )* \)</em>
+  </p>
+  <p class="para">
+   First it matches an opening parenthesis. Then it matches any
+   number  of substrings which can either be a sequence of
+   non-parentheses, or a recursive  match  of  the  pattern  itself
+   (i.e. a correctly parenthesized substring). Finally there is
+   a closing parenthesis.
+  </p>
+  <p class="para">
+   This particular example pattern  contains  nested  unlimited
+   repeats, and so the use of a once-only subpattern for matching
+   strings of non-parentheses is  important  when  applying
+   the  pattern to strings that do not match. For example, when
+   it is applied to
+   
+   <em>(aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa()</em>
+   
+   it yields &quot;no match&quot; quickly. However, if a  once-only  subpattern
+   is  not  used,  the match runs for a very long time
+   indeed because there are so many different ways the + and  *
+   repeats  can carve up the subject, and all have to be tested
+   before failure can be reported.
+  </p>
+  <p class="para">
+   The values set for any capturing subpatterns are those  from
+   the outermost level of the recursion at which the subpattern
+   value is set. If the pattern above is matched against
+   
+   <em>(ab(cd)ef)</em>
+   
+   the value for the capturing parentheses is  &quot;ef&quot;,  which  is
+   the  last  value  taken  on  at the top level. If additional
+   parentheses are added, giving
+   
+   <em>\( ( ( (?&gt;[^()]+) | (?R) )* ) \)</em>
+   then the string they capture
+   is &quot;ab(cd)ef&quot;, the contents of the top level parentheses. If
+   there are more than 15 capturing parentheses in  a  pattern,
+   PCRE  has  to  obtain  extra  memory  to store data during a
+   recursion, which it does by using  pcre_malloc,  freeing  it
+   via  pcre_free  afterwards. If no memory can be obtained, it
+   saves data for the first 15 capturing parentheses  only,  as
+   there is no way to give an out-of-memory error from within a
+   recursion.
+  </p>
+  
+  <p class="para">
+   <em>(?1)</em>, <em>(?2)</em> and so on 
+   can be used for recursive subpatterns too. It is also possible to use named
+   subpatterns: <em>(?P&gt;name)</em> or 
+   <em>(?&amp;name)</em>.
+  </p>
+  <p class="para">
+   If the syntax for a recursive subpattern reference (either by number or
+   by name) is used outside the parentheses to which it refers, it operates
+   like a subroutine in a programming language. An earlier example
+   pointed out that the pattern
+   <em>(sens|respons)e and \1ibility</em>
+   matches &quot;sense and sensibility&quot; and &quot;response and responsibility&quot;, but
+   not &quot;sense and responsibility&quot;. If instead the pattern
+   <em>(sens|respons)e and (?1)ibility</em>
+   is used, it does match &quot;sense and responsibility&quot; as well as the other
+   two strings. Such references must, however, follow the subpattern to
+   which they refer.
+  </p>
+  
+  <p class="para">
+   The maximum length of a subject string is the largest positive number
+   that an integer variable can hold. However, PCRE uses recursion to
+   handle subpatterns and indefinite repetition. This means that the
+   available stack space may limit the size of a subject string that can be
+   processed by certain patterns.
+  </p>
+  
+ </div><hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.comments.html">Comments</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.performance.html">Performance</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

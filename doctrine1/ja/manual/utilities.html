@@ -1,0 +1,623 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>ページ分割 &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="テストを実施する" href="unit-testing.html" />
+    <link rel="prev" title="Extensions" href="extensions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="unit-testing.html" title="テストを実施する"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="extensions.html" title="Extensions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="id1">
+<h1>ページ分割<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id2">
+<h2>はじめに<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>実際の世界のアプリケーションでは、データベースからコンテンツを表示するのは共通のタスクです。またコンテンツが何千もの項目を含む検索結果である場合を想像してください。うたがいなく、巨大なリストになり、メモリーの消費量が多くなりユーザーは正しい項目を見つけづらくなります。この問題に対してコンテンツ表示の編成が必要でページ分割が手助けになります。</p>
+<p>Doctrineは高度で柔軟なページャーパッケージを実装します。これによってリストを複数のページに分割できるだけでなく、ページリンクのレイアウトもコントロールできます。この章では、ページャーオブジェクトの作り方、ページャースタイルをコントロール仕方を学び、最後にページャーレイアウトオブジェクト
+- Doctrineの強力なページリンク表示機能の概要を見ます。</p>
+</div>
+<div class="section" id="id3">
+<h2>ページャーを扱う<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<p>クエリのページ分割はクエリ自身と同じぐらいシンプルで効率的にできます。<a href="#id4"><span class="problematic" id="id5">``</span></a>Doctrine_Pager``はクエリを処理してページ分割することを担います。次の小さなピースのコードで確認しましょう:</p>
+<blockquote>
+<div>// 初期値を定義する $currentPage = 1; $resultsPerPage = 50;</div></blockquote>
+<p>// ページャーオブジェクトを作成する $pager = new Doctrine_Pager(
+Doctrine_Query::create() -&gt;from( &#8216;User u&#8217; ) -&gt;leftJoin( &#8216;u.Group g&#8217; )
+-&gt;orderby( &#8216;u.username ASC&#8217; ), $currentPage, // リクエストの現在のページ
+$resultsPerPage // (オプション)ページごとの結果数。デフォルトは25 );</p>
+<p>この場所までは、このコードは古い``Doctrine_Query``オブジェクトと同じです。唯一の違いは新しい2つの引数が存在することです。これら2の引数に加えて古いクエリオブジェクトは``Doctrine_Pager``オブジェクトによってカプセル化されます。この段階では、<a href="#id6"><span class="problematic" id="id7">``</span></a>Doctrine_Pager``はページ分割をコントロールするために必要な基本データを定義します。ページャーの実際のステータスを知りたい場合、行うべきことはこれが既に実行されたかどうかチェックすることです:</p>
+<blockquote>
+<div>$pager-&gt;getExecuted();</div></blockquote>
+<p><a href="#id8"><span class="problematic" id="id9">``</span></a>Doctrine_Pager``によって提供される任意のメソッドにアクセスしようとする場合、Pagerがまだ実行されなかったことを報告する``Doctrine_Pager_Exception``が投げられるのを経験することになります。実行されたとき、<a href="#id10"><span class="problematic" id="id11">``</span></a>Doctrine_Pager``は情報を検索する強力なメソッドを提供します。APIの使い方はこのトピックの最後に並べてあります。</p>
+<p>クエリを実行するには、プロセスは現存する``Doctrine_Query``実行呼び出しと似ています。オプションのパラメータを含む構文の完全な例は次の通りです:</p>
+<blockquote>
+<div>$items = <tt class="code docutils literal"><span class="pre">pager-&gt;execute([</span></tt>args = array() [, $fetchType =</div></blockquote>
+<p>null]]);</p>
+<p>foreach ($items as $item) { // ... }</p>
+<p>レコードクエリがカウンタークエリと異なる特別なケースがあります。この状況に対応するために、<a href="#id12"><span class="problematic" id="id13">``</span></a>Doctrine_Pager``にはカウントしてから実行できるようにするメソッドがあります。最初に行わなければならないのはカウントクエリを定義することです:</p>
+<blockquote>
+<div><tt class="code docutils literal"><span class="pre">pager-&gt;setCountQuery(</span></tt>query [, $params = null]);</div></blockquote>
+<p>// ...</p>
+<p>$rs = $pager-&gt;execute();</p>
+<p><a href="#id14"><span class="problematic" id="id15">``</span></a>setCountQuery``の最初のパラメータは有効な``Doctrine_Query``オブジェクトかDQL文字列です。2番目の引数はカウンタークエリに送信されるオプションパラメータです。このパラメータを定義しないので、後で``setCountQueryParams``を呼び出して定義することができます:</p>
+<blockquote>
+<div><tt class="code docutils literal"><span class="pre">pager-&gt;setCountQueryParams([</span></tt>params = array() [, $append =</div></blockquote>
+<p>false]]);</p>
+<p>このメソッドは2つのパラメータを受けとります。最初のパラメータはカウントパラメータに送信されるもので2番目のパラメータは``:code:<cite>params``がリストに追加されるもしくはカウントクエリパラメータがオーバーライドされるかどうかです。デフォルトのビヘイビアはリストをオーバーライドします。カウントクエリに関して最後に言うことは、カウントクエリ用のパラメータを定義しない場合、``</cite>pager-&gt;execute()``の呼び出しで定義するパラメータを送り出すことができます。</p>
+<p>カウントクエリは常にアクセスできます。これを定義して``$pager-&gt;getCountQuery()``を呼び出す場合、&#8221;取得(fetcher)&#8221;クエリが返されます。</p>
+<p><a href="#id16"><span class="problematic" id="id17">``</span></a>Doctrine_Pager``が提供する他の機能にアクセスする必要がある場合、APIを通してアクセスできます:</p>
+<blockquote>
+<div>// Pagerが既に実行されたかのチェックを返す $pager-&gt;getExecuted();</div></blockquote>
+<p>// クエリ検索で見つかるアイテムの合計数を返す $pager-&gt;getNumResults();</p>
+<p>// 最初のページを返す(常に1) $pager-&gt;getFirstPage();</p>
+<p>// ページの合計数を返す $pager-&gt;getLastPage();</p>
+<p>// 現在のページを返す $pager-&gt;getPage();</p>
+<p>//
+現在の新しいページを定義する(実行を再度呼び出してオフセットと値を調整する必要がある)
+<tt class="code docutils literal"><span class="pre">pager-&gt;setPage(</span></tt>page);</p>
+<p>// 次のページを返す $pager-&gt;getNextPage();</p>
+<p>// 前のページを返す $pager-&gt;getPreviousPage();</p>
+<p>// 現在のページの最初のインデックスを返す $pager-&gt;getFirstIndice();</p>
+<p>// 現在のページの最後のインデックスを返す $pager-&gt;getLastIndice();</p>
+<p>// ページ分割をする必要がある場合はtrueそうでなければfalseを返す
+$pager-&gt;haveToPaginate();</p>
+<p>// ページごとの最大数を返す $pager-&gt;getMaxPerPage();</p>
+<p>//
+ページごとのレコードの最大数を定義する(再度呼び出してオフセットと値を調整する必要がある)
+<tt class="code docutils literal"><span class="pre">pager-&gt;setMaxPerPage(</span></tt>maxPerPage);</p>
+<p>// 現在のページのアイテム数を返す $pager-&gt;getResultsInPage();</p>
+<p>//
+カウント結果をページャーにするために使われるDoctrine_Queryオブジェクトを返す
+$pager-&gt;getCountQuery();</p>
+<p>// ページャーによって使われるカウンタクエリを定義する
+<tt class="code docutils literal"><span class="pre">pager-&gt;setCountQuery(</span></tt>query, $params = null);</p>
+<p>//
+Doctrine_Queryカウントによって使われるパラメータを返す(パラメータが定義されていない場合$defaultParamsを返す)
+<tt class="code docutils literal"><span class="pre">pager-&gt;getCountQueryParams(</span></tt>defaultParams = array());</p>
+<p>// Doctrine_Queryカウンタによって使われるパラメータを定義する
+<tt class="code docutils literal"><span class="pre">pager-&gt;setCountQueryParams(</span></tt>params = array(), $append = false);</p>
+<p>// Doctrine_Queryオブジェクトを返す $pager-&gt;getQuery();</p>
+<p>// 関連するDoctrine_Pager_Range_* インスタンスを返す
+<tt class="code docutils literal"><span class="pre">pager-&gt;getRange(</span></tt>rangeStyle, $options = array());</p>
+</div>
+<div class="section" id="id18">
+<h2>レンジスタイルをコントロールする<a class="headerlink" href="#id18" title="Permalink to this headline">¶</a></h2>
+<p>シンプルなページ分割では不十分なケースがあります。1つの例はページリンクのリストを書くときです。ページャーを越えるより強力なコントロール機能を有効にするために、レンジを作ることを可能にするページャーパッケージの小さなサブセットがあります。</p>
+<p>現在Doctrineは2種類(2つのスタイル)のレンジ:
+スライディング(<tt class="docutils literal"><span class="pre">Doctrine\_Pager\_Range\_Sliding</span></tt>)とジャンピング(<tt class="docutils literal"><span class="pre">Doctrine\_Pager\_Range_Jumping</span></tt>)を実装します。</p>
+<div class="section" id="id19">
+<h3>スライディング<a class="headerlink" href="#id19" title="Permalink to this headline">¶</a></h3>
+<p>スライディングページレンジスタイルは、ページレンジは現在のページでスムーズに移動します。最初と最後のページのレンジ以外、現在のページは常に真ん中です。5つのアイテムのチャンクの長さでどのように動作するのか確認してください:</p>
+<blockquote>
+<div>Listing 1 2 3 4 5 6 7 8 9 10 11 12 13 14 Page 1: o&#8212;&#8212;-| Page 2:</div></blockquote>
+<p>|-o&#8212;&#8211;| Page 3: |&#8212;o&#8212;| Page 4: |&#8212;o&#8212;| Page 5: |&#8212;o&#8212;|
+Page 6: |&#8212;o&#8212;| Page 7: |&#8212;o&#8212;| Page 8: |&#8212;o&#8212;|</p>
+</div>
+<div class="section" id="id20">
+<h3>ジャンピング<a class="headerlink" href="#id20" title="Permalink to this headline">¶</a></h3>
+<p>ジャンピングページレンジスタイルでは、ページリンクのレンジは常に&#8221;フレーム&#8221;の固定長の1つです:
+1-5、6-10、11-15など。</p>
+<blockquote>
+<div>Listing 1 2 3 4 5 6 7 8 9 10 11 12 13 14 Page 1: o&#8212;&#8212;-| Page 2:</div></blockquote>
+<p>|-o&#8212;&#8211;| Page 3: |&#8212;o&#8212;| Page 4: |&#8212;&#8211;o-| Page 5: |&#8212;&#8212;-o
+Page 6: o&#8212;&#8212;&#8212;| Page 7: |-o&#8212;&#8212;-| Page 8: |&#8212;o&#8212;&#8211;|</p>
+<p>ページレンジのスタイルの違いがわかったので、使い方を学びましょう:</p>
+<blockquote>
+<div>$pagerRange = new Doctrine_Pager_Range_Sliding( array( &#8216;chunk&#8217; =&gt; 5</div></blockquote>
+<p>// チャンクの長さ ), $pager //
+以前のトピックで作り方を学んだDoctrine_Pagerオブジェクト );</p>
+<p>代わりに、次のコードを使うこともできます:</p>
+<blockquote>
+<div>$pagerRange = $pager-&gt;getRange( &#8216;Sliding&#8217;, array( &#8216;chunk&#8217; =&gt; 5 ) );</div></blockquote>
+<p><a href="#id21"><span class="problematic" id="id22">``</span></a>Doctrine_Pager``の代わりにこのオブジェクトを使う利点は何でしょうか？たった1つです;
+現在のページ周辺のレンジを読み取ることができることです。</p>
+<p>次の例を見てみましょう:</p>
+<blockquote>
+<div>// 現在のページ周辺のレンジを読み取る //</div></blockquote>
+<p>この例では、スライディングスタイルを使用しページ1にいる $pages =
+$pager_range-&gt;rangeAroundPage();</p>
+<p>// Outputs: [1][2][3][4][5] echo &#8216;[&#8216;. implode(&#8216;][&#8216;, $pages) .&#8217;]&#8217;;</p>
+<p>レンジオブジェクトの範囲内で``Doctrine_Pager``をビルドする場合、APIによって``Doctrine_Pager_Range``サブクラスのインスタンスに関連する情報を読み取ることができます:</p>
+<blockquote>
+<div>// このPager_Rangeに関連するページャーを返す</div></blockquote>
+<p>$pager_range-&gt;getPager();</p>
+<p>// 新しいDoctrine_Pagerを定義する(自動的なprotectされたcall
+_initializedメソッド) <tt class="code docutils literal"><span class="pre">pager_range-&gt;setPager(</span></tt>pager);</p>
+<p>// 現在のPager_Rangeに割り当てられたオプションを返す
+$pager_range-&gt;getOptions();</p>
+<p>// カスタムのDoctrine_Pager_Range実装のオフセットオプションを返す
+<tt class="code docutils literal"><span class="pre">pager_range-&gt;getOption(</span></tt>option);</p>
+<p>// 渡されたページがレンジの中にあるかチェックする
+<tt class="code docutils literal"><span class="pre">pager_range-&gt;isInRange(</span></tt>page);</p>
+<p>// 現在のページ周辺のレンジを返す //
+($pager_rangeインスタンスに関連するDoctrine_Pagerから取得)
+$pager_range-&gt;rangeAroundPage();</p>
+</div>
+</div>
+<div class="section" id="id23">
+<h2>ページャーによる高度なレイアウト<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h2>
+<p>これまで、ページ分割と現在のページ周辺のレンジを読み取る方法を学びました。ページリンク生成を含むビジネスロジックを抽象化するために、<a href="#id24"><span class="problematic" id="id25">``</span></a>Doctrine_Pager_Layout``と呼ばれる強力なコンポーネントがあります。このコンポーネントのメインのアイディアはPHPロジックを抽象化してHTMLをDoctrineの開発者に定義させることです。</p>
+<p><a href="#id26"><span class="problematic" id="id27">``</span></a>Doctrine_Pager_Layout``は必須の引数を3つ受け取ります: a
+<a href="#id28"><span class="problematic" id="id29">``</span></a>Doctrine_Pager``インスタンス、<a href="#id30"><span class="problematic" id="id31">``</span></a>Doctrine_Pager_Range``サブクラスインスタンスとテンプレートの{%url}マスクとして割り当てられるURLを含む文字列です。ご覧の通り、<a href="#id32"><span class="problematic" id="id33">``</span></a>Doctrine_Pager_Layout``の&#8221;変数&#8221;が2種類あります:</p>
+<div class="section" id="id34">
+<h3>マスク<a class="headerlink" href="#id34" title="Permalink to this headline">¶</a></h3>
+<p>マスクはテンプレート内部で置き換えるものとして定義される文字列のピースです。これらは**{%mask_name}**として定義されオプションで定義するものもしくは``Doctrine_Pager_Layout``コンポーネントによって内部で定義されたものによって置き換えられます。現在、これらは内部マスクとして利用可能です:</p>
+<ul class="simple">
+<li><a href="#id35"><span class="problematic" id="id36">**</span></a>{%page}**はページ番号、すなわち、page_numberを保有しますが、別のマスクもしくは値のように振る舞う``addMaskReplacement()``で上書きできます。</li>
+<li><a href="#id37"><span class="problematic" id="id38">**</span></a>{%page_number}**は現在のページ番号を保存しますが、上書き可能ではありません</li>
+<li><a href="#id39"><span class="problematic" id="id40">**</span></a>{%url}**は``setTemplate()``と``setSelectedTemplate()``メソッドでのみ利用可能です。コンストラクタで定義され、処理されたURLを保有します</li>
+</ul>
+</div>
+<div class="section" id="id41">
+<h3>テンプレート<a class="headerlink" href="#id41" title="Permalink to this headline">¶</a></h3>
+<p>その名の通り、これはHTMLのスケルトンもしくはその他のスケルトンで``Doctrine_Pager_Range::rangeAroundPage()``サブクラスによって返されるそれぞれのページに適用されるその他のリソースです。定義できるテンプレートは3種類あります:</p>
+<ul class="simple">
+<li><a href="#id42"><span class="problematic" id="id43">``</span></a>setTemplate()``は``Doctrine_Pager_Range::rangeAroundPage()``によって返されるすべてのページで使われるテンプレートを定義します。</li>
+<li>処理されるページが現在のページであるときに``setSelectedTemplate()``テンプレートは適用されます。何も定義されていない場合(空白文字もしくは定義無し)、<a href="#id44"><span class="problematic" id="id45">``</span></a>setTemplate()``で定義したテンプレートが使われます</li>
+<li><a href="#id46"><span class="problematic" id="id47">``</span></a>setSeparatorTemplate()``セパレータテンプレートはそれぞれの処理されたページの間で適用される文字列です。最初のコールの前と最後のコールの後では含まれません。このメソッドの定義されたテンプレートはオプションによって影響を受けますが、マスクは処理できません。</li>
+</ul>
+<p><a href="#id48"><span class="problematic" id="id49">``</span></a>Doctrine_Pager_Layout``とこのコンポーネント周囲のタイプの作り方を理解したので、基本的な使い方を見てみましょう:</p>
+<p>ページャーレイアウトの作り方は簡単です:</p>
+<blockquote>
+<div>$pagerLayout = new Doctrine_Pager_Layout( new Doctrine_Pager(</div></blockquote>
+<p>Doctrine_Query::create() -&gt;from( &#8216;User u&#8217; ) -&gt;leftJoin( &#8216;u.Group g&#8217; )
+-&gt;orderby( &#8216;u.username ASC&#8217; ), $currentPage, $resultsPerPage ), new
+Doctrine_Pager_Range_Sliding(array( &#8216;chunk&#8217; =&gt; 5 )),
+&#8216;<a class="reference external" href="http://wwww.domain.com/app/User/list/page">http://wwww.domain.com/app/User/list/page</a>,{%page_number}&#8217; );</p>
+<p>ページリンク作成のためにテンプレートを割り当てます:</p>
+<blockquote>
+<div>$pagerLayout-&gt;setTemplate(&#8216;[{%page}]&#8217;);</div></blockquote>
+<p>$pagerLayout-&gt;setSelectedTemplate(&#8216;[{%page}]&#8217;);</p>
+<p>// Doctrine_Pagerインスタンスを読み取る $pager =
+$pagerLayout-&gt;getPager();</p>
+<p>// ユーザーを取得する $users = $pager-&gt;execute(); // これも可能！</p>
+<p>// ページリンクを表示する // 表示: [1][2][3][4][5] //
+$currentPageを除いて、すべてのページでリンクがつく(この例では、ページ1)
+$pagerLayout-&gt;display();</p>
+<p>このソースを説明すると、最初の部分はページャーレイアウトのインスタンスを作成します。2番目に、すべてのページと現在のページ用のテンプレートを定義します。最後の部分では、<a href="#id50"><span class="problematic" id="id51">``</span></a>Doctrine_Pager``オブジェクトを読み取りクエリを実行し、変数``$users``を返します。最後のっ部分はオプションのマスク無しでディスプレイヤーを呼び出します。これは``Doctrine_Pager_Range::rangeAroundPage()``サブクラスで見つかるすべてのページにテンプレートを適用します。</p>
+<p>ご覧の通り、内部マスク以外に他のマスクを使う必要はありません。既存のアプリケーションでUsersを検索機能を実装することを考えてみましょう。またページャーレイアウトでこの機能をサポートする必要があるとします。我々のケースを簡略化するために、検索パラメータは&#8221;search&#8221;と名付け、スーパーグローバル配列``$_GET``を通して受け取ります。他のページに送信できるようにするために、最初に行う必要のある変更は``Doctrine_Query``オブジェクトとURLを調整することです。</p>
+<p>ページャーレイアウトを作成する:</p>
+<p><tt class="code docutils literal"><span class="pre">pagerLayout</span> <span class="pre">=</span> <span class="pre">new</span> <span class="pre">Doctrine_Pager_Layout(</span> <span class="pre">new</span> <span class="pre">Doctrine_Pager(</span> <span class="pre">Doctrine_Query::create()</span> <span class="pre">-&gt;from(</span> <span class="pre">'User</span> <span class="pre">u'</span> <span class="pre">)</span> <span class="pre">-&gt;leftJoin(</span> <span class="pre">'u.Group</span> <span class="pre">g'</span> <span class="pre">)</span> <span class="pre">-&gt;where('LOWER(u.username)</span> <span class="pre">LIKE</span> <span class="pre">LOWER(?)',</span> <span class="pre">array(</span> <span class="pre">'%'.</span></tt>_GET[&#8216;search&#8217;].&#8217;%&#8217;
+) ) -&gt;orderby( &#8216;u.username ASC&#8217; ), $currentPage, $resultsPerPage ), new
+Doctrine_Pager_Range_Sliding(array( &#8216;chunk&#8217; =&gt; 5 )),
+&#8216;<a class="reference external" href="http://wwww.domain.com/app/User/list/page">http://wwww.domain.com/app/User/list/page</a>,{%page_number}?search={%search}&#8217;
+);</p>
+<p>コードを確認して``{%search}``と呼ばれる新しいマスクを追加したことに注目してください。後の段階で処理するテンプレートにこのマスクを送る必要があります。変更せずに、以前定義したように、テンプレートを割り当てます。そして、クエリの実行を変更する必要もありません。</p>
+<p>ページリンク作成のためにテンプレートを割り当てます:</p>
+<blockquote>
+<div>$pagerLayout-&gt;setTemplate(&#8216;[{%page}]&#8217;);</div></blockquote>
+<p>$pagerLayout-&gt;setSelectedTemplate(&#8216;[{%page}]&#8217;);</p>
+<p>// Fetching users $users = $pagerLayout-&gt;execute();</p>
+<p>foreach ($users as $user) { // ... }</p>
+<p><tt class="docutils literal"><span class="pre">display()``メソッドは作成したカスタムのマスクを定義する場所ですこのメソッドは2つのオプション引数を受け取ります:</span>
+<span class="pre">オプションマスクの1つの配列でスクリーンに出力される代わりに返される出力です。我々の場合、新しいマスクである``{%search</span></tt>}を定義する必要があります。このマスクはスーパーグローバル配列``$_GET``のsearchオフセットです。このマスクはURLとして送られるので、エンコードする必要があります。カスタムのマスクは「キー
+=&gt;
+値」のペアで定義されます。ですので必要なコードはオフセットと置き換える値で配列を定義することです:</p>
+<blockquote>
+<div>// Displaying page links</div></blockquote>
+<p><tt class="code docutils literal"><span class="pre">pagerLayout-&gt;display(</span> <span class="pre">array(</span> <span class="pre">'search'</span> <span class="pre">=&gt;</span> <span class="pre">urlencode(</span></tt>_GET[&#8216;search&#8217;])
+) );</p>
+<p><a href="#id52"><span class="problematic" id="id53">``</span></a>Doctrine_Pager_Layout``コンポーネントは定義されたリソースへのアクセサを提供します。ページャーとページャレンジを変数として定義してページャーレイアウトを送る必要はありません。これらのインスタンスは次のアクセサによって読み取られます:</p>
+<blockquote>
+<div>// Pager_Layoutに関連するPagerを返す $pagerLayout-&gt;getPager();</div></blockquote>
+<p>// Pager_Layoutに関連するPager_Rangeを返す
+$pagerLayout-&gt;getPagerRange();</p>
+<p>// Pager_Layoutに関連するURLマスクを返す $pagerLayout-&gt;getUrlMask();</p>
+<p>// Pager_Layoutに関連するテンプレートを返す
+$pagerLayout-&gt;getTemplate();</p>
+<p>// Pager_Layoutに関連する現在のページテンプレートを返す
+$pagerLayout-&gt;getSelectedTemplate();</p>
+<p>// それぞれのページに適用されるSeparatorテンプレートを定義する
+<tt class="code docutils literal"><span class="pre">pagerLayout-&gt;setSeparatorTemplate(</span></tt>separatorTemplate);</p>
+<p>// Pager_Layoutに関連する現在のページテンプレートを返す
+$pagerLayout-&gt;getSeparatorTemplate();</p>
+<p>// Pagerインスタンスを読み取らずにクエリを実行するハンディメソッド
+<tt class="code docutils literal"><span class="pre">pagerLayout-&gt;execute(</span></tt>params = array(), $hydrationMode = null);</p>
+<p>カスタムのレイアウト作成機能を作るために``Doctrine_Pager_Layout``を継承したい場合、利用可能な他のメソッドはたくさんあります。次のセクションでこれらのメソッドを見ます。</p>
+</div>
+</div>
+<div class="section" id="id54">
+<h2>ページャーレイアウトをカスタマイズする<a class="headerlink" href="#id54" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id55"><span class="problematic" id="id56">``</span></a>Doctrine_Pager_Layout``は本当に良い仕事をしますが、ときに十分ではないことがあります。次のようなページ分割のレイアウトを作らなければならない状況を考えてみましょう:</p>
+<p>&lt;&lt; &lt; 1 2 3 4 5 &gt; &gt;&gt;</p>
+<p>現在、生の``Doctrine_Pager_Layout``では不可能ですが、このクラスを継承して利用可能なメソッドを使えば実現可能です。基底レイアウトクラスは独自の実装を作成するために使われるメソッドを提供します。内容は次の通りです:</p>
+<blockquote>
+<div>// $thisはDoctrine_Pager_Layoutのインスタンスを参照する</div></blockquote>
+<p>//
+マスクの置き換えを定義する。テンプレートを解析するとき、置き換えマスクを
+// 新しいもの(もしくは値)に変換する。即座にマスクを変更できます
+<tt class="code docutils literal"><span class="pre">this-&gt;addMaskReplacement(</span></tt>oldMask, $newMask, $asValue = false);</p>
+<p>// マスク置き換えを削除する <tt class="code docutils literal"><span class="pre">this-&gt;removeMaskReplacement(</span></tt>oldMask);</p>
+<p>// すべてのマスク置き換えを削除する $this-&gt;cleanMaskReplacements();</p>
+<p>// テンプレートを解析し処理されたページの文字列を返す
+<tt class="code docutils literal"><span class="pre">this-&gt;processPage(</span></tt>options = array()); //
+少なくとも配列$optionsのpage_numberで必要</p>
+<p>// Protectされたメソッドであるが、とても便利</p>
+<p>// 渡されたページのテンプレートを解析し処理されたテンプレートを返す
+<tt class="code docutils literal"><span class="pre">this-&gt;_parseTemplate(</span></tt>options = array());</p>
+<p>//
+送られたオプションによって正しいテンプレートを返すようにURLマスクを解析する
+// 既に割り当てられたマスク置き換えを処理する
+<tt class="code docutils literal"><span class="pre">this-&gt;_parseUrlTemplate(</span></tt>options = array());</p>
+<p>// 与えられたページのマスク置き換えを解析する
+<tt class="code docutils literal"><span class="pre">this-&gt;_parseReplacementsTemplate(</span></tt>options = array());</p>
+<p>// 与えられたページのURLマスクを解析し処理されたURLを返す
+<tt class="code docutils literal"><span class="pre">this-&gt;_parseUrl(</span></tt>options = array());</p>
+<p>//
+置き換え予定のマスクを新しいマスク/値に変更して、マスク置き換えを解析する
+<tt class="code docutils literal"><span class="pre">this-&gt;_parseMaskReplacements(</span></tt>str);</p>
+<p><a href="#id57"><span class="problematic" id="id58">``</span></a>Doctrine_Pager_Layout``を継承するとき便利で小さなメソッドがあるので、実装されたクラスを見てみましょう:</p>
+<blockquote>
+<div>class PagerLayoutWithArrows extends Doctrine_Pager_Layout { public</div></blockquote>
+<p>function display($options = array(), $return = false) { $pager =
+$this-&gt;getPager(); $str = &#8216;&#8217;;</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="c1">// 最初のページ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addMaskReplacement</span><span class="p">(</span><span class="s1">&#39;page&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;laquo;&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+    <span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;page_number&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$pager</span><span class="o">-&gt;</span><span class="na">getFirstPage</span><span class="p">();</span>
+    <span class="nv">$str</span> <span class="o">.=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">processPage</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="c1">// 以前のページ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addMaskReplacement</span><span class="p">(</span><span class="s1">&#39;page&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;lsaquo;&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+    <span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;page_number&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$pager</span><span class="o">-&gt;</span><span class="na">getPreviousPage</span><span class="p">();</span>
+    <span class="nv">$str</span> <span class="o">.=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">processPage</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="c1">// ページの一覧</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">removeMaskReplacement</span><span class="p">(</span><span class="s1">&#39;page&#39;</span><span class="p">);</span>
+    <span class="nv">$str</span> <span class="o">.=</span> <span class="k">parent</span><span class="o">::</span><span class="na">display</span><span class="p">(</span><span class="nv">$options</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+
+    <span class="c1">// 次のページ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addMaskReplacement</span><span class="p">(</span><span class="s1">&#39;page&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;rsaquo;&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+    <span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;page_number&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$pager</span><span class="o">-&gt;</span><span class="na">getNextPage</span><span class="p">();</span>
+    <span class="nv">$str</span> <span class="o">.=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">processPage</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="c1">// 最後のページ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addMaskReplacement</span><span class="p">(</span><span class="s1">&#39;page&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;raquo;&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+    <span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;page_number&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$pager</span><span class="o">-&gt;</span><span class="na">getLastPage</span><span class="p">();</span>
+    <span class="nv">$str</span> <span class="o">.=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">processPage</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="c1">// スクリーンに表示する代わりに値を返すことが可能</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$return</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$str</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">echo</span> <span class="nv">$str</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>ご覧の通り、&lt;&lt;、&lt;、&gt;と&gt;&gt;のアイテムを手動で処理しなければなりません。生の値を設定することで**{%page}**マスクをオーバーライドします(生の値は3番目のパラメータをtrueとして設定します)。それからページを処理する必須情報のみを定義しこれを呼び出します。戻り値は文字列として処理されたテンプレートです。これをカスタムボタンにします。</p>
+<p>これで全体的に異なる状況をサポートでいます。Doctrineは透過的なフレームワークですが、多くのユーザーはsymfonyと一緒に使います。<a href="#id59"><span class="problematic" id="id60">``</span></a>Doctrine_Pager``とサブクラスはsymfonyと100%互換性がありますが、<a href="#id61"><span class="problematic" id="id62">``</span></a>Doctrine_Pager_Layout``はsymfonyの``link_to``ヘルパー関数と連携するために調整が必要です。<a href="#id63"><span class="problematic" id="id64">``</span></a>Doctrine_Pager_Layout``でこれを使うことができるようにするにはこのクラスを継承しカスタムプロセッサーを追加しなければなりません。例として(symfonyと連携させる場合)、<a href="#id65"><span class="problematic" id="id66">**</span></a>{link_to}...{/link_to}**をテンプレートプロセッサーとして使います。継承クラスとsymfonyでの使い方は次の通りです:</p>
+<blockquote>
+<div>class sfDoctrinePagerLayout extends Doctrine_Pager_Layout { public</div></blockquote>
+<p>function __construct($pager, $pagerRange,
+<tt class="code docutils literal"><span class="pre">urlMask)</span> <span class="pre">{</span> <span class="pre">sfLoader::loadHelpers(array('Url',</span> <span class="pre">'Tag'));</span> <span class="pre">parent::__construct(</span></tt>pager,
+$pagerRange, $urlMask); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">protected</span> <span class="k">function</span> <span class="nf">_parseTemplate</span><span class="p">(</span><span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">())</span>
+<span class="p">{</span>
+    <span class="nv">$str</span> <span class="o">=</span> <span class="k">parent</span><span class="o">::</span><span class="na">_parseTemplate</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="nb">preg_replace</span><span class="p">(</span>
+        <span class="s1">&#39;/\{link_to\}(.*?)\{\/link_to\}/&#39;</span><span class="p">,</span> <span class="nx">link_to</span><span class="p">(</span><span class="s1">&#39;$1&#39;</span><span class="p">,</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_parseUrl</span><span class="p">(</span><span class="nv">$options</span><span class="p">)),</span> <span class="nv">$str</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>使い方:</p>
+<blockquote>
+<div>$pagerLayout = new sfDoctrinePagerLayout( $pager, new</div></blockquote>
+<p>Doctrine_Pager_Range_Sliding(array(&#8216;chunk&#8217; =&gt; 5)),
+<a class="reference external" href="mailto:'&#37;&#52;&#48;hostHistoryList?page={%page_number">'<span>&#64;</span>hostHistoryList?page={%page_number</a>}&#8217; );</p>
+<p>$pagerLayout-&gt;setTemplate(&#8216;[{link_to}{%page}{/link_to}]&#8217;);</p>
+</div>
+</div>
+<div class="section" id="facade">
+<h1>Facade<a class="headerlink" href="#facade" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id67">
+<h2>データベースの作成と削除<a class="headerlink" href="#id67" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineは接続からデータベースを作成したり削除する機能を提供します。これを使うためのしかけはDoctrineの接続名がデータベースの名前でなければならないことです。これが必須なのはPDOは接続するデータベースの名前を読み取るメソッドを提供しないことによります。データベースの作成と削除をできるようにするにはDoctrine自身がデータベースの名前を認識できなければなりません。</p>
+</div>
+<div class="section" id="id68">
+<h2>コンビニエンスメソッド<a class="headerlink" href="#id68" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineはメインクラスで利用可能なスタティックなコンビニエンスメソッドを提供します。これらのメソッドはDoctrineの最もよく使われる複数の機能を1つのメソッドで実行します。これらのメソッドの大半は``Doctrine_Task``システムを使用します。これらのタスクは``Doctrine_Cli``からも実行されます。</p>
+<blockquote>
+<div>// デバッグモードをon/offに切り替えこれがon/offであるかチェックする</div></blockquote>
+<p>Doctrine_Core::debug(true);</p>
+<p>if (Doctrine_Core::debug() { echo &#8216;debugging is on&#8217;; } else { echo
+&#8216;debugging is off&#8217;; }</p>
+<p>// Doctrineライブラリへのパスを取得する $path =
+Doctrine_Core::getPath();</p>
+<p>//
+Doctrineライブラリへのパスがデフォルトの位置ではない場合パスをセットする
+Doctrine_Core::setPath(&#8216;/path/to/doctrine/libs&#8217;);</p>
+<p>// Doctrineと連携させるためにモデルをロードする //
+発見されロードされたDoctrine_Recordsの配列を返す
+<tt class="code docutils literal"><span class="pre">models</span> <span class="pre">=</span> <span class="pre">Doctrine_Core::loadModels('/path/to/models',</span> <span class="pre">Doctrine_CoreMODEL_LOADING_CONSERVATIVE);</span> <span class="pre">//</span> <span class="pre">or</span> <span class="pre">Doctrine_Core::MODEL_LOADING_AGGRESSIVE</span> <span class="pre">print_r(</span></tt>models);</p>
+<p>// ロードされたすべてのモデルの配列を取得する $models =
+Doctrine_Core::getLoadedModels();</p>
+<p>//
+クラスの配列を上記のメソッドに渡しDoctrine_Recordsではないものを除去する
+<tt class="code docutils literal"><span class="pre">models</span> <span class="pre">=</span> <span class="pre">Doctrine_Core::filterInvalidModels(array('User',</span> <span class="pre">'Formatter',</span> <span class="pre">'Doctrine_Record'));</span> <span class="pre">print_r(</span></tt>models);
+// FormatterとDoctrine_Recordが有効ではないのでarray(&#8216;User&#8217;)を返す</p>
+<p>// 実際のテーブル名用のDoctrine_Connectionオブジェクトを取得する $conn
+= Doctrine_Core::getConnectionByTableName(&#8216;user&#8217;); //
+テーブル名が関連する接続オブジェクトを返す with.</p>
+<p>// 既存のデータベースからYAMLスキーマを生成する
+Doctrine_Core::generateYamlFromDb(&#8216;/path/to/dump/schema.yml&#8217;,
+array(&#8216;connection_name&#8217;), $options);</p>
+<p>// 既存のデータベースからモデルを生成する
+Doctrine_Core::generateModelsFromDb(&#8216;/path/to/generate/models&#8217;,
+array(&#8216;connection_name&#8217;), $options);</p>
+<p>// オプションとデフォルト値の配列 $options = array(&#8216;packagesPrefix&#8217; =&gt;
+&#8216;Package&#8217;, &#8216;packagesPath&#8217; =&gt; &#8216;&#8217;, &#8216;packagesFolderName&#8217; =&gt; &#8216;packages&#8217;,
+&#8216;suffix&#8217; =&gt; &#8216;.php&#8217;, &#8216;generateBaseClasses&#8217; =&gt; true, &#8216;baseClassesPrefix&#8217;
+=&gt; &#8216;Base&#8217;, &#8216;baseClassesDirectory&#8217; =&gt; &#8216;generated&#8217;, &#8216;baseClassName&#8217; =&gt;
+&#8216;Doctrine_Record&#8217;);</p>
+<p>// YAMLスキーマからモデルを生成する
+Doctrine_Core::generateModelsFromYaml(&#8216;/path/to/schema.yml&#8217;,
+&#8216;/path/to/generate/models&#8217;, $options);</p>
+<p>// 配列で提供されるテーブルを作成する
+Doctrine_Core::createTablesFromArray(array(&#8216;User&#8217;, &#8216;Phoneumber&#8217;));</p>
+<p>// 既存のモデルセットからすべてのテーブルを作成する //
+ディレクトリが渡されなければロードされたすべてのモデル用のSQLを生成する
+Doctrine_Core::createTablesFromModels(&#8216;/path/to/models&#8217;);</p>
+<p>// 既存のモデルのセットからSQLコマンドの文字列を生成する //
+ディレクトリが渡されなければロードされたすべてのモデル用のSQLを生成する
+Doctrine_Core::generateSqlFromModels(&#8216;/path/to/models&#8217;);</p>
+<p>// 渡されたモデルの配列を作成するSQL文の配列を生成する
+Doctrine_Core::generateSqlFromArray(array(&#8216;User&#8217;, &#8216;Phonenumber&#8217;));</p>
+<p>// 既存のモデルセットからYAMLスキーマを生成する
+Doctrine_Core::generateYamlFromModels(&#8216;/path/to/schema.yml&#8217;,
+&#8216;/path/to/models&#8217;);</p>
+<p>// 接続用のすべてのデータベースを作成する // 接続名の配列はオプション
+Doctrine_Core::createDatabases(array(&#8216;connection_name&#8217;));</p>
+<p>// 接続に対するすべてのデータベースを削除する //
+接続名の配列はオプション
+Doctrine_Core::dropDatabases(array(&#8216;connection_name&#8217;));</p>
+<p>// モデル用のすべてのデータをYAMLフィクスチャファイルにダンプする //
+2番目の引数はbool値でそれぞれのモデルに大して個別のフィクスチャファイルを生成するかどうか
+// trueの場合ファイルの代わりにフォルダを指定する必要がある
+Doctrine_Core::dumpData(&#8216;/path/to/dump/data.yml&#8217;, true);</p>
+<p>// YAMLフィクスチャファイルからデータをロードする //
+2番目の引数はブール値でロードするときにデータを追加するかロードする前にすべてのデータを最初に削除するか
+Doctrine_Core::loadData(&#8216;/path/to/fixture/files&#8217;, true);</p>
+<p>// マイグレーションクラスのセット用のマイグレーション処理を実行する $num
+= 5; // バージョン #5にマイグレートする
+Doctrine::migration(&#8216;/path/to/migrations&#8217;, $num);</p>
+<p>// 空白のマイグレーションクラスのテンプレートを生成する
+Doctrine_Core::generateMigrationClass(&#8216;ClassName&#8217;,
+&#8216;/path/to/migrations&#8217;);</p>
+<p>// 既存のデータベース用のすべてのマイグレーションクラスを生成する
+Doctrine_Core::generateMigrationsFromDb(&#8216;/path/to/migrations&#8217;);</p>
+<p>// 既存のモデルのセット用のすべてのマイグレーションクラスを生成する //
+2番目の引数はloadModels()を使用して既にモデルをロードしている場合のオプション
+Doctrine_Core::generateMigrationsFromModels(&#8216;/path/to/migrations&#8217;,
+&#8216;/path/to/models&#8217;);</p>
+<p>// モデル用のDoctrine_Tableインスタンスを取得する $userTable =
+Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>// Doctrineを単独のPHPファイルにコンパイルする $drivers =
+array(&#8216;mysql&#8217;);
+//コンパイルされたバージョンに含めたいドライバの配列を指定する
+Doctrine_Core::compile(&#8216;/path/to/write/compiled/doctrine&#8217;, $drivers);</p>
+<p>// デバッグ用にDoctrineオブジェクトをダンプする
+<tt class="code docutils literal"><span class="pre">conn</span> <span class="pre">=</span> <span class="pre">Doctrine_Manager::connection();</span> <span class="pre">Doctrine_Core::dump(</span></tt>conn);</p>
+</div>
+<div class="section" id="id69">
+<h2>タスク<a class="headerlink" href="#id69" title="Permalink to this headline">¶</a></h2>
+<p>タスクはコアのコンビニエンスメソッドを搭載するクラスです。必須の引数を設定することでタスクを簡単に実行できます。これらのタスクはDoctrineコマンドラインインターフェイスで直接使われます。</p>
+<blockquote>
+<div>BuildAll BuildAllLoad BuildAllReload Compile CreateDb CreateTables Dql</div></blockquote>
+<p>DropDb DumpData Exception GenerateMigration GenerateMigrationsDb
+GenerateMigrationsModels GenerateModelsDb GenerateModelsYaml GenerateSql
+GenerateYamlDb GenerateYamlModels LoadData Migrate RebuildDb</p>
+<p>独自スクリプトでDoctrine Tasksを単独で実行する方法は下記の通りです。</p>
+</div>
+</div>
+<div class="section" id="id70">
+<h1>コマンドラインインターフェイス<a class="headerlink" href="#id70" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id71">
+<h2>はじめに<a class="headerlink" href="#id71" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id72"><span class="problematic" id="id73">``</span></a>Doctrine_Cli``はタスクのコレクションで開発とテストの手助けをしてくれます。このマニュアルの典型例に関して、必要なタスクを実行するためにPHPスクリプトをセットアップします。このcliツールはこれらのタスクのためにそのまま使えることを目的としています。</p>
+</div>
+<div class="section" id="id74">
+<h2>タスク<a class="headerlink" href="#id74" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineの実装を管理するために利用できるタスクの一覧は下記の通りです。</p>
+<blockquote>
+<div>$ ./doctrine Doctrine Command Line Interface</div></blockquote>
+<p>./doctrine build-all ./doctrine build-all-load ./doctrine
+build-all-reload ./doctrine compile ./doctrine create-db ./doctrine
+create-tables ./doctrine dql ./doctrine drop-db ./doctrine dump-data
+./doctrine generate-migration ./doctrine generate-migrations-db
+./doctrine generate-migrations-models ./doctrine generate-models-db
+./doctrine generate-models-yaml ./doctrine generate-sql ./doctrine
+generate-yaml-db ./doctrine generate-yaml-models ./doctrine load-data
+./doctrine migrate ./doctrine rebuild-db</p>
+<p>CLI用のタスクは独立しており単独で使うことができます。下記のコードは例です。</p>
+<blockquote>
+<div>$task = new Doctrine_Task_GenerateModelsFromYaml();</div></blockquote>
+<p>$args = array(&#8216;yaml_schema_path&#8217; =&gt; &#8216;/path/to/schema&#8217;, &#8216;models_path&#8217;
+=&gt; &#8216;/path/to/models&#8217;);</p>
+<p><tt class="code docutils literal"><span class="pre">task-&gt;setArguments(</span></tt>args);</p>
+<p>try { if ($task-&gt;validate()) { $task-&gt;execute(); } } catch (Exception
+<tt class="code docutils literal"><span class="pre">e)</span> <span class="pre">{</span> <span class="pre">throw</span> <span class="pre">new</span> <span class="pre">Doctrine_Exception(</span></tt>e-&gt;getMessage()); }</p>
+</div>
+<div class="section" id="id75">
+<h2>使い方<a class="headerlink" href="#id75" title="Permalink to this headline">¶</a></h2>
+<p>&#8220;doctrine&#8221;という名前のファイルを実行可能にします。</p>
+<blockquote>
+<div>#!/usr/bin/env php</div></blockquote>
+<p><a href="#id76"><span class="problematic" id="id77">``</span></a>Doctrine_Cli``を実装する実際の&#8221;doctrine.php&#8221;という名前のPHPファイルは次の通りです。</p>
+<blockquote>
+<div>// Doctrineの設定/セットアップ、接続、モデルなどを含める</div></blockquote>
+<p>// Doctrine Cliを設定する //
+通常cliタスクの引数がありますがここで設定すれば引数は自動的に入力されスクリプト実行時に入力する必要がなくなる</p>
+<p>$config = array(&#8216;data_fixtures_path&#8217; =&gt; &#8216;/path/to/data/fixtures&#8217;,
+&#8216;models_path&#8217; =&gt; &#8216;/path/to/models&#8217;, &#8216;migrations_path&#8217; =&gt;
+&#8216;/path/to/migrations&#8217;, &#8216;sql_path&#8217; =&gt; &#8216;/path/to/data/sql&#8217;,
+&#8216;yaml_schema_path&#8217; =&gt; &#8216;/path/to/schema&#8217;);</p>
+<p><tt class="code docutils literal"><span class="pre">cli</span> <span class="pre">=</span> <span class="pre">new</span> <span class="pre">Doctrine_Cli(</span></tt>config); <tt class="code docutils literal"><span class="pre">cli-&gt;run(</span></tt>_SERVER[&#8216;argv&#8217;]);</p>
+<p>これで次のようにコマンドを実行できます。</p>
+<blockquote>
+<div>./doctrine generate-models-yaml ./doctrine create-tables</div></blockquote>
+</div>
+</div>
+<div class="section" id="id78">
+<h1>サンドボックス<a class="headerlink" href="#id78" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id79">
+<h2>インストール方法<a class="headerlink" href="#id79" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://www.doctrine-project.org/download">http://www.doctrine-project.org/download</a>
+からもしくはsvnリポジトリから特別なサンドボックスをインストールできます。</p>
+<blockquote>
+<div>svn co <a class="reference external" href="http://www.doctrine-project.org/svn/branches/0.11">http://www.doctrine-project.org/svn/branches/0.11</a> doctrine cd</div></blockquote>
+<p>doctrine/tools/sandbox chmod 0777 doctrine</p>
+<p>./doctrine</p>
+<p>上記のステップによってサンドボックスのcliが実行できるようになります。引数無しで./doctrineコマンドを実行すると利用可能なすべてのcliタスクのインデックスが表示されます。</p>
+</div>
+</div>
+<div class="section" id="id80">
+<h1>まとめ<a class="headerlink" href="#id80" title="Permalink to this headline">¶</a></h1>
+<p>この章で検討したこれらのユーティリティが役に立つことを願います。[doc
+unit-testing
+:name]を使用することでDoctrineの安定性を維持し回帰を避ける方法を検討します。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">ページ分割</a><ul>
+<li><a class="reference internal" href="#id2">はじめに</a></li>
+<li><a class="reference internal" href="#id3">ページャーを扱う</a></li>
+<li><a class="reference internal" href="#id18">レンジスタイルをコントロールする</a><ul>
+<li><a class="reference internal" href="#id19">スライディング</a></li>
+<li><a class="reference internal" href="#id20">ジャンピング</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id23">ページャーによる高度なレイアウト</a><ul>
+<li><a class="reference internal" href="#id34">マスク</a></li>
+<li><a class="reference internal" href="#id41">テンプレート</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id54">ページャーレイアウトをカスタマイズする</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#facade">Facade</a><ul>
+<li><a class="reference internal" href="#id67">データベースの作成と削除</a></li>
+<li><a class="reference internal" href="#id68">コンビニエンスメソッド</a></li>
+<li><a class="reference internal" href="#id69">タスク</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id70">コマンドラインインターフェイス</a><ul>
+<li><a class="reference internal" href="#id71">はじめに</a></li>
+<li><a class="reference internal" href="#id74">タスク</a></li>
+<li><a class="reference internal" href="#id75">使い方</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id78">サンドボックス</a><ul>
+<li><a class="reference internal" href="#id79">インストール方法</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id80">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="extensions.html"
+                        title="previous chapter">Extensions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="unit-testing.html"
+                        title="next chapter">テストを実施する</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/utilities.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="unit-testing.html" title="テストを実施する"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="extensions.html" title="Extensions"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

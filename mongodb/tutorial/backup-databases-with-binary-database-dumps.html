@@ -1,0 +1,497 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Use mongodump and mongorestore to Backup and Restore MongoDB Databases &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/backup-databases-with-binary-database-dumps.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/backup-databases-with-binary-database-dumps" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Backup and Recovery Operations for MongoDB" href="../administration/backups.html" />
+<link rel="next" title="Use Filesystem Snapshots to Backup and Restore MongoDB Databases" href="backup-databases-with-filesystem-snapshots.html" />
+<link rel="prev" title="Backup Strategies for MongoDB Systems" href="../core/backups.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../administration.html">Administration</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a><span class="bcpoint"> > </span></li>
+          <li>Use <tt class="docutils literal docutils literal"><span class="pre">mongodump</span></tt> and <tt class="docutils literal docutils literal"><span class="pre">mongorestore</span></tt> to Backup and Restore MongoDB Databases</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="use-mongodump-and-mongorestore-to-backup-and-restore-mongodb-databases">
+<h1>Use <tt class="docutils literal"><span class="pre">mongodump</span></tt> and <tt class="docutils literal"><span class="pre">mongorestore</span></tt> to Backup and Restore MongoDB Databases<a class="headerlink" href="#use-mongodump-and-mongorestore-to-backup-and-restore-mongodb-databases" title="Permalink to this headline">¶</a></h1>
+<p>This document describes the process for writing the entire contents of
+your MongoDB instance to a file in a binary format. If disk-level
+snapshots are not available, this approach provides the best option for
+full system database backups. If your system has disk level snapshot
+capabilities, consider the backup methods described in
+<a class="reference internal" href="backup-databases-with-filesystem-snapshots.html"><em>Use Filesystem Snapshots to Backup and Restore MongoDB Databases</em></a>.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<ul class="last simple">
+<li><a class="reference internal" href="../core/backups.html"><em>Backup Strategies for MongoDB Systems</em></a></li>
+<li><a class="reference internal" href="../reference/program/mongodump.html"><em>mongodump</em></a></li>
+<li><a class="reference internal" href="../reference/program/mongorestore.html"><em>mongorestore</em></a></li>
+</ul>
+</div>
+<div class="section" id="backup-a-database-with-mongodump">
+<span id="backup-mongodump"></span><h2>Backup a Database with <tt class="docutils literal"><span class="pre">mongodump</span></tt><a class="headerlink" href="#backup-a-database-with-mongodump" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="basic-mongodump-operations">
+<h3>Basic <tt class="docutils literal"><span class="pre">mongodump</span></tt> Operations<a class="headerlink" href="#basic-mongodump-operations" title="Permalink to this headline">¶</a></h3>
+<p>The <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> utility can back up data by either:</p>
+<ul class="simple">
+<li>connecting to a running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance, or</li>
+<li>accessing data files without an active instance.</li>
+</ul>
+<p>The utility can create a backup for an entire server, database or collection,
+or can use a query to backup just part of a collection.</p>
+<p>When you run <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> without any arguments, the command
+connects to the local database instance (e.g. <tt class="docutils literal"><span class="pre">127.0.0.1</span></tt> or
+<tt class="docutils literal"><span class="pre">localhost</span></tt>) on port <tt class="docutils literal"><span class="pre">27017</span></tt> and creates a database backup named
+<tt class="docutils literal"><span class="pre">dump/</span></tt> in the current directory.</p>
+<p>To backup data from a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance
+running on the same machine and on the default port of <tt class="docutils literal"><span class="pre">27017</span></tt>
+use the following command:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The format of data created by <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> tool from the
+2.2 distribution or later is different and incompatible with
+earlier versions of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</p>
+</div>
+<p>To limit the amount of data included in the database dump, you can
+specify <a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--db"><em class="xref std std-option">--db</em></a> and
+<a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--collection"><em class="xref std std-option">--collection</em></a> as options to the
+<a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> command. For example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump --dbpath /data/db/ --out /data/backup/
+</pre></div>
+</div>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump --host mongodb.example.net --port 27017
+</pre></div>
+</div>
+<p><a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> will write <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> files that hold a copy of
+data accessible via the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> listening on port <tt class="docutils literal"><span class="pre">27017</span></tt> of
+the <tt class="docutils literal"><span class="pre">mongodb.example.net</span></tt> host.</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump --collection collection --db <span class="nb">test</span>
+</pre></div>
+</div>
+<p>This command creates a dump of the collection named <tt class="docutils literal"><span class="pre">collection</span></tt>
+from the database <tt class="docutils literal"><span class="pre">test</span></tt> in a <tt class="file docutils literal"><span class="pre">dump/</span></tt> subdirectory of the current
+working directory.</p>
+</div>
+<div class="section" id="point-in-time-operation-using-oplogs">
+<h3>Point in Time Operation Using Oplogs<a class="headerlink" href="#point-in-time-operation-using-oplogs" title="Permalink to this headline">¶</a></h3>
+<p>Use the <a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--oplog"><em class="xref std std-option">--oplog</em></a> option with
+<a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> to collect the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> entries to build a
+point-in-time snapshot of a database within a replica set. With <a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--oplog"><em class="xref std std-option">--oplog</em></a>, <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> copies all the data from
+the source database as well as all of the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> entries from
+the beginning of the backup procedure to until the backup procedure
+completes. This backup procedure, in conjunction with
+<a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--oplogReplay"><em class="xref std std-option">mongorestore --oplogReplay</em></a>,
+allows you to restore a backup that reflects a consistent and specific
+moment in time.</p>
+</div>
+<div class="section" id="create-backups-without-a-running-mongod-instance">
+<h3>Create Backups Without a Running <tt class="docutils literal"><span class="pre">mongod</span></tt> Instance<a class="headerlink" href="#create-backups-without-a-running-mongod-instance" title="Permalink to this headline">¶</a></h3>
+<p>If your MongoDB instance is not running, you can use the
+<a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--dbpath"><em class="xref std std-option">--dbpath</em></a> option to specify the
+location to your MongoDB instance&#8217;s database files. <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a>
+reads from the data files directly with this operation. This
+locks the data directory to prevent conflicting writes. The
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> process must <em>not</em> be running or attached to these
+data files when you run <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> in this
+configuration. Consider the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump --dbpath /srv/mongodb
+</pre></div>
+</div>
+</div>
+<div class="section" id="create-backups-from-non-local-mongod-instances">
+<h3>Create Backups from Non-Local <tt class="docutils literal"><span class="pre">mongod</span></tt> Instances<a class="headerlink" href="#create-backups-from-non-local-mongod-instances" title="Permalink to this headline">¶</a></h3>
+<p>The <a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--host"><em class="xref std std-option">--host</em></a> and
+<a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--port"><em class="xref std std-option">--port</em></a> options for
+<a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> allow you to connect to and backup from a remote host.
+Consider the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongodump --host mongodb1.example.net --port 3017 --username user --password pass --out /opt/backup/mongodump-2012-10-24
+</pre></div>
+</div>
+<p>On any <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> command you may, as above, specify username
+and password credentials to specify database authentication.</p>
+</div>
+</div>
+<div class="section" id="restore-a-database-with-mongorestore">
+<span id="backup-restore-dump"></span><h2>Restore a Database with <tt class="docutils literal"><span class="pre">mongorestore</span></tt><a class="headerlink" href="#restore-a-database-with-mongorestore" title="Permalink to this headline">¶</a></h2>
+<p>The <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> utility restores a binary backup created by
+<a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a>. By default, <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> looks for a
+database backup in the <tt class="file docutils literal"><span class="pre">dump/</span></tt> directory.</p>
+<p>The <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> utility can restore data either by:</p>
+<ul class="simple">
+<li>connecting to a running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> directly, or</li>
+<li>writing to a local database path without use of a running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</li>
+</ul>
+<p>The <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> utility can restore either an entire
+database backup or a subset of the backup.</p>
+<p>A <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> command that connects to an active
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> has the following prototype form:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --port &lt;port number&gt; &lt;path to the backup&gt;
+</pre></div>
+</div>
+<p>A <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> command that writes to data files
+without using a running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> has the following prototype
+form:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --dbpath &lt;<span class="nb">local </span>database path&gt; &lt;path to the backup&gt;
+</pre></div>
+</div>
+<p>Consider the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore dump-2012-10-25/
+</pre></div>
+</div>
+<p>Here, <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> imports the database backup in
+the <tt class="file docutils literal"><span class="pre">dump-2012-10-25</span></tt> directory to the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance
+running on the localhost interface.</p>
+<div class="section" id="restore-point-in-time-oplog-backup">
+<span id="backup-restore-oplogreplay"></span><h3>Restore Point in Time Oplog Backup<a class="headerlink" href="#restore-point-in-time-oplog-backup" title="Permalink to this headline">¶</a></h3>
+<p>If you created your database dump using the <a class="reference internal" href="../reference/program/mongodump.html#cmdoption-mongodump--oplog"><em class="xref std std-option">--oplog</em></a> option to ensure a point-in-time snapshot, call
+<a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> with the
+<a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--oplogReplay"><em class="xref std std-option">--oplogReplay</em></a>
+option, as in the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --oplogReplay
+</pre></div>
+</div>
+<p>You may also consider using the <a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--objcheck"><em class="xref std std-option">mongorestore --objcheck</em></a>
+option to check the integrity of objects while inserting them into the
+database, or you may consider the <a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--drop"><em class="xref std std-option">mongorestore --drop</em></a> option to drop each
+collection from the database before restoring from
+backups.</p>
+</div>
+<div class="section" id="restore-a-subset-of-data-from-a-binary-database-dump">
+<span id="backup-restore-filter"></span><h3>Restore a Subset of data from a Binary Database Dump<a class="headerlink" href="#restore-a-subset-of-data-from-a-binary-database-dump" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> also includes the ability to a filter
+to all input before inserting it into the new database. Consider the
+following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --filter <span class="s1">&#39;{&quot;field&quot;: 1}&#39;</span>
+</pre></div>
+</div>
+<p>Here, <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> only adds documents to the database from
+the dump located in the <tt class="file docutils literal"><span class="pre">dump/</span></tt> folder <em>if</em> the documents have a
+field name <tt class="docutils literal"><span class="pre">field</span></tt> that holds a value of <tt class="docutils literal"><span class="pre">1</span></tt>. Enclose the
+filter in single quotes (e.g. <tt class="docutils literal"><span class="pre">'</span></tt>) to prevent the filter from
+interacting with your shell environment.</p>
+</div>
+<div class="section" id="restore-without-a-running-mongod">
+<span id="backup-restore-dbpath"></span><h3>Restore without a Running <tt class="docutils literal"><span class="pre">mongod</span></tt><a class="headerlink" href="#restore-without-a-running-mongod" title="Permalink to this headline">¶</a></h3>
+<p><a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> can write data to MongoDB data files without
+needing to connect to a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> directly.</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --dbpath /srv/mongodb --journal
+</pre></div>
+</div>
+<p>Here, <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> restores the database dump located in
+<tt class="file docutils literal"><span class="pre">dump/</span></tt> folder into the data files located at <tt class="file docutils literal"><span class="pre">/srv/mongodb</span></tt>.
+Additionally, the <a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--journal"><em class="xref std std-option">--journal</em></a> option ensures that
+<a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> records all operation in the durability
+<a class="reference internal" href="../reference/glossary.html#term-journal"><em class="xref std std-term">journal</em></a>. The journal prevents data file corruption if anything
+(e.g. power failure, disk failure, etc.)  interrupts the restore
+operation.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../reference/program/mongodump.html"><em>mongodump</em></a> and
+<a class="reference internal" href="../reference/program/mongorestore.html"><em>mongorestore</em></a>.</p>
+</div>
+</div>
+<div class="section" id="restore-backups-to-non-local-mongod-instances">
+<h3>Restore Backups to Non-Local <tt class="docutils literal"><span class="pre">mongod</span></tt> Instances<a class="headerlink" href="#restore-backups-to-non-local-mongod-instances" title="Permalink to this headline">¶</a></h3>
+<p>By default, <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> connects to a MongoDB instance
+running on the localhost interface (e.g. <tt class="docutils literal"><span class="pre">127.0.0.1</span></tt>) and on the
+default port (<tt class="docutils literal"><span class="pre">27017</span></tt>). If you want to restore to a different host or
+port, use the <a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--host"><em class="xref std std-option">--host</em></a> and <a class="reference internal" href="../reference/program/mongorestore.html#cmdoption-mongorestore--port"><em class="xref std std-option">--port</em></a> options.</p>
+<p>Consider the following example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongorestore --host mongodb1.example.net --port 3017 --username user --password pass /opt/backup/mongodump-2012-10-24
+</pre></div>
+</div>
+<p>As above, you may specify username and password connections if your
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> requires authentication.</p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../core/backups.html" title="Previous Section: Backup Strategies for MongoDB Systems">&lt; &nbsp; Backup Strategies for MongoDB Systems</a></li>
+              <li id="btnvup"><a href="../administration.html" title="Parent Section: Administration" >&#47;&#92;&nbsp; Administration</a></li>
+              <li id="btnvnx"><a href="backup-databases-with-filesystem-snapshots.html" title="Next Section: Use Filesystem Snapshots to Backup and Restore MongoDB Databases">Use Filesystem Snapshots to Backup and Restore MongoDB Databases &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../administration.html">Administration</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../administration/configuration.html">Run-time Database Configuration</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core/backups.html">Backup Strategies for MongoDB Systems</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Use <tt class="docutils literal"><span class="pre">mongodump</span></tt> and <tt class="docutils literal"><span class="pre">mongorestore</span></tt> to Backup and Restore MongoDB Databases</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="backup-databases-with-filesystem-snapshots.html">Use Filesystem Snapshots to Backup and Restore MongoDB Databases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="copy-databases-between-instances.html">Copy Databases Between Instances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="recover-data-following-unexpected-shutdown.html">Recover MongoDB Data following Unexpected Shutdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-small-sharded-cluster-with-mongodump.html">Backup a Small Sharded Cluster with <tt class="docutils literal"><span class="pre">mongodump</span></tt></a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-sharded-cluster-with-filesystem-snapshots.html">Create Backup of a Sharded Cluster with Filesystem Snapshots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-sharded-cluster-with-database-dumps.html">Create Backup of a Sharded Cluster with Database Dumps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="restore-single-shard.html">Restore a Single Shard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="restore-sharded-cluster.html">Restore Sharded Clusters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="schedule-backup-window-for-sharded-clusters.html">Schedule Backup Window for Sharded Clusters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data-center-awareness.html">Data Center Awareness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/journaling.html">Journaling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure-ssl.html">Connect to MongoDB with SSL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="monitor-with-snmp.html">Monitor MongoDB with SNMP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-mongodb-processes.html">Manage <tt class="docutils literal"><span class="pre">mongod</span></tt> Processes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rotate-log-files.html">Rotate Log Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/monitoring.html">Monitoring for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-the-database-profiler.html">Analyze Performance of Database Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/import-export.html">Import and Export MongoDB Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ulimit.html">Linux <tt class="docutils literal"><span class="pre">ulimit</span></tt> Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/production-notes.html">Production Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="use-database-commands.html">Use Database Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">MongoDB Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/backup-databases-with-binary-database-dumps.txt" target="_blank" title="Edit tutorial/backup-databases-with-binary-database-dumps.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/backup-databases-with-binary-database-dumps%2Etxt%22" target="_blank" title="Report a problem with tutorial/backup-databases-with-binary-database-dumps.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/backup-databases-with-binary-database-dumps.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/backup-databases-with-binary-database-dumps'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/backup-databases-with-binary-database-dumps'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

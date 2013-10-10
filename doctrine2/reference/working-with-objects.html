@@ -1,0 +1,1091 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>8. Working with Objects &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="9. Working with Associations" href="working-with-associations.html" />
+    <link rel="prev" title="7. Inheritance Mapping" href="inheritance-mapping.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="working-with-associations.html" title="9. Working with Associations"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="inheritance-mapping.html" title="7. Inheritance Mapping"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="working-with-objects">
+<h1>8. Working with Objects<a class="headerlink" href="#working-with-objects" title="Permalink to this headline">¶</a></h1>
+<p>In this chapter we will help you understand the <tt class="docutils literal"><span class="pre">EntityManager</span></tt>
+and the <tt class="docutils literal"><span class="pre">UnitOfWork</span></tt>. A Unit of Work is similar to an
+object-level transaction. A new Unit of Work is implicitly started
+when an EntityManager is initially created or after
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> has been invoked. A Unit of Work is
+committed (and a new one started) by invoking
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt>.</p>
+<p>A Unit of Work can be manually closed by calling
+EntityManager#close(). Any changes to objects within this Unit of
+Work that have not yet been persisted are lost.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>It is very important to understand that only
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> ever causes write operations against the
+database to be executed. Any other methods such as
+<tt class="docutils literal"><span class="pre">EntityManager#persist($entity)</span></tt> or
+<tt class="docutils literal"><span class="pre">EntityManager#remove($entity)</span></tt> only notify the UnitOfWork to
+perform these operations during flush.</p>
+<p class="last">Not calling <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> will lead to all changes
+during that request being lost.</p>
+</div>
+<div class="section" id="entities-and-the-identity-map">
+<h2>8.1. Entities and the Identity Map<a class="headerlink" href="#entities-and-the-identity-map" title="Permalink to this headline">¶</a></h2>
+<p>Entities are objects with identity. Their identity has a conceptual
+meaning inside your domain. In a CMS application each article has a
+unique id. You can uniquely identify each article by that id.</p>
+<p>Take the following example, where you find an article with the
+headline &#8220;Hello World&#8221; with the ID 1234:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$article</span> <span class="o">=</span> <span class="nv">$entityManager</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;CMS\Article&#39;</span><span class="p">,</span> <span class="mi">1234</span><span class="p">);</span>
+<span class="nv">$article</span><span class="o">-&gt;</span><span class="na">setHeadline</span><span class="p">(</span><span class="s1">&#39;Hello World dude!&#39;</span><span class="p">);</span>
+
+<span class="nv">$article2</span> <span class="o">=</span> <span class="nv">$entityManager</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;CMS\Article&#39;</span><span class="p">,</span> <span class="mi">1234</span><span class="p">);</span>
+<span class="k">echo</span> <span class="nv">$article2</span><span class="o">-&gt;</span><span class="na">getHeadline</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>In this case the Article is accessed from the entity manager twice,
+but modified in between. Doctrine 2 realizes this and will only
+ever give you access to one instance of the Article with ID 1234,
+no matter how often do you retrieve it from the EntityManager and
+even no matter what kind of Query method you are using (find,
+Repository Finder or DQL). This is called &#8220;Identity Map&#8221; pattern,
+which means Doctrine keeps a map of each entity and ids that have
+been retrieved per PHP request and keeps returning you the same
+instances.</p>
+<p>In the previous example the echo prints &#8220;Hello World dude!&#8221; to the
+screen. You can even verify that <tt class="docutils literal"><span class="pre">$article</span></tt> and <tt class="docutils literal"><span class="pre">$article2</span></tt> are
+indeed pointing to the same instance by running the following
+code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$article</span> <span class="o">===</span> <span class="nv">$article2</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;Yes we are the same!&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Sometimes you want to clear the identity map of an EntityManager to
+start over. We use this regularly in our unit-tests to enforce
+loading objects from the database again instead of serving them
+from the identity map. You can call <tt class="docutils literal"><span class="pre">EntityManager#clear()</span></tt> to
+achieve this result.</p>
+</div>
+<div class="section" id="entity-object-graph-traversal">
+<h2>8.2. Entity Object Graph Traversal<a class="headerlink" href="#entity-object-graph-traversal" title="Permalink to this headline">¶</a></h2>
+<p>Although Doctrine allows for a complete separation of your domain
+model (Entity classes) there will never be a situation where
+objects are &#8220;missing&#8221; when traversing associations. You can walk
+all the associations inside your entity models as deep as you
+want.</p>
+<p>Take the following example of a single <tt class="docutils literal"><span class="pre">Article</span></tt> entity fetched
+from newly opened EntityManager.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/** @Entity */</span>
+<span class="k">class</span> <span class="nc">Article</span>
+<span class="p">{</span>
+    <span class="sd">/** @Id @Column(type=&quot;integer&quot;) @GeneratedValue */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/** @Column(type=&quot;string&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$headline</span><span class="p">;</span>
+
+    <span class="sd">/** @ManyToOne(targetEntity=&quot;User&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$author</span><span class="p">;</span>
+
+    <span class="sd">/** @OneToMany(targetEntity=&quot;Comment&quot;, mappedBy=&quot;article&quot;) */</span>
+    <span class="k">private</span> <span class="nv">$comments</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span> <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">comments</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ArrayCollection</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getAuthor</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">author</span><span class="p">;</span> <span class="p">}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getComments</span><span class="p">()</span> <span class="p">{</span> <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">comments</span><span class="p">;</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="nv">$article</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;Article&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>This code only retrieves the <tt class="docutils literal"><span class="pre">Article</span></tt> instance with id 1 executing
+a single SELECT statement against the user table in the database.
+You can still access the associated properties author and comments
+and the associated objects they contain.</p>
+<p>This works by utilizing the lazy loading pattern. Instead of
+passing you back a real Author instance and a collection of
+comments Doctrine will create proxy instances for you. Only if you
+access these proxies for the first time they will go through the
+EntityManager and load their state from the database.</p>
+<p>This lazy-loading process happens behind the scenes, hidden from
+your code. See the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$article</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;Article&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+
+<span class="c1">// accessing a method of the user instance triggers the lazy-load</span>
+<span class="k">echo</span> <span class="s2">&quot;Author: &quot;</span> <span class="o">.</span> <span class="nv">$article</span><span class="o">-&gt;</span><span class="na">getAuthor</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getName</span><span class="p">()</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+
+<span class="c1">// Lazy Loading Proxies pass instanceof tests:</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$article</span><span class="o">-&gt;</span><span class="na">getAuthor</span><span class="p">()</span> <span class="nx">instanceof</span> <span class="nx">User</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// a User Proxy is a generated &quot;UserProxy&quot; class</span>
+<span class="p">}</span>
+
+<span class="c1">// accessing the comments as an iterator triggers the lazy-load</span>
+<span class="c1">// retrieving ALL the comments of this article from the database</span>
+<span class="c1">// using a single SELECT statement</span>
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$article</span><span class="o">-&gt;</span><span class="na">getComments</span><span class="p">()</span> <span class="k">AS</span> <span class="nv">$comment</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$comment</span><span class="o">-&gt;</span><span class="na">getText</span><span class="p">()</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="c1">// Article::$comments passes instanceof tests for the Collection interface</span>
+<span class="c1">// But it will NOT pass for the ArrayCollection interface</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$article</span><span class="o">-&gt;</span><span class="na">getComments</span><span class="p">()</span> <span class="nx">instanceof</span> <span class="nx">\Doctrine\Common\Collections\Collection</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;This will always be true!&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>A slice of the generated proxy classes code looks like the
+following piece of code. A real proxy class override ALL public
+methods along the lines of the <tt class="docutils literal"><span class="pre">getName()</span></tt> method shown below:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">class</span> <span class="nc">UserProxy</span> <span class="k">extends</span> <span class="nx">User</span> <span class="k">implements</span> <span class="nx">Proxy</span>
+<span class="p">{</span>
+    <span class="k">private</span> <span class="k">function</span> <span class="nf">_load</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="c1">// lazy loading code</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getName</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_load</span><span class="p">();</span>
+        <span class="k">return</span> <span class="k">parent</span><span class="o">::</span><span class="na">getName</span><span class="p">();</span>
+    <span class="p">}</span>
+    <span class="c1">// .. other public methods of User</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Traversing the object graph for parts that are lazy-loaded will
+easily trigger lots of SQL queries and will perform badly if used
+to heavily. Make sure to use DQL to fetch-join all the parts of the
+object-graph that you need as efficiently as possible.</p>
+</div>
+</div>
+<div class="section" id="persisting-entities">
+<h2>8.3. Persisting entities<a class="headerlink" href="#persisting-entities" title="Permalink to this headline">¶</a></h2>
+<p>An entity can be made persistent by passing it to the
+<tt class="docutils literal"><span class="pre">EntityManager#persist($entity)</span></tt> method. By applying the persist
+operation on some entity, that entity becomes MANAGED, which means
+that its persistence is from now on managed by an EntityManager. As
+a result the persistent state of such an entity will subsequently
+be properly synchronized with the database when
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> is invoked.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Invoking the <tt class="docutils literal"><span class="pre">persist</span></tt> method on an entity does NOT
+cause an immediate SQL INSERT to be issued on the database.
+Doctrine applies a strategy called &#8220;transactional write-behind&#8221;,
+which means that it will delay most SQL commands until
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> is invoked which will then issue all
+necessary SQL statements to synchronize your objects with the
+database in the most efficient way and a single, short transaction,
+taking care of maintaining referential integrity.</p>
+</div>
+<p>Example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">setName</span><span class="p">(</span><span class="s1">&#39;Mr.Right&#39;</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">persist</span><span class="p">(</span><span class="nv">$user</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Generated entity identifiers / primary keys are
+guaranteed to be available after the next successful flush
+operation that involves the entity in question. You can not rely on
+a generated identifier to be available directly after invoking
+<tt class="docutils literal"><span class="pre">persist</span></tt>. The inverse is also true. You can not rely on a
+generated identifier being not available after a failed flush
+operation.</p>
+</div>
+<p>The semantics of the persist operation, applied on an entity X, are
+as follows:</p>
+<ul class="simple">
+<li>If X is a new entity, it becomes managed. The entity X will be
+entered into the database as a result of the flush operation.</li>
+<li>If X is a preexisting managed entity, it is ignored by the
+persist operation. However, the persist operation is cascaded to
+entities referenced by X, if the relationships from X to these
+other entities are mapped with cascade=PERSIST or cascade=ALL (see
+&#8220;Transitive Persistence&#8221;).</li>
+<li>If X is a removed entity, it becomes managed.</li>
+<li>If X is a detached entity, an exception will be thrown on
+flush.</li>
+</ul>
+</div>
+<div class="section" id="removing-entities">
+<h2>8.4. Removing entities<a class="headerlink" href="#removing-entities" title="Permalink to this headline">¶</a></h2>
+<p>An entity can be removed from persistent storage by passing it to
+the <tt class="docutils literal"><span class="pre">EntityManager#remove($entity)</span></tt> method. By applying the
+<tt class="docutils literal"><span class="pre">remove</span></tt> operation on some entity, that entity becomes REMOVED,
+which means that its persistent state will be deleted once
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> is invoked.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Just like <tt class="docutils literal"><span class="pre">persist</span></tt>, invoking <tt class="docutils literal"><span class="pre">remove</span></tt> on an entity
+does NOT cause an immediate SQL DELETE to be issued on the
+database. The entity will be deleted on the next invocation of
+<tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> that involves that entity. This
+means that entities scheduled for removal can still be queried
+for and appear in query and collection results. See
+the section on <a class="reference internal" href="#workingobjects-database-uow-outofsync"><em>Database and UnitOfWork Out-Of-Sync</em></a>
+for more information.</p>
+</div>
+<p>Example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">remove</span><span class="p">(</span><span class="nv">$user</span><span class="p">);</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">flush</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The semantics of the remove operation, applied to an entity X are
+as follows:</p>
+<ul class="simple">
+<li>If X is a new entity, it is ignored by the remove operation.
+However, the remove operation is cascaded to entities referenced by
+X, if the relationship from X to these other entities is mapped
+with cascade=REMOVE or cascade=ALL (see &#8220;Transitive Persistence&#8221;).</li>
+<li>If X is a managed entity, the remove operation causes it to
+become removed. The remove operation is cascaded to entities
+referenced by X, if the relationships from X to these other
+entities is mapped with cascade=REMOVE or cascade=ALL (see
+&#8220;Transitive Persistence&#8221;).</li>
+<li>If X is a detached entity, an InvalidArgumentException will be
+thrown.</li>
+<li>If X is a removed entity, it is ignored by the remove operation.</li>
+<li>A removed entity X will be removed from the database as a result
+of the flush operation.</li>
+</ul>
+<p>After an entity has been removed its in-memory state is the same as
+before the removal, except for generated identifiers.</p>
+<p>Removing an entity will also automatically delete any existing
+records in many-to-many join tables that link this entity. The
+action taken depends on the value of the <tt class="docutils literal"><span class="pre">&#64;joinColumn</span></tt> mapping
+attribute &#8220;onDelete&#8221;. Either Doctrine issues a dedicated <tt class="docutils literal"><span class="pre">DELETE</span></tt>
+statement for records of each join table or it depends on the
+foreign key semantics of onDelete=&#8221;CASCADE&#8221;.</p>
+<p>Deleting an object with all its associated objects can be achieved
+in multiple ways with very different performance impacts.</p>
+<ol class="arabic simple">
+<li>If an association is marked as <tt class="docutils literal"><span class="pre">CASCADE=REMOVE</span></tt> Doctrine 2
+will fetch this association. If its a Single association it will
+pass this entity to
+´EntityManager#remove()``. If the association is a collection, Doctrine will loop over all    its elements and pass them to``EntityManager#remove()`.
+In both cases the cascade remove semantics are applied recursively.
+For large object graphs this removal strategy can be very costly.</li>
+<li>Using a DQL <tt class="docutils literal"><span class="pre">DELETE</span></tt> statement allows you to delete multiple
+entities of a type with a single command and without hydrating
+these entities. This can be very efficient to delete large object
+graphs from the database.</li>
+<li>Using foreign key semantics <tt class="docutils literal"><span class="pre">onDelete=&quot;CASCADE&quot;</span></tt> can force the
+database to remove all associated objects internally. This strategy
+is a bit tricky to get right but can be very powerful and fast. You
+should be aware however that using strategy 1 (<tt class="docutils literal"><span class="pre">CASCADE=REMOVE</span></tt>)
+completely by-passes any foreign key <tt class="docutils literal"><span class="pre">onDelete=CASCADE</span></tt> option,
+because Doctrine will fetch and remove all associated entities
+explicitly nevertheless.</li>
+</ol>
+</div>
+<div class="section" id="detaching-entities">
+<h2>8.5. Detaching entities<a class="headerlink" href="#detaching-entities" title="Permalink to this headline">¶</a></h2>
+<p>An entity is detached from an EntityManager and thus no longer
+managed by invoking the <tt class="docutils literal"><span class="pre">EntityManager#detach($entity)</span></tt> method on
+it or by cascading the detach operation to it. Changes made to the
+detached entity, if any (including removal of the entity), will not
+be synchronized to the database after the entity has been
+detached.</p>
+<p>Doctrine will not hold on to any references to a detached entity.</p>
+<p>Example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$em</span><span class="o">-&gt;</span><span class="na">detach</span><span class="p">(</span><span class="nv">$entity</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The semantics of the detach operation, applied to an entity X are
+as follows:</p>
+<ul class="simple">
+<li>If X is a managed entity, the detach operation causes it to
+become detached. The detach operation is cascaded to entities
+referenced by X, if the relationships from X to these other
+entities is mapped with cascade=DETACH or cascade=ALL (see
+&#8220;Transitive Persistence&#8221;). Entities which previously referenced X
+will continue to reference X.</li>
+<li>If X is a new or detached entity, it is ignored by the detach
+operation.</li>
+<li>If X is a removed entity, the detach operation is cascaded to
+entities referenced by X, if the relationships from X to these
+other entities is mapped with cascade=DETACH or cascade=ALL (see
+&#8220;Transitive Persistence&#8221;). Entities which previously referenced X
+will continue to reference X.</li>
+</ul>
+<p>There are several situations in which an entity is detached
+automatically without invoking the <tt class="docutils literal"><span class="pre">detach</span></tt> method:</p>
+<ul class="simple">
+<li>When <tt class="docutils literal"><span class="pre">EntityManager#clear()</span></tt> is invoked, all entities that are
+currently managed by the EntityManager instance become detached.</li>
+<li>When serializing an entity. The entity retrieved upon subsequent
+unserialization will be detached (This is the case for all entities
+that are serialized and stored in some cache, i.e. when using the
+Query Result Cache).</li>
+</ul>
+<p>The <tt class="docutils literal"><span class="pre">detach</span></tt> operation is usually not as frequently needed and
+used as <tt class="docutils literal"><span class="pre">persist</span></tt> and <tt class="docutils literal"><span class="pre">remove</span></tt>.</p>
+</div>
+<div class="section" id="merging-entities">
+<h2>8.6. Merging entities<a class="headerlink" href="#merging-entities" title="Permalink to this headline">¶</a></h2>
+<p>Merging entities refers to the merging of (usually detached)
+entities into the context of an EntityManager so that they become
+managed again. To merge the state of an entity into an
+EntityManager use the <tt class="docutils literal"><span class="pre">EntityManager#merge($entity)</span></tt> method. The
+state of the passed entity will be merged into a managed copy of
+this entity and this copy will subsequently be returned.</p>
+<p>Example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$detachedEntity</span> <span class="o">=</span> <span class="nb">unserialize</span><span class="p">(</span><span class="nv">$serializedEntity</span><span class="p">);</span> <span class="c1">// some detached entity</span>
+<span class="nv">$entity</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">merge</span><span class="p">(</span><span class="nv">$detachedEntity</span><span class="p">);</span>
+<span class="c1">// $entity now refers to the fully managed copy returned by the merge operation.</span>
+<span class="c1">// The EntityManager $em now manages the persistence of $entity as usual.</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">When you want to serialize/unserialize entities you
+have to make all entity properties protected, never private. The
+reason for this is, if you serialize a class that was a proxy
+instance before, the private variables won&#8217;t be serialized and a
+PHP Notice is thrown.</p>
+</div>
+<p>The semantics of the merge operation, applied to an entity X, are
+as follows:</p>
+<ul class="simple">
+<li>If X is a detached entity, the state of X is copied onto a
+pre-existing managed entity instance X&#8217; of the same identity.</li>
+<li>If X is a new entity instance, a new managed copy X&#8217; will be
+created and the state of X is copied onto this managed instance.</li>
+<li>If X is a removed entity instance, an InvalidArgumentException
+will be thrown.</li>
+<li>If X is a managed entity, it is ignored by the merge operation,
+however, the merge operation is cascaded to entities referenced by
+relationships from X if these relationships have been mapped with
+the cascade element value MERGE or ALL (see &#8220;Transitive
+Persistence&#8221;).</li>
+<li>For all entities Y referenced by relationships from X having the
+cascade element value MERGE or ALL, Y is merged recursively as Y&#8217;.
+For all such Y referenced by X, X&#8217; is set to reference Y&#8217;. (Note
+that if X is managed then X is the same object as X&#8217;.)</li>
+<li>If X is an entity merged to X&#8217;, with a reference to another
+entity Y, where cascade=MERGE or cascade=ALL is not specified, then
+navigation of the same association from X&#8217; yields a reference to a
+managed object Y&#8217; with the same persistent identity as Y.</li>
+</ul>
+<p>The <tt class="docutils literal"><span class="pre">merge</span></tt> operation will throw an <tt class="docutils literal"><span class="pre">OptimisticLockException</span></tt>
+if the entity being merged uses optimistic locking through a
+version field and the versions of the entity being merged and the
+managed copy don&#8217;t match. This usually means that the entity has
+been modified while being detached.</p>
+<p>The <tt class="docutils literal"><span class="pre">merge</span></tt> operation is usually not as frequently needed and
+used as <tt class="docutils literal"><span class="pre">persist</span></tt> and <tt class="docutils literal"><span class="pre">remove</span></tt>. The most common scenario for
+the <tt class="docutils literal"><span class="pre">merge</span></tt> operation is to reattach entities to an EntityManager
+that come from some cache (and are therefore detached) and you want
+to modify and persist such an entity.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">If you need to perform multiple merges of entities that share certain subparts
+of their object-graphs and cascade merge, then you have to call <tt class="docutils literal"><span class="pre">EntityManager#clear()</span></tt> between the
+successive calls to <tt class="docutils literal"><span class="pre">EntityManager#merge()</span></tt>. Otherwise you might end up with
+multiple copies of the &#8220;same&#8221; object in the database, however with different ids.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you load some detached entities from a cache and you do
+not need to persist or delete them or otherwise make use of them
+without the need for persistence services there is no need to use
+<tt class="docutils literal"><span class="pre">merge</span></tt>. I.e. you can simply pass detached objects from a cache
+directly to the view.</p>
+</div>
+</div>
+<div class="section" id="synchronization-with-the-database">
+<h2>8.7. Synchronization with the Database<a class="headerlink" href="#synchronization-with-the-database" title="Permalink to this headline">¶</a></h2>
+<p>The state of persistent entities is synchronized with the database
+on flush of an <tt class="docutils literal"><span class="pre">EntityManager</span></tt> which commits the underlying
+<tt class="docutils literal"><span class="pre">UnitOfWork</span></tt>. The synchronization involves writing any updates to
+persistent entities and their relationships to the database.
+Thereby bidirectional relationships are persisted based on the
+references held by the owning side of the relationship as explained
+in the Association Mapping chapter.</p>
+<p>When <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> is called, Doctrine inspects all
+managed, new and removed entities and will perform the following
+operations.</p>
+<div class="section" id="effects-of-database-and-unitofwork-being-out-of-sync">
+<span id="workingobjects-database-uow-outofsync"></span><h3>8.7.1. Effects of Database and UnitOfWork being Out-Of-Sync<a class="headerlink" href="#effects-of-database-and-unitofwork-being-out-of-sync" title="Permalink to this headline">¶</a></h3>
+<p>As soon as you begin to change the state of entities, call persist or remove the
+contents of the UnitOfWork and the database will drive out of sync. They can
+only be synchronized by calling <tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt>. This section
+describes the effects of database and UnitOfWork being out of sync.</p>
+<ul class="simple">
+<li>Entities that are scheduled for removal can still be queried from the database.
+They are returned from DQL and Repository queries and are visible in collections.</li>
+<li>Entities that are passed to <tt class="docutils literal"><span class="pre">EntityManager#persist</span></tt> do not turn up in query
+results.</li>
+<li>Entities that have changed will not be overwritten with the state from the database.
+This is because the identity map will detect the construction of an already existing
+entity and assumes its the most up to date version.</li>
+</ul>
+<p><tt class="docutils literal"><span class="pre">EntityManager#flush()</span></tt> is never called implicitly by Doctrine. You always have to trigger it manually.</p>
+</div>
+<div class="section" id="synchronizing-new-and-managed-entities">
+<h3>8.7.2. Synchronizing New and Managed Entities<a class="headerlink" href="#synchronizing-new-and-managed-entities" title="Permalink to this headline">¶</a></h3>
+<p>The flush operation applies to a managed entity with the following
+semantics:</p>
+<ul class="simple">
+<li>The entity itself is synchronized to the database using a SQL
+UPDATE statement, only if at least one persistent field has
+changed.</li>
+<li>No SQL updates are executed if the entity did not change.</li>
+</ul>
+<p>The flush operation applies to a new entity with the following
+semantics:</p>
+<ul class="simple">
+<li>The entity itself is synchronized to the database using a SQL
+INSERT statement.</li>
+</ul>
+<p>For all (initialized) relationships of the new or managed entity
+the following semantics apply to each associated entity X:</p>
+<ul class="simple">
+<li>If X is new and persist operations are configured to cascade on
+the relationship, X will be persisted.</li>
+<li>If X is new and no persist operations are configured to cascade
+on the relationship, an exception will be thrown as this indicates
+a programming error.</li>
+<li>If X is removed and persist operations are configured to cascade
+on the relationship, an exception will be thrown as this indicates
+a programming error (X would be re-persisted by the cascade).</li>
+<li>If X is detached and persist operations are configured to
+cascade on the relationship, an exception will be thrown (This is
+semantically the same as passing X to persist()).</li>
+</ul>
+</div>
+<div class="section" id="synchronizing-removed-entities">
+<h3>8.7.3. Synchronizing Removed Entities<a class="headerlink" href="#synchronizing-removed-entities" title="Permalink to this headline">¶</a></h3>
+<p>The flush operation applies to a removed entity by deleting its
+persistent state from the database. No cascade options are relevant
+for removed entities on flush, the cascade remove option is already
+executed during <tt class="docutils literal"><span class="pre">EntityManager#remove($entity)</span></tt>.</p>
+</div>
+<div class="section" id="the-size-of-a-unit-of-work">
+<h3>8.7.4. The size of a Unit of Work<a class="headerlink" href="#the-size-of-a-unit-of-work" title="Permalink to this headline">¶</a></h3>
+<p>The size of a Unit of Work mainly refers to the number of managed
+entities at a particular point in time.</p>
+</div>
+<div class="section" id="the-cost-of-flushing">
+<h3>8.7.5. The cost of flushing<a class="headerlink" href="#the-cost-of-flushing" title="Permalink to this headline">¶</a></h3>
+<p>How costly a flush operation is, mainly depends on two factors:</p>
+<ul class="simple">
+<li>The size of the EntityManager&#8217;s current UnitOfWork.</li>
+<li>The configured change tracking policies</li>
+</ul>
+<p>You can get the size of a UnitOfWork as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$uowSize</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getUnitOfWork</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">size</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The size represents the number of managed entities in the Unit of
+Work. This size affects the performance of flush() operations due
+to change tracking (see &#8220;Change Tracking Policies&#8221;) and, of course,
+memory consumption, so you may want to check it from time to time
+during development.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Do not invoke <tt class="docutils literal"><span class="pre">flush</span></tt> after every change to an entity
+or every single invocation of persist/remove/merge/... This is an
+anti-pattern and unnecessarily reduces the performance of your
+application. Instead, form units of work that operate on your
+objects and call <tt class="docutils literal"><span class="pre">flush</span></tt> when you are done. While serving a
+single HTTP request there should be usually no need for invoking
+<tt class="docutils literal"><span class="pre">flush</span></tt> more than 0-2 times.</p>
+</div>
+</div>
+<div class="section" id="direct-access-to-a-unit-of-work">
+<h3>8.7.6. Direct access to a Unit of Work<a class="headerlink" href="#direct-access-to-a-unit-of-work" title="Permalink to this headline">¶</a></h3>
+<p>You can get direct access to the Unit of Work by calling
+<tt class="docutils literal"><span class="pre">EntityManager#getUnitOfWork()</span></tt>. This will return the UnitOfWork
+instance the EntityManager is currently using.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$uow</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getUnitOfWork</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Directly manipulating a UnitOfWork is not recommended.
+When working directly with the UnitOfWork API, respect methods
+marked as INTERNAL by not using them and carefully read the API
+documentation.</p>
+</div>
+</div>
+<div class="section" id="entity-state">
+<h3>8.7.7. Entity State<a class="headerlink" href="#entity-state" title="Permalink to this headline">¶</a></h3>
+<p>As outlined in the architecture overview an entity can be in one of
+four possible states: NEW, MANAGED, REMOVED, DETACHED. If you
+explicitly need to find out what the current state of an entity is
+in the context of a certain <tt class="docutils literal"><span class="pre">EntityManager</span></tt> you can ask the
+underlying <tt class="docutils literal"><span class="pre">UnitOfWork</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">switch</span> <span class="p">(</span><span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getUnitOfWork</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getEntityState</span><span class="p">(</span><span class="nv">$entity</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="nx">UnitOfWork</span><span class="o">::</span><span class="na">STATE_MANAGED</span><span class="o">:</span>
+        <span class="o">...</span>
+    <span class="k">case</span> <span class="nx">UnitOfWork</span><span class="o">::</span><span class="na">STATE_REMOVED</span><span class="o">:</span>
+        <span class="o">...</span>
+    <span class="k">case</span> <span class="nx">UnitOfWork</span><span class="o">::</span><span class="na">STATE_DETACHED</span><span class="o">:</span>
+        <span class="o">...</span>
+    <span class="k">case</span> <span class="nx">UnitOfWork</span><span class="o">::</span><span class="na">STATE_NEW</span><span class="o">:</span>
+        <span class="o">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An entity is in MANAGED state if it is associated with an
+<tt class="docutils literal"><span class="pre">EntityManager</span></tt> and it is not REMOVED.</p>
+<p>An entity is in REMOVED state after it has been passed to
+<tt class="docutils literal"><span class="pre">EntityManager#remove()</span></tt> until the next flush operation of the
+same EntityManager. A REMOVED entity is still associated with an
+<tt class="docutils literal"><span class="pre">EntityManager</span></tt> until the next flush operation.</p>
+<p>An entity is in DETACHED state if it has persistent state and
+identity but is currently not associated with an
+<tt class="docutils literal"><span class="pre">EntityManager</span></tt>.</p>
+<p>An entity is in NEW state if has no persistent state and identity
+and is not associated with an <tt class="docutils literal"><span class="pre">EntityManager</span></tt> (for example those
+just created via the &#8220;new&#8221; operator).</p>
+</div>
+</div>
+<div class="section" id="querying">
+<h2>8.8. Querying<a class="headerlink" href="#querying" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine 2 provides the following ways, in increasing level of
+power and flexibility, to query for persistent objects. You should
+always start with the simplest one that suits your needs.</p>
+<div class="section" id="by-primary-key">
+<h3>8.8.1. By Primary Key<a class="headerlink" href="#by-primary-key" title="Permalink to this headline">¶</a></h3>
+<p>The most basic way to query for a persistent object is by its
+identifier / primary key using the
+<tt class="docutils literal"><span class="pre">EntityManager#find($entityName,</span> <span class="pre">$id)</span></tt> method. Here is an
+example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">,</span> <span class="nv">$id</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The return value is either the found entity instance or null if no
+instance could be found with the given identifier.</p>
+<p>Essentially, <tt class="docutils literal"><span class="pre">EntityManager#find()</span></tt> is just a shortcut for the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="nv">$id</span><span class="p">);</span>
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">EntityManager#getRepository($entityName)</span></tt> returns a repository
+object which provides many ways to retrieve entities of the
+specified type. By default, the repository instance is of type
+<tt class="docutils literal"><span class="pre">Doctrine\ORM\EntityRepository</span></tt>. You can also use custom
+repository classes as shown later.</p>
+</div>
+<div class="section" id="by-simple-conditions">
+<h3>8.8.2. By Simple Conditions<a class="headerlink" href="#by-simple-conditions" title="Permalink to this headline">¶</a></h3>
+<p>To query for one or more entities based on several conditions that
+form a logical conjunction, use the <tt class="docutils literal"><span class="pre">findBy</span></tt> and <tt class="docutils literal"><span class="pre">findOneBy</span></tt>
+methods on a repository as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+
+<span class="c1">// All users that are 20 years old</span>
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;age&#39;</span> <span class="o">=&gt;</span> <span class="mi">20</span><span class="p">));</span>
+
+<span class="c1">// All users that are 20 years old and have a surname of &#39;Miller&#39;</span>
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;age&#39;</span> <span class="o">=&gt;</span> <span class="mi">20</span><span class="p">,</span> <span class="s1">&#39;surname&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;Miller&#39;</span><span class="p">));</span>
+
+<span class="c1">// A single user by its nickname</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;nickname&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;romanb&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>You can also load by owning side associations through the repository:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$number</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\Phonenumber&#39;</span><span class="p">,</span> <span class="mi">1234</span><span class="p">);</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;phone&#39;</span> <span class="o">=&gt;</span> <span class="nv">$number</span><span class="o">-&gt;</span><span class="na">getId</span><span class="p">()));</span>
+</pre></div>
+</div>
+<p>Be careful that this only works by passing the ID of the associated entity, not yet by passing the associated entity itself.</p>
+<p>The <tt class="docutils literal"><span class="pre">EntityRepository#findBy()</span></tt> method additionally accepts orderings, limit and offset as second to fourth parameters:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$tenUsers</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;age&#39;</span> <span class="o">=&gt;</span> <span class="mi">20</span><span class="p">),</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;ASC&#39;</span><span class="p">),</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>If you pass an array of values Doctrine will convert the query into a WHERE field IN (..) query automatically:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;age&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">40</span><span class="p">)));</span>
+<span class="c1">// translates roughly to: SELECT * FROM users WHERE age IN (20, 30, 40)</span>
+</pre></div>
+</div>
+<p>An EntityRepository also provides a mechanism for more concise
+calls through its use of <tt class="docutils literal"><span class="pre">__call</span></tt>. Thus, the following two
+examples are equivalent:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// A single user by its nickname</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneBy</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;nickname&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;romanb&#39;</span><span class="p">));</span>
+
+<span class="c1">// A single user by its nickname (__call magic)</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyProject\Domain\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneByNickname</span><span class="p">(</span><span class="s1">&#39;romanb&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="by-criteria">
+<h3>8.8.3. By Criteria<a class="headerlink" href="#by-criteria" title="Permalink to this headline">¶</a></h3>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.3.</span></p>
+<p>The Repository implement the <tt class="docutils literal"><span class="pre">Doctrine\Common\Collections\Selectable</span></tt>
+interface. That means you can build <tt class="docutils literal"><span class="pre">Doctrine\Common\Collections\Criteria</span></tt>
+and pass them to the <tt class="docutils literal"><span class="pre">matching($criteria)</span></tt> method.</p>
+<p>See the <em class="xref std std-ref">Working with Associations: Filtering collections</em>.</p>
+</div>
+<div class="section" id="by-eager-loading">
+<h3>8.8.4. By Eager Loading<a class="headerlink" href="#by-eager-loading" title="Permalink to this headline">¶</a></h3>
+<p>Whenever you query for an entity that has persistent associations
+and these associations are mapped as EAGER, they will automatically
+be loaded together with the entity being queried and is thus
+immediately available to your application.</p>
+</div>
+<div class="section" id="by-lazy-loading">
+<h3>8.8.5. By Lazy Loading<a class="headerlink" href="#by-lazy-loading" title="Permalink to this headline">¶</a></h3>
+<p>Whenever you have a managed entity instance at hand, you can
+traverse and use any associations of that entity that are
+configured LAZY as if they were in-memory already. Doctrine will
+automatically load the associated objects on demand through the
+concept of lazy-loading.</p>
+</div>
+<div class="section" id="by-dql">
+<h3>8.8.6. By DQL<a class="headerlink" href="#by-dql" title="Permalink to this headline">¶</a></h3>
+<p>The most powerful and flexible method to query for persistent
+objects is the Doctrine Query Language, an object query language.
+DQL enables you to query for persistent objects in the language of
+objects. DQL understands classes, fields, inheritance and
+associations. DQL is syntactically very similar to the familiar SQL
+but <em>it is not SQL</em>.</p>
+<p>A DQL query is represented by an instance of the
+<tt class="docutils literal"><span class="pre">Doctrine\ORM\Query</span></tt> class. You create a query using
+<tt class="docutils literal"><span class="pre">EntityManager#createQuery($dql)</span></tt>. Here is a simple example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+
+<span class="c1">// All users with an age between 20 and 30 (inclusive).</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">createQuery</span><span class="p">(</span><span class="s2">&quot;select u from MyDomain\Model\User u where u.age &gt;= 20 and u.age &lt;= 30&quot;</span><span class="p">);</span>
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Note that this query contains no knowledge about the relational
+schema, only about the object model. DQL supports positional as
+well as named parameters, many functions, (fetch) joins,
+aggregates, subqueries and much more. Detailed information about
+DQL and its syntax as well as the Doctrine class can be found in
+<a class="reference internal" href="dql-doctrine-query-language.html"><em>the dedicated chapter</em></a>.
+For programmatically building up queries based on conditions that
+are only known at runtime, Doctrine provides the special
+<tt class="docutils literal"><span class="pre">Doctrine\ORM\QueryBuilder</span></tt> class. More information on
+constructing queries with a QueryBuilder can be found
+<a class="reference internal" href="query-builder.html"><em>in Query Builder chapter</em></a>.</p>
+</div>
+<div class="section" id="by-native-queries">
+<h3>8.8.7. By Native Queries<a class="headerlink" href="#by-native-queries" title="Permalink to this headline">¶</a></h3>
+<p>As an alternative to DQL or as a fallback for special SQL
+statements native queries can be used. Native queries are built by
+using a hand-crafted SQL query and a ResultSetMapping that
+describes how the SQL result set should be transformed by Doctrine.
+More information about native queries can be found in
+<a class="reference internal" href="native-sql.html"><em>the dedicated chapter</em></a>.</p>
+</div>
+<div class="section" id="custom-repositories">
+<h3>8.8.8. Custom Repositories<a class="headerlink" href="#custom-repositories" title="Permalink to this headline">¶</a></h3>
+<p>By default the EntityManager returns a default implementation of
+<tt class="docutils literal"><span class="pre">Doctrine\ORM\EntityRepository</span></tt> when you call
+<tt class="docutils literal"><span class="pre">EntityManager#getRepository($entityClass)</span></tt>. You can overwrite
+this behaviour by specifying the class name of your own Entity
+Repository in the Annotation, XML or YAML metadata. In large
+applications that require lots of specialized DQL queries using a
+custom repository is one recommended way of grouping these queries
+in a central location.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">namespace</span> <span class="nx">MyDomain\Model</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\EntityRepository</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @entity(repositoryClass=&quot;MyDomain\Model\UserRepository&quot;)</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">User</span>
+<span class="p">{</span>
+
+<span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">UserRepository</span> <span class="k">extends</span> <span class="nx">EntityRepository</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getAllAdminUsers</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_em</span><span class="o">-&gt;</span><span class="na">createQuery</span><span class="p">(</span><span class="s1">&#39;SELECT u FROM MyDomain\Model\User u WHERE u.status = &quot;admin&quot;&#39;</span><span class="p">)</span>
+                         <span class="o">-&gt;</span><span class="na">getResult</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can access your repository now by calling:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// $em instanceof EntityManager</span>
+
+<span class="nv">$admins</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;MyDomain\Model\User&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getAllAdminUsers</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">8. Working with Objects</a><ul>
+<li><a class="reference internal" href="#entities-and-the-identity-map">8.1. Entities and the Identity Map</a></li>
+<li><a class="reference internal" href="#entity-object-graph-traversal">8.2. Entity Object Graph Traversal</a></li>
+<li><a class="reference internal" href="#persisting-entities">8.3. Persisting entities</a></li>
+<li><a class="reference internal" href="#removing-entities">8.4. Removing entities</a></li>
+<li><a class="reference internal" href="#detaching-entities">8.5. Detaching entities</a></li>
+<li><a class="reference internal" href="#merging-entities">8.6. Merging entities</a></li>
+<li><a class="reference internal" href="#synchronization-with-the-database">8.7. Synchronization with the Database</a><ul>
+<li><a class="reference internal" href="#effects-of-database-and-unitofwork-being-out-of-sync">8.7.1. Effects of Database and UnitOfWork being Out-Of-Sync</a></li>
+<li><a class="reference internal" href="#synchronizing-new-and-managed-entities">8.7.2. Synchronizing New and Managed Entities</a></li>
+<li><a class="reference internal" href="#synchronizing-removed-entities">8.7.3. Synchronizing Removed Entities</a></li>
+<li><a class="reference internal" href="#the-size-of-a-unit-of-work">8.7.4. The size of a Unit of Work</a></li>
+<li><a class="reference internal" href="#the-cost-of-flushing">8.7.5. The cost of flushing</a></li>
+<li><a class="reference internal" href="#direct-access-to-a-unit-of-work">8.7.6. Direct access to a Unit of Work</a></li>
+<li><a class="reference internal" href="#entity-state">8.7.7. Entity State</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#querying">8.8. Querying</a><ul>
+<li><a class="reference internal" href="#by-primary-key">8.8.1. By Primary Key</a></li>
+<li><a class="reference internal" href="#by-simple-conditions">8.8.2. By Simple Conditions</a></li>
+<li><a class="reference internal" href="#by-criteria">8.8.3. By Criteria</a></li>
+<li><a class="reference internal" href="#by-eager-loading">8.8.4. By Eager Loading</a></li>
+<li><a class="reference internal" href="#by-lazy-loading">8.8.5. By Lazy Loading</a></li>
+<li><a class="reference internal" href="#by-dql">8.8.6. By DQL</a></li>
+<li><a class="reference internal" href="#by-native-queries">8.8.7. By Native Queries</a></li>
+<li><a class="reference internal" href="#custom-repositories">8.8.8. Custom Repositories</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="inheritance-mapping.html"
+                                  title="previous chapter">7. Inheritance Mapping</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="working-with-associations.html"
+                                  title="next chapter">9. Working with Associations</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/reference/working-with-objects.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/reference/working-with-objects.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/reference/working-with-objects.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

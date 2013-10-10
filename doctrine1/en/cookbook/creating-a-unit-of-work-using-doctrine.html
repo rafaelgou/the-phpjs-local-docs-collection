@@ -1,0 +1,360 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Writing a Unit of Work in PHP Doctrine &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Record-based Retrieval Security Template" href="record-based-retrieval-security-template.html" />
+    <link rel="prev" title="Master and Slave Connections" href="master-and-slave-connections.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="record-based-retrieval-security-template.html" title="Record-based Retrieval Security Template"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="master-and-slave-connections.html" title="Master and Slave Connections"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="writing-a-unit-of-work-in-php-doctrine">
+<h1>Writing a Unit of Work in PHP Doctrine<a class="headerlink" href="#writing-a-unit-of-work-in-php-doctrine" title="Permalink to this headline">¶</a></h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Authors:</th><td class="field-body"><ul class="first simple">
+<li>Jon Lebensold</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Contact:</th><td class="field-body"><p class="first last"><a class="reference external" href="http://jon.lebensold.ca/">http://jon.lebensold.ca/</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<p>In this tutorial, we&#8217;re going to create a Unit Of Work object that will
+simplify performing transactions with Doctrine Models. The Goal here is
+to centralize all of our commits to the database into one class which
+will perform them transactionally.</p>
+<p>Afterwards, we can extend this class to include logging and error
+handling in case a commit fails.</p>
+<p>It is helpful to think of the Unit of Work as a way of putting
+everything that we would want to update, insert and delete into one bag
+before sending it to the database.</p>
+<p>Let&#8217;s create a Doctrine YAML file with a Project Model:</p>
+<p>Project: tableName: lookup_project columns: id: primary: true
+autoincrement: true type: integer(4) name: string(255)</p>
+<p>With Doctrine models, saving a Project should be as simple as this:</p>
+<blockquote>
+<div>$project = new Project(); $project-&gt;name = &#8216;new project&#8217;;</div></blockquote>
+<p>$project-&gt;save();</p>
+<p>However, as soon as we want to perform database transactions or logging
+becomes a requirement, having save(); statements all over the place can
+create a lot of duplication.</p>
+<p>To start with, let&#8217;s create a UnitOfWork class:</p>
+<blockquote>
+<div>class UnitOfWork { protected $*createOrUpdateCollection = array();</div></blockquote>
+<p>protected $*deleteCollection = array(); }</p>
+<p>Because Doctrine is clever enough to know when to UPDATE and when to
+INSERT, we can combine those two operations in one collection. We&#8217;ll
+store all the delete&#8217;s that we&#8217;re planning to form in
+$_deleteCollection.</p>
+<p>Now we need to add some code to our class to make sure the same object
+isn&#8217;t added twice.</p>
+<blockquote>
+<div>protected function</div></blockquote>
+<p><a href="#id1"><span class="problematic" id="id2">*</span></a>existsInCollections(<tt class="code docutils literal"><span class="pre">model)</span> <span class="pre">{</span> <span class="pre">//</span> <span class="pre">does</span> <span class="pre">the</span> <span class="pre">model</span> <span class="pre">already</span> <span class="pre">belong</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">createOrUpdate</span> <span class="pre">collection?</span> <span class="pre">foreach</span> <span class="pre">(</span></tt>this-&gt;*createOrUpdateCollection
+as <tt class="code docutils literal"><span class="pre">m)</span> <span class="pre">{</span> <span class="pre">if</span> <span class="pre">(</span></tt>model-&gt;getOid() == $m-&gt;getOid()) { return true; }
+}</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// does the model already belong to the delete collection?</span>
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span> <span class="k">as</span> <span class="nv">$m</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$model</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">()</span> <span class="o">==</span> <span class="nv">$m</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">())</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>return false; }</p>
+<p>Now we can add our public methods that will be used by code outside of
+the UnitOfWork:</p>
+<blockquote>
+<div>public function</div></blockquote>
+<p>registerModelForCreateOrUpdate(<tt class="code docutils literal"><span class="pre">model)</span> <span class="pre">{</span> <span class="pre">//</span> <span class="pre">code</span> <span class="pre">to</span> <span class="pre">check</span> <span class="pre">to</span> <span class="pre">see</span> <span class="pre">if</span> <span class="pre">the</span> <span class="pre">model</span> <span class="pre">exists</span> <span class="pre">already</span> <span class="pre">if</span> <span class="pre">(</span></tt>this-&gt;_existsInCollections($model))
+{ throw new Exception(&#8216;model already in another collection for this
+transaction&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// no? add it</span>
+<span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_createOrUpdateCollection</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$model</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>public function
+registerModelForDelete(<tt class="code docutils literal"><span class="pre">model)</span> <span class="pre">{</span> <span class="pre">//</span> <span class="pre">code</span> <span class="pre">to</span> <span class="pre">check</span> <span class="pre">to</span> <span class="pre">see</span> <span class="pre">if</span> <span class="pre">the</span> <span class="pre">model</span> <span class="pre">exists</span> <span class="pre">already</span> <span class="pre">if</span> <span class="pre">(</span></tt>this-&gt;_existsInCollections($model))
+{ throw new Exception(&#8216;model already in another collection for this
+transaction&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// no? add it</span>
+<span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$model</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Before we write the transaction code, we should also be able to let
+other code clear the Unit Of Work. We&#8217;ll use this method internally as
+well in order to flush the collections after our transaction is
+succesful.</p>
+<blockquote>
+<div>public function clearAll() { $this-&gt;*deleteCollection = array();</div></blockquote>
+<p>$this-&gt;*createOrUpdateCollection = array(); }</p>
+<p>With skeleton in place, we can now write the code that performs the
+Doctrine transaction:</p>
+<blockquote>
+<div>public function commitAll() { $conn = Doctrine_Manager::connection();</div></blockquote>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">try</span> <span class="p">{</span>
+      <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">beginTransaction</span><span class="p">();</span>
+
+      <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_performCreatesOrUpdates</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+      <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_performDeletes</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+
+      <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">commit</span><span class="p">();</span>
+<span class="p">}</span> <span class="k">catch</span><span class="p">(</span><span class="nx">Doctrine_Exception</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">rollback</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="nv">$this</span><span class="o">-&gt;</span><span class="na">clearAll</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Now we&#8217;re assuming that we&#8217;ve already started a Doctrine connection. In
+order for this object to work, we need to initialize Doctrine. It&#8217;s
+often best to put this kind of code in a config.php file which is loaded
+once using require_once();</p>
+<blockquote>
+<div>define(&#8216;SANDBOX_PATH&#8217;, dirname(<strong>FILE</strong>)); define(&#8216;DOCTRINE_PATH&#8217;,</div></blockquote>
+<p>SANDBOX_PATH . DIRECTORY_SEPARATOR . &#8216;lib&#8217;); define(&#8216;MODELS_PATH&#8217;,
+SANDBOX_PATH . DIRECTORY_SEPARATOR . &#8216;models&#8217;);
+define(&#8216;YAML_SCHEMA_PATH&#8217;, SANDBOX_PATH . DIRECTORY_SEPARATOR .
+&#8216;schema&#8217;); define(&#8216;DB_PATH&#8217;, &#8216;mysql://root:&#64;localhost/database&#8217;);</p>
+<p>require_once(DOCTRINE_PATH . DIRECTORY_SEPARATOR . &#8216;Doctrine.php&#8217;);</p>
+<p>spl_autoload_register(array(&#8216;Doctrine&#8217;, &#8216;autoload&#8217;));
+Doctrine_Manager::getInstance()-&gt;setAttribute(Doctrine_Core::ATTR_MODEL_LOADING,
+Doctrine_Core::MODEL_LOADING_CONSERVATIVE);</p>
+<p>$connection = Doctrine_Manager::connection(DB_PATH, &#8216;main&#8217;);</p>
+<p>Doctrine_Core::loadModels(MODELS_PATH);</p>
+<p>With all that done, we can now invoke the Unit of Work to perform a
+whole range of operations in one clean transaction without adding
+complexity to the rest of our code base.</p>
+<blockquote>
+<div>$t = Doctrine_Core::getTable(&#8216;Project&#8217;); $lastProjects =</div></blockquote>
+<p>$t-&gt;findByName(&#8216;new project&#8217;);</p>
+<p>$unitOfWork = new UnitOfWork();</p>
+<p>// prepare an UPDATE $lastProjects[0]-&gt;name = &#8216;old project&#8217;;
+<tt class="code docutils literal"><span class="pre">unitOfWork-&gt;registerModelForCreateOrUpdate(</span></tt>lastProjects[0]);</p>
+<p>// prepare a CREATE $project = new Project(); $project-&gt;name = &#8216;new
+project name&#8217;;</p>
+<p><tt class="code docutils literal"><span class="pre">unitOfWork-&gt;registerModelForCreateOrUpdate(</span></tt>project);</p>
+<p>// prepare a DELETE <tt class="code docutils literal"><span class="pre">unitOfWork-&gt;registerModelForDelete(</span></tt>lastProjects[3]);</p>
+<p>// perform the transaction $unitOfWork-&gt;commitAll();</p>
+<p>The end result should look like this:</p>
+<blockquote>
+<div>class UnitOfWork { /** * Collection of models to be persisted * *</div></blockquote>
+<p>&#64;var array Doctrine_Record */ protected $_createOrUpdateCollection =
+array();</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="sd">/**</span>
+<span class="sd"> * Collection of models to be persisted</span>
+<span class="sd"> *</span>
+<span class="sd"> * @var array Doctrine_Record</span>
+<span class="sd"> */</span>
+<span class="k">protected</span> <span class="nv">$_deleteCollection</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Add a model object to the create collection</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param Doctrine_Record $model</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">registerModelForCreateOrUpdate</span><span class="p">(</span><span class="nv">$model</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// code to check to see if the model exists already</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_existsInCollections</span><span class="p">(</span><span class="nv">$model</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nx">Exception</span><span class="p">(</span><span class="s1">&#39;model already in another collection for this transaction&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// no? add it</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_createOrUpdateCollection</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$model</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Add a model object to the delete collection</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param Doctrine_Record $model</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">registerModelForDelete</span><span class="p">(</span><span class="nv">$model</span><span class="p">)</span>
+<span class="p">{</span>
+      <span class="c1">// code to check to see if the model exists already</span>
+      <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_existsInCollections</span><span class="p">(</span><span class="nv">$model</span><span class="p">))</span> <span class="p">{</span>
+          <span class="k">throw</span> <span class="k">new</span> <span class="nx">Exception</span><span class="p">(</span><span class="s1">&#39;model already in another collection for this transaction&#39;</span><span class="p">);</span>
+      <span class="p">}</span>
+
+      <span class="c1">// no? add it</span>
+      <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$model</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Clear the Unit of Work</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">ClearAll</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_createOrUpdateCollection</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Perform a Commit and clear the Unit Of Work. Throw an Exception if it fails and roll back.</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">commitAll</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$conn</span> <span class="o">=</span> <span class="nx">Doctrine_Manager</span><span class="o">::</span><span class="na">connection</span><span class="p">();</span>
+
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">beginTransaction</span><span class="p">();</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">performCreatesOrUpdates</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">performDeletes</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+
+        <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">commit</span><span class="p">();</span>
+    <span class="p">}</span> <span class="k">catch</span><span class="p">(</span><span class="nx">Doctrine_Exception</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">rollback</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">clearAll</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">protected</span> <span class="k">function</span> <span class="nf">_performCreatesOrUpdates</span><span class="p">(</span><span class="nv">$conn</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_createOrUpdateCollection</span> <span class="k">as</span> <span class="nv">$model</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$model</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">protected</span> <span class="k">function</span> <span class="nf">_performDeletes</span><span class="p">(</span><span class="nv">$conn</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span> <span class="k">as</span> <span class="nv">$model</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$model</span><span class="o">-&gt;</span><span class="na">delete</span><span class="p">(</span><span class="nv">$conn</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">protected</span> <span class="k">function</span> <span class="nf">_existsInCollections</span><span class="p">(</span><span class="nv">$model</span><span class="p">)</span>
+<span class="p">{</span>
+   <span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_createOrUpdateCollection</span> <span class="k">as</span> <span class="nv">$m</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$model</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">()</span> <span class="o">==</span> <span class="nv">$m</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+        <span class="p">}</span>
+   <span class="p">}</span>
+
+   <span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_deleteCollection</span> <span class="k">as</span> <span class="nv">$m</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$model</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">()</span> <span class="o">==</span> <span class="nv">$m</span><span class="o">-&gt;</span><span class="na">getOid</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+        <span class="p">}</span>
+   <span class="p">}</span>
+
+   <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Thanks for reading, feel free to check out <a class="reference external" href="http://jon.lebensold.ca">http://jon.lebensold.ca</a> or
+mail me at <a class="reference external" href="mailto:jon&#37;&#52;&#48;lebensold&#46;ca">jon<span>&#64;</span>lebensold<span>&#46;</span>ca</a> if you have any questions.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="master-and-slave-connections.html"
+                        title="previous chapter">Master and Slave Connections</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="record-based-retrieval-security-template.html"
+                        title="next chapter">Record-based Retrieval Security Template</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/cookbook/creating-a-unit-of-work-using-doctrine.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="record-based-retrieval-security-template.html" title="Record-based Retrieval Security Template"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="master-and-slave-connections.html" title="Master and Slave Connections"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

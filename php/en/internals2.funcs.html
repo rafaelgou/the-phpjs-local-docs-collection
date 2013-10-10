@@ -1,0 +1,393 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Writing functions</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="internals2.variables.creating.html">Creating variables and setting values</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="internals2.objects.html">Working with classes and objects</a></div>
+ <div class="up"><a href="internals2.html">PHP at the Core: A Hacker's Guide to the Zend Engine</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="internals2.funcs" class="chapter">
+  <h1>Writing functions</h1>
+
+  <p class="para">
+   One core element of an extension are functions which are exported to the
+   PHP userland. Even when you&#039;re planning to write object-oriented extensions
+   you are advised to read this chapter as most of the information is valid
+   for methods, too.
+  </p>
+
+  <p class="para">
+   When adding a function to an extension, for instance after using the
+   <a href="internals2.buildsys.skeleton.html" class="link">ext_skel</a> script to
+   create the raw infrastructure, you can create a function by implementing it
+   as a C function and then providing an entry for the extension&#039;s function
+   table. The function entry can contain a pointer to an argument information
+   structure. Providing this information ins not strictly necessary, unless
+   you plan to accept parameters by reference or want to return a reference, but
+   provides information that can be accessed via PHP&#039;s <a href="book.reflection.html" class="link">Reflection API</a>. As you will see below the 
+   parameters aren&#039;t passed as direct function parameters to the implementation
+   but passed on a stack, which is checked by the function&#039;s implementation
+   which can&#039;t directly serve as source for this information.
+  </p>
+
+  <div class="example" id="internals2.funcs.index.minimalext">
+   <p><strong>Example #1 Minimal PHP extension with one function</strong></p>
+   <div class="example-contents">
+<div class="ccode"><pre class="ccode">/* {{{ proto void hello_world()
+       Do nothing */
+PHP_FUNCTION(hello_world)
+{
+}
+/* }}} */
+
+/* {{{ arginfo_hello_world */
+ZEND_BEGIN_ARG_INFO(arginfo_hello_world, 0)
+ZEND_END_ARG_INFO()
+/* }}} */
+
+/* {{{ demo_functions */
+function_entry demo_functions[] = {
+    PHP_FE(hello_world, arginfo_hello_world)
+    {NULL, NULL, NULL}
+}
+/* }}} */
+
+/* {{{ demo_module_enry */
+zend_module_entry demo_module_entry = {
+#if ZEND_MODULE_API_NO &gt;= 20010901
+    STANDARD_MODULE_HEADER,
+#endif
+    &quot;demo&quot;,
+    demo_functions,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+#if ZEND_MODULE_API_NO &gt;= 20010901
+    &quot;1.0.0&quot;,
+#en
+    STANDARD_MODULE_PROPERTIES
+}
+/* }}} */</pre>
+</div>
+   </div>
+
+  </div>
+
+  <p class="para">
+   In this example you can see the above discussed elements and the module
+   structure; if you don&#039;t remember this structure go back to
+   <a href="internals2.structure.modstruct.html" class="xref">The zend_module structure</a>.
+  </p>
+
+  <p class="para">
+   The first part of this extension is the actual implementation. As a
+   convention each exported function is preceded by a two line comment
+   describing the function&#039;s userland prototype and a short one line comment.
+  </p>
+
+  <p class="para">
+   For providing source code compatibility between different versions of PHP
+   the functions declaration is wrapped into the <code class="code">PHP_FUNCTION</code>
+   macro. The compiler&#039;s preprocessor will, when using PHP 5.3 transform this
+   into a function like this:
+  </p>
+
+  <div class="example-contents screen">
+<div class="cdata"><pre>
+void zif_hello_world(int ht, zval *return_value, zval **return_value_ptr,
+                     zval *this_ptr, int return_value_used TSRMLS_DC)
+{
+}
+</pre></div>
+  </div>
+
+  <p class="para">
+   For preventing a naming conflict between a function exported to userland
+   and another C function with the same name the C symbol of the exported
+   function is prefixed with the prefix <code class="code">zif_</code>. You can also see
+   that this prototype doesn&#039;t reference the argument stack. Accessing
+   parameters passed from PHP is described below. The following table lists
+   the C level parameters which are also defined in the
+   <code class="code">INTERNAL_FUNCTION_PARAMETERS</code> macro. Mind that these parameters 
+   might change between PHP versions and you should use the provide macros.
+  </p>
+
+  <table id="internals2.funcs.index.internal-func-params" class="doctable table">
+   <caption><strong>INTERNAL_FUNCTION_PARAMETERS</strong></caption>
+   
+    <thead>
+     <tr>
+      <th>Name and type</th>
+      <th>Description</th>
+      <th>Access macros</th>
+     </tr>
+
+    </thead>
+
+    <tbody class="tbody">
+                                                    
+     <tr>
+      <td><code class="code">int ht</code></td>
+      <td>Number of actual parameters passed by user</td>
+      <td><code class="code">ZEND_NUM_ARGS()</code></td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">zval *return_value</code></td>
+      <td>
+       Pointer to a PHP variable that can be filled with the return value
+       passed to the user. The default type is <code class="code">IS_NULL</code>.
+      </td>
+      <td><code class="code">RETVAL_*</code>, <code class="code">RETURN_*</code></td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">zval **return_value_ptr</code></td>
+      <td>When returning references to PHP set this to a pointer to
+       your variable. It is not suggested to return references.</td>
+      <td class="empty">&nbsp;</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">zval *this_ptr</code></td>
+      <td>
+       If this is a method call, points to the PHP variable
+       holding the <code class="code">$this</code> object.
+      </td>
+      <td><code class="code">getThis()</code></td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">int return_value_used</code></td>
+      <td>
+       Flag indicating whether the returned value will be used by the
+       caller.
+      </td>
+      <td class="empty">&nbsp;</td>
+     </tr>
+
+
+    </tbody>
+   
+  </table>
+
+
+  <p class="para">
+   As said the function shown above will simply return NULL to the user and do
+   nothing else. The function can be called, from the PHP userland, with an
+   arbitrary number of parameters. A more useful function consists of four
+   parts in general:
+  </p>
+
+  <ol type="1">
+   <li class="listitem">
+    <p class="para">
+     Declaration of local variables. In C we have to declare locale vars, so
+     we do this at the functions top.
+    </p>
+   </li>
+   <li class="listitem">
+    <p class="para">
+     Parameter parsing. PHP passes parameters on a special stack: we have to
+     read them from there, verify the types, cast them if needed and bail out
+     if something goes wrong.
+    </p>
+   </li>
+   <li class="listitem">
+    <p class="para">
+     Actual logic. Do whatever is needed.
+    </p>
+   </li>
+   <li class="listitem">
+    <p class="para">
+     Set the return value, cleanup, return.
+    </p>
+   </li>
+  </ol>
+
+  <p class="para">
+   In some cases the exact order of these steps may change. Especially the
+   last two steps are often mixed up, but it&#039;s a good idea to stay in that
+   order.
+  </p>
+
+  <div class="example" id="internals2.funcs.index.simplefunc">
+   <p><strong>Example #2 A  simple function</strong></p>
+   <div class="example-contents">
+<div class="ccode"><pre class="ccode">/* {{{ proto void hello_world(string name)
+   Greets a user */
+PHP_FUNCTION(hello_world)
+{
+    char *name;
+    int name_len;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, &quot;s&quot;, &amp;name, &amp;name_len) == FAILURE) {
+        return;
+    }
+
+    php_printf(&quot;Hello %s!&quot;, name);
+
+    RETURN_TRUE;
+}
+/* }}} */</pre>
+</div>
+   </div>
+
+  </div>
+
+  <p class="para">
+   The function above shows these parts. Let&#039;s start the analysis with the
+   last lines: <code class="code">php_printf</code> is - as one can guess easily - PHP&#039;s
+   version of standard C&#039;s <code class="code">printf</code>. Unlike <code class="code">printf</code> it
+   doesn&#039;t print to the process&#039;s <code class="code">STDOUT</code> channel but to the
+   current output stream, which might be buffered by the user. It should be
+   noted that <code class="code">php_printf</code>, unlike most parts of PHP&#039;s API is not
+   binary safe, so if <code class="code">name</code> contains a NULL-byte the rest would be
+   ignored. For a binary safe output <code class="code">PHPWRITE</code> should be used.
+  </p>
+
+  <blockquote class="note"><p><strong class="note">Note</strong>: 
+   <span class="simpara">
+    In general it is considered to directly print data to the output stream,
+    it is suggested to return data as string to the user instead so the user
+    can decide what to do. Exceptions to this rule might be functions dealing
+    with binary data like images while your API should provide a way to access
+    the data even there.
+   </span>
+  </p></blockquote>
+
+  <p class="para">
+   The <code class="code">RETURN_TRUE</code> macro in the last line does three things: It
+   sets the type of the variable we got as <code class="code">return_value</code> pointer to
+   <code class="code">IS_BOOLEAN</code> and the value to a <code class="code">true</code> value. Then it
+   returns from the C function. So when using this macro you&#039;re housekeeping
+   for memory and other resources has to be completed as further code of
+   this function won&#039;t be executed.
+  </p>
+
+  <p class="para">
+   The <code class="code">zend_parse_parameters()</code> function is responsible for reading
+   the parameters passed by the user from the argument stack and putting it
+   with proper casting in local C variables. If the user doesn&#039;t pass the wrong
+   number of parameters or types that can&#039;t be casted the function will emit a
+   verbose error and return <code class="code">FAILURE</code>. In that case we simply return
+   from the function - by not changing the <code class="code">return_value</code> the 
+   default return value of <code class="code">NULL</code> will be returned to the user.
+  </p>
+
+  <blockquote class="note"><p><strong class="note">Note</strong>: 
+   <span class="simpara">
+    Please mind that <code class="code">FAILURE</code> is represented by a <code class="code">-1</code> 
+    and <code class="code">SUCCESS</code> by <code class="code">0</code>. To make the code clear you 
+    should always use the named constants for comparing the value.
+   </span>
+  </p></blockquote>
+
+  <p class="para">
+   The first parameter to <code class="code">zend_parse_parameters()</code> is the number of
+   parameters that have actually been passed to the function by the user. The
+   number is passed as <code class="code">ht</code> parameter to our function but, as
+   discussed above, this should be considered as an implementation detail and
+   <code class="code">ZEND_NUM_ARGS()</code> should be used.
+  </p>
+
+  <p class="para">
+   For compatibility with PHP&#039;s thread-isolation, the thread-safe resource
+   manager, we also have to pass the thread context using
+   <code class="code">TSRMLS_CC</code>. Unlike in other functions this can&#039;t be the last
+   parameter as <code class="code">zend_parse_parameters</code> expects a variable number of
+   parameters - depending on the number of user-parameters to read.
+  </p>
+
+  <p class="para">
+   Following the thread context the expected parameters are declared. Each
+   parameter is represented by a character in the string describing the type.
+   In our case we expect one parameter as a string so our type specification
+   is simply <code class="code">&quot;s&quot;</code>.
+  </p>
+
+  <p class="para">
+   Lastly one has to pass one or more pointers to C variables which should be
+   filled with the variable&#039;s value or provide more details. In the case of a
+   string we get the actual string, which will always be NULL-terminated, as a
+   <code class="code">char*</code> and its length, excluding the NULL-byte, as
+   <code class="code">int</code>.
+  </p>
+
+  <p class="para">
+   A documentation of all type specifiers and the corresponding additional C
+   types can be found in the file <a href="http://svn.php.net/viewvc/php/php-src/trunk/README.PARAMETER_PARSING_API" class="link external">&raquo;&nbsp;README.PARAMETER_PARSING_API</a>
+   which is part of the source distribution. The most important types can be 
+   found in the table below.
+  </p>
+
+  <table id="internals2.funcs.index.zend-pars-params-types" class="doctable table">
+   <caption><strong>zend_parse_parameters() type specifiers</strong></caption>
+   
+    <thead>
+     <tr>
+      <th>Modifier</th>
+      <th>Additional parameter types</th>
+      <th>Description</th>
+     </tr>
+
+    </thead>
+
+    <tbody class="tbody">
+
+     <tr>
+      <td><code class="code">b</code></td>
+      <td><code class="code">zend_bool</code></td>
+      <td>Boolean value</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">l</code></td>
+      <td><code class="code">long</code></td>
+      <td>A integer (long) value</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">d</code></td>
+      <td><code class="code">double</code></td>
+      <td>A float (double) value</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">s</code></td>
+      <td><code class="code">char*, int</code></td>
+      <td>A binary safe string</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">h</code></td>
+      <td><code class="code">HashTable*</code></td>
+      <td>An array&#039;s hash table</td>
+     </tr>
+
+    </tbody>
+   
+  </table>
+
+
+ </div>
+<hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="internals2.variables.creating.html">Creating variables and setting values</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="internals2.objects.html">Working with classes and objects</a></div>
+ <div class="up"><a href="internals2.html">PHP at the Core: A Hacker's Guide to the Zend Engine</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

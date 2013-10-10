@@ -1,0 +1,1809 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Behaviors &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Searching" href="searching.html" />
+    <link rel="prev" title="Inheritance" href="inheritance.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="searching.html" title="Searching"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="inheritance.html" title="Inheritance"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="behaviors">
+<h1>Behaviors<a class="headerlink" href="#behaviors" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Many times you may find classes having similar things within your
+models. These things may contain anything related to the schema of the
+component itself (relations, column definitions, index definitions
+etc.). One obvious way of re-factoring the code is having a base class
+with some classes extending it.</p>
+<p>However inheritance solves only a fraction of things. The following
+sections show how using <a href="#id1"><span class="problematic" id="id2">:php:class:`Doctrine_Template`</span></a> is much more powerful and
+flexible than using inheritance.</p>
+<p><a href="#id3"><span class="problematic" id="id4">:php:class:`Doctrine_Template`</span></a> is a class template system. Templates are
+basically ready-to-use little components that your Record classes can
+load. When a template is being loaded its <tt class="docutils literal"><span class="pre">setTableDefinition()</span></tt> and
+<tt class="docutils literal"><span class="pre">setUp()</span></tt> methods are being invoked and the method calls inside them
+are being directed into the class in question.</p>
+<p>This chapter describes the usage of various behaviors available for
+Doctrine. You&#8217;ll also learn how to create your own behaviors. In order
+to grasp the concepts of this chapter you should be familiar with the
+theory behind <a href="#id5"><span class="problematic" id="id6">:php:class:`Doctrine_Template`</span></a> and
+<a href="#id7"><span class="problematic" id="id8">:php:class:`Doctrine_Record_Generator`</span></a>. We will explain what these classes are
+shortly.</p>
+<p>When referring to behaviors we refer to class packages that use
+templates, generators and listeners extensively. All the introduced
+components in this chapter can be considered <tt class="docutils literal"><span class="pre">core</span></tt> behaviors, that
+means they reside at the Doctrine main repository.</p>
+<p>Usually behaviors use generators side-to-side with template classes
+(classes that extend <a href="#id9"><span class="problematic" id="id10">:php:class:`Doctrine_Template`</span></a>). The common workflow is:</p>
+<ul class="simple">
+<li>A new template is being initialized</li>
+<li>The template creates the generator and calls <tt class="docutils literal"><span class="pre">initialize()</span></tt> method</li>
+<li>The template is attached to given class</li>
+</ul>
+<p>As you may already know templates are used for adding common definitions
+and options to record classes. The purpose of generators is much more
+complex. Usually they are being used for creating generic record classes
+dynamically. The definitions of these generic classes usually depend on
+the owner class. For example the columns of the <tt class="docutils literal"><span class="pre">AuditLog</span></tt> versioning
+class are the columns of the parent class with all the sequence and
+autoincrement definitions removed.</p>
+</div>
+<div class="section" id="simple-templates">
+<h2>Simple Templates<a class="headerlink" href="#simple-templates" title="Permalink to this headline">¶</a></h2>
+<p>In the following example we define a template called
+<tt class="docutils literal"><span class="pre">TimestampBehavior</span></tt>. Basically the purpose of this template is to add
+date columns &#8216;created&#8217; and &#8216;updated&#8217; to the record class that loads this
+template. Additionally this template uses a listener called Timestamp
+listener which updates these fields based on record actions.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/TimestampListener.php</span>
+<span class="k">class</span> <span class="nc">TimestampListener</span> <span class="k">extends</span> <span class="nx">Doctrine_Record_Listener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">updated</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">updated</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now lets create a child <a href="#id11"><span class="problematic" id="id12">:php:class:`Doctrine_Template`</span></a> named
+<tt class="docutils literal"><span class="pre">TimestampTemplate</span></tt> so we can attach it to our models with the
+<tt class="docutils literal"><span class="pre">actAs()</span></tt> method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/TimestampBehavior.php</span>
+    <span class="k">class</span> <span class="nc">TimestampTemplate</span> <span class="k">extends</span> <span class="nx">Doctrine_Template</span>
+    <span class="p">{</span>
+        <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+        <span class="p">{</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;created&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span><span class="p">);</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;updated&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span><span class="p">);</span>
+
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span><span class="k">new</span> <span class="nx">TimestampListener</span><span class="p">());</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+</pre></div>
+</div>
+<p>Lets say we have a class called <tt class="docutils literal"><span class="pre">BlogPost</span></tt> that needs the timestamp
+functionality. All we need to do is to add <tt class="docutils literal"><span class="pre">actAs()</span></tt> call in the class
+definition.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">200</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;clob&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;TimestampBehavior&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">BlogPost</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">TimestampBehavior</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(200)</span>
+    <span class="l-Scalar-Plain">body</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">clob</span>
+</pre></div>
+</div>
+<p>Now when we try and utilize the <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model you will notice that
+the <tt class="docutils literal"><span class="pre">created</span></tt> and <tt class="docutils literal"><span class="pre">updated</span></tt> columns were added for you and
+automatically set when saved:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPost</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">BlogPost</span><span class="p">();</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Test&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test
+    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+    <span class="o">[</span>created<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-22
+    <span class="o">[</span>updated<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-22
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above described functionality is available via the
+<tt class="docutils literal"><span class="pre">Timestampable</span></tt> behavior that we have already talked about. You
+can go back and read more about it in the <tt class="xref doc docutils literal"><span class="pre">behaviors:core-behaviors:timestampable</span></tt> section of this
+chapter.</p>
+</div>
+</div>
+<div class="section" id="templates-with-relations">
+<h2>Templates with Relations<a class="headerlink" href="#templates-with-relations" title="Permalink to this headline">¶</a></h2>
+<p>Many times the situations tend to be much more complex than the
+situation in the previous chapter. You may have model classes with
+relations to other model classes and you may want to replace given class
+with some extended class.</p>
+<p>Consider we have two classes, <tt class="docutils literal"><span class="pre">User</span></tt> and <tt class="docutils literal"><span class="pre">Email</span></tt>, with the following
+definitions:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">User</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;password&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;Email&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">Email</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;integer&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasOne</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">User</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+
+<span class="l-Scalar-Plain">Email</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">address</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string</span>
+    <span class="l-Scalar-Plain">user_id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">integer</span>
+  <span class="l-Scalar-Plain">relations</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">User</span><span class="p-Indicator">:</span>
+</pre></div>
+</div>
+<p>Now if we extend the <tt class="docutils literal"><span class="pre">User</span></tt> and <tt class="docutils literal"><span class="pre">Email</span></tt> classes and create, for
+example, classes <tt class="docutils literal"><span class="pre">ExtendedUser</span></tt> and <tt class="docutils literal"><span class="pre">ExtendedEmail</span></tt>, the
+<tt class="docutils literal"><span class="pre">ExtendedUser</span></tt> will still have a relation to the <tt class="docutils literal"><span class="pre">Email</span></tt> class and
+not the <tt class="docutils literal"><span class="pre">ExtendedEmail</span></tt> class. We could of course override the
+<tt class="docutils literal"><span class="pre">setUp()</span></tt> method of the <tt class="docutils literal"><span class="pre">User</span></tt> class and define relation to the
+<tt class="docutils literal"><span class="pre">ExtendedEmail</span></tt> class, but then we lose the whole point of
+inheritance. <a href="#id13"><span class="problematic" id="id14">:php:class:`Doctrine_Template`</span></a> can solve this problem elegantly
+with its dependency injection solution.</p>
+<p>In the following example we&#8217;ll define two templates, <tt class="docutils literal"><span class="pre">UserTemplate</span></tt>
+and <tt class="docutils literal"><span class="pre">EmailTemplate</span></tt>, with almost identical definitions as the <tt class="docutils literal"><span class="pre">User</span></tt>
+and <tt class="docutils literal"><span class="pre">Email</span></tt> class had.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/UserTemplate.php</span>
+<span class="k">class</span> <span class="nc">UserTemplate</span> <span class="k">extends</span> <span class="nx">Doctrine_Template</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;password&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;EmailTemplate as Emails&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now lets define the <tt class="docutils literal"><span class="pre">EmailTemplate</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/EmailTemplate.php</span>
+<span class="k">class</span> <span class="nc">EmailTemplate</span> <span class="k">extends</span> <span class="nx">Doctrine_Template</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;integer&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasOne</span><span class="p">(</span><span class="s1">&#39;UserTemplate as User&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Notice how we set the relations. We are not pointing to concrete Record
+classes, rather we are setting the relations to templates. This tells
+Doctrine that it should try to find concrete Record classes for those
+templates. If Doctrine can&#8217;t find these concrete implementations the
+relation parser will throw an exception, but before we go ahead of
+things, here are the actual record classes:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">User</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;UserTemplate&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">Email</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;EmailTemplate&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">User</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">UserTemplate</span><span class="p-Indicator">]</span>
+
+<span class="l-Scalar-Plain">Email</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">EmailTemplate</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+<p>Now consider the following code snippet. This does NOT work since we
+haven&#8217;t yet set any concrete implementations for the templates.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$user</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">();</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">Emails</span><span class="p">;</span> <span class="c1">// throws an exception</span>
+</pre></div>
+</div>
+<p>The following version works. Notice how we set the concrete
+implementations for the templates globally using <a href="#id15"><span class="problematic" id="id16">:php:class:`Doctrine_Manager`</span></a>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// bootstrap.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$manager</span><span class="o">-&gt;</span><span class="na">setImpl</span><span class="p">(</span><span class="s1">&#39;UserTemplate&#39;</span><span class="p">,</span> <span class="s1">&#39;User&#39;</span><span class="p">)</span>
+        <span class="o">-&gt;</span><span class="na">setImpl</span><span class="p">(</span><span class="s1">&#39;EmailTemplate&#39;</span><span class="p">,</span> <span class="s1">&#39;Email&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now this code will work and won&#8217;t throw an exception like it did before:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$user</span>                     <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">();</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">Emails</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">address</span> <span class="o">=</span> <span class="s1">&#39;jonwage@gmail.com&#39;</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">(</span><span class="k">true</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>username<span class="o">]</span> <span class="o">=</span>&gt;
+    <span class="o">[</span>password<span class="o">]</span> <span class="o">=</span>&gt;
+    <span class="o">[</span>Emails<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; Array
+                <span class="o">(</span>
+                    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+                    <span class="o">[</span>address<span class="o">]</span> <span class="o">=</span>&gt; jonwage@gmail.com
+                    <span class="o">[</span>user_id<span class="o">]</span> <span class="o">=</span>&gt; 1
+                <span class="o">)</span>
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The implementations for the templates can be set at manager,
+connection and even at the table level.</p>
+</div>
+</div>
+<div class="section" id="delegate-methods">
+<h2>Delegate Methods<a class="headerlink" href="#delegate-methods" title="Permalink to this headline">¶</a></h2>
+<p>Besides from acting as a full table definition delegate system,
+<a href="#id17"><span class="problematic" id="id18">:php:class:`Doctrine_Template`</span></a> allows the delegation of method calls. This means
+that every method within the loaded templates is available in the record
+that loaded the templates. Internally the implementation uses magic
+method called <tt class="docutils literal"><span class="pre">__call()</span></tt> to achieve this functionality.</p>
+<p>Lets add to our previous example and add some custom methods to the
+<tt class="docutils literal"><span class="pre">UserTemplate</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/UserTemplate.php</span>
+<span class="k">class</span> <span class="nc">UserTemplate</span> <span class="k">extends</span> <span class="nx">Doctrine_Template</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">authenticate</span><span class="p">(</span><span class="nv">$username</span><span class="p">,</span> <span class="nv">$password</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$invoker</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">==</span> <span class="nv">$username</span> <span class="o">&amp;&amp;</span> <span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">==</span> <span class="nv">$password</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">else</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now take a look at the following code and how we can use it:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$user</span>           <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">();</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">=</span> <span class="s1">&#39;jwage&#39;</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">=</span> <span class="s1">&#39;changeme&#39;</span><span class="p">;</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">authenticate</span><span class="p">(</span><span class="s1">&#39;jwage&#39;</span><span class="p">,</span> <span class="s1">&#39;changemte&#39;</span><span class="p">))</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;Authenticated successfully!&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;Could not authenticate user!&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can also delegate methods to <a href="#id19"><span class="problematic" id="id20">:php:class:`Doctrine_Table`</span></a> classes just as
+easily. But, to avoid naming collisions the methods for table classes
+must have the string <tt class="docutils literal"><span class="pre">TableProxy</span></tt> appended to the end of the method
+name.</p>
+<p>Here is an example where we add a new finder method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/UserTemplate.php</span>
+<span class="k">class</span> <span class="nc">UserTemplate</span> <span class="k">extends</span> <span class="nx">Doctrine_Template</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">findUsersWithEmailTableProxy</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span><span class="s1">&#39;u.username&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User u&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">innerJoin</span><span class="p">(</span><span class="s1">&#39;u.Emails e&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now we can access that function from the <a href="#id21"><span class="problematic" id="id22">:php:class:`Doctrine_Table`</span></a> object for
+the <tt class="docutils literal"><span class="pre">User</span></tt> model:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$userTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">);</span>
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$userTable</span><span class="o">-&gt;</span><span class="na">findUsersWithEmail</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Each class can consists of multiple templates. If the
+templates contain similar definitions the most recently loaded
+template always overrides the former.</p>
+</div>
+</div>
+<div class="section" id="creating-behaviors">
+<h2>Creating Behaviors<a class="headerlink" href="#creating-behaviors" title="Permalink to this headline">¶</a></h2>
+<p>This subchapter provides you the means for creating your own behaviors.
+Lets say we have various different Record classes that need to have
+one-to-many emails. We achieve this functionality by creating a generic
+behavior which creates Email classes on the fly.</p>
+<p>We start this task by creating a behavior called <tt class="docutils literal"><span class="pre">EmailBehavior</span></tt> with
+a <tt class="docutils literal"><span class="pre">setTableDefinition()</span></tt> method. Inside the <tt class="docutils literal"><span class="pre">setTableDefinition()</span></tt>
+method various helper methods can be used for easily creating the
+dynamic record definition. Commonly the following methods are being
+used:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">initOptions</span><span class="p">()</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">buildLocalRelation</span><span class="p">()</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">buildForeignKeys</span><span class="p">(</span><span class="nx">Doctrine_Table</span> <span class="nv">$table</span><span class="p">)</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">buildForeignRelation</span><span class="p">(</span><span class="nv">$alias</span> <span class="o">=</span> <span class="k">null</span><span class="p">)</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">buildRelation</span><span class="p">()</span> <span class="c1">// calls buildForeignRelation() and buildLocalRelation()</span>
+</pre></div>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">EmailBehavior</span> <span class="k">extends</span> <span class="nx">Doctrine_Record_Generator</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">initOptions</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">setOption</span><span class="p">(</span><span class="s1">&#39;className&#39;</span><span class="p">,</span> <span class="s1">&#39;%CLASS%Email&#39;</span><span class="p">);</span>
+
+        <span class="c1">// Some other options</span>
+        <span class="c1">// $this-&gt;setOption(&#39;appLevelDelete&#39;, true);</span>
+        <span class="c1">// $this-&gt;setOption(&#39;cascadeDelete&#39;, false);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">buildRelation</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">buildForeignRelation</span><span class="p">(</span><span class="s1">&#39;Emails&#39;</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">buildLocalRelation</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;email&#39;</span>  <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+                <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="core-behaviors">
+<h2>Core Behaviors<a class="headerlink" href="#core-behaviors" title="Permalink to this headline">¶</a></h2>
+<p>For the next several examples using the core behaviors lets delete all
+our existing schemas and models from our test environment we created and
+have been using in the earlier chapters:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>rm schema.yml
+<span class="nv">$ </span>touch schema.yml
+<span class="nv">$ </span>rm -rf models/*
+</pre></div>
+</div>
+<div class="section" id="id23">
+<h3>Introduction<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h3>
+<p>Doctrine comes bundled with some templates that offer out of the box
+functionality for your models. You can enable these templates in your
+models very easily. You can do it directly in your :php:class:<a href="#id24"><span class="problematic" id="id25">`</span></a>Doctrine_Record`s
+or you can specify them in your YAML schema if you are managing your
+models with YAML.</p>
+<p>In the next several examples we will demonstrate some of the behaviors
+that come bundled with Doctrine.</p>
+</div>
+<div class="section" id="versionable">
+<span id="behaviors-core-behaviors-versionable"></span><h3>Versionable<a class="headerlink" href="#versionable" title="Permalink to this headline">¶</a></h3>
+<p>Lets create a <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model that we want to have the ability to
+have versions:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/BlogPost.php</span>
+<span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;clob&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Versionable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;versionColumn&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;version&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;className&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;%CLASS%Version&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;auditLog&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><pre>---
+BlogPost:
+  actAs:
+    Versionable:
+      versionColumn: version
+      className: %CLASS%Version
+      auditLog: true
+  columns:
+    title: string(255)
+    body: clob</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">auditLog</span></tt> option can be used to turn off the audit
+log history. This is when you want to maintain a version number but
+not maintain the data at each version.</p>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;BlogPost&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">blog_post_version</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">title</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">body</span> <span class="nx">LONGTEXT</span><span class="p">,</span>
+<span class="nx">version</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">version</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">blog_post</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">title</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">body</span> <span class="nx">LONGTEXT</span><span class="p">,</span>
+<span class="nx">version</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="nx">blog_post_version</span> <span class="nx">ADD</span> <span class="nx">FOREIGN</span> <span class="nx">KEY</span> <span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">REFERENCES</span> <span class="nx">blog_post</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">ON</span> <span class="nx">UPDATE</span> <span class="nx">CASCADE</span> <span class="nx">ON</span> <span class="nx">DELETE</span> <span class="nx">CASCADE</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how we have 2 additional statements we probably
+didn&#8217;t expect to see. The behavior automatically created a
+<tt class="docutils literal"><span class="pre">blog_post_version</span></tt> table and related it to <tt class="docutils literal"><span class="pre">blog_post</span></tt>.</p>
+</div>
+<p>Now when we insert or update a <tt class="docutils literal"><span class="pre">BlogPost</span></tt> the version table will store
+all the old versions of the record and allow you to revert back at
+anytime. When you instantiate a <tt class="docutils literal"><span class="pre">BlogPost</span></tt> for the first time this is
+what is happening internally:</p>
+<ul class="simple">
+<li>It creates a class called <tt class="docutils literal"><span class="pre">BlogPostVersion</span></tt> on-the-fly, the table
+this record is pointing at is <tt class="docutils literal"><span class="pre">blog_post_version</span></tt></li>
+<li>Everytime a <tt class="docutils literal"><span class="pre">BlogPost</span></tt> object is deleted / updated the previous
+version is stored into <tt class="docutils literal"><span class="pre">blog_post_version</span></tt></li>
+<li>Everytime a <tt class="docutils literal"><span class="pre">BlogPost</span></tt> object is updated its version number is
+increased.</li>
+</ul>
+<p>Now lets play around with the <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPost</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">BlogPost</span><span class="p">();</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Test blog post&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Modified blog post title&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Modified blog post title
+    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+    <span class="o">[</span>version<span class="o">]</span> <span class="o">=</span>&gt; 2
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the value of the <tt class="docutils literal"><span class="pre">version</span></tt> column is <tt class="docutils literal"><span class="pre">2</span></tt>.
+This is because we have saved 2 versions of the <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model.
+We can easily revert to another version by using the <tt class="docutils literal"><span class="pre">revert()</span></tt>
+method that the behavior includes.</p>
+</div>
+<p>Lets revert back to the first version:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">revert</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 2
+    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test blog post
+    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+    <span class="o">[</span>version<span class="o">]</span> <span class="o">=</span>&gt; 1
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the value of the <tt class="docutils literal"><span class="pre">version</span></tt> column is set to 1
+and the <tt class="docutils literal"><span class="pre">title</span></tt> is back to the original value was set it to when
+creating the <tt class="docutils literal"><span class="pre">BlogPost</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="timestampable">
+<span id="behaviors-core-behaviors-timestampable"></span><h3>Timestampable<a class="headerlink" href="#timestampable" title="Permalink to this headline">¶</a></h3>
+<p>The Timestampable behavior will automatically add a <tt class="docutils literal"><span class="pre">created_at</span></tt> and
+<tt class="docutils literal"><span class="pre">updated_at</span></tt> column and automatically set the values when a record is
+inserted and updated.</p>
+<p>Since it is common to want to know the date a post is made lets expand
+our <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model and add the <tt class="docutils literal"><span class="pre">Timestampable</span></tt> behavior to
+automatically set these dates for us.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/BlogPost.php</span>
+<span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Timestampable&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">BlogPost</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+<span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">Timestampable</span><span class="p-Indicator">:</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>If you are only interested in using only one of the columns, such as a
+<tt class="docutils literal"><span class="pre">created_at</span></tt> timestamp, but not a an <tt class="docutils literal"><span class="pre">updated_at</span></tt> field, set the
+<tt class="docutils literal"><span class="pre">disabled</span></tt> to true for either of the fields as in the example below.</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">BlogPost</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+<span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">Timestampable</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">created</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">created_at</span>
+        <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">timestamp</span>
+        <span class="l-Scalar-Plain">format</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Y-m-d H:i:s</span>
+      <span class="l-Scalar-Plain">updated</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">disabled</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>Now look what happens when we create a new post:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPost</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">BlogPost</span><span class="p">();</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Test blog post&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test blog post
+    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+    <span class="o">[</span>version<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>created_at<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-21 17:54:23
+    <span class="o">[</span>updated_at<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-21 17:54:23
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Look how the <tt class="docutils literal"><span class="pre">created_at</span></tt> and <tt class="docutils literal"><span class="pre">updated_at</span></tt> values
+were automatically set for you!</p>
+</div>
+<p>Here is a list of all the options you can use with the <tt class="docutils literal"><span class="pre">Timestampable</span></tt>
+behavior on the created side of the behavior:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="8%" />
+<col width="11%" />
+<col width="81%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Default</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">created_at</span></tt></td>
+<td>The name of the column.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span></tt></td>
+<td>The column type.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">options</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>Any additional options for the column.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">format</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">Y-m-d</span> <span class="pre">H:i:s</span></tt></td>
+<td>The format of the timestamp if you don&#8217;t use the timestamp column type. The date is built using PHP&#8217;s <a class="reference external" href="http://www.php.net/date">date()</a> function.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">disabled</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+<td>Whether or not to disable the created date.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">expression</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">NOW()</span></tt></td>
+<td>Expression to use to set the column value.</td>
+</tr>
+</tbody>
+</table>
+<p>Here is a list of all the options you can use with the <tt class="docutils literal"><span class="pre">Timestampable</span></tt>
+behavior on the updated side of the behavior that are not possible on
+the created side:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="13%" />
+<col width="9%" />
+<col width="78%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Default</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">onInsert</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td>Whether or not to set the updated date when the record is first inserted.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="sluggable">
+<span id="behaviors-core-behaviors-sluggable"></span><h3>Sluggable<a class="headerlink" href="#sluggable" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">Sluggable</span></tt> behavior is a nice piece of functionality that will
+automatically add a column to your model for storing a unique human
+readable identifier that can be created from columns like title,
+subject, etc. These values can be used for search engine friendly urls.</p>
+<p>Lets expand our <tt class="docutils literal"><span class="pre">BlogPost</span></tt> model to use the <tt class="docutils literal"><span class="pre">Sluggable</span></tt> behavior
+because we will want to have nice URLs for our posts:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/BlogPost.php</span>
+<span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="c1">// ...</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Sluggable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;unique&#39;</span>    <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+                <span class="s1">&#39;fields&#39;</span>    <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">),</span>
+                <span class="s1">&#39;canUpdate&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">BlogPost</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+<span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">Sluggable</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">unique</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">]</span>
+      <span class="l-Scalar-Plain">canUpdate</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+<span class="c1"># ...</span>
+</pre></div>
+</div>
+<p>Now look what happens when we create a new post. The slug column will
+automatically be set for us:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPost</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">BlogPost</span><span class="p">();</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;Test blog post&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$blogPost</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; Test blog post
+    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+    <span class="o">[</span>version<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>created_at<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-21 17:57:05
+    <span class="o">[</span>updated_at<span class="o">]</span> <span class="o">=</span>&gt; 2009-01-21 17:57:05
+    <span class="o">[</span>slug<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>-blog-post
+<span class="o">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the value of the <tt class="docutils literal"><span class="pre">slug</span></tt> column was
+automatically set based on the value of the <tt class="docutils literal"><span class="pre">title</span></tt> column. When a
+slug is created, by default it is <tt class="docutils literal"><span class="pre">urlized</span></tt> which means all
+non-url-friendly characters are removed and white space is replaced
+with hyphens(-).</p>
+</div>
+<p>The unique flag will enforce that the slug created is unique. If it is
+not unique an auto incremented integer will be appended to the slug
+before saving to database.</p>
+<p>The <tt class="docutils literal"><span class="pre">canUpdate</span></tt> flag will allow the users to manually set the slug
+value to be used when building the url friendly slug.</p>
+<p>Here is a list of all the options you can use on the <tt class="docutils literal"><span class="pre">Sluggable</span></tt>
+behavior:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="15%" />
+<col width="40%" />
+<col width="46%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Default</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">slug</span></tt></td>
+<td>The name of the slug column.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">alias</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">null</span></tt></td>
+<td>The alias of the slug column.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">string</span></tt></td>
+<td>The type of the slug column.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">length</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">255</span></tt></td>
+<td>The length of the slug column.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">unique</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td>Whether or not unique slug values are enforced.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">options</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>Any other options for the slug column.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">fields</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>The fields that are used to build slug value.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">uniqueBy</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>The fields that make determine a unique slug.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">uniqueIndex</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td>Whether or not to create a unique index.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">canUpdate</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+<td>Whether or not the slug can be updated.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">builder</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array('Doctrine_Inflector',</span> <span class="pre">'urlize')</span></tt></td>
+<td>The <tt class="docutils literal"><span class="pre">Class::method()</span></tt> used to build the slug.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">indexName</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">sluggable</span></tt></td>
+<td>The name of the index to create.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="i18n">
+<span id="behaviors-core-behaviors-i18n"></span><h3>I18n<a class="headerlink" href="#i18n" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id26"><span class="problematic" id="id27">:php:class:`Doctrine_I18n`</span></a> package is a behavior for Doctrine that provides
+internationalization support for record classes. In the following
+example we have a <tt class="docutils literal"><span class="pre">NewsItem</span></tt> class with two fields <tt class="docutils literal"><span class="pre">title</span></tt> and
+<tt class="docutils literal"><span class="pre">content</span></tt>. We want to have the field <tt class="docutils literal"><span class="pre">title</span></tt> with different
+languages support. This can be achieved as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">NewsItem</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;blog&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;I18n&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">NewsItem</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">I18n</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">body</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">body</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">clob</span>
+</pre></div>
+</div>
+<p>Below is a list of all the options you can use with the <tt class="docutils literal"><span class="pre">I18n</span></tt>
+behavior:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="16%" />
+<col width="28%" />
+<col width="56%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Default</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">className</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">%CLASS%Translation</span></tt></td>
+<td>The name pattern to use for generated class.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">fields</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>The fields to internationalize.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">type</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">string</span></tt></td>
+<td>The type of <tt class="docutils literal"><span class="pre">lang</span></tt> column.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">length</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">2</span></tt></td>
+<td>The length of the <tt class="docutils literal"><span class="pre">lang</span></tt> column.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">options</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">array()</span></tt></td>
+<td>Other options for the <tt class="docutils literal"><span class="pre">lang</span></tt> column.</td>
+</tr>
+</tbody>
+</table>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;NewsItem&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">news_item_translation</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">title</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">body</span> <span class="nx">LONGTEXT</span><span class="p">,</span>
+<span class="nx">lang</span> <span class="nx">CHAR</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">lang</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">news_item</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the field <tt class="docutils literal"><span class="pre">title</span></tt> is not present in the
+<tt class="docutils literal"><span class="pre">news_item</span></tt> table. Since its present in the translation table it
+would be a waste of resources to have that same field in the main
+table. Basically Doctrine always automatically removes all
+translated fields from the main table.</p>
+</div>
+<p>Now the first time you initialize a new <tt class="docutils literal"><span class="pre">NewsItem</span></tt> record Doctrine
+initializes the behavior that builds the followings things:</p>
+<ol class="arabic simple">
+<li>Record class called <tt class="docutils literal"><span class="pre">NewsItemTranslation</span></tt></li>
+<li>Bi-directional relations between <tt class="docutils literal"><span class="pre">NewsItemTranslation</span></tt> and
+<tt class="docutils literal"><span class="pre">NewsItem</span></tt></li>
+</ol>
+<p>Lets take a look at how we can manipulate the translations of the
+<tt class="docutils literal"><span class="pre">NewsItem</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItem</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">NewsItem</span><span class="p">();</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">Translation</span><span class="p">[</span><span class="s1">&#39;en&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;some title&#39;</span><span class="p">;</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">Translation</span><span class="p">[</span><span class="s1">&#39;en&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">Translation</span><span class="p">[</span><span class="s1">&#39;fi&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;joku otsikko&#39;</span><span class="p">;</span>
+<span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">Translation</span><span class="p">[</span><span class="s1">&#39;fi&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;test&#39;</span><span class="p">;</span> <span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$newsItem</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+    <span class="o">[</span>Translation<span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>en<span class="o">]</span> <span class="o">=</span>&gt; Array
+                <span class="o">(</span>
+                    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+                    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; some title
+                    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+                    <span class="o">[</span>lang<span class="o">]</span> <span class="o">=</span>&gt; en
+                <span class="o">)</span>
+            <span class="o">[</span><span class="k">fi</span><span class="o">]</span> <span class="o">=</span>&gt; Array
+                <span class="o">(</span>
+                    <span class="o">[</span>id<span class="o">]</span> <span class="o">=</span>&gt; 1
+                    <span class="o">[</span>title<span class="o">]</span> <span class="o">=</span>&gt; joku otsikko
+                    <span class="o">[</span>body<span class="o">]</span> <span class="o">=</span>&gt; <span class="nb">test</span>
+                    <span class="o">[</span>lang<span class="o">]</span> <span class="o">=</span>&gt; <span class="k">fi</span>
+                <span class="o">)</span>
+        <span class="o">)</span>
+<span class="o">)</span>
+</pre></div>
+</div>
+<p>How do we retrieve the translated data now? This is easy! Lets find all
+items and their Finnish translations:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$newsItems</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;NewsItem n&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="s1">&#39;n.Translation t&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">where</span><span class="p">(</span><span class="s1">&#39;t.lang = ?&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">execute</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;fi&#39;</span><span class="p">));</span>
+
+<span class="k">echo</span> <span class="nv">$newsItems</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">Translation</span><span class="p">[</span><span class="s1">&#39;fi&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">title</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+joku otsikko
+</pre></div>
+</div>
+</div>
+<div class="section" id="nestedset">
+<span id="behaviors-core-behaviors-nestedset"></span><h3>NestedSet<a class="headerlink" href="#nestedset" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">NestedSet</span></tt> behavior allows you to turn your models in to a nested
+set tree structure where the entire tree structure can be retrieved in
+one efficient query. It also provided a nice interface for manipulating
+the data in your trees.</p>
+<p>Lets take a <tt class="docutils literal"><span class="pre">Category</span></tt> model for example where the categories need to
+be organized in a hierarchical tree structure:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/Category.php</span>
+<span class="k">class</span> <span class="nc">Category</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;NestedSet&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;hasManyRoots&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+                <span class="s1">&#39;rootColumnName&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;root_id&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">Category</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">NestedSet</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">hasManyRoots</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+      <span class="l-Scalar-Plain">rootColumnName</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">root_id</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+</pre></div>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">category</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">name</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">root_id</span> <span class="nx">INT</span><span class="p">,</span>
+<span class="nx">lft</span> <span class="nx">INT</span><span class="p">,</span>
+<span class="nx">rgt</span> <span class="nx">INT</span><span class="p">,</span>
+<span class="nx">level</span> <span class="nx">SMALLINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the <tt class="docutils literal"><span class="pre">root_id</span></tt>, <tt class="docutils literal"><span class="pre">lft</span></tt>, <tt class="docutils literal"><span class="pre">rgt</span></tt> and <tt class="docutils literal"><span class="pre">level</span></tt>
+columns are automatically added. These columns are used to organize
+the tree structure and are handled automatically for you internally.</p>
+</div>
+<p>We won&#8217;t discuss the <tt class="docutils literal"><span class="pre">NestedSet</span></tt> behavior in 100% detail here. It is a
+very large behavior so it has its own <a class="reference internal" href="hierarchical-data.html"><em>Hierarchical Data</em></a>.</p>
+</div>
+<div class="section" id="searchable">
+<span id="behaviors-core-behaviors-searchable"></span><h3>Searchable<a class="headerlink" href="#searchable" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">Searchable</span></tt> behavior is a fulltext indexing and searching tool.
+It can be used for indexing and searching both database and files.</p>
+<p>Imagine we have a <tt class="docutils literal"><span class="pre">Job</span></tt> model for job postings and we want it to be
+easily searchable:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/Job.php</span>
+<span class="k">class</span> <span class="nc">Job</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;description&#39;</span><span class="p">,</span> <span class="s1">&#39;clob&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">Job</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">Searchable</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">description</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">description</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">clob</span>
+</pre></div>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;Job&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">job_index</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">keyword</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">200</span><span class="p">),</span>
+<span class="nx">field</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">50</span><span class="p">),</span>
+<span class="nx">position</span> <span class="nx">BIGINT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">keyword</span><span class="p">,</span>
+<span class="nx">field</span><span class="p">,</span>
+<span class="nx">position</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">job</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">title</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">description</span> <span class="nx">LONGTEXT</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+<span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="nx">job_index</span> <span class="nx">ADD</span> <span class="nx">FOREIGN</span> <span class="nx">KEY</span> <span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">REFERENCES</span> <span class="nx">job</span><span class="p">(</span><span class="nx">id</span><span class="p">)</span> <span class="nx">ON</span> <span class="nx">UPDATE</span> <span class="nx">CASCADE</span> <span class="nx">ON</span> <span class="nx">DELETE</span> <span class="nx">CASCADE</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the <tt class="docutils literal"><span class="pre">job_index</span></tt> table is automatically
+created for you and a foreign key between <tt class="docutils literal"><span class="pre">job</span></tt> and <tt class="docutils literal"><span class="pre">job_index</span></tt>
+was automatically created.</p>
+</div>
+<p>Because the <tt class="docutils literal"><span class="pre">Searchable</span></tt> behavior is such a large topic, we have more
+information on this that can be found in the <a class="reference internal" href="searching.html"><em>Searching</em></a>
+chapter.</p>
+</div>
+<div class="section" id="geographical">
+<span id="behaviors-core-behaviors-geographical"></span><h3>Geographical<a class="headerlink" href="#geographical" title="Permalink to this headline">¶</a></h3>
+<p>The below is only a demo. The Geographical behavior can be used with any
+data record for determining the number of miles or kilometers between 2
+records.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/Zipcode.php</span>
+<span class="k">class</span> <span class="nc">Zipcode</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;zipcode&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;city&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;county&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;zip_class&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Geographical&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">Zipcode</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">Geographical</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">zipcode</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">city</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">state</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(2)</span>
+    <span class="l-Scalar-Plain">county</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">zip_class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+</pre></div>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;Zipcode&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">zipcode</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">BIGINT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">zipcode</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">city</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">state</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span>
+<span class="nx">county</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">zip_class</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">latitude</span> <span class="nx">DOUBLE</span><span class="p">,</span>
+<span class="nx">longitude</span> <span class="nx">DOUBLE</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">id</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the Geographical behavior automatically adds the
+<tt class="docutils literal"><span class="pre">latitude</span></tt> and <tt class="docutils literal"><span class="pre">longitude</span></tt> columns to the records used for
+calculating distance between two records. Below you will find some
+example usage.</p>
+</div>
+<p>First lets retrieve two different zipcode records:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$zipcode1</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Zipcode&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneByZipcode</span><span class="p">(</span><span class="s1">&#39;37209&#39;</span><span class="p">);</span>
+<span class="nv">$zipcode2</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Zipcode&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneByZipcode</span><span class="p">(</span><span class="s1">&#39;37388&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now we can get the distance between those two records by using the
+<tt class="docutils literal"><span class="pre">getDistance()</span></tt> method that the behavior provides:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">echo</span> <span class="nv">$zipcode1</span><span class="o">-&gt;</span><span class="na">getDistance</span><span class="p">(</span><span class="nv">$zipcode2</span><span class="p">,</span> <span class="nv">$kilometers</span> <span class="o">=</span> <span class="k">false</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The 2nd argument of the <tt class="docutils literal"><span class="pre">getDistance()</span></tt> method is whether
+or not to return the distance in kilometers. The default is false.</p>
+</div>
+<p>Now lets get the 50 closest zipcodes that are not in the same city:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nv">$zipcode1</span><span class="o">-&gt;</span><span class="na">getDistanceQuery</span><span class="p">();</span>
+
+<span class="nv">$q</span><span class="o">-&gt;</span><span class="na">orderby</span><span class="p">(</span><span class="s1">&#39;miles asc&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span><span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getRootAlias</span><span class="p">()</span> <span class="o">.</span> <span class="s1">&#39;.city != ?&#39;</span><span class="p">,</span> <span class="nv">$zipcode1</span><span class="o">-&gt;</span><span class="na">city</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">limit</span><span class="p">(</span><span class="mi">50</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getSqlQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The above call to <tt class="docutils literal"><span class="pre">getSql()</span></tt> would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">SELECT</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">id</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">zipcode</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">zipcode</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">city</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">city</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">state</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">state</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">county</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">county</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">zip_class</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">zip_class</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">latitude</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">latitude</span><span class="p">,</span>
+<span class="nx">z</span><span class="o">.</span><span class="nx">longitude</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="nx">longitude</span><span class="p">,</span>
+<span class="p">((</span><span class="nx">ACOS</span><span class="p">(</span><span class="nx">SIN</span><span class="p">(</span><span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">SIN</span><span class="p">(</span><span class="nx">z</span><span class="o">.</span><span class="nx">latitude</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">+</span> <span class="nx">COS</span><span class="p">(</span><span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">COS</span><span class="p">(</span><span class="nx">z</span><span class="o">.</span><span class="nx">latitude</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">COS</span><span class="p">((</span><span class="o">-</span> <span class="nx">z</span><span class="o">.</span><span class="nx">longitude</span><span class="p">)</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">))</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="nx">PI</span><span class="p">())</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mf">1.1515</span><span class="p">)</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="mi">0</span><span class="p">,</span>
+<span class="p">((</span><span class="nx">ACOS</span><span class="p">(</span><span class="nx">SIN</span><span class="p">(</span><span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">SIN</span><span class="p">(</span><span class="nx">z</span><span class="o">.</span><span class="nx">latitude</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">+</span> <span class="nx">COS</span><span class="p">(</span><span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">COS</span><span class="p">(</span><span class="nx">z</span><span class="o">.</span><span class="nx">latitude</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">)</span> <span class="o">*</span> <span class="nx">COS</span><span class="p">((</span><span class="o">-</span> <span class="nx">z</span><span class="o">.</span><span class="nx">longitude</span><span class="p">)</span> <span class="o">*</span> <span class="nx">PI</span><span class="p">()</span> <span class="o">/</span> <span class="mi">180</span><span class="p">))</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="nx">PI</span><span class="p">())</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mf">1.1515</span> <span class="o">*</span> <span class="mf">1.609344</span><span class="p">)</span> <span class="k">AS</span> <span class="nx">z</span><span class="o">**</span><span class="mi">1</span>
+<span class="nx">FROM</span> <span class="nx">zipcode</span> <span class="nx">z</span>
+<span class="nx">WHERE</span> <span class="nx">z</span><span class="o">.</span><span class="nx">city</span> <span class="o">!=</span> <span class="o">?</span>
+<span class="nx">ORDER</span> <span class="nx">BY</span> <span class="nx">z__0</span> <span class="nx">asc</span>
+<span class="nx">LIMIT</span> <span class="mi">50</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the above SQL query includes a bunch of SQL that
+we did not write. This was automatically added by the behavior to
+calculate the number of miles between records.</p>
+</div>
+<p>Now we can execute the query and use the calculated number of miles
+values:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$result</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$result</span> <span class="k">as</span> <span class="nv">$zipcode</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$zipcode</span><span class="o">-&gt;</span><span class="na">city</span> <span class="o">.</span> <span class="s2">&quot; - &quot;</span> <span class="o">.</span> <span class="nv">$zipcode</span><span class="o">-&gt;</span><span class="na">miles</span> <span class="o">.</span> <span class="s2">&quot;&quot;</span><span class="p">;</span>
+    <span class="c1">// You could also access $zipcode-&gt;kilometers</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Get some sample zip code data to test this</p>
+<p><a class="reference external" href="http://www.populardata.com/zip_codes.zip">http://www.populardata.com/zip_codes.zip</a></p>
+<p>Download and import the csv file with the following function:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">function</span> <span class="nf">parseCsvFile</span><span class="p">(</span><span class="nv">$file</span><span class="p">,</span> <span class="nv">$columnheadings</span> <span class="o">=</span> <span class="k">false</span><span class="p">,</span> <span class="nv">$delimiter</span> <span class="o">=</span> <span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="nv">$enclosure</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$row</span>    <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="nv">$rows</span>   <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+    <span class="nv">$handle</span> <span class="o">=</span> <span class="nb">fopen</span><span class="p">(</span><span class="nv">$file</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">);</span>
+
+    <span class="k">while</span> <span class="p">((</span><span class="nv">$data</span> <span class="o">=</span> <span class="nb">fgetcsv</span><span class="p">(</span><span class="nv">$handle</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="nv">$delimiter</span><span class="p">,</span> <span class="nv">$enclosure</span><span class="p">))</span> <span class="o">!==</span> <span class="k">FALSE</span><span class="p">)</span> <span class="p">{</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="nv">$columnheadings</span> <span class="o">==</span> <span class="k">false</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nv">$row</span> <span class="o">==</span> <span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
+            <span class="nv">$headingTexts</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">elseif</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="nv">$columnheadings</span> <span class="o">==</span> <span class="k">false</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">foreach</span> <span class="p">(</span><span class="nv">$data</span> <span class="k">as</span> <span class="nv">$key</span> <span class="o">=&gt;</span> <span class="nv">$value</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nb">unset</span><span class="p">(</span><span class="nv">$data</span><span class="p">[</span><span class="nv">$key</span><span class="p">]);</span>
+                <span class="nv">$data</span><span class="p">[</span><span class="nv">$headingTexts</span><span class="p">[</span><span class="nv">$key</span><span class="p">]]</span> <span class="o">=</span> <span class="nv">$value</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="nv">$rows</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+        <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+            <span class="nv">$rows</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nv">$row</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="nb">fclose</span><span class="p">(</span><span class="nv">$handle</span><span class="p">);</span>
+    <span class="k">return</span> <span class="nv">$rows</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nv">$array</span> <span class="o">=</span> <span class="nx">parseCsvFile</span><span class="p">(</span><span class="s1">&#39;zipcodes.csv&#39;</span><span class="p">,</span> <span class="k">false</span><span class="p">);</span>
+
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$array</span> <span class="k">as</span> <span class="nv">$key</span> <span class="o">=&gt;</span> <span class="nv">$value</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$zipcode</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Zipcode</span><span class="p">();</span>
+    <span class="nv">$zipcode</span><span class="o">-&gt;</span><span class="na">fromArray</span><span class="p">(</span><span class="nv">$value</span><span class="p">);</span>
+    <span class="nv">$zipcode</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="softdelete">
+<span id="behaviors-core-behaviors-softdelete"></span><h3>SoftDelete<a class="headerlink" href="#softdelete" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">SoftDelete</span></tt> behavior is a very simple yet highly desired model
+behavior which overrides the <tt class="docutils literal"><span class="pre">delete()</span></tt> functionality and adds a
+<tt class="docutils literal"><span class="pre">deleted_at</span></tt> column. When <tt class="docutils literal"><span class="pre">delete()</span></tt> is called, instead of deleting
+the record from the database, a delete_at date is set. Below is an
+example of how to create a model with the <tt class="docutils literal"><span class="pre">SoftDelete</span></tt> behavior being
+used.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/SoftDeleteTest.php</span>
+<span class="k">class</span> <span class="nc">SoftDeleteTest</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="k">null</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;SoftDelete&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">SoftDeleteTest</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">SoftDelete</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+      <span class="l-Scalar-Plain">primary</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+<p>Lets check the SQL that is generated by the above models:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">generateSqlFromArray</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;SoftDeleteTest&#39;</span><span class="p">));</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above code would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">soft_delete_test</span> <span class="p">(</span><span class="nx">name</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">deleted_at</span> <span class="nx">DATETIME</span> <span class="k">DEFAULT</span> <span class="k">NULL</span><span class="p">,</span>
+<span class="nx">PRIMARY</span> <span class="nx">KEY</span><span class="p">(</span><span class="nx">name</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+<p>Now lets put the behavior in action.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You are required to enable DQL callbacks in order for all
+executed queries to have the dql callbacks executed on them. In the
+SoftDelete behavior they are used to filter the select statements to
+exclude all records where the deleted_at flag is set with an
+additional WHERE condition.</p>
+</div>
+<p><strong>Enable DQL Callbacks</strong></p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// bootstrap.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$manager</span><span class="o">-&gt;</span><span class="na">setAttribute</span><span class="p">(</span><span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">ATTR_USE_DQL_CALLBACKS</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now save a new record so we can test the <tt class="docutils literal"><span class="pre">SoftDelete</span></tt> functionality:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$record</span>       <span class="o">=</span> <span class="k">new</span> <span class="nx">SoftDeleteTest</span><span class="p">();</span>
+<span class="nv">$record</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;new record&#39;</span><span class="p">;</span>
+<span class="nv">$record</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Now when we call <tt class="docutils literal"><span class="pre">delete()</span></tt> the <tt class="docutils literal"><span class="pre">deleted_at</span></tt> flag will be set to
+true:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$record</span><span class="o">-&gt;</span><span class="na">delete</span><span class="p">();</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$record</span><span class="o">-&gt;</span><span class="na">toArray</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>The above example would produce the following output:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span>name<span class="o">]</span> <span class="o">=</span>&gt; new record
+    <span class="o">[</span>deleted_at<span class="o">]</span> <span class="o">=</span>&gt; 2009-09-01 00:59:01
+<span class="o">)</span>
+</pre></div>
+</div>
+<p>Also, when we select some data the query is modified for you:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;SoftDeleteTest t&#39;</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getSqlQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The above call to <tt class="docutils literal"><span class="pre">getSql()</span></tt> would output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">SELECT</span>
+<span class="nx">s</span><span class="o">.</span><span class="nx">name</span> <span class="k">AS</span> <span class="nx">s</span><span class="o">**</span><span class="nx">name</span><span class="p">,</span>
+<span class="nx">s</span><span class="o">.</span><span class="nx">deleted_at</span> <span class="k">AS</span> <span class="nx">s</span><span class="o">**</span><span class="nx">deleted_at</span>
+<span class="nx">FROM</span> <span class="nx">soft_delete_test</span> <span class="nx">s</span>
+<span class="nx">WHERE</span> <span class="p">(</span><span class="nx">s</span><span class="o">.</span><span class="nx">deleted_at</span> <span class="nx">IS</span> <span class="k">NULL</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the where condition is automatically added to
+only return the records that have not been deleted.</p>
+</div>
+<p>Now if we execute the query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$count</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">count</span><span class="p">();</span>
+<span class="k">echo</span> <span class="nv">$count</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The above would be echo 0 because it would exclude the record saved
+above because the delete flag was set.</p>
+</div>
+</div>
+<div class="section" id="nesting-behaviors">
+<h2>Nesting Behaviors<a class="headerlink" href="#nesting-behaviors" title="Permalink to this headline">¶</a></h2>
+<p>Below is an example of several behaviors to give a complete wiki
+database that is versionable, searchable, sluggable, and full I18n.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Wiki</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;content&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$options</span>  <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">));</span>
+        <span class="nv">$auditLog</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Versionable</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+        <span class="nv">$search</span>   <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Searchable</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+        <span class="nv">$slug</span>     <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Sluggable</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+        <span class="nv">$i18n</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_I18n</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+        <span class="nv">$i18n</span><span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$auditLog</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$search</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$slug</span><span class="p">);</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="nv">$i18n</span><span class="p">);</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Timestampable&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">WikiTest</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">I18n</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">content</span><span class="p-Indicator">]</span>
+      <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Versionable</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">content</span><span class="p-Indicator">]</span>
+        <span class="l-Scalar-Plain">Searchable</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">content</span><span class="p-Indicator">]</span>
+        <span class="l-Scalar-Plain">Sluggable</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">content</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above example of nesting behaviors is currently broken
+in Doctrine. We are working furiously to come up with a backwards
+compatible fix. We will announce when the fix is ready and update
+the documentation accordingly.</p>
+</div>
+</div>
+<div class="section" id="generating-files">
+<h2>Generating Files<a class="headerlink" href="#generating-files" title="Permalink to this headline">¶</a></h2>
+<p>By default with behaviors the classes which are generated are evaluated
+at run-time and no files containing the classes are ever written to
+disk. This can be changed with a configuration option. Below is an
+example of how to configure the I18n behavior to generate the classes
+and write them to files instead of evaluating them at run-time.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">NewsArticle</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;author&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;I18n&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;fields&#39;</span>          <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">),</span>
+                <span class="s1">&#39;generateFiles&#39;</span>   <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+                <span class="s1">&#39;generatePath&#39;</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/path/to/generate&#39;</span>
+            <span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="l-Scalar-Plain">NewsArticle</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">I18n</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">fields</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">title</span><span class="p-Indicator">,</span> <span class="nv">body</span><span class="p-Indicator">]</span>
+      <span class="l-Scalar-Plain">generateFiles</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+      <span class="l-Scalar-Plain">generatePath</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/path/to/generate</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">title</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">body</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+    <span class="l-Scalar-Plain">author</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+</pre></div>
+</div>
+<p>Now the behavior will generate a file instead of generating the code and
+using <a class="reference external" href="http://www.php.net/eval">eval()</a> to evaluate it at runtime.</p>
+</div>
+<div class="section" id="querying-generated-classes">
+<h2>Querying Generated Classes<a class="headerlink" href="#querying-generated-classes" title="Permalink to this headline">¶</a></h2>
+<p>If you want to query the auto generated models you will need to make
+sure the model with the behavior attached is loaded and initialized. You
+can do this by using the static <tt class="docutils literal"><span class="pre">Doctrine_Core::initializeModels()</span></tt>
+method.</p>
+<p>For example if you want to query the translation table for a
+<tt class="docutils literal"><span class="pre">BlogPost</span></tt> model you will need to run the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">initializeModels</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;BlogPost&#39;</span><span class="p">));</span>
+
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;BlogPostTranslation t&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">where</span><span class="p">(</span><span class="s1">&#39;t.id = ? AND t.lang = ?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;en&#39;</span><span class="p">));</span>
+
+<span class="nv">$translations</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This is required because the behaviors are not instantiated
+until the model is instantiated for the first time. The above
+<tt class="docutils literal"><span class="pre">initializeModels()</span></tt> method instantiates the passed models and
+makes sure the information is properly loaded in to the array of
+loaded models.</p>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>By now we should know a lot about Doctrine behaviors. We should know how
+to write our own for our models as well as how to use all the great
+behaviors that come bundled with Doctrine.</p>
+<p>Now we are ready to move on to discuss the <a class="reference internal" href="searching.html"><em>Searching</em></a>
+behavior in more detail in the <a class="reference internal" href="searching.html"><em>Searching</em></a> chapter. As it is a
+large topic we have devoted an entire chapter to it.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Behaviors</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#simple-templates">Simple Templates</a></li>
+<li><a class="reference internal" href="#templates-with-relations">Templates with Relations</a></li>
+<li><a class="reference internal" href="#delegate-methods">Delegate Methods</a></li>
+<li><a class="reference internal" href="#creating-behaviors">Creating Behaviors</a></li>
+<li><a class="reference internal" href="#core-behaviors">Core Behaviors</a><ul>
+<li><a class="reference internal" href="#id23">Introduction</a></li>
+<li><a class="reference internal" href="#versionable">Versionable</a></li>
+<li><a class="reference internal" href="#timestampable">Timestampable</a></li>
+<li><a class="reference internal" href="#sluggable">Sluggable</a></li>
+<li><a class="reference internal" href="#i18n">I18n</a></li>
+<li><a class="reference internal" href="#nestedset">NestedSet</a></li>
+<li><a class="reference internal" href="#searchable">Searchable</a></li>
+<li><a class="reference internal" href="#geographical">Geographical</a></li>
+<li><a class="reference internal" href="#softdelete">SoftDelete</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#nesting-behaviors">Nesting Behaviors</a></li>
+<li><a class="reference internal" href="#generating-files">Generating Files</a></li>
+<li><a class="reference internal" href="#querying-generated-classes">Querying Generated Classes</a></li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="inheritance.html"
+                        title="previous chapter">Inheritance</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="searching.html"
+                        title="next chapter">Searching</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/behaviors.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="searching.html" title="Searching"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="inheritance.html" title="Inheritance"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

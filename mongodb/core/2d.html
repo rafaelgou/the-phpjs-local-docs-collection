@@ -1,0 +1,496 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>2d Indexes &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/2d.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/2d" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Geospatial Indexes and Queries" href="../applications/geospatial-indexes.html" />
+<link rel="next" title="2dsphere Indexes" href="2dsphere.html" />
+<link rel="prev" title="Geospatial Indexes and Queries" href="../applications/geospatial-indexes.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../indexes.html">Indexes</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../applications/geospatial-indexes.html">Geospatial Indexes and Queries</a><span class="bcpoint"> > </span></li>
+          <li><tt class="docutils literal docutils literal"><span class="pre">2d</span></tt> Indexes</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="d-indexes">
+<h1><tt class="docutils literal"><span class="pre">2d</span></tt> Indexes<a class="headerlink" href="#d-indexes" title="Permalink to this headline">¶</a></h1>
+<p>Use a <tt class="docutils literal"><span class="pre">2d</span></tt> index for data stored as points on a two-dimensional plane. The
+<tt class="docutils literal"><span class="pre">2d</span></tt> index is intended for legacy coordinate pairs used in MongoDB 2.2
+and earlier.</p>
+<p>Use a <tt class="docutils literal"><span class="pre">2d</span></tt> index if:</p>
+<ul class="simple">
+<li>your database has legacy location data from MongoDB 2.2 or earlier, <em>and</em></li>
+<li>you do not intend to store any location data as <a class="reference internal" href="../reference/glossary.html#term-geojson"><em class="xref std std-term">GeoJSON</em></a> objects.</li>
+</ul>
+<p>Do not use a <tt class="docutils literal"><span class="pre">2d</span></tt> index if your location data includes GeoJSON objects. To
+index on both legacy coordinate pairs <em>and</em> GeoJSON objects, use a
+<a class="reference internal" href="2dsphere.html"><em>2dsphere</em></a> index.</p>
+<p>The <tt class="docutils literal"><span class="pre">2d</span></tt> index supports calculations on a flat, Euclidean plane. The
+<tt class="docutils literal"><span class="pre">2d</span></tt> index also supports <em>distance-only</em> calculations on a sphere, but
+for <em>geometric</em> calculations on a sphere, store data as GeoJSON objects
+and use the <tt class="docutils literal"><span class="pre">2dsphere</span></tt> index type.</p>
+<p>A <tt class="docutils literal"><span class="pre">2d</span></tt> index can reference two fields. The first must be the location
+field. A <tt class="docutils literal"><span class="pre">2d</span></tt> compound index constructs queries that select first on
+the location field and second on the additional field. If the location
+criteria selects a large number of documents, the additional criteria
+only filters the result set. The additional criteria <em>does not</em> result
+in a more targeted query.</p>
+<p>MongoDB allows one <tt class="docutils literal"><span class="pre">2d</span></tt> index per collection. MongoDB also allows one
+<a class="reference internal" href="2dsphere.html"><em>2dsphere</em></a> index per collection.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">You cannot use a <tt class="docutils literal"><span class="pre">2d</span></tt> index as a shard key when
+sharding a collection. However, you can create and maintain a
+geospatial index on a sharded collection by using a different field
+as the shard key.</p>
+</div>
+<div class="section" id="store-points-on-a-2d-plane">
+<span id="geospatial-indexes-store-grid-coordinates"></span><h2>Store Points on a 2D Plane<a class="headerlink" href="#store-points-on-a-2d-plane" title="Permalink to this headline">¶</a></h2>
+<p>To store location data as legacy coordinate pairs, use either an array
+(preferred):</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">loc</span> <span class="o">:</span> <span class="p">[</span> <span class="o">&lt;</span><span class="nx">longitude</span><span class="o">&gt;</span> <span class="p">,</span> <span class="o">&lt;</span><span class="nx">latitude</span><span class="o">&gt;</span> <span class="p">]</span>
+</pre></div>
+</div>
+<p>Or an embedded document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">loc</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">lng</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">longitude</span><span class="o">&gt;</span> <span class="p">,</span> <span class="nx">lat</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">latitude</span><span class="o">&gt;</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>Arrays are preferred as certain languages do not guarantee associative
+map ordering.</p>
+<p>Whether as an array or document, if you use longitude and latitude,
+store coordinates in this order: <strong>longitude, latitude</strong>.</p>
+</div>
+<div class="section" id="create-a-2d-index">
+<span id="geospatial-create-2d-index"></span><h2>Create a <tt class="docutils literal"><span class="pre">2d</span></tt> Index<a class="headerlink" href="#create-a-2d-index" title="Permalink to this headline">¶</a></h2>
+<p>To build a geospatial <tt class="docutils literal"><span class="pre">2d</span></tt> index, use the <a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a> method and specify <tt class="docutils literal"><span class="pre">2d</span></tt>. Use the
+following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span> <span class="s2">&quot;2d&quot;</span> <span class="p">,</span>
+                               <span class="o">&lt;</span><span class="nx">additional</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">value</span><span class="o">&gt;</span> <span class="p">}</span> <span class="p">,</span>
+                             <span class="p">{</span> <span class="o">&lt;</span><span class="nx">index</span><span class="o">-</span><span class="nx">specification</span> <span class="nx">options</span><span class="o">&gt;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">2d</span></tt> index uses the following optional index-specification
+options:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">min</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">lower</span> <span class="nx">bound</span><span class="o">&gt;</span> <span class="p">,</span> <span class="nx">max</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">upper</span> <span class="nx">bound</span><span class="o">&gt;</span> <span class="p">,</span>
+  <span class="nx">bits</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">bit</span> <span class="nx">precision</span><span class="o">&gt;</span> <span class="p">}</span>
+</pre></div>
+</div>
+<div class="section" id="define-location-range-for-a-2d-index">
+<span id="geospatial-indexes-range"></span><h3>Define Location Range for a <tt class="docutils literal"><span class="pre">2d</span></tt> Index<a class="headerlink" href="#define-location-range-for-a-2d-index" title="Permalink to this headline">¶</a></h3>
+<p>By default, a <tt class="docutils literal"><span class="pre">2d</span></tt> index assumes longitude and latitude and has boundaries
+of -180 inclusive and 180 non-inclusive (i.e. <tt class="docutils literal"><span class="pre">[</span> <span class="pre">-180</span> <span class="pre">,</span> <span class="pre">180</span> <span class="pre">]</span></tt>). If
+documents contain coordinate data outside of the specified range,
+MongoDB returns an error.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">The default boundaries allow applications to insert
+documents with invalid latitudes greater than 90 or less than -90.
+The behavior of geospatial queries with such invalid points is not
+defined.</p>
+</div>
+<p>On <tt class="docutils literal"><span class="pre">2d</span></tt> indexes you can change the location range.</p>
+<p>You can build a <tt class="docutils literal"><span class="pre">2d</span></tt> geospatial index with a location range other than
+the default. Use the <tt class="docutils literal"><span class="pre">min</span></tt> and <tt class="docutils literal"><span class="pre">max</span></tt> options when creating the
+index. Use the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">collection</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span> <span class="s2">&quot;2d&quot;</span> <span class="p">}</span> <span class="p">,</span>
+                           <span class="p">{</span> <span class="nx">min</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">lower</span> <span class="nx">bound</span><span class="o">&gt;</span> <span class="p">,</span> <span class="nx">max</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">upper</span> <span class="nx">bound</span><span class="o">&gt;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="define-location-precision-for-a-2d-index">
+<span id="geospatial-indexes-precision"></span><h3>Define Location Precision for a <tt class="docutils literal"><span class="pre">2d</span></tt> Index<a class="headerlink" href="#define-location-precision-for-a-2d-index" title="Permalink to this headline">¶</a></h3>
+<p>By default, a <tt class="docutils literal"><span class="pre">2d</span></tt> index on legacy coordinate pairs uses 26 bits of
+precision, which is roughly equivalent to 2 feet or 60 centimeters of
+precision using the default range of -180 to 180. Precision is measured
+by the size in bits of the <a class="reference internal" href="../reference/glossary.html#term-geohash"><em class="xref std std-term">geohash</em></a> values used to store location
+data. You can configure geospatial indexes with up to 32 bits of
+precision.</p>
+<p>Index precision does not affect query accuracy. The actual grid coordinates
+are always used in the final query processing. Advantages to lower
+precision are a lower processing overhead for insert operations and use
+of less space. An advantage to higher precision is that queries scan
+smaller portions of the index to return results.</p>
+<p>To configure a location precision other than the default, use the
+<tt class="docutils literal"><span class="pre">bits</span></tt> option when creating the index. Use following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span><span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span> <span class="s2">&quot;&lt;index type&gt;&quot;</span><span class="p">}</span> <span class="p">,</span>
+                             <span class="p">{</span> <span class="nx">bits</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">bit</span> <span class="nx">precision</span><span class="o">&gt;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>For information on the internals of geohash values, see
+<a class="reference internal" href="geospatial-indexes.html#geospatial-indexes-geohash"><em>Calculation of Geohash Values for 2d Indexes</em></a>.</p>
+</div>
+</div>
+<div class="section" id="query-a-2d-index">
+<h2>Query a <tt class="docutils literal"><span class="pre">2d</span></tt> Index<a class="headerlink" href="#query-a-2d-index" title="Permalink to this headline">¶</a></h2>
+<p>The following sections describe queries supported by the <tt class="docutils literal"><span class="pre">2d</span></tt> index.
+For an overview of recommended geospatial queries, see
+<a class="reference internal" href="../reference/operator/query-geospatial.html#geospatial-query-compatibility-chart"><em>Geospatial Query Compatibility</em></a>.</p>
+<div class="section" id="points-within-a-shape-defined-on-a-flat-surface">
+<h3>Points within a Shape Defined on a Flat Surface<a class="headerlink" href="#points-within-a-shape-defined-on-a-flat-surface" title="Permalink to this headline">¶</a></h3>
+<p>To select all legacy coordinate pairs found within a given shape on a flat
+surface, use the <a class="reference internal" href="../reference/operator/geoWithin.html#op._S_geoWithin" title="$geoWithin"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$geoWithin</span></tt></a> operator along with a shape
+operator. Use the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">$geoWithin</span> <span class="o">:</span>
+                            <span class="p">{</span> <span class="nx">$box</span><span class="o">|</span><span class="nx">$polygon</span><span class="o">|</span><span class="nx">$center</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">coordinates</span><span class="o">&gt;</span>
+                      <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>The following queries for documents within a rectangle defined by <tt class="docutils literal"><span class="pre">[</span> <span class="pre">0</span>
+<span class="pre">,</span> <span class="pre">0</span> <span class="pre">]</span></tt> at the bottom left corner and by <tt class="docutils literal"><span class="pre">[</span> <span class="pre">100</span> <span class="pre">,</span> <span class="pre">100</span> <span class="pre">]</span></tt> at the top
+right corner.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">places</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span> <span class="o">:</span>
+                  <span class="p">{</span> <span class="nx">$geoWithin</span> <span class="o">:</span>
+                     <span class="p">{</span> <span class="nx">$box</span> <span class="o">:</span> <span class="p">[</span> <span class="p">[</span> <span class="mi">0</span> <span class="p">,</span> <span class="mi">0</span> <span class="p">]</span> <span class="p">,</span>
+                                <span class="p">[</span> <span class="mi">100</span> <span class="p">,</span> <span class="mi">100</span> <span class="p">]</span> <span class="p">]</span>
+                 <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>The following queries for documents that are within the circle centered
+on <tt class="docutils literal"><span class="pre">[</span> <span class="pre">-74</span> <span class="pre">,</span> <span class="pre">40.74</span> <span class="pre">]</span></tt> and with a radius of <tt class="docutils literal"><span class="pre">10</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">places</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span><span class="o">:</span> <span class="p">{</span> <span class="nx">$geoWithin</span> <span class="o">:</span>
+                          <span class="p">{</span> <span class="nx">$center</span> <span class="o">:</span> <span class="p">[</span> <span class="p">[</span><span class="o">-</span><span class="mi">74</span><span class="p">,</span> <span class="mf">40.74</span> <span class="p">]</span> <span class="p">,</span> <span class="mi">10</span> <span class="p">]</span>
+                <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>For syntax and examples for each shape, see the following:</p>
+<blockquote>
+<div><ul class="simple">
+<li><a class="reference internal" href="../reference/operator/box.html#op._S_box" title="$box"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$box</span></tt></a></li>
+<li><a class="reference internal" href="../reference/operator/polygon.html#op._S_polygon" title="$polygon"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$polygon</span></tt></a></li>
+<li><a class="reference internal" href="../reference/operator/center.html#op._S_center" title="$center"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$center</span></tt></a> (defines a circle)</li>
+</ul>
+</div></blockquote>
+</div>
+<div class="section" id="points-within-a-circle-defined-on-a-sphere">
+<h3>Points within a Circle Defined on a Sphere<a class="headerlink" href="#points-within-a-circle-defined-on-a-sphere" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB supports rudimentary spherical queries on flat <tt class="docutils literal"><span class="pre">2d</span></tt> indexes for
+legacy reasons. In general, spherical calculations should use a <tt class="docutils literal"><span class="pre">2dsphere</span></tt>
+index, as described in <a class="reference internal" href="2dsphere.html"><em>2dsphere Indexes</em></a>.</p>
+<p>To query for legacy coordinate pairs in a &#8220;spherical cap&#8221; on a sphere,
+use <a class="reference internal" href="../reference/operator/geoWithin.html#op._S_geoWithin" title="$geoWithin"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$geoWithin</span></tt></a> with the <a class="reference internal" href="../reference/operator/centerSphere.html#op._S_centerSphere" title="$centerSphere"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$centerSphere</span></tt></a> operator.
+Specify an array that contains:</p>
+<ul class="simple">
+<li>The grid coordinates of the circle&#8217;s center point</li>
+<li>The circle&#8217;s radius measured in radians. To calculate radians, see
+<a class="reference internal" href="../tutorial/calculate-distances-using-spherical-geometry-with-2d-geospatial-indexes.html"><em>Calculate Distances in a 2d Index Using Spherical Geometry</em></a>.</li>
+</ul>
+<p>Use the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">$geoWithin</span> <span class="o">:</span>
+                            <span class="p">{</span> <span class="nx">$centerSphere</span> <span class="o">:</span> <span class="p">[</span> <span class="p">[</span> <span class="o">&lt;</span><span class="nx">x</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="nx">y</span><span class="o">&gt;</span> <span class="p">]</span> <span class="p">,</span> <span class="o">&lt;</span><span class="nx">radius</span><span class="o">&gt;</span> <span class="p">]</span> <span class="p">}</span>
+                      <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>The following example query returns all documents within a 10-mile
+radius of longitude <tt class="docutils literal"><span class="pre">88</span> <span class="pre">W</span></tt> and latitude <tt class="docutils literal"><span class="pre">30</span> <span class="pre">N</span></tt>. The example converts
+distance to radians by dividing distance by the approximate radius of
+the earth, 3959 miles:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$geoWithin</span> <span class="o">:</span>
+                                 <span class="p">{</span> <span class="nx">$centerSphere</span> <span class="o">:</span>
+                                    <span class="p">[</span> <span class="p">[</span> <span class="mi">88</span> <span class="p">,</span> <span class="mi">30</span> <span class="p">]</span> <span class="p">,</span> <span class="mi">10</span> <span class="o">/</span> <span class="mi">3959</span> <span class="p">]</span>
+                      <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="proximity-to-a-point-on-a-flat-surface">
+<h3>Proximity to a Point on a Flat Surface<a class="headerlink" href="#proximity-to-a-point-on-a-flat-surface" title="Permalink to this headline">¶</a></h3>
+<p>Proximity queries return the 100 legacy coordinate pairs closest to the
+defined point and sort the results by distance. Use either the
+<a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> operator or <a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a> command. Both require
+a <tt class="docutils literal"><span class="pre">2d</span></tt> index.</p>
+<p>The <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> operator uses the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;</span> <span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">$near</span> <span class="o">:</span> <span class="p">[</span> <span class="o">&lt;</span><span class="nx">x</span><span class="o">&gt;</span> <span class="p">,</span> <span class="o">&lt;</span><span class="nx">y</span><span class="o">&gt;</span> <span class="p">]</span>
+                      <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>For examples, see <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a>.</p>
+<p>The <a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a> command uses the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">runCommand</span><span class="p">(</span> <span class="p">{</span> <span class="nx">geoNear</span><span class="o">:</span> <span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">,</span> <span class="nx">near</span><span class="o">:</span> <span class="p">[</span> <span class="o">&lt;</span><span class="nx">x</span><span class="o">&gt;</span> <span class="p">,</span> <span class="o">&lt;</span><span class="nx">y</span><span class="o">&gt;</span> <span class="p">]</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a> command offers more options and returns more
+information than does the <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> operator. To run the
+command, see <a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a>.</p>
+<span class="target" id="index-0"></span></div>
+<div class="section" id="exact-matches-on-a-flat-surface">
+<span id="geospatial-indexes-exact-match"></span><span id="index-1"></span><h3>Exact Matches on a Flat Surface<a class="headerlink" href="#exact-matches-on-a-flat-surface" title="Permalink to this headline">¶</a></h3>
+<p>You can use the <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.collection.find()</span></tt></a> method to query for an
+exact match on a location. These queries use the following syntax:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="o">&lt;</span><span class="nx">collection</span><span class="o">&gt;</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="o">&lt;</span><span class="nx">location</span> <span class="nx">field</span><span class="o">&gt;:</span> <span class="p">[</span> <span class="o">&lt;</span><span class="nx">x</span><span class="o">&gt;</span> <span class="p">,</span> <span class="o">&lt;</span><span class="nx">y</span><span class="o">&gt;</span> <span class="p">]</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>This query will return any documents with the value of <tt class="docutils literal"><span class="pre">[</span> <span class="pre">&lt;x&gt;</span> <span class="pre">,</span> <span class="pre">&lt;y&gt;</span> <span class="pre">]</span></tt>.</p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../applications/geospatial-indexes.html" title="Previous Section: Geospatial Indexes and Queries">&lt; &nbsp; Geospatial Indexes and Queries</a></li>
+              <li id="btnvup"><a href="../indexes.html" title="Parent Section: Indexes" >&#47;&#92;&nbsp; Indexes</a></li>
+              <li id="btnvnx"><a href="2dsphere.html" title="Next Section: 2dsphere Indexes">2dsphere Indexes &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../indexes.html">Indexes</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="indexes.html">Indexing Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/indexes.html">Indexing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/indexes.html">Indexing Operations</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../applications/geospatial-indexes.html">Geospatial Indexes and Queries</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href=""><tt class="docutils literal"><span class="pre">2d</span></tt> Indexes</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="2dsphere.html"><tt class="docutils literal"><span class="pre">2dsphere</span></tt> Indexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="geohaystack.html">Haystack Indexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorial/calculate-distances-using-spherical-geometry-with-2d-geospatial-indexes.html">Calculate Distances in a <tt class="docutils literal"><span class="pre">2d</span></tt> Index Using Spherical Geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="geospatial-indexes.html"><tt class="docutils literal"><span class="pre">2d</span></tt> Index Internals</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="text-search.html">Text Search</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/2d.txt" target="_blank" title="Edit core/2d.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/2d%2Etxt%22" target="_blank" title="Report a problem with core/2d.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/2d.txt"'},
+		environment: {'repo': 'docs','source': 'core/2d'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/2d'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

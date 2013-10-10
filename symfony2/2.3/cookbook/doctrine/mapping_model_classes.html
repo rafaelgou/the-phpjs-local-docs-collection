@@ -1,0 +1,249 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to provide model classes for several Doctrine implementations &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine" href="index.html" />
+    <link rel="next" title="How to implement a simple Registration Form" href="registration_form.html" />
+    <link rel="prev" title="How to Define Relationships with Abstract Classes and Interfaces" href="resolve_target_entity.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="registration_form.html" title="How to implement a simple Registration Form"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="resolve_target_entity.html" title="How to Define Relationships with Abstract Classes and Interfaces"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-provide-model-classes-for-several-doctrine-implementations">
+<span id="index-0"></span><h1>How to provide model classes for several Doctrine implementations<a class="headerlink" href="#how-to-provide-model-classes-for-several-doctrine-implementations" title="Permalink to this headline">¶</a></h1>
+<p>When building a bundle that could be used not only with Doctrine ORM but
+also the CouchDB ODM, MongoDB ODM or PHPCR ODM, you should still only
+write one model class. The Doctrine bundles provide a compiler pass to
+register the mappings for your model classes.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For non-reusable bundles, the easiest option is to put your model classes
+in the default locations: <tt class="docutils literal"><span class="pre">Entity</span></tt> for the Doctrine ORM or <tt class="docutils literal"><span class="pre">Document</span></tt>
+for one of the ODMs. For reusable bundles, rather than duplicate model classes
+just to get the auto mapping, use the compiler pass.</p>
+</div>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.3: </span>The base mapping compiler pass was added in Symfony 2.3. The Doctrine bundles
+support it from DoctrineBundle &gt;= 1.2.1, MongoDBBundle &gt;= 3.0.0,
+PHPCRBundle &gt;= 1.0.0-alpha2 and the (unversioned) CouchDBBundle supports the
+compiler pass since the <a class="reference external" href="https://github.com/doctrine/DoctrineCouchDBBundle/pull/27">CouchDB Mapping Compiler Pass pull request</a>
+was merged.<p>If you want your bundle to support older versions of Symfony and
+Doctrine, you can provide a copy of the compiler pass in your bundle.
+See for example the <a class="reference external" href="https://github.com/FriendsOfSymfony/FOSUserBundle/blob/master/FOSUserBundle.php">FOSUserBundle mapping configuration</a>
+<tt class="docutils literal"><span class="pre">addRegisterMappingsPass</span></tt>.</p>
+</p>
+<p>In your bundle class, write the following code to register the compiler pass.
+This one is written for the FOSUserBundle, so parts of it will need to
+be adapted for your case:</p>
+<div class="highlight-python"><pre>use Doctrine\Bundle\DoctrineBundle\DependencyInjection\Compiler\DoctrineOrmMappingsPass;
+use Doctrine\Bundle\MongoDBBundle\DependencyInjection\Compiler\DoctrineMongoDBMappingsPass;
+use Doctrine\Bundle\CouchDBBundle\DependencyInjection\Compiler\DoctrineCouchDBMappingsPass;
+use Doctrine\Bundle\PHPCRBundle\DependencyInjection\Compiler\DoctrinePhpcrMappingsPass;
+
+class FOSUserBundle extends Bundle
+{
+    public function build(ContainerBuilder $container)
+    {
+        parent::build($container);
+        // ...
+
+        $modelDir = realpath(__DIR__.'/Resources/config/doctrine/model');
+        $mappings = array(
+            $modelDir =&gt; 'FOS\UserBundle\Model',
+        );
+
+        $ormCompilerClass = 'Doctrine\Bundle\DoctrineBundle\DependencyInjection\Compiler\DoctrineOrmMappingsPass';
+        if (class_exists($ormCompilerClass)) {
+            $container-&gt;addCompilerPass(
+                DoctrineOrmMappingsPass::createXmlMappingDriver(
+                    $mappings,
+                    array('fos_user.model_manager_name'),
+                    'fos_user.backend_type_orm'
+            ));
+        }
+
+        $mongoCompilerClass = 'Doctrine\Bundle\MongoDBBundle\DependencyInjection\Compiler\DoctrineMongoDBMappingsPass';
+        if (class_exists($mongoCompilerClass)) {
+            $container-&gt;addCompilerPass(
+                DoctrineMongoDBMappingsPass::createXmlMappingDriver(
+                    $mappings,
+                    array('fos_user.model_manager_name'),
+                    'fos_user.backend_type_mongodb'
+            ));
+        }
+
+        $couchCompilerClass = 'Doctrine\Bundle\CouchDBBundle\DependencyInjection\Compiler\DoctrineCouchDBMappingsPass';
+        if (class_exists($couchCompilerClass)) {
+            $container-&gt;addCompilerPass(
+                DoctrineCouchDBMappingsPass::createXmlMappingDriver(
+                    $mappings,
+                    array('fos_user.model_manager_name'),
+                    'fos_user.backend_type_couchdb'
+            ));
+        }
+
+        $phpcrCompilerClass = 'Doctrine\Bundle\PHPCRBundle\DependencyInjection\Compiler\DoctrinePhpcrMappingsPass';
+        if (class_exists($phpcrCompilerClass)) {
+            $container-&gt;addCompilerPass(
+                DoctrinePhpcrMappingsPass::createXmlMappingDriver(
+                    $mappings,
+                    array('fos_user.model_manager_name'),
+                    'fos_user.backend_type_phpcr'
+            ));
+        }
+    }
+}</pre>
+</div>
+<p>Note the <tt class="docutils literal"><a class="reference external" href="http://php.net/manual/en/function.class-exists.php" title="class_exists"><span class="pre">class_exists</span></a></tt> check. This is crucial, as you do not want your
+bundle to have a hard dependency on all Doctrine bundles but let the user
+decide which to use.</p>
+<p>The compiler pass provides factory methods for all drivers provided by Doctrine:
+Annotations, XML, Yaml, PHP and StaticPHP. The arguments are:</p>
+<ul class="simple">
+<li>a map/hash of absolute directory path to namespace;</li>
+<li>an array of container parameters that your bundle uses to specify the name of
+the Doctrine manager that it is using. In the above example, the FOSUserBundle
+stores the manager name that&#8217;s being used under the <tt class="docutils literal"><span class="pre">fos_user.model_manager_name</span></tt>
+parameter. The compiler pass will append the parameter Doctrine is using
+to specify the name of the default manager. The first parameter found is
+used and the mappings are registered with that manager;</li>
+<li>an optional container parameter name that will be used by the compiler
+pass to determine if this Doctrine type is used at all (this is relevant if
+your user has more than one type of Doctrine bundle installed, but your
+bundle is only used with one type of Doctrine.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The factory method is using the <tt class="docutils literal"><span class="pre">SymfonyFileLocator</span></tt> of Doctrine, meaning
+it will only see XML and YML mapping files if they do not contain the
+full namespace as the filename. This is by design: the <tt class="docutils literal"><span class="pre">SymfonyFileLocator</span></tt>
+simplifies things by assuming the files are just the &#8220;short&#8221; version
+of the class as their filename (e.g. <tt class="docutils literal"><span class="pre">BlogPost.orm.xml</span></tt>)</p>
+<p>If you also need to map a base class, you can register a compiler pass
+with the <tt class="docutils literal"><span class="pre">DefaultFileLocator</span></tt> like this. This code is simply taken from the
+<tt class="docutils literal"><span class="pre">DoctrineOrmMappingsPass</span></tt> and adapted to use the <tt class="docutils literal"><span class="pre">DefaultFileLocator</span></tt>
+instead of the <tt class="docutils literal"><span class="pre">SymfonyFileLocator</span></tt>:</p>
+<div class="highlight-python"><pre>private function buildMappingCompilerPass()
+{
+    $arguments = array(array(realpath(__DIR__ . '/Resources/config/doctrine-base')), '.orm.xml');
+    $locator = new Definition('Doctrine\Common\Persistence\Mapping\Driver\DefaultFileLocator', $arguments);
+    $driver = new Definition('Doctrine\ORM\Mapping\Driver\XmlDriver', array($locator));
+
+    return new DoctrineOrmMappingsPass(
+        $driver,
+        array('Full\Namespace'),
+        array('your_bundle.manager_name'),
+        'your_bundle.orm_enabled'
+    );
+}</pre>
+</div>
+<p>Now place your mapping file into <tt class="docutils literal"><span class="pre">/Resources/config/doctrine-base</span></tt> with the
+fully qualified class name, separated by <tt class="docutils literal"><span class="pre">.</span></tt> instead of <tt class="docutils literal"><span class="pre">\</span></tt>, for example
+<tt class="docutils literal"><span class="pre">Other.Namespace.Model.Name.orm.xml</span></tt>. You may not mix the two as otherwise
+the SymfonyFileLocator will get confused.</p>
+<p class="last">Adjust accordingly for the other Doctrine implementations.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="resolve_target_entity.html"
+                        title="previous chapter">How to Define Relationships with Abstract Classes and Interfaces</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="registration_form.html"
+                        title="next chapter">How to implement a simple Registration Form</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/doctrine/mapping_model_classes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="registration_form.html" title="How to implement a simple Registration Form"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="resolve_target_entity.html" title="How to Define Relationships with Abstract Classes and Interfaces"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

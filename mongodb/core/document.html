@@ -1,0 +1,808 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>BSON Documents &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/document.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/document" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Core MongoDB Operations (CRUD)" href="../crud.html" />
+<link rel="next" title="ObjectId" href="../reference/object-id.html" />
+<link rel="prev" title="Write Concern Reference" href="../reference/write-concern.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../crud.html">Core MongoDB Operations (CRUD)</a><span class="bcpoint"> > </span></li>
+          <li>BSON Documents</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="bson-documents">
+<h1>BSON Documents<a class="headerlink" href="#bson-documents" title="Permalink to this headline">¶</a></h1>
+<p>MongoDB is a document-based database system, and as a result, all
+records, or data, in MongoDB are documents. Documents are the default
+representation of most user accessible data structures in the
+database. Documents provide structure for data in the following
+MongoDB contexts:</p>
+<ul class="simple">
+<li>the <a class="reference internal" href="#documents-records"><em>records</em></a> stored in <a class="reference internal" href="../reference/glossary.html#term-collection"><em class="xref std std-term">collections</em></a></li>
+<li>the <a class="reference internal" href="#documents-query-selectors"><em>query selectors</em></a> that determine
+which records to select for read, update, and delete operations</li>
+<li>the <a class="reference internal" href="#documents-update-actions"><em>update actions</em></a> that specify
+the particular field updates to perform during an update operation</li>
+<li>the specification of <a class="reference internal" href="#documents-index"><em>indexes</em></a> for
+collection.</li>
+<li>arguments to several MongoDB methods and operators, including:<ul>
+<li><a class="reference internal" href="#documents-sort-order"><em>sort order</em></a> for the <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> method.</li>
+<li><a class="reference internal" href="#documents-index"><em>index specification</em></a> for the
+<a class="reference internal" href="../reference/method/cursor.hint.html#cursor.hint" title="cursor.hint()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">hint()</span></tt></a> method.</li>
+</ul>
+</li>
+<li>the output of a number  of MongoDB commands and operations, including:<ul>
+<li>the output
+of <a class="reference internal" href="../reference/command/collStats.html#dbcmd.collStats" title="collStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">collStats</span></tt></a> command, and</li>
+<li>the <a class="reference internal" href="../reference/command/serverStatus.html"><em>output</em></a> of the
+<a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> command.</li>
+</ul>
+</li>
+</ul>
+<div class="section" id="structure">
+<h2>Structure<a class="headerlink" href="#structure" title="Permalink to this headline">¶</a></h2>
+<p>The document structure in MongoDB are <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> objects with
+support for the full range of <a class="reference internal" href="../reference/glossary.html#term-bson-types"><em class="xref std std-term">BSON types</em></a>; however, BSON
+documents are conceptually, similar to <a class="reference internal" href="../reference/glossary.html#term-json"><em class="xref std std-term">JSON</em></a> objects, and have
+the following structure:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+   <span class="nx">field1</span><span class="o">:</span> <span class="nx">value1</span><span class="p">,</span>
+   <span class="nx">field2</span><span class="o">:</span> <span class="nx">value2</span><span class="p">,</span>
+   <span class="nx">field3</span><span class="o">:</span> <span class="nx">value3</span><span class="p">,</span>
+   <span class="p">...</span>
+   <span class="nx">fieldN</span><span class="o">:</span> <span class="nx">valueN</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Having support for the full range of BSON types, MongoDB documents may
+contain field and value pairs where the value can be another document,
+an array, an array of documents as well as the basic types such as
+<tt class="docutils literal"><span class="pre">Double</span></tt>, <tt class="docutils literal"><span class="pre">String</span></tt>, and <tt class="docutils literal"><span class="pre">Date</span></tt>. See also
+<a class="reference internal" href="#document-bson-type-considerations"><em>BSON Type Considerations</em></a>.</p>
+<p>Consider the following document that contains values of varying types:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">mydoc</span> <span class="o">=</span> <span class="p">{</span>
+               <span class="nx">_id</span><span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;5099803df3f4948bd2f98391&quot;</span><span class="p">),</span>
+               <span class="nx">name</span><span class="o">:</span> <span class="p">{</span> <span class="nx">first</span><span class="o">:</span> <span class="s2">&quot;Alan&quot;</span><span class="p">,</span> <span class="nx">last</span><span class="o">:</span> <span class="s2">&quot;Turing&quot;</span> <span class="p">},</span>
+               <span class="nx">birth</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="s1">&#39;Jun 23, 1912&#39;</span><span class="p">),</span>
+               <span class="nx">death</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="s1">&#39;Jun 07, 1954&#39;</span><span class="p">),</span>
+               <span class="nx">contribs</span><span class="o">:</span> <span class="p">[</span> <span class="s2">&quot;Turing machine&quot;</span><span class="p">,</span> <span class="s2">&quot;Turing test&quot;</span><span class="p">,</span> <span class="s2">&quot;Turingery&quot;</span> <span class="p">],</span>
+               <span class="nx">views</span> <span class="o">:</span> <span class="nx">NumberLong</span><span class="p">(</span><span class="mi">1250000</span><span class="p">)</span>
+            <span class="p">}</span>
+</pre></div>
+</div>
+<p>The document contains the following fields:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">_id</span></tt> that holds an <em>ObjectId</em>.</li>
+<li><tt class="docutils literal"><span class="pre">name</span></tt> that holds a <em>subdocument</em> that contains the fields
+<tt class="docutils literal"><span class="pre">first</span></tt> and <tt class="docutils literal"><span class="pre">last</span></tt>.</li>
+<li><tt class="docutils literal"><span class="pre">birth</span></tt> and <tt class="docutils literal"><span class="pre">death</span></tt>, which both have <em>Date</em> types.</li>
+<li><tt class="docutils literal"><span class="pre">contribs</span></tt> that holds an <em>array of strings</em>.</li>
+<li><tt class="docutils literal"><span class="pre">views</span></tt> that holds a value of <em>NumberLong</em> type.</li>
+</ul>
+<p>All field names are strings in <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> documents. Be aware that
+there are some <a class="reference internal" href="../reference/limits.html#Restrictions on Field Names" title="Restrictions on Field Names"><tt class="xref mongodb mongodb-limit docutils literal"><span class="pre">restrictions</span> <span class="pre">on</span> <span class="pre">field</span> <span class="pre">names</span></tt></a> for <a class="reference internal" href="../reference/glossary.html#term-bson"><em class="xref std std-term">BSON</em></a> documents: field names
+cannot contain null characters, dots (<tt class="docutils literal"><span class="pre">.</span></tt>), or dollar signs (<tt class="docutils literal"><span class="pre">$</span></tt>).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>BSON documents may have more than one field with the same name;
+however, most <a class="reference internal" href="../applications/drivers.html"><em>MongoDB Interfaces</em></a>
+represent MongoDB with a structure (e.g. a hash table) that does
+not support duplicate field names. If you need to manipulate
+documents that have more than one field with the same name, see
+your driver&#8217;s documentation for more information.</p>
+<p class="last">Some documents created by internal MongoDB processes may have
+duplicate fields, but <em>no</em> MongoDB process will <em>ever</em> add
+duplicate keys to an existing user document.</p>
+</div>
+<div class="section" id="type-operators">
+<span id="document-type-operators"></span><h3>Type Operators<a class="headerlink" href="#type-operators" title="Permalink to this headline">¶</a></h3>
+<p>To determine the type of fields, the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell provides
+the following operators:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">instanceof</span></tt> returns a boolean to test if a value has
+a specific type.</li>
+<li><tt class="docutils literal"><span class="pre">typeof</span></tt> returns the type of a field.</li>
+</ul>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Consider the following operations using <tt class="docutils literal"><span class="pre">instanceof</span></tt> and
+<tt class="docutils literal"><span class="pre">typeof</span></tt>:</p>
+<ul class="last">
+<li><p class="first">The following operation tests whether the <tt class="docutils literal"><span class="pre">_id</span></tt> field is of type
+<tt class="docutils literal"><span class="pre">ObjectId</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">mydoc</span><span class="p">.</span><span class="nx">_id</span> <span class="k">instanceof</span> <span class="nx">ObjectId</span>
+</pre></div>
+</div>
+<p>The operation returns <tt class="docutils literal"><span class="pre">true</span></tt>.</p>
+</li>
+<li><p class="first">The following operation returns the type of the <tt class="docutils literal"><span class="pre">_id</span></tt> field:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="k">typeof</span> <span class="nx">mydoc</span><span class="p">.</span><span class="nx">_id</span>
+</pre></div>
+</div>
+<p>In this case <tt class="docutils literal"><span class="pre">typeof</span></tt> will return the more generic <tt class="docutils literal"><span class="pre">object</span></tt>
+type rather than <tt class="docutils literal"><span class="pre">ObjectId</span></tt> type.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="dot-notation">
+<span id="document-dot-notation"></span><h3>Dot Notation<a class="headerlink" href="#dot-notation" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB uses the <em>dot notation</em> to access the elements of an array and
+to access the fields of a subdocument.</p>
+<p>To access an element of an array by the zero-based index position, you
+concatenate the array name with the dot (<tt class="docutils literal"><span class="pre">.</span></tt>) and zero-based index
+position:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="s1">&#39;&lt;array&gt;.&lt;index&gt;&#39;</span>
+</pre></div>
+</div>
+<p>To access a field of a subdocument with <em>dot-notation</em>, you concatenate
+the subdocument name with the dot (<tt class="docutils literal"><span class="pre">.</span></tt>) and the field name:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="s1">&#39;&lt;subdocument&gt;.&lt;field&gt;&#39;</span>
+</pre></div>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<ul class="last simple">
+<li><a class="reference internal" href="read-operations.html#read-operations-subdocuments"><em>Subdocuments</em></a> for dot notation examples
+with subdocuments.</li>
+<li><a class="reference internal" href="read-operations.html#read-operations-arrays"><em>Arrays</em></a> for dot notation examples with
+arrays.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="document-types-in-mongodb">
+<h2>Document Types in MongoDB<a class="headerlink" href="#document-types-in-mongodb" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="record-documents">
+<span id="documents-records"></span><h3>Record Documents<a class="headerlink" href="#record-documents" title="Permalink to this headline">¶</a></h3>
+<p>Most documents in MongoDB in <a class="reference internal" href="../reference/glossary.html#term-collection"><em class="xref std std-term">collections</em></a> store
+data from users&#8217; applications.</p>
+<p>These documents have the following attributes:</p>
+<ul>
+<li><p class="first">The maximum BSON document size is 16 megabytes.</p>
+<p>The maximum document size helps ensure that a single document cannot
+use excessive amount of RAM or, during transmission, excessive amount
+of bandwidth. To store documents larger than the maximum size, MongoDB
+provides the GridFS API. See <a class="reference internal" href="../reference/program/mongofiles.html#bin.mongofiles" title="mongofiles"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongofiles</span></tt></a> and the
+documentation for your <a class="reference internal" href="../applications/drivers.html"><em>driver</em></a> for more
+information about GridFS.</p>
+</li>
+<li><p class="first"><a class="reference internal" href=""><em>Documents</em></a> have the following restrictions on field
+names:</p>
+<ul class="simple">
+<li>The field name <tt class="docutils literal"><span class="pre">_id</span></tt> is reserved for use as a primary key; its
+value must be unique in the collection, is immutable, and may be of
+any type other than an array.</li>
+<li>The field names <strong>cannot</strong> start with the <tt class="docutils literal"><span class="pre">$</span></tt> character.</li>
+<li>The field names <strong>cannot</strong> contain the <tt class="docutils literal"><span class="pre">.</span></tt> character.</li>
+</ul>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Most MongoDB driver clients will include the <tt class="docutils literal"><span class="pre">_id</span></tt> field and
+generate an <tt class="docutils literal"><span class="pre">ObjectId</span></tt> before sending the insert operation to
+MongoDB; however, if the client sends a document without an <tt class="docutils literal"><span class="pre">_id</span></tt>
+field, the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> will add the <tt class="docutils literal"><span class="pre">_id</span></tt> field and generate
+the <tt class="docutils literal"><span class="pre">ObjectId</span></tt>.</p>
+</div>
+<p>The following document specifies a record in a collection:</p>
+<blockquote>
+<div><div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="nx">name</span><span class="o">:</span> <span class="p">{</span> <span class="nx">first</span><span class="o">:</span> <span class="s1">&#39;John&#39;</span><span class="p">,</span> <span class="nx">last</span><span class="o">:</span> <span class="s1">&#39;Backus&#39;</span> <span class="p">},</span>
+  <span class="nx">birth</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="s1">&#39;Dec 03, 1924&#39;</span><span class="p">),</span>
+  <span class="nx">death</span><span class="o">:</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">(</span><span class="s1">&#39;Mar 17, 2007&#39;</span><span class="p">),</span>
+  <span class="nx">contribs</span><span class="o">:</span> <span class="p">[</span> <span class="s1">&#39;Fortran&#39;</span><span class="p">,</span> <span class="s1">&#39;ALGOL&#39;</span><span class="p">,</span> <span class="s1">&#39;Backus-Naur Form&#39;</span><span class="p">,</span> <span class="s1">&#39;FP&#39;</span> <span class="p">],</span>
+  <span class="nx">awards</span><span class="o">:</span> <span class="p">[</span>
+            <span class="p">{</span> <span class="nx">award</span><span class="o">:</span> <span class="s1">&#39;National Medal of Science&#39;</span><span class="p">,</span>
+              <span class="nx">year</span><span class="o">:</span> <span class="mi">1975</span><span class="p">,</span>
+              <span class="nx">by</span><span class="o">:</span> <span class="s1">&#39;National Science Foundation&#39;</span> <span class="p">},</span>
+            <span class="p">{</span> <span class="nx">award</span><span class="o">:</span> <span class="s1">&#39;Turing Award&#39;</span><span class="p">,</span>
+              <span class="nx">year</span><span class="o">:</span> <span class="mi">1977</span><span class="p">,</span>
+              <span class="nx">by</span><span class="o">:</span> <span class="s1">&#39;ACM&#39;</span> <span class="p">}</span>
+          <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>The document contains the following fields:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">_id</span></tt>, which must hold a unique value and is <em>immutable</em>.</li>
+<li><tt class="docutils literal"><span class="pre">name</span></tt> that holds another <em>document</em>. This sub-document contains
+the fields <tt class="docutils literal"><span class="pre">first</span></tt> and <tt class="docutils literal"><span class="pre">last</span></tt>, which both hold <em>strings</em>.</li>
+<li><tt class="docutils literal"><span class="pre">birth</span></tt> and <tt class="docutils literal"><span class="pre">death</span></tt> that both have <em>date</em> types.</li>
+<li><tt class="docutils literal"><span class="pre">contribs</span></tt> that holds an <em>array of strings</em>.</li>
+<li><tt class="docutils literal"><span class="pre">awards</span></tt> that holds an <em>array of documents</em>.</li>
+</ul>
+<p>Consider the following behavior and constraints of the <tt class="docutils literal"><span class="pre">_id</span></tt> field in
+MongoDB documents:</p>
+<ul>
+<li><p class="first">In documents, the <tt class="docutils literal"><span class="pre">_id</span></tt> field is always indexed for regular
+collections.</p>
+</li>
+<li><p class="first">The <tt class="docutils literal"><span class="pre">_id</span></tt> field may contain values of any BSON data type other than
+an array.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">To ensure functioning replication, do not store values
+that are of the BSON regular expression type in the <tt class="docutils literal"><span class="pre">_id</span></tt>
+field.</p>
+</div>
+</li>
+</ul>
+<p>Consider the following options for the value of an <tt class="docutils literal"><span class="pre">_id</span></tt> field:</p>
+<ul>
+<li><p class="first">Use an <tt class="docutils literal"><span class="pre">ObjectId</span></tt>. See the <a class="reference internal" href="../reference/object-id.html"><em>ObjectId</em></a>
+documentation.</p>
+<p>Although it is common to assign <tt class="docutils literal"><span class="pre">ObjectId</span></tt> values to <tt class="docutils literal"><span class="pre">_id</span></tt>
+fields, if your objects have a natural unique identifier, consider
+using that for the value of <tt class="docutils literal"><span class="pre">_id</span></tt> to save space and to avoid an
+additional index.</p>
+</li>
+<li><p class="first">Generate a sequence number for the documents in your collection in
+your application and use this value for the <tt class="docutils literal"><span class="pre">_id</span></tt> value. See the
+<a class="reference internal" href="../tutorial/create-an-auto-incrementing-field.html"><em>Create an Auto-Incrementing Sequence Field</em></a> tutorial for an
+implementation pattern.</p>
+</li>
+<li><p class="first">Generate a UUID in your application code. For a more efficient
+storage of the UUID values in the collection and in the <tt class="docutils literal"><span class="pre">_id</span></tt>
+index, store the UUID as a value of the BSON <tt class="docutils literal"><span class="pre">BinData</span></tt> type.</p>
+<p>Index keys that are of the <tt class="docutils literal"><span class="pre">BinData</span></tt> type are more efficiently stored
+in the index if:</p>
+<ul class="simple">
+<li>the binary subtype value is in the range of 0-7 or 128-135, and</li>
+<li>the length of the byte array is: 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12,
+14, 16, 20, 24, or 32.</li>
+</ul>
+</li>
+<li><p class="first">Use your driver&#8217;s BSON UUID facility to generate UUIDs. Be aware
+that driver implementations may implement UUID serialization and
+deserialization logic differently, which may not be fully compatible
+with other drivers. See your <a class="reference external" href="http://api.mongodb.org/">driver documentation</a> for
+information concerning UUID interoperability.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="query-specification-documents">
+<span id="mongodb-query-document"></span><span id="mongodb-query-documents"></span><span id="documents-query-selectors"></span><h3>Query Specification Documents<a class="headerlink" href="#query-specification-documents" title="Permalink to this headline">¶</a></h3>
+<p>Query documents specify the conditions that determine which records to
+select for read, update, and delete operations. You can use
+<tt class="docutils literal"><span class="pre">&lt;field&gt;:&lt;value&gt;</span></tt> expressions to specify the equality condition and
+<a class="reference internal" href="../reference/operator.html"><em>query operator</em></a> expressions to specify
+additional conditions.</p>
+<p>When passed as an argument to methods such as the <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> method, the <a class="reference internal" href="../reference/method/db.collection.remove.html#db.collection.remove" title="db.collection.remove()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">remove()</span></tt></a> method, or the <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> method, the query document selects documents
+for MongoDB to return, remove, or update, as in the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">remove</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="p">{</span> <span class="nx">$gt</span><span class="o">:</span> <span class="mi">3</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">update</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">name</span><span class="o">:</span> <span class="p">{</span> <span class="nx">first</span><span class="o">:</span> <span class="s1">&#39;John&#39;</span><span class="p">,</span> <span class="nx">last</span><span class="o">:</span> <span class="s1">&#39;Backus&#39;</span> <span class="p">}</span> <span class="p">},</span>
+                <span class="o">&lt;</span><span class="nx">update</span><span class="o">&gt;</span><span class="p">,</span>
+                <span class="o">&lt;</span><span class="nx">options</span><span class="o">&gt;</span> <span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<ul class="last simple">
+<li><a class="reference internal" href="read-operations.html#read-operations-query-argument"><em>Query Document</em></a> and
+<a class="reference internal" href="read.html"><em>Read</em></a> for more examples on selecting documents
+for reads.</li>
+<li><a class="reference internal" href="update.html"><em>Update</em></a> for more examples on
+selecting documents for updates.</li>
+<li><a class="reference internal" href="delete.html"><em>Delete</em></a> for more examples on selecting
+documents for deletes.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="update-specification-documents">
+<span id="documents-update-actions"></span><h3>Update Specification Documents<a class="headerlink" href="#update-specification-documents" title="Permalink to this headline">¶</a></h3>
+<p>Update documents specify the data modifications to perform during
+an <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation to modify
+existing records in a collection. You can use <a class="reference internal" href="../reference/operator.html#update-operators"><em>update operators</em></a> to specify the exact actions to perform on the
+document fields.</p>
+<p>Consider the update document example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">$set</span><span class="o">:</span> <span class="p">{</span> <span class="s1">&#39;name.middle&#39;</span><span class="o">:</span> <span class="s1">&#39;Warner&#39;</span> <span class="p">},</span>
+  <span class="nx">$push</span><span class="o">:</span> <span class="p">{</span> <span class="nx">awards</span><span class="o">:</span> <span class="p">{</span> <span class="nx">award</span><span class="o">:</span> <span class="s1">&#39;IBM Fellow&#39;</span><span class="p">,</span>
+                     <span class="nx">year</span><span class="o">:</span> <span class="s1">&#39;1963&#39;</span><span class="p">,</span>
+                     <span class="nx">by</span><span class="o">:</span> <span class="s1">&#39;IBM&#39;</span> <span class="p">}</span>
+         <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>When passed as an argument to the <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> method, the update actions document:</p>
+<ul class="simple">
+<li>Modifies the field <tt class="docutils literal"><span class="pre">name</span></tt> whose value is another document.
+Specifically, the <a class="reference internal" href="../reference/operator/set.html#op._S_set" title="$set"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$set</span></tt></a> operator updates the <tt class="docutils literal"><span class="pre">middle</span></tt>
+field in the <tt class="docutils literal"><span class="pre">name</span></tt> subdocument. The document uses <a class="reference internal" href="#document-dot-notation"><em>dot
+notation</em></a> to access a field in a subdocument.</li>
+<li>Adds an element to the field <tt class="docutils literal"><span class="pre">awards</span></tt> whose value is an array.
+Specifically, the <a class="reference internal" href="../reference/operator/push.html#op._S_push" title="$push"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$push</span></tt></a> operator adds another document as
+element to the field <tt class="docutils literal"><span class="pre">awards</span></tt>.</li>
+</ul>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">update</span><span class="p">(</span>
+   <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span> <span class="p">},</span>
+   <span class="p">{</span>
+     <span class="nx">$set</span><span class="o">:</span> <span class="p">{</span> <span class="s1">&#39;name.middle&#39;</span><span class="o">:</span> <span class="s1">&#39;Warner&#39;</span> <span class="p">},</span>
+     <span class="nx">$push</span><span class="o">:</span> <span class="p">{</span> <span class="nx">awards</span><span class="o">:</span> <span class="p">{</span>
+                        <span class="nx">award</span><span class="o">:</span> <span class="s1">&#39;IBM Fellow&#39;</span><span class="p">,</span>
+                        <span class="nx">year</span><span class="o">:</span> <span class="s1">&#39;1963&#39;</span><span class="p">,</span>
+                        <span class="nx">by</span><span class="o">:</span> <span class="s1">&#39;IBM&#39;</span>
+                      <span class="p">}</span>
+            <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<ul class="last simple">
+<li><a class="reference internal" href="../reference/operator.html#update-operators"><em>update operators</em></a> page for the available
+update operators and syntax.</li>
+<li><a class="reference internal" href="update.html"><em>update</em></a> for more examples on
+update documents.</li>
+</ul>
+</div>
+<p>For additional examples of updates that involve array elements,
+including where the elements are documents, see the <a class="reference internal" href="../reference/operator/positional.html#op._S_" title="$"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$</span></tt></a>
+positional operator.</p>
+</div>
+<div class="section" id="index-specification-documents">
+<span id="document-index-specification"></span><span id="documents-index"></span><h3>Index Specification Documents<a class="headerlink" href="#index-specification-documents" title="Permalink to this headline">¶</a></h3>
+<p>Index specification documents describe the fields to index on during
+the <a class="reference internal" href="../reference/method/db.collection.ensureIndex.html"><em>index creation</em></a>. See <a class="reference internal" href="indexes.html"><em>indexes</em></a> for an overview of indexes. <a class="footnote-reference" href="#index-def" id="id1">[1]</a></p>
+<p>Index documents contain field and value pairs, in the following form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">field</span><span class="o">:</span> <span class="nx">value</span> <span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">field</span></tt> is the field in the documents to index.</li>
+<li><tt class="docutils literal"><span class="pre">value</span></tt> is either 1 for ascending or -1 for descending.</li>
+</ul>
+<p>The following document specifies the <a class="reference internal" href="indexes.html#index-type-multi-key"><em>multi-key index</em></a> on the <tt class="docutils literal"><span class="pre">_id</span></tt> field and the <tt class="docutils literal"><span class="pre">last</span></tt> field
+contained in the subdocument <tt class="docutils literal"><span class="pre">name</span></tt> field. The document uses
+<a class="reference internal" href="#document-dot-notation"><em>dot notation</em></a> to access a field in a
+subdocument:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;name.last&#39;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>When passed as an argument to the <a class="reference internal" href="../reference/method/db.collection.ensureIndex.html#db.collection.ensureIndex" title="db.collection.ensureIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">ensureIndex()</span></tt></a> method, the index documents specifies
+the index to create:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;name.last&#39;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<table class="docutils footnote" frame="void" id="index-def" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>Indexes optimize a number of key <a class="reference internal" href="read-operations.html"><em>read</em></a> and <a class="reference internal" href="write-operations.html"><em>write</em></a>
+operations.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="sort-order-specification-documents">
+<span id="documents-sort-order"></span><h3>Sort Order Specification Documents<a class="headerlink" href="#sort-order-specification-documents" title="Permalink to this headline">¶</a></h3>
+<p>Sort order documents specify the order of documents that a
+<a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">query()</span></tt></a> returns. Pass sort order
+specification documents as an argument to the <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> method. See the <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> page
+for more information on sorting.</p>
+<p>The sort order documents contain field and value pairs, in the following
+form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">field</span><span class="o">:</span> <span class="nx">value</span> <span class="p">}</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">field</span></tt> is the field by which to sort documents.</li>
+<li><tt class="docutils literal"><span class="pre">value</span></tt> is either 1 for ascending or -1 for descending.</li>
+</ul>
+<p>The following document specifies the sort order using the fields from a
+sub-document <tt class="docutils literal"><span class="pre">name</span></tt> first sort by the <tt class="docutils literal"><span class="pre">last</span></tt> field ascending, then
+by the <tt class="docutils literal"><span class="pre">first</span></tt> field also ascending:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s1">&#39;name.last&#39;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;name.first&#39;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>When passed as an argument to the <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a>
+method, the sort order document sorts the results of the
+<a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> method:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">find</span><span class="p">().</span><span class="nx">sort</span><span class="p">(</span> <span class="p">{</span> <span class="s1">&#39;name.last&#39;</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;name.first&#39;</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="bson-type-considerations">
+<span id="document-bson-type-considerations"></span><span id="document-mongodb-type-considerations"></span><h2>BSON Type Considerations<a class="headerlink" href="#bson-type-considerations" title="Permalink to this headline">¶</a></h2>
+<p>The following BSON types require special consideration:</p>
+<div class="section" id="objectid">
+<span id="document-bson-type-object-id"></span><h3>ObjectId<a class="headerlink" href="#objectid" title="Permalink to this headline">¶</a></h3>
+<p>ObjectIds are: small, likely unique, fast to generate, and ordered.
+These values consists of 12-bytes, where the first 4-bytes is a
+timestamp that reflects the ObjectId&#8217;s creation. Refer to the
+<a class="reference internal" href="../reference/object-id.html"><em>ObjectId</em></a> documentation for more information.</p>
+</div>
+<div class="section" id="string">
+<span id="document-bson-type-string"></span><h3>String<a class="headerlink" href="#string" title="Permalink to this headline">¶</a></h3>
+<p>BSON strings are UTF-8. In general, drivers for each programming
+language convert from the language&#8217;s string format to UTF-8 when
+serializing and deserializing BSON. This makes it possible to store
+most international characters in BSON strings with ease.
+<a class="footnote-reference" href="#sort-string-internationalization" id="id2">[2]</a> In addition, MongoDB
+<a class="reference internal" href="../reference/operator/regex.html#op._S_regex" title="$regex"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$regex</span></tt></a> queries support UTF-8 in the regex string.</p>
+<table class="docutils footnote" frame="void" id="sort-string-internationalization" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>Given strings using UTF-8
+character sets, using <a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> on strings
+will be reasonably correct; however, because internally
+<a class="reference internal" href="../reference/method/cursor.sort.html#cursor.sort" title="cursor.sort()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sort()</span></tt></a> uses the C++ <tt class="docutils literal"><span class="pre">strcmp</span></tt> api, the
+sort order may handle some characters incorrectly.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="timestamps">
+<span id="document-bson-type-timestamp"></span><h3>Timestamps<a class="headerlink" href="#timestamps" title="Permalink to this headline">¶</a></h3>
+<p>BSON has a special timestamp type for <em>internal</em> MongoDB use and is
+<strong>not</strong> associated with the regular <a class="reference internal" href="#document-bson-type-date"><em>Date</em></a>
+type. Timestamp values are a 64 bit value where:</p>
+<ul class="simple">
+<li>the first 32 bits are a <tt class="docutils literal"><span class="pre">time_t</span></tt> value (seconds since the Unix epoch)</li>
+<li>the second 32 bits are an incrementing <tt class="docutils literal"><span class="pre">ordinal</span></tt> for operations
+within a given second.</li>
+</ul>
+<p>Within a single <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance, timestamp values are
+always unique.</p>
+<p>In replication, the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> has a <tt class="docutils literal"><span class="pre">ts</span></tt> field. The values in
+this field reflect the operation time, which uses a BSON timestamp
+value.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The BSON Timestamp type is for <em>internal</em> MongoDB use. For most
+cases, in application development, you will want to use the BSON
+date type. See <a class="reference internal" href="#document-bson-type-date"><em>Date</em></a> for more
+information.</p>
+</div>
+<p>If you create a BSON Timestamp using the empty constructor (e.g. <tt class="docutils literal"><span class="pre">new</span>
+<span class="pre">Timestamp()</span></tt>), MongoDB will only generate a timestamp <em>if</em> you use
+the constructor in the first field of the document. <a class="footnote-reference" href="#id-exception" id="id3">[3]</a>
+Otherwise, MongoDB will generate an empty timestamp value
+(i.e. <tt class="docutils literal"><span class="pre">Timestamp(0,</span> <span class="pre">0)</span></tt>.)</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.1: </span><a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell displays the Timestamp value with the wrapper:<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">Timestamp</span><span class="p">(</span><span class="o">&lt;</span><span class="nx">time_t</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;</span><span class="nx">ordinal</span><span class="o">&gt;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Prior to version 2.1, the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell display the
+Timestamp value as a document:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="nx">t</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">time_t</span><span class="o">&gt;</span><span class="p">,</span> <span class="nx">i</span> <span class="o">:</span> <span class="o">&lt;</span><span class="nx">ordinal</span><span class="o">&gt;</span> <span class="p">}</span>
+</pre></div>
+</div>
+</p>
+<table class="docutils footnote" frame="void" id="id-exception" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[3]</a></td><td><p class="first">If the first field in the document is <tt class="docutils literal"><span class="pre">_id</span></tt>, then
+you can generate a timestamp in the <em>second</em> field
+of a document.</p>
+<p>In the following example, MongoDB will generate a Timestamp
+value, even though the <tt class="docutils literal"><span class="pre">Timestamp()</span></tt> constructor is <em>not</em> in
+the first field in the document:</p>
+<div class="last highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">bios</span><span class="p">.</span><span class="nx">insert</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">9</span><span class="p">,</span> <span class="nx">last_updated</span><span class="o">:</span> <span class="k">new</span> <span class="nx">Timestamp</span><span class="p">()</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="date">
+<span id="document-bson-type-date"></span><h3>Date<a class="headerlink" href="#date" title="Permalink to this headline">¶</a></h3>
+<p>BSON Date is a 64-bit integer that represents the number of
+milliseconds since the Unix epoch (Jan 1, 1970). The <a class="reference external" href="http://bsonspec.org/#/specification">official BSON
+specification</a> refers to the
+BSON Date type as the <em>UTC datetime</em>.</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.0: </span>BSON Date type is signed. <a class="footnote-reference" href="#unsigned-date" id="id4">[4]</a> Negative values
+represent dates before 1970.</p>
+<p>Consider the following examples of BSON Date:</p>
+<ul>
+<li><p class="first">Construct a Date using the <tt class="docutils literal"><span class="pre">new</span> <span class="pre">Date()</span></tt> constructor in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">mydate1</span> <span class="o">=</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Construct a Date using the <tt class="docutils literal"><span class="pre">ISODate()</span></tt> constructor in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">var</span> <span class="nx">mydate2</span> <span class="o">=</span> <span class="nx">ISODate</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Return the <tt class="docutils literal"><span class="pre">Date</span></tt> value as string:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">mydate1</span><span class="p">.</span><span class="nx">toString</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Return the month portion of the Date value; months are zero-indexed,
+so that January is month <tt class="docutils literal"><span class="pre">0</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">mydate1</span><span class="p">.</span><span class="nx">getMonth</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+</ul>
+<table class="docutils footnote" frame="void" id="unsigned-date" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[4]</a></td><td>Prior to version 2.0, <tt class="docutils literal"><span class="pre">Date</span></tt> values were
+incorrectly interpreted as <em>unsigned</em> integers, which affected
+sorts, range queries, and indexes on <tt class="docutils literal"><span class="pre">Date</span></tt> fields. Because
+indexes are not recreated when upgrading, please re-index if you
+created an index on <tt class="docutils literal"><span class="pre">Date</span></tt> values with an earlier version, and
+dates before 1970 are relevant to your application.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../reference/write-concern.html" title="Previous Section: Write Concern Reference">&lt; &nbsp; Write Concern Reference</a></li>
+              <li id="btnvup"><a href="../crud.html" title="Parent Section: Core MongoDB Operations (CRUD)" >&#47;&#92;&nbsp; Core MongoDB Operations (CRUD)</a></li>
+              <li id="btnvnx"><a href="../reference/object-id.html" title="Next Section: ObjectId">ObjectId &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="read-operations.html">Read Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="write-operations.html">Write Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/write-concern.html">Write Concern Reference</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">BSON Documents</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/object-id.html">ObjectId</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gridfs.html">GridFS</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/database-references.html">Database References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create.html">Create</a></li>
+<li class="toctree-l2"><a class="reference internal" href="read.html">Read</a></li>
+<li class="toctree-l2"><a class="reference internal" href="update.html">Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="delete.html">Delete</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/document.txt" target="_blank" title="Edit core/document.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/document%2Etxt%22" target="_blank" title="Report a problem with core/document.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/document.txt"'},
+		environment: {'repo': 'docs','source': 'core/document'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/document'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

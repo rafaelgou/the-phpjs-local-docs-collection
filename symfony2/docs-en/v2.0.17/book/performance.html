@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Performance &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../index.html" />
+    <link rel="up" title="The Book" href="index.html" />
+    <link rel="next" title="Internals" href="internals.html" />
+    <link rel="prev" title="Service Container" href="service_container.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="internals.html" title="Internals"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="service_container.html" title="Service Container"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Book</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="performance">
+<span id="index-0"></span><h1>Performance<a class="headerlink" href="#performance" title="Permalink to this headline">¶</a></h1>
+<p>Symfony2 is fast, right out of the box. Of course, if you really need speed,
+there are many ways that you can make Symfony even faster. In this chapter,
+you&#8217;ll explore many of the most common and powerful ways to make your Symfony
+application even faster.</p>
+<div class="section" id="use-a-byte-code-cache-e-g-apc">
+<span id="index-1"></span><h2>Use a Byte Code Cache (e.g. APC)<a class="headerlink" href="#use-a-byte-code-cache-e-g-apc" title="Permalink to this headline">¶</a></h2>
+<p>One of the best (and easiest) things that you should do to improve your performance
+is to use a &#8220;byte code cache&#8221;. The idea of a byte code cache is to remove
+the need to constantly recompile the PHP source code. There are a number of
+<a class="reference external" href="http://en.wikipedia.org/wiki/List_of_PHP_accelerators">byte code caches</a> available, some of which are open source. The most widely
+used byte code cache is probably <a class="reference external" href="http://php.net/manual/en/book.apc.php">APC</a></p>
+<p>Using a byte code cache really has no downside, and Symfony2 has been architected
+to perform really well in this type of environment.</p>
+<div class="section" id="further-optimizations">
+<h3>Further Optimizations<a class="headerlink" href="#further-optimizations" title="Permalink to this headline">¶</a></h3>
+<p>Byte code caches usually monitor the source files for changes. This ensures
+that if the source of a file changes, the byte code is recompiled automatically.
+This is really convenient, but obviously adds overhead.</p>
+<p>For this reason, some byte code caches offer an option to disable these checks.
+Obviously, when disabling these checks, it will be up to the server admin
+to ensure that the cache is cleared whenever any source files change. Otherwise,
+the updates you&#8217;ve made won&#8217;t be seen.</p>
+<p>For example, to disable these checks in APC, simply add <tt class="docutils literal"><span class="pre">apc.stat=0</span></tt> to
+your php.ini configuration.</p>
+</div>
+</div>
+<div class="section" id="use-an-autoloader-that-caches-e-g-apcuniversalclassloader">
+<span id="index-2"></span><h2>Use an Autoloader that caches (e.g. <tt class="docutils literal"><span class="pre">ApcUniversalClassLoader</span></tt>)<a class="headerlink" href="#use-an-autoloader-that-caches-e-g-apcuniversalclassloader" title="Permalink to this headline">¶</a></h2>
+<p>By default, the Symfony2 standard edition uses the <tt class="docutils literal"><span class="pre">UniversalClassLoader</span></tt>
+in the <a class="reference external" href="https://github.com/symfony/symfony-standard/blob/2.0/app/autoload.php">autoloader.php</a> file. This autoloader is easy to use, as it will
+automatically find any new classes that you&#8217;ve placed in the registered
+directories.</p>
+<p>Unfortunately, this comes at a cost, as the loader iterates over all configured
+namespaces to find a particular file, making <tt class="docutils literal"><span class="pre">file_exists</span></tt> calls until it
+finally finds the file it&#8217;s looking for.</p>
+<p>The simplest solution is to cache the location of each class after it&#8217;s located
+the first time. Symfony comes with a class - <tt class="docutils literal"><span class="pre">ApcUniversalClassLoader</span></tt> -
+loader that extends the <tt class="docutils literal"><span class="pre">UniversalClassLoader</span></tt> and stores the class locations
+in APC.</p>
+<p>To use this class loader, simply adapt your <tt class="docutils literal"><span class="pre">autoloader.php</span></tt> as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/autoload.php</span>
+<span class="k">require</span> <span class="nx">__DIR__</span><span class="o">.</span><span class="s1">&#39;/../vendor/symfony/src/Symfony/Component/ClassLoader/ApcUniversalClassLoader.php&#39;</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\ClassLoader\ApcUniversalClassLoader</span><span class="p">;</span>
+
+<span class="nv">$loader</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ApcUniversalClassLoader</span><span class="p">(</span><span class="s1">&#39;some caching unique prefix&#39;</span><span class="p">);</span>
+<span class="c1">// ...</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">When using the APC autoloader, if you add new classes, they will be found
+automatically and everything will work the same as before (i.e. no
+reason to &#8220;clear&#8221; the cache). However, if you change the location of a
+particular namespace or prefix, you&#8217;ll need to flush your APC cache. Otherwise,
+the autoloader will still be looking at the old location for all classes
+inside that namespace.</p>
+</div>
+</div>
+<div class="section" id="use-bootstrap-files">
+<span id="index-3"></span><h2>Use Bootstrap Files<a class="headerlink" href="#use-bootstrap-files" title="Permalink to this headline">¶</a></h2>
+<p>To ensure optimal flexibility and code reuse, Symfony2 applications leverage
+a variety of classes and 3rd party components. But loading all of these classes
+from separate files on each request can result in some overhead. To reduce
+this overhead, the Symfony2 Standard Edition provides a script to generate
+a so-called <a class="reference external" href="https://github.com/sensio/SensioDistributionBundle/blob/2.0/Resources/bin/build_bootstrap.php">bootstrap file</a>, consisting of multiple classes definitions
+in a single file. By including this file (which contains a copy of many of
+the core classes), Symfony no longer needs to include any of the source files
+containing those classes. This will reduce disc IO quite a bit.</p>
+<p>If you&#8217;re using the Symfony2 Standard Edition, then you&#8217;re probably already
+using the bootstrap file. To be sure, open your front controller (usually
+<tt class="docutils literal"><span class="pre">app.php</span></tt>) and check to make sure that the following line exists:</p>
+<div class="highlight-python"><pre>require_once __DIR__.'/../app/bootstrap.php.cache';</pre>
+</div>
+<p>Note that there are two disadvantages when using a bootstrap file:</p>
+<ul class="simple">
+<li>the file needs to be regenerated whenever any of the original sources change
+(i.e. when you update the Symfony2 source or vendor libraries);</li>
+<li>when debugging, one will need to place break points inside the bootstrap file.</li>
+</ul>
+<p>If you&#8217;re using Symfony2 Standard Edition, the bootstrap file is automatically
+rebuilt after updating the vendor libraries via the <tt class="docutils literal"><span class="pre">php</span> <span class="pre">bin/vendors</span> <span class="pre">install</span></tt>
+command.</p>
+<div class="section" id="bootstrap-files-and-byte-code-caches">
+<h3>Bootstrap Files and Byte Code Caches<a class="headerlink" href="#bootstrap-files-and-byte-code-caches" title="Permalink to this headline">¶</a></h3>
+<p>Even when using a byte code cache, performance will improve when using a bootstrap
+file since there will be less files to monitor for changes. Of course if this
+feature is disabled in the byte code cache (e.g. <tt class="docutils literal"><span class="pre">apc.stat=0</span></tt> in APC), there
+is no longer a reason to use a bootstrap file.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Performance</a><ul>
+<li><a class="reference internal" href="#use-a-byte-code-cache-e-g-apc">Use a Byte Code Cache (e.g. APC)</a><ul>
+<li><a class="reference internal" href="#further-optimizations">Further Optimizations</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#use-an-autoloader-that-caches-e-g-apcuniversalclassloader">Use an Autoloader that caches (e.g. <tt class="docutils literal"><span class="pre">ApcUniversalClassLoader</span></tt>)</a></li>
+<li><a class="reference internal" href="#use-bootstrap-files">Use Bootstrap Files</a><ul>
+<li><a class="reference internal" href="#bootstrap-files-and-byte-code-caches">Bootstrap Files and Byte Code Caches</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="service_container.html"
+                        title="previous chapter">Service Container</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="internals.html"
+                        title="next chapter">Internals</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/book/performance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="internals.html" title="Internals"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="service_container.html" title="Service Container"
+             >previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Book</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

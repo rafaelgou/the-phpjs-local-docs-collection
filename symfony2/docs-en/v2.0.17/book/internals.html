@@ -1,0 +1,714 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Internals &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../index.html" />
+    <link rel="up" title="The Book" href="index.html" />
+    <link rel="next" title="The Symfony2 Stable API" href="stable_api.html" />
+    <link rel="prev" title="Performance" href="performance.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="stable_api.html" title="The Symfony2 Stable API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="performance.html" title="Performance"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Book</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="internals">
+<span id="index-0"></span><h1>Internals<a class="headerlink" href="#internals" title="Permalink to this headline">¶</a></h1>
+<p>Looks like you want to understand how Symfony2 works and how to extend it.
+That makes me very happy! This section is an in-depth explanation of the
+Symfony2 internals.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You need to read this section only if you want to understand how Symfony2
+works behind the scene, or if you want to extend Symfony2.</p>
+</div>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>The Symfony2 code is made of several independent layers. Each layer is built
+on top of the previous one.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Autoloading is not managed by the framework directly; it&#8217;s done
+independently with the help of the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ClassLoader/UniversalClassLoader.html" title="Symfony\Component\ClassLoader\UniversalClassLoader"><span class="pre">UniversalClassLoader</span></a></tt> class
+and the <tt class="docutils literal"><span class="pre">src/autoload.php</span></tt> file. Read the <a class="reference internal" href="../components/class_loader.html"><em>dedicated chapter</em></a> for more information.</p>
+</div>
+<div class="section" id="httpfoundation-component">
+<h3><tt class="docutils literal"><span class="pre">HttpFoundation</span></tt> Component<a class="headerlink" href="#httpfoundation-component" title="Permalink to this headline">¶</a></h3>
+<p>The deepest level is the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation.html" title="Symfony\Component\HttpFoundation"><span class="pre">HttpFoundation</span></a></tt>
+component. HttpFoundation provides the main objects needed to deal with HTTP.
+It is an Object-Oriented abstraction of some native PHP functions and
+variables:</p>
+<ul class="simple">
+<li>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt> class abstracts
+the main PHP global variables like <tt class="docutils literal"><span class="pre">$_GET</span></tt>, <tt class="docutils literal"><span class="pre">$_POST</span></tt>, <tt class="docutils literal"><span class="pre">$_COOKIE</span></tt>,
+<tt class="docutils literal"><span class="pre">$_FILES</span></tt>, and <tt class="docutils literal"><span class="pre">$_SERVER</span></tt>;</li>
+<li>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html" title="Symfony\Component\HttpFoundation\Response"><span class="pre">Response</span></a></tt> class abstracts
+some PHP functions like <tt class="docutils literal"><span class="pre">header()</span></tt>, <tt class="docutils literal"><span class="pre">setcookie()</span></tt>, and <tt class="docutils literal"><span class="pre">echo</span></tt>;</li>
+<li>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Session.html" title="Symfony\Component\HttpFoundation\Session"><span class="pre">Session</span></a></tt> class and
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/SessionStorage/SessionStorageInterface.html" title="Symfony\Component\HttpFoundation\SessionStorage\SessionStorageInterface"><span class="pre">SessionStorageInterface</span></a></tt>
+interface abstract session management <tt class="docutils literal"><span class="pre">session_*()</span></tt> functions.</li>
+</ul>
+</div>
+<div class="section" id="httpkernel-component">
+<h3><tt class="docutils literal"><span class="pre">HttpKernel</span></tt> Component<a class="headerlink" href="#httpkernel-component" title="Permalink to this headline">¶</a></h3>
+<p>On top of HttpFoundation is the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel.html" title="Symfony\Component\HttpKernel"><span class="pre">HttpKernel</span></a></tt>
+component. HttpKernel handles the dynamic part of HTTP; it is a thin wrapper
+on top of the Request and Response classes to standardize the way requests are
+handled. It also provides extension points and tools that makes it the ideal
+starting point to create a Web framework without too much overhead.</p>
+<p>It also optionally adds configurability and extensibility, thanks to the
+Dependency Injection component and a powerful plugin system (bundles).</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">Read more about <a class="reference internal" href="service_container.html"><em>Dependency Injection</em></a> and
+<a class="reference internal" href="../cookbook/bundles/best_practices.html"><em>Bundles</em></a>.</p>
+</div>
+</div>
+<div class="section" id="frameworkbundle-bundle">
+<h3><tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt> Bundle<a class="headerlink" href="#frameworkbundle-bundle" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle.html" title="Symfony\Bundle\FrameworkBundle"><span class="pre">FrameworkBundle</span></a></tt> bundle is the bundle that
+ties the main components and libraries together to make a lightweight and fast
+MVC framework. It comes with a sensible default configuration and conventions
+to ease the learning curve.</p>
+</div>
+</div>
+<div class="section" id="kernel">
+<span id="index-1"></span><h2>Kernel<a class="headerlink" href="#kernel" title="Permalink to this headline">¶</a></h2>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html" title="Symfony\Component\HttpKernel\HttpKernel"><span class="pre">HttpKernel</span></a></tt> class is the central
+class of Symfony2 and is responsible for handling client requests. Its main
+goal is to &#8220;convert&#8221; a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt>
+object to a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html" title="Symfony\Component\HttpFoundation\Response"><span class="pre">Response</span></a></tt> object.</p>
+<p>Every Symfony2 Kernel implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernelInterface.html" title="Symfony\Component\HttpKernel\HttpKernelInterface"><span class="pre">HttpKernelInterface</span></a></tt>:</p>
+<div class="highlight-python"><pre>function handle(Request $request, $type = self::MASTER_REQUEST, $catch = true)</pre>
+</div>
+<div class="section" id="controllers">
+<span id="index-2"></span><h3>Controllers<a class="headerlink" href="#controllers" title="Permalink to this headline">¶</a></h3>
+<p>To convert a Request to a Response, the Kernel relies on a &#8220;Controller&#8221;. A
+Controller can be any valid PHP callable.</p>
+<p>The Kernel delegates the selection of what Controller should be executed
+to an implementation of
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface"><span class="pre">ControllerResolverInterface</span></a></tt>:</p>
+<div class="highlight-python"><pre>public function getController(Request $request);
+
+public function getArguments(Request $request, $controller);</pre>
+</div>
+<p>The
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html#method_getController" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface::getController()"><span class="pre">getController()</span></a></tt>
+method returns the Controller (a PHP callable) associated with the given
+Request. The default implementation
+(<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolver.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>)
+looks for a <tt class="docutils literal"><span class="pre">_controller</span></tt> request attribute that represents the controller
+name (a &#8220;class::method&#8221; string, like
+<tt class="docutils literal"><span class="pre">Bundle\BlogBundle\PostController:indexAction</span></tt>).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The default implementation uses the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/EventListener/RouterListener.html" title="Symfony\Bundle\FrameworkBundle\EventListener\RouterListener"><span class="pre">RouterListener</span></a></tt>
+to define the <tt class="docutils literal"><span class="pre">_controller</span></tt> Request attribute (see <a class="reference internal" href="#kernel-core-request"><em>kernel.request Event</em></a>).</p>
+</div>
+<p>The
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html#method_getArguments" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface::getArguments()"><span class="pre">getArguments()</span></a></tt>
+method returns an array of arguments to pass to the Controller callable. The
+default implementation automatically resolves the method arguments, based on
+the Request attributes.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Matching Controller method arguments from Request attributes</p>
+<p>For each method argument, Symfony2 tries to get the value of a Request
+attribute with the same name. If it is not defined, the argument default
+value is used if defined:</p>
+<div class="last highlight-python"><pre>// Symfony2 will look for an 'id' attribute (mandatory)
+// and an 'admin' one (optional)
+public function showAction($id, $admin = true)
+{
+    // ...
+}</pre>
+</div>
+</div>
+</div>
+<div class="section" id="handling-requests">
+<span id="index-3"></span><h3>Handling Requests<a class="headerlink" href="#handling-requests" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">handle()</span></tt> method takes a <tt class="docutils literal"><span class="pre">Request</span></tt> and <em>always</em> returns a <tt class="docutils literal"><span class="pre">Response</span></tt>.
+To convert the <tt class="docutils literal"><span class="pre">Request</span></tt>, <tt class="docutils literal"><span class="pre">handle()</span></tt> relies on the Resolver and an ordered
+chain of Event notifications (see the next section for more information about
+each Event):</p>
+<ol class="arabic simple">
+<li>Before doing anything else, the <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event is notified &#8211; if
+one of the listeners returns a <tt class="docutils literal"><span class="pre">Response</span></tt>, it jumps to step 8 directly;</li>
+<li>The Resolver is called to determine the Controller to execute;</li>
+<li>Listeners of the <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> event can now manipulate the
+Controller callable the way they want (change it, wrap it, ...);</li>
+<li>The Kernel checks that the Controller is actually a valid PHP callable;</li>
+<li>The Resolver is called to determine the arguments to pass to the Controller;</li>
+<li>The Kernel calls the Controller;</li>
+<li>If the Controller does not return a <tt class="docutils literal"><span class="pre">Response</span></tt>, listeners of the
+<tt class="docutils literal"><span class="pre">kernel.view</span></tt> event can convert the Controller return value to a <tt class="docutils literal"><span class="pre">Response</span></tt>;</li>
+<li>Listeners of the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event can manipulate the <tt class="docutils literal"><span class="pre">Response</span></tt>
+(content and headers);</li>
+<li>The Response is returned.</li>
+</ol>
+<p>If an Exception is thrown during processing, the <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> is
+notified and listeners are given a chance to convert the Exception to a
+Response. If that works, the <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event is notified; if not, the
+Exception is re-thrown.</p>
+<p>If you don&#8217;t want Exceptions to be caught (for embedded requests for
+instance), disable the <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> event by passing <tt class="docutils literal"><span class="pre">false</span></tt> as the
+third argument to the <tt class="docutils literal"><span class="pre">handle()</span></tt> method.</p>
+</div>
+<div class="section" id="internal-requests">
+<span id="index-4"></span><h3>Internal Requests<a class="headerlink" href="#internal-requests" title="Permalink to this headline">¶</a></h3>
+<p>At any time during the handling of a request (the &#8216;master&#8217; one), a sub-request
+can be handled. You can pass the request type to the <tt class="docutils literal"><span class="pre">handle()</span></tt> method (its
+second argument):</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">HttpKernelInterface::MASTER_REQUEST</span></tt>;</li>
+<li><tt class="docutils literal"><span class="pre">HttpKernelInterface::SUB_REQUEST</span></tt>.</li>
+</ul>
+<p>The type is passed to all events and listeners can act accordingly (some
+processing must only occur on the master request).</p>
+</div>
+<div class="section" id="events">
+<span id="index-5"></span><h3>Events<a class="headerlink" href="#events" title="Permalink to this headline">¶</a></h3>
+<p>Each event thrown by the Kernel is a subclass of
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/KernelEvent.html" title="Symfony\Component\HttpKernel\Event\KernelEvent"><span class="pre">KernelEvent</span></a></tt>. This means that
+each event has access to the same basic information:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">getRequestType()</span></tt> - returns the <em>type</em> of the request
+(<tt class="docutils literal"><span class="pre">HttpKernelInterface::MASTER_REQUEST</span></tt> or <tt class="docutils literal"><span class="pre">HttpKernelInterface::SUB_REQUEST</span></tt>);</li>
+<li><tt class="docutils literal"><span class="pre">getKernel()</span></tt> - returns the Kernel handling the request;</li>
+<li><tt class="docutils literal"><span class="pre">getRequest()</span></tt> - returns the current <tt class="docutils literal"><span class="pre">Request</span></tt> being handled.</li>
+</ul>
+<div class="section" id="getrequesttype">
+<h4><tt class="docutils literal"><span class="pre">getRequestType()</span></tt><a class="headerlink" href="#getrequesttype" title="Permalink to this headline">¶</a></h4>
+<p>The <tt class="docutils literal"><span class="pre">getRequestType()</span></tt> method allows listeners to know the type of the
+request. For instance, if a listener must only be active for master requests,
+add the following code at the beginning of your listener method:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpKernel\HttpKernelInterface;
+
+if (HttpKernelInterface::MASTER_REQUEST !== $event-&gt;getRequestType()) {
+    // return immediately
+    return;
+}</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">If you are not yet familiar with the Symfony2 Event Dispatcher, read the
+<a class="reference internal" href="../components/event_dispatcher/introduction.html"><em>Event Dispatcher Component Documentation</em></a>
+section first.</p>
+</div>
+</div>
+<div class="section" id="kernel-request-event">
+<span id="kernel-core-request"></span><span id="index-6"></span><h4><tt class="docutils literal"><span class="pre">kernel.request</span></tt> Event<a class="headerlink" href="#kernel-request-event" title="Permalink to this headline">¶</a></h4>
+<p><em>Event Class</em>: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseEvent"><span class="pre">GetResponseEvent</span></a></tt></p>
+<p>The goal of this event is to either return a <tt class="docutils literal"><span class="pre">Response</span></tt> object immediately
+or setup variables so that a Controller can be called after the event. Any
+listener can return a <tt class="docutils literal"><span class="pre">Response</span></tt> object via the <tt class="docutils literal"><span class="pre">setResponse()</span></tt> method on
+the event. In this case, all other listeners won&#8217;t be called.</p>
+<p>This event is used by <tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt> to populate the <tt class="docutils literal"><span class="pre">_controller</span></tt>
+<tt class="docutils literal"><span class="pre">Request</span></tt> attribute, via the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/EventListener/RouterListener.html" title="Symfony\Bundle\FrameworkBundle\EventListener\RouterListener"><span class="pre">RouterListener</span></a></tt>. RequestListener
+uses a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/RouterInterface.html" title="Symfony\Component\Routing\RouterInterface"><span class="pre">RouterInterface</span></a></tt> object to match
+the <tt class="docutils literal"><span class="pre">Request</span></tt> and determine the Controller name (stored in the
+<tt class="docutils literal"><span class="pre">_controller</span></tt> <tt class="docutils literal"><span class="pre">Request</span></tt> attribute).</p>
+</div>
+<div class="section" id="kernel-controller-event">
+<span id="index-7"></span><h4><tt class="docutils literal"><span class="pre">kernel.controller</span></tt> Event<a class="headerlink" href="#kernel-controller-event" title="Permalink to this headline">¶</a></h4>
+<p><em>Event Class</em>: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterControllerEvent.html" title="Symfony\Component\HttpKernel\Event\FilterControllerEvent"><span class="pre">FilterControllerEvent</span></a></tt></p>
+<p>This event is not used by <tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt>, but can be an entry point used
+to modify the controller that should be executed:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\Event\FilterControllerEvent</span><span class="p">;</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">onKernelController</span><span class="p">(</span><span class="nx">FilterControllerEvent</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$controller</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getController</span><span class="p">();</span>
+    <span class="c1">// ...</span>
+
+    <span class="c1">// the controller can be changed to any PHP callable</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">setController</span><span class="p">(</span><span class="nv">$controller</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="kernel-view-event">
+<span id="index-8"></span><h4><tt class="docutils literal"><span class="pre">kernel.view</span></tt> Event<a class="headerlink" href="#kernel-view-event" title="Permalink to this headline">¶</a></h4>
+<p><em>Event Class</em>: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForControllerResultEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent"><span class="pre">GetResponseForControllerResultEvent</span></a></tt></p>
+<p>This event is not used by <tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt>, but it can be used to implement
+a view sub-system. This event is called <em>only</em> if the Controller does <em>not</em>
+return a <tt class="docutils literal"><span class="pre">Response</span></tt> object. The purpose of the event is to allow some other
+return value to be converted into a <tt class="docutils literal"><span class="pre">Response</span></tt>.</p>
+<p>The value returned by the Controller is accessible via the
+<tt class="docutils literal"><span class="pre">getControllerResult</span></tt> method:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent;
+use Symfony\Component\HttpFoundation\Response;
+
+public function onKernelView(GetResponseForControllerResultEvent $event)
+{
+    $val = $event-&gt;getControllerResult();
+    $response = new Response();
+    // some how customize the Response from the return value
+
+    $event-&gt;setResponse($response);
+}</pre>
+</div>
+</div>
+<div class="section" id="kernel-response-event">
+<span id="index-9"></span><h4><tt class="docutils literal"><span class="pre">kernel.response</span></tt> Event<a class="headerlink" href="#kernel-response-event" title="Permalink to this headline">¶</a></h4>
+<p><em>Event Class</em>: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterResponseEvent.html" title="Symfony\Component\HttpKernel\Event\FilterResponseEvent"><span class="pre">FilterResponseEvent</span></a></tt></p>
+<p>The purpose of this event is to allow other systems to modify or replace the
+<tt class="docutils literal"><span class="pre">Response</span></tt> object after its creation:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">onKernelResponse</span><span class="p">(</span><span class="nx">FilterResponseEvent</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$response</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getResponse</span><span class="p">();</span>
+    <span class="c1">// ... modify the response object</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt> registers several listeners:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/ProfilerListener.html" title="Symfony\Component\HttpKernel\EventListener\ProfilerListener"><span class="pre">ProfilerListener</span></a></tt>:
+collects data for the current request;</li>
+<li><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/WebProfilerBundle/EventListener/WebDebugToolbarListener.html" title="Symfony\Bundle\WebProfilerBundle\EventListener\WebDebugToolbarListener"><span class="pre">WebDebugToolbarListener</span></a></tt>:
+injects the Web Debug Toolbar;</li>
+<li><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/ResponseListener.html" title="Symfony\Component\HttpKernel\EventListener\ResponseListener"><span class="pre">ResponseListener</span></a></tt>: fixes the
+Response <tt class="docutils literal"><span class="pre">Content-Type</span></tt> based on the request format;</li>
+<li><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/EsiListener.html" title="Symfony\Component\HttpKernel\EventListener\EsiListener"><span class="pre">EsiListener</span></a></tt>: adds a
+<tt class="docutils literal"><span class="pre">Surrogate-Control</span></tt> HTTP header when the Response needs to be parsed for
+ESI tags.</li>
+</ul>
+</div>
+<div class="section" id="kernel-exception-event">
+<span id="kernel-kernel-exception"></span><span id="index-10"></span><h4><tt class="docutils literal"><span class="pre">kernel.exception</span></tt> Event<a class="headerlink" href="#kernel-exception-event" title="Permalink to this headline">¶</a></h4>
+<p><em>Event Class</em>: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForExceptionEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent"><span class="pre">GetResponseForExceptionEvent</span></a></tt></p>
+<p><tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt> registers an
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/ExceptionListener.html" title="Symfony\Component\HttpKernel\EventListener\ExceptionListener"><span class="pre">ExceptionListener</span></a></tt> that
+forwards the <tt class="docutils literal"><span class="pre">Request</span></tt> to a given Controller (the value of the
+<tt class="docutils literal"><span class="pre">exception_listener.controller</span></tt> parameter &#8211; must be in the
+<tt class="docutils literal"><span class="pre">class::method</span></tt> notation).</p>
+<p>A listener on this event can create and set a <tt class="docutils literal"><span class="pre">Response</span></tt> object, create
+and set a new <tt class="docutils literal"><span class="pre">Exception</span></tt> object, or do nothing:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Response</span><span class="p">;</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">onKernelException</span><span class="p">(</span><span class="nx">GetResponseForExceptionEvent</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$exception</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getException</span><span class="p">();</span>
+    <span class="nv">$response</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Response</span><span class="p">();</span>
+    <span class="c1">// setup the Response object based on the caught exception</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">setResponse</span><span class="p">(</span><span class="nv">$response</span><span class="p">);</span>
+
+    <span class="c1">// you can alternatively set a new Exception</span>
+    <span class="c1">// $exception = new \Exception(&#39;Some special exception&#39;);</span>
+    <span class="c1">// $event-&gt;setException($exception);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="the-event-dispatcher">
+<span id="index-11"></span><h2>The Event Dispatcher<a class="headerlink" href="#the-event-dispatcher" title="Permalink to this headline">¶</a></h2>
+<p>The event dispatcher is a standalone component that is responsible for much
+of the underlying logic and flow behind a Symfony request. For more information,
+see the <a class="reference internal" href="../components/event_dispatcher/introduction.html"><em>Event Dispatcher Component Documentation</em></a>.</p>
+</div>
+<div class="section" id="profiler">
+<span id="internals-profiler"></span><span id="index-12"></span><h2>Profiler<a class="headerlink" href="#profiler" title="Permalink to this headline">¶</a></h2>
+<p>When enabled, the Symfony2 profiler collects useful information about each
+request made to your application and store them for later analysis. Use the
+profiler in the development environment to help you to debug your code and
+enhance performance; use it in the production environment to explore problems
+after the fact.</p>
+<p>You rarely have to deal with the profiler directly as Symfony2 provides
+visualizer tools like the Web Debug Toolbar and the Web Profiler. If you use
+the Symfony2 Standard Edition, the profiler, the web debug toolbar, and the
+web profiler are all already configured with sensible settings.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The profiler collects information for all requests (simple requests,
+redirects, exceptions, Ajax requests, ESI requests; and for all HTTP
+methods and all formats). It means that for a single URL, you can have
+several associated profiling data (one per external request/response
+pair).</p>
+</div>
+<div class="section" id="visualizing-profiling-data">
+<span id="index-13"></span><h3>Visualizing Profiling Data<a class="headerlink" href="#visualizing-profiling-data" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="using-the-web-debug-toolbar">
+<h4>Using the Web Debug Toolbar<a class="headerlink" href="#using-the-web-debug-toolbar" title="Permalink to this headline">¶</a></h4>
+<p>In the development environment, the web debug toolbar is available at the
+bottom of all pages. It displays a good summary of the profiling data that
+gives you instant access to a lot of useful information when something does
+not work as expected.</p>
+<p>If the summary provided by the Web Debug Toolbar is not enough, click on the
+token link (a string made of 13 random characters) to access the Web Profiler.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If the token is not clickable, it means that the profiler routes are not
+registered (see below for configuration information).</p>
+</div>
+</div>
+<div class="section" id="analyzing-profiling-data-with-the-web-profiler">
+<h4>Analyzing Profiling data with the Web Profiler<a class="headerlink" href="#analyzing-profiling-data-with-the-web-profiler" title="Permalink to this headline">¶</a></h4>
+<p>The Web Profiler is a visualization tool for profiling data that you can use
+in development to debug your code and enhance performance; but it can also be
+used to explore problems that occur in production. It exposes all information
+collected by the profiler in a web interface.</p>
+</div>
+<div class="section" id="accessing-the-profiling-information">
+<span id="index-14"></span><h4>Accessing the Profiling information<a class="headerlink" href="#accessing-the-profiling-information" title="Permalink to this headline">¶</a></h4>
+<p>You don&#8217;t need to use the default visualizer to access the profiling
+information. But how can you retrieve profiling information for a specific
+request after the fact? When the profiler stores data about a Request, it also
+associates a token with it; this token is available in the <tt class="docutils literal"><span class="pre">X-Debug-Token</span></tt>
+HTTP header of the Response:</p>
+<div class="highlight-python"><pre>$profile = $container-&gt;get('profiler')-&gt;loadProfileFromResponse($response);
+
+$profile = $container-&gt;get('profiler')-&gt;loadProfile($token);</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">When the profiler is enabled but not the web debug toolbar, or when you
+want to get the token for an Ajax request, use a tool like Firebug to get
+the value of the <tt class="docutils literal"><span class="pre">X-Debug-Token</span></tt> HTTP header.</p>
+</div>
+<p>Use the <tt class="docutils literal"><span class="pre">find()</span></tt> method to access tokens based on some criteria:</p>
+<div class="highlight-python"><pre>// get the latest 10 tokens
+$tokens = $container-&gt;get('profiler')-&gt;find('', '', 10);
+
+// get the latest 10 tokens for all URL containing /admin/
+$tokens = $container-&gt;get('profiler')-&gt;find('', '/admin/', 10);
+
+// get the latest 10 tokens for local requests
+$tokens = $container-&gt;get('profiler')-&gt;find('127.0.0.1', '', 10);</pre>
+</div>
+<p>If you want to manipulate profiling data on a different machine than the one
+where the information were generated, use the <tt class="docutils literal"><span class="pre">export()</span></tt> and <tt class="docutils literal"><span class="pre">import()</span></tt>
+methods:</p>
+<div class="highlight-python"><pre>// on the production machine
+$profile = $container-&gt;get('profiler')-&gt;loadProfile($token);
+$data = $profiler-&gt;export($profile);
+
+// on the development machine
+$profiler-&gt;import($data);</pre>
+</div>
+</div>
+<div class="section" id="configuration">
+<span id="index-15"></span><h4>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h4>
+<p>The default Symfony2 configuration comes with sensible settings for the
+profiler, the web debug toolbar, and the web profiler. Here is for instance
+the configuration for the development environment:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># load the profiler</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">profiler</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">only_exceptions</span><span class="p-Indicator">:</span> <span class="nv">false</span> <span class="p-Indicator">}</span>
+
+<span class="c1"># enable the web profiler</span>
+<span class="l-Scalar-Plain">web_profiler</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">toolbar</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+    <span class="l-Scalar-Plain">intercept_redirects</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+    <span class="l-Scalar-Plain">verbose</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- xmlns:webprofiler=&quot;http://symfony.com/schema/dic/webprofiler&quot; --&gt;</span>
+<span class="c">&lt;!-- xsi:schemaLocation=&quot;http://symfony.com/schema/dic/webprofiler http://symfony.com/schema/dic/webprofiler/webprofiler-1.0.xsd&quot;&gt; --&gt;</span>
+
+<span class="c">&lt;!-- load the profiler --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:profiler</span> <span class="na">only-exceptions=</span><span class="s">&quot;false&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+
+<span class="c">&lt;!-- enable the web profiler --&gt;</span>
+<span class="nt">&lt;webprofiler:config</span>
+    <span class="na">toolbar=</span><span class="s">&quot;true&quot;</span>
+    <span class="na">intercept-redirects=</span><span class="s">&quot;true&quot;</span>
+    <span class="na">verbose=</span><span class="s">&quot;true&quot;</span>
+<span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// load the profiler</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;profiler&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;only-exceptions&#39;</span> <span class="o">=&gt;</span> <span class="k">false</span><span class="p">),</span>
+<span class="p">));</span>
+
+<span class="c1">// enable the web profiler</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;web_profiler&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;toolbar&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+    <span class="s1">&#39;intercept-redirects&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+    <span class="s1">&#39;verbose&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>When <tt class="docutils literal"><span class="pre">only-exceptions</span></tt> is set to <tt class="docutils literal"><span class="pre">true</span></tt>, the profiler only collects data
+when an exception is thrown by the application.</p>
+<p>When <tt class="docutils literal"><span class="pre">intercept-redirects</span></tt> is set to <tt class="docutils literal"><span class="pre">true</span></tt>, the web profiler intercepts
+the redirects and gives you the opportunity to look at the collected data
+before following the redirect.</p>
+<p>When <tt class="docutils literal"><span class="pre">verbose</span></tt> is set to <tt class="docutils literal"><span class="pre">true</span></tt>, the Web Debug Toolbar displays a lot of
+information. Setting <tt class="docutils literal"><span class="pre">verbose</span></tt> to <tt class="docutils literal"><span class="pre">false</span></tt> hides some secondary information
+to make the toolbar shorter.</p>
+<p>If you enable the web profiler, you also need to mount the profiler routes:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><pre>_profiler:
+    resource: @WebProfilerBundle/Resources/config/routing/profiler.xml
+    prefix:   /_profiler</pre>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;import</span> <span class="na">resource=</span><span class="s">&quot;@WebProfilerBundle/Resources/config/routing/profiler.xml&quot;</span> <span class="na">prefix=</span><span class="s">&quot;/_profiler&quot;</span> <span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">addCollection</span><span class="p">(</span><span class="nv">$loader</span><span class="o">-&gt;</span><span class="na">import</span><span class="p">(</span><span class="s2">&quot;@WebProfilerBundle/Resources/config/routing/profiler.xml&quot;</span><span class="p">),</span> <span class="s1">&#39;/_profiler&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>As the profiler adds some overhead, you might want to enable it only under
+certain circumstances in the production environment. The <tt class="docutils literal"><span class="pre">only-exceptions</span></tt>
+settings limits profiling to 500 pages, but what if you want to get
+information when the client IP comes from a specific address, or for a limited
+portion of the website? You can use a request matcher:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># enables the profiler only for request coming for the 192.168.0.0 network</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">profiler</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">matcher</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">ip</span><span class="p-Indicator">:</span> <span class="nv">192.168.0.0/24</span> <span class="p-Indicator">}</span>
+
+<span class="c1"># enables the profiler only for the /admin URLs</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">profiler</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">matcher</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">path</span><span class="p-Indicator">:</span> <span class="s">&quot;^/admin/&quot;</span> <span class="p-Indicator">}</span>
+
+<span class="c1"># combine rules</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">profiler</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">matcher</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">ip</span><span class="p-Indicator">:</span> <span class="nv">192.168.0.0/24</span><span class="p-Indicator">,</span> <span class="nv">path</span><span class="p-Indicator">:</span> <span class="s">&quot;^/admin/&quot;</span> <span class="p-Indicator">}</span>
+
+<span class="c1"># use a custom matcher instance defined in the &quot;custom_matcher&quot; service</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">profiler</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">matcher</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">service</span><span class="p-Indicator">:</span> <span class="nv">custom_matcher</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- enables the profiler only for request coming for the 192.168.0.0 network --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:profiler&gt;</span>
+        <span class="nt">&lt;framework:matcher</span> <span class="na">ip=</span><span class="s">&quot;192.168.0.0/24&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/framework:profiler&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+
+<span class="c">&lt;!-- enables the profiler only for the /admin URLs --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:profiler&gt;</span>
+        <span class="nt">&lt;framework:matcher</span> <span class="na">path=</span><span class="s">&quot;^/admin/&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/framework:profiler&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+
+<span class="c">&lt;!-- combine rules --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:profiler&gt;</span>
+        <span class="nt">&lt;framework:matcher</span> <span class="na">ip=</span><span class="s">&quot;192.168.0.0/24&quot;</span> <span class="na">path=</span><span class="s">&quot;^/admin/&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/framework:profiler&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+
+<span class="c">&lt;!-- use a custom matcher instance defined in the &quot;custom_matcher&quot; service --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:profiler&gt;</span>
+        <span class="nt">&lt;framework:matcher</span> <span class="na">service=</span><span class="s">&quot;custom_matcher&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/framework:profiler&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// enables the profiler only for request coming for the 192.168.0.0 network</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;profiler&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;matcher&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ip&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;192.168.0.0/24&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+
+<span class="c1">// enables the profiler only for the /admin URLs</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;profiler&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;matcher&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;path&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;^/admin/&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+
+<span class="c1">// combine rules</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;profiler&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;matcher&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ip&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;192.168.0.0/24&#39;</span><span class="p">,</span> <span class="s1">&#39;path&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;^/admin/&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+
+<span class="c1"># use a custom matcher instance defined in the &quot;custom_matcher&quot; service</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;profiler&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;matcher&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;service&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;custom_matcher&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="learn-more-from-the-cookbook">
+<h2>Learn more from the Cookbook<a class="headerlink" href="#learn-more-from-the-cookbook" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><a class="reference internal" href="../cookbook/testing/profiling.html"><em>How to use the Profiler in a Functional Test</em></a></li>
+<li><a class="reference internal" href="../cookbook/profiler/data_collector.html"><em>How to create a custom Data Collector</em></a></li>
+<li><a class="reference internal" href="../cookbook/event_dispatcher/class_extension.html"><em>How to extend a Class without using Inheritance</em></a></li>
+<li><a class="reference internal" href="../cookbook/event_dispatcher/method_behavior.html"><em>How to customize a Method Behavior without using Inheritance</em></a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Internals</a><ul>
+<li><a class="reference internal" href="#overview">Overview</a><ul>
+<li><a class="reference internal" href="#httpfoundation-component"><tt class="docutils literal"><span class="pre">HttpFoundation</span></tt> Component</a></li>
+<li><a class="reference internal" href="#httpkernel-component"><tt class="docutils literal"><span class="pre">HttpKernel</span></tt> Component</a></li>
+<li><a class="reference internal" href="#frameworkbundle-bundle"><tt class="docutils literal"><span class="pre">FrameworkBundle</span></tt> Bundle</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#kernel">Kernel</a><ul>
+<li><a class="reference internal" href="#controllers">Controllers</a></li>
+<li><a class="reference internal" href="#handling-requests">Handling Requests</a></li>
+<li><a class="reference internal" href="#internal-requests">Internal Requests</a></li>
+<li><a class="reference internal" href="#events">Events</a><ul>
+<li><a class="reference internal" href="#getrequesttype"><tt class="docutils literal"><span class="pre">getRequestType()</span></tt></a></li>
+<li><a class="reference internal" href="#kernel-request-event"><tt class="docutils literal"><span class="pre">kernel.request</span></tt> Event</a></li>
+<li><a class="reference internal" href="#kernel-controller-event"><tt class="docutils literal"><span class="pre">kernel.controller</span></tt> Event</a></li>
+<li><a class="reference internal" href="#kernel-view-event"><tt class="docutils literal"><span class="pre">kernel.view</span></tt> Event</a></li>
+<li><a class="reference internal" href="#kernel-response-event"><tt class="docutils literal"><span class="pre">kernel.response</span></tt> Event</a></li>
+<li><a class="reference internal" href="#kernel-exception-event"><tt class="docutils literal"><span class="pre">kernel.exception</span></tt> Event</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-event-dispatcher">The Event Dispatcher</a></li>
+<li><a class="reference internal" href="#profiler">Profiler</a><ul>
+<li><a class="reference internal" href="#visualizing-profiling-data">Visualizing Profiling Data</a><ul>
+<li><a class="reference internal" href="#using-the-web-debug-toolbar">Using the Web Debug Toolbar</a></li>
+<li><a class="reference internal" href="#analyzing-profiling-data-with-the-web-profiler">Analyzing Profiling data with the Web Profiler</a></li>
+<li><a class="reference internal" href="#accessing-the-profiling-information">Accessing the Profiling information</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#learn-more-from-the-cookbook">Learn more from the Cookbook</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="performance.html"
+                        title="previous chapter">Performance</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="stable_api.html"
+                        title="next chapter">The Symfony2 Stable API</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/book/internals.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="stable_api.html" title="The Symfony2 Stable API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="performance.html" title="Performance"
+             >previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Book</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,171 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to simulate Authentication with a Token in a Functional Test &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Testing" href="index.html" />
+    <link rel="next" title="How to test the Interaction of several Clients" href="insulating_clients.html" />
+    <link rel="prev" title="How to simulate HTTP Authentication in a Functional Test" href="http_authentication.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="http_authentication.html" title="How to simulate HTTP Authentication in a Functional Test"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Testing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-simulate-authentication-with-a-token-in-a-functional-test">
+<span id="index-0"></span><h1>How to simulate Authentication with a Token in a Functional Test<a class="headerlink" href="#how-to-simulate-authentication-with-a-token-in-a-functional-test" title="Permalink to this headline">¶</a></h1>
+<p>Authenticating requests in functional tests might slow down the suite.
+It could become an issue especially when <tt class="docutils literal"><span class="pre">form_login</span></tt> is used, since
+it requires additional requests to fill in and submit the form.</p>
+<p>One of the solutions is to configure your firewall to use <tt class="docutils literal"><span class="pre">http_basic</span></tt> in
+the test environment as explained in
+<a class="reference internal" href="http_authentication.html"><em>How to simulate HTTP Authentication in a Functional Test</em></a>.
+Another way would be to create a token yourself and store it in a session.
+While doing this, you have to make sure that appropriate cookie is sent
+with a request. The following example demonstrates this technique:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Tests/Controller/DemoControllerTest.php
+namespace Acme\DemoBundle\Tests\Controller;
+
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\BrowserKit\Cookie;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+
+class DemoControllerTest extends WebTestCase
+{
+    private $client = null;
+
+    public function setUp()
+    {
+        $this-&gt;client = static::createClient();
+    }
+
+    public function testSecuredHello()
+    {
+        $this-&gt;logIn();
+
+        $this-&gt;client-&gt;request('GET', '/demo/secured/hello/Fabien');
+
+        $this-&gt;assertTrue($this-&gt;client-&gt;getResponse()-&gt;isSuccessful());
+        $this-&gt;assertGreaterThan(0, $crawler-&gt;filter('html:contains("Hello Fabien")')-&gt;count());
+    }
+
+    private function logIn()
+    {
+        $session = $this-&gt;client-&gt;getContainer()-&gt;get('session');
+
+        $firewall = 'secured_area';
+        $token = new UsernamePasswordToken('admin', null, $firewall, array('ROLE_ADMIN'));
+        $session-&gt;set('_security_'.$firewall, serialize($token));
+        $session-&gt;save();
+
+        $cookie = new Cookie($session-&gt;getName(), $session-&gt;getId());
+        $this-&gt;client-&gt;getCookieJar()-&gt;set($cookie);
+    }
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The technique described in <a class="reference internal" href="http_authentication.html"><em>How to simulate HTTP Authentication in a Functional Test</em></a>.
+is cleaner and therefore preferred way.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="http_authentication.html"
+                        title="previous chapter">How to simulate HTTP Authentication in a Functional Test</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="insulating_clients.html"
+                        title="next chapter">How to test the Interaction of several Clients</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/testing/simulating_authentication.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="http_authentication.html" title="How to simulate HTTP Authentication in a Functional Test"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Testing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

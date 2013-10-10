@@ -1,0 +1,115 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Transactions and auto-commit</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="pdo.connections.html">Connections and Connection management</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="pdo.prepared-statements.html">Prepared statements and stored procedures</a></div>
+ <div class="up"><a href="book.pdo.html">PDO</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="pdo.transactions" class="chapter">
+ <h1>Transactions and auto-commit</h1>
+
+ <p class="para">
+  Now that you&#039;re connected via PDO, you must understand how PDO
+  manages transactions before you start issuing queries. If you&#039;ve never
+  encountered transactions before, they offer 4 major features: Atomicity,
+  Consistency, Isolation and Durability (ACID). In layman&#039;s terms, any work
+  carried out in a transaction, even if it is carried out in stages, is
+  guaranteed to be applied to the database safely, and without interference
+  from other connections, when it is committed. Transactional work can also
+  be automatically undone at your request (provided you haven&#039;t already
+  committed it), which makes error handling in your scripts easier.
+ </p>
+ <p class="para">
+  Transactions are typically implemented by &quot;saving-up&quot; your batch of
+  changes to be applied all at once; this has the nice side effect of
+  drastically improving the efficiency of those updates. In other words,
+  transactions can make your scripts faster and potentially more robust
+  (you still need to use them correctly to reap that benefit).
+ </p>
+ <p class="para">
+  Unfortunately, not every database supports transactions, so PDO needs to
+  run in what is known as &quot;auto-commit&quot; mode when you first open the
+  connection.  Auto-commit mode means that every query that you run has its
+  own implicit transaction, if the database supports it, or no transaction
+  if the database doesn&#039;t support transactions. If you need a transaction,
+  you must use the  <span class="function"><a href="pdo.begintransaction.html" class="function">PDO::beginTransaction()</a></span> method to
+  initiate one. If the underlying driver does not support transactions, a
+  PDOException will be thrown (regardless of your error handling settings:
+  this is always a serious error condition). Once you are in a transaction,
+  you may use  <span class="function"><a href="pdo.commit.html" class="function">PDO::commit()</a></span> or
+   <span class="function"><a href="pdo.rollback.html" class="function">PDO::rollBack()</a></span> to finish it, depending on the success
+  of the code you run during the transaction.
+ </p>
+ <div class="warning"><strong class="warning">Warning</strong>
+  <p class="para">
+   PDO only checks for transaction capabilities on driver level. If certain
+   runtime conditions mean that transactions are unavailable,
+    <span class="methodname"><a href="pdo.begintransaction.html" class="methodname">PDO::beginTransaction()</a></span> will still return <strong><code>TRUE</code></strong>
+   without error if the database server accepts the request to start a
+   transaction.
+  </p>
+  <p class="para">
+   An example of this would be trying to use transactions on MyISAM tables on
+   a MySQL database.
+  </p>
+ </div>
+ <p class="para">
+  When the script ends or when a connection is about to be closed, if you
+  have an outstanding transaction, PDO will automatically roll it back.
+  This is a safety measure to help avoid inconsistency in the cases where
+  the script terminates unexpectedly--if you didn&#039;t explicitly commit the
+  transaction, then it is assumed that something went awry, so the rollback
+  is performed for the safety of your data.
+ </p>
+ <div class="warning"><strong class="warning">Warning</strong>
+  <p class="para">
+   The automatic rollback only happens if you initiate the transaction via
+    <span class="function"><a href="pdo.begintransaction.html" class="function">PDO::beginTransaction()</a></span>. If you manually issue a
+   query that begins a transaction PDO has no way of knowing about it and
+   thus cannot roll it back if something bad happens.
+  </p>
+ </div>
+ <p class="para">
+  <div class="example" id="example-971"><p><strong>Example #1 Executing a batch in a transaction</strong></p>
+   <div class="example-contents"><p>
+    In the following sample, let&#039;s assume that we are creating a set of
+    entries for a new employee, who has been assigned an ID number of 23.
+    In addition to entering the basic data for that person, we also need to
+    record their salary. It&#039;s pretty simple to make two separate updates,
+    but by enclosing them within the
+     <span class="function"><a href="pdo.begintransaction.html" class="function">PDO::beginTransaction()</a></span> and
+     <span class="function"><a href="pdo.commit.html" class="function">PDO::commit()</a></span> calls, we are guaranteeing that no one
+    else will be able to see those changes until they are complete. If
+    something goes wrong, the catch block rolls back all changes made
+    since the transaction was started, and then prints out an error
+    message.
+   </p></div>
+   <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br /></span><span style="color: #007700">try&nbsp;{<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh&nbsp;</span><span style="color: #007700">=&nbsp;new&nbsp;</span><span style="color: #0000BB">PDO</span><span style="color: #007700">(</span><span style="color: #DD0000">'odbc:SAMPLE'</span><span style="color: #007700">,&nbsp;</span><span style="color: #DD0000">'db2inst1'</span><span style="color: #007700">,&nbsp;</span><span style="color: #DD0000">'ibmdb2'</span><span style="color: #007700">,&nbsp;<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;array(</span><span style="color: #0000BB">PDO</span><span style="color: #007700">::</span><span style="color: #0000BB">ATTR_PERSISTENT&nbsp;</span><span style="color: #007700">=&gt;&nbsp;</span><span style="color: #0000BB">true</span><span style="color: #007700">));<br />&nbsp;&nbsp;echo&nbsp;</span><span style="color: #DD0000">"Connected\n"</span><span style="color: #007700">;<br />}&nbsp;catch&nbsp;(</span><span style="color: #0000BB">Exception&nbsp;$e</span><span style="color: #007700">)&nbsp;{<br />&nbsp;&nbsp;die(</span><span style="color: #DD0000">"Unable&nbsp;to&nbsp;connect:&nbsp;"&nbsp;</span><span style="color: #007700">.&nbsp;</span><span style="color: #0000BB">$e</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">getMessage</span><span style="color: #007700">());<br />}<br /><br />try&nbsp;{&nbsp;&nbsp;<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">setAttribute</span><span style="color: #007700">(</span><span style="color: #0000BB">PDO</span><span style="color: #007700">::</span><span style="color: #0000BB">ATTR_ERRMODE</span><span style="color: #007700">,&nbsp;</span><span style="color: #0000BB">PDO</span><span style="color: #007700">::</span><span style="color: #0000BB">ERRMODE_EXCEPTION</span><span style="color: #007700">);<br /><br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">beginTransaction</span><span style="color: #007700">();<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">exec</span><span style="color: #007700">(</span><span style="color: #DD0000">"insert&nbsp;into&nbsp;staff&nbsp;(id,&nbsp;first,&nbsp;last)&nbsp;values&nbsp;(23,&nbsp;'Joe',&nbsp;'Bloggs')"</span><span style="color: #007700">);<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">exec</span><span style="color: #007700">(</span><span style="color: #DD0000">"insert&nbsp;into&nbsp;salarychange&nbsp;(id,&nbsp;amount,&nbsp;changedate)&nbsp;<br />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;values&nbsp;(23,&nbsp;50000,&nbsp;NOW())"</span><span style="color: #007700">);<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">commit</span><span style="color: #007700">();<br />&nbsp;&nbsp;<br />}&nbsp;catch&nbsp;(</span><span style="color: #0000BB">Exception&nbsp;$e</span><span style="color: #007700">)&nbsp;{<br />&nbsp;&nbsp;</span><span style="color: #0000BB">$dbh</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">rollBack</span><span style="color: #007700">();<br />&nbsp;&nbsp;echo&nbsp;</span><span style="color: #DD0000">"Failed:&nbsp;"&nbsp;</span><span style="color: #007700">.&nbsp;</span><span style="color: #0000BB">$e</span><span style="color: #007700">-&gt;</span><span style="color: #0000BB">getMessage</span><span style="color: #007700">();<br />}<br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+   </div>
+
+  </div>
+ </p>
+ <p class="para">
+  You&#039;re not limited to making updates in a transaction; you can also issue
+  complex queries to extract data, and possibly use that information to
+  build up more updates and queries; while the transaction is active, you
+  are guaranteed that no one else can make changes while you are in the
+  middle of your work. For further reading on transactions, refer to the
+  documentation provided by your database server.
+ </p>
+</div>
+<hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="pdo.connections.html">Connections and Connection management</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="pdo.prepared-statements.html">Prepared statements and stored procedures</a></div>
+ <div class="up"><a href="book.pdo.html">PDO</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

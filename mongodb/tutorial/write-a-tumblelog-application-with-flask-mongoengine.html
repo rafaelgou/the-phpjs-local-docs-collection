@@ -1,0 +1,1173 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Write a Tumblelog Application with Flask and MongoEngine &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/write-a-tumblelog-application-with-flask-mongoengine.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/write-a-tumblelog-application-with-flask-mongoengine" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Use Cases" href="../use-cases.html" />
+<link rel="next" title="Frequently Asked Questions" href="../faq.html" />
+<link rel="prev" title="Write a Tumblelog Application with Django MongoDB Engine" href="write-a-tumblelog-application-with-django-mongodb-engine.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../use-cases.html">Use Cases</a><span class="bcpoint"> > </span></li>
+          <li>Write a Tumblelog Application with Flask and MongoEngine</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="write-a-tumblelog-application-with-flask-and-mongoengine">
+<h1>Write a Tumblelog Application with Flask and MongoEngine<a class="headerlink" href="#write-a-tumblelog-application-with-flask-and-mongoengine" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This tutorial describes the process for creating a basic tumblelog
+application using the popular <a class="reference external" href="http://flask.pocoo.org/">Flask</a> Python web-framework in
+conjunction with the <a class="reference internal" href="../reference/glossary.html#term-mongodb"><em class="xref std std-term">MongoDB</em></a> database.</p>
+<p>The tumblelog will consist of two parts:</p>
+<ol class="arabic simple">
+<li>A public site that lets people view posts and comment on them.</li>
+<li>An admin site that lets you add and change posts.</li>
+</ol>
+<p>This tutorial assumes that you are already familiar with Flask and
+have a basic familiarity with MongoDB and have <a class="reference internal" href="../installation.html#tutorials-installation"><em>installed MongoDB</em></a>. This tutorial uses <a class="reference external" href="http://mongoengine.org/">MongoEngine</a> as the
+Object Document Mapper (ODM,) this component may simplify the
+interaction between Flask and MongoDB.</p>
+<div class="admonition-where-to-get-help admonition">
+<p class="first admonition-title">Where to get help</p>
+<p class="last">If you&#8217;re having trouble going through this tutorial, please post
+a message to <a class="reference external" href="http://groups.google.com/group/mongodb-user">mongodb-user</a> or join the IRC chat in <em>#mongodb</em> on
+<a class="reference external" href="http://freenode.net/">irc.freenode.net</a> to chat with other MongoDB users who might be
+able to help.</p>
+</div>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Begin by installing packages required by later steps in this tutorial.</p>
+<div class="section" id="prerequisite">
+<h3>Prerequisite<a class="headerlink" href="#prerequisite" title="Permalink to this headline">¶</a></h3>
+<p>This tutorial uses <a class="reference external" href="http://pypi.python.org/pypi/pip">pip</a> to install packages and <a class="reference external" href="http://virtualenv.org">virtualenv</a> to isolate
+Python environments. While these tools and this configuration are not
+required as such, they ensure a standard environment and are strongly
+recommended. Issue the following command at the system prompt:</p>
+<div class="highlight-sh"><div class="highlight"><pre>pip install virtualenv
+virtualenv myproject
+</pre></div>
+</div>
+<p>Respectively, these commands: install the <tt class="docutils literal"><span class="pre">virtualenv</span></tt> program
+(using <tt class="docutils literal"><span class="pre">pip</span></tt>) and create an isolated Python environment for this
+project (named <tt class="docutils literal"><span class="pre">myproject</span></tt>.)</p>
+<p>To activate <tt class="docutils literal"><span class="pre">myproject</span></tt> environment at the system prompt, use the
+following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nb">source </span>myproject/bin/activate
+</pre></div>
+</div>
+</div>
+<div class="section" id="install-packages">
+<h3>Install Packages<a class="headerlink" href="#install-packages" title="Permalink to this headline">¶</a></h3>
+<p>Flask is a &#8220;microframework,&#8221; because it provides a small core of
+functionality and is highly extensible. For the &#8220;tumblelog&#8221; project,
+this tutorial includes task and the following extension:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://wtforms.simplecodes.com/docs/dev/">WTForms</a> provides easy form handling.</li>
+<li><a class="reference external" href="http://github.com/MongoEngine/flask-mongoengine">Flask-MongoEngine</a> provides integration between MongoEngine,
+Flask, and WTForms.</li>
+<li><a class="reference external" href="http://pypi.python.org/pypi/Flask-Script">Flask-Script</a> for an easy to use development server</li>
+</ul>
+<p>Install with the following commands:</p>
+<div class="highlight-bash"><div class="highlight"><pre>pip install flask
+pip install flask-script
+pip install WTForms
+pip install mongoengine
+pip install flask_mongoengine
+</pre></div>
+</div>
+<p>Continue with the tutorial to begin building the &#8220;tumblelog&#8221;
+application.</p>
+</div>
+</div>
+<div class="section" id="build-a-blog-to-get-started">
+<h2>Build a Blog to Get Started<a class="headerlink" href="#build-a-blog-to-get-started" title="Permalink to this headline">¶</a></h2>
+<p>First, create a simple &#8220;bare bones&#8221; application. Make a directory
+named <tt class="file docutils literal"><span class="pre">tumblelog</span></tt> for the project and then, add the following
+content into a file named <tt class="file docutils literal"><span class="pre">__init__.py</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span>
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Next, create the <tt class="file docutils literal"><span class="pre">manage.py</span></tt> file. <a class="footnote-reference" href="#django" id="id1">[1]</a> Use this file to
+load additional Flask-scripts in the future. Flask-scripts
+provides a development server and shell:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># Set the path</span>
+<span class="kn">import</span> <span class="nn">os</span><span class="o">,</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">&#39;..&#39;</span><span class="p">)))</span>
+
+<span class="kn">from</span> <span class="nn">flask.ext.script</span> <span class="kn">import</span> <span class="n">Manager</span><span class="p">,</span> <span class="n">Server</span>
+<span class="kn">from</span> <span class="nn">tumblelog</span> <span class="kn">import</span> <span class="n">app</span>
+
+<span class="n">manager</span> <span class="o">=</span> <span class="n">Manager</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+<span class="c"># Turn on debugger by default and reloader</span>
+<span class="n">manager</span><span class="o">.</span><span class="n">add_command</span><span class="p">(</span><span class="s">&quot;runserver&quot;</span><span class="p">,</span> <span class="n">Server</span><span class="p">(</span>
+    <span class="n">use_debugger</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="n">use_reloader</span> <span class="o">=</span> <span class="bp">True</span><span class="p">,</span>
+    <span class="n">host</span> <span class="o">=</span> <span class="s">&#39;0.0.0.0&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">manager</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>You can run this application with a test server, by issuing the
+following command at the system prompt:</p>
+<div class="highlight-bash"><div class="highlight"><pre>python manage.py runserver
+</pre></div>
+</div>
+<p>There should be no errors, and you can visit <a class="reference external" href="http://localhost:5000/">http://localhost:5000/</a> in a web browser to view a page with a
+&#8220;404&#8221; message.</p>
+<table class="docutils footnote" frame="void" id="django" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>This concept will be familiar to users of Django.</td></tr>
+</tbody>
+</table>
+<div class="section" id="configure-mongoengine-and-flask">
+<h3>Configure MongoEngine and Flask<a class="headerlink" href="#configure-mongoengine-and-flask" title="Permalink to this headline">¶</a></h3>
+<p>Install the <a class="reference external" href="http://flask.pocoo.org/">Flask</a> extension and add the configuration. Update
+<tt class="file docutils literal"><span class="pre">tumblelog/__init__.py</span></tt> so that it resembles the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Flask</span>
+<span class="kn">from</span> <span class="nn">flask.ext.mongoengine</span> <span class="kn">import</span> <span class="n">MongoEngine</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s">&quot;MONGODB_SETTINGS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;DB&#39;</span><span class="p">:</span> <span class="s">&quot;my_tumble_log&quot;</span><span class="p">}</span>
+<span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s">&quot;SECRET_KEY&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&quot;KeepThisS3cr3t&quot;</span>
+
+<span class="n">db</span> <span class="o">=</span> <span class="n">MongoEngine</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">&#39;__main__&#39;</span><span class="p">:</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">The <a class="reference external" href="http://readthedocs.org/docs/mongoengine-odm/en/latest/guide/connecting.html">MongoEngine Settings</a> documentation for
+additional configuration options.</p>
+</div>
+</div>
+<div class="section" id="define-the-schema">
+<h3>Define the Schema<a class="headerlink" href="#define-the-schema" title="Permalink to this headline">¶</a></h3>
+<p>The first step in writing a tumblelog in <a class="reference external" href="http://flask.pocoo.org/">Flask</a> is to define the
+&#8220;models&#8221; or in MongoDB&#8217;s terminology <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a>.</p>
+<p>In this application, you will define posts and comments, so that each
+<tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> can contain a list of <tt class="xref py py-class docutils literal"><span class="pre">Comments</span></tt>. Edit the
+<tt class="file docutils literal"><span class="pre">models.py</span></tt> file so that it resembles the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">tumblelog</span> <span class="kn">import</span> <span class="n">db</span>
+
+
+<span class="k">class</span> <span class="nc">Post</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">Document</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">slug</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">comments</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">ListField</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">EmbeddedDocumentField</span><span class="p">(</span><span class="s">&#39;Comment&#39;</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">get_absolute_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s">&quot;slug&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">slug</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;allow_inheritance&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="s">&#39;indexes&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;-created_at&#39;</span><span class="p">,</span> <span class="s">&#39;slug&#39;</span><span class="p">],</span>
+        <span class="s">&#39;ordering&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;-created_at&#39;</span><span class="p">]</span>
+    <span class="p">}</span>
+
+
+<span class="k">class</span> <span class="nc">Comment</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">EmbeddedDocument</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">verbose_name</span><span class="o">=</span><span class="s">&quot;Comment&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">verbose_name</span><span class="o">=</span><span class="s">&quot;Name&quot;</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As above, MongoEngine syntax is simple and declarative. If you have a
+Django background, the syntax may look familiar. This example defines
+indexes for <tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt>: one for the <tt class="xref py py-obj docutils literal"><span class="pre">created_at</span></tt> date as
+our frontpage will order by date and another for the individual post
+<tt class="xref py py-obj docutils literal"><span class="pre">slug</span></tt>.</p>
+</div>
+<div class="section" id="add-data-with-the-shell">
+<h3>Add Data with the Shell<a class="headerlink" href="#add-data-with-the-shell" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="file docutils literal"><span class="pre">manage.py</span></tt> provides a shell interface for the
+application that you can use to insert data into the tumblelog. Before
+configuring the &#8220;urls&#8221; and &#8220;views&#8221; for this application, you can use
+this interface to interact with your the tumblelog. Begin by issuing
+the following command to load the Python shell:</p>
+<div class="highlight-bash"><div class="highlight"><pre>python manage.py shell
+</pre></div>
+</div>
+<p>Create the first post using the following sequence of operations:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="p">(</span>
+<span class="gp">... </span><span class="n">title</span><span class="o">=</span><span class="s">&quot;Hello World!&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">slug</span><span class="o">=</span><span class="s">&quot;hello-world&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">body</span><span class="o">=</span><span class="s">&quot;Welcome to my new shiny Tumble log powered by MongoDB, MongoEngine, and Flask&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Add comments using the following sequence of operations:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span>
+<span class="go">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">comment</span> <span class="o">=</span> <span class="n">Comment</span><span class="p">(</span>
+<span class="gp">... </span><span class="n">author</span><span class="o">=</span><span class="s">&quot;Joe Bloggs&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">body</span><span class="o">=</span><span class="s">&quot;Great post! I&#39;m looking forward to reading your blog!&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comment</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Finally, inspect the post:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span>
+<span class="go">&lt;Post: Hello World!&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span>
+<span class="go">[&lt;Comment: Comment object&gt;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="add-the-views">
+<h3>Add the Views<a class="headerlink" href="#add-the-views" title="Permalink to this headline">¶</a></h3>
+<p>Using Flask&#8217;s class-based views system allows you to produce
+<tt class="xref py py-class docutils literal"><span class="pre">List</span></tt> and <tt class="xref py py-class docutils literal"><span class="pre">Detail</span></tt> views for tumblelog posts.
+Add <tt class="file docutils literal"><span class="pre">views.py</span></tt> and create a <em>posts</em> <a class="reference external" href="http://flask.pocoo.org/docs/blueprints/">blueprint</a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">flask.views</span> <span class="kn">import</span> <span class="n">MethodView</span>
+<span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Post</span><span class="p">,</span> <span class="n">Comment</span>
+
+<span class="n">posts</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s">&#39;posts&#39;</span><span class="p">,</span> <span class="n">__name__</span><span class="p">,</span> <span class="n">template_folder</span><span class="o">=</span><span class="s">&#39;templates&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">ListView</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">posts</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;posts/list.html&#39;</span><span class="p">,</span> <span class="n">posts</span><span class="o">=</span><span class="n">posts</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">DetailView</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_404</span><span class="p">(</span><span class="n">slug</span><span class="o">=</span><span class="n">slug</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;posts/detail.html&#39;</span><span class="p">,</span> <span class="n">post</span><span class="o">=</span><span class="n">post</span><span class="p">)</span>
+
+
+<span class="c"># Register the urls</span>
+<span class="n">posts</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s">&#39;/&#39;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">ListView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s">&#39;list&#39;</span><span class="p">))</span>
+<span class="n">posts</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s">&#39;/&lt;slug&gt;/&#39;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">DetailView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s">&#39;detail&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Now in <tt class="file docutils literal"><span class="pre">__init__.py</span></tt> register the blueprint, avoiding a circular
+dependency by registering the blueprints in a method. Add the following code
+to the module:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">register_blueprints</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="c"># Prevents circular imports</span>
+    <span class="kn">from</span> <span class="nn">tumblelog.views</span> <span class="kn">import</span> <span class="n">posts</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">register_blueprint</span><span class="p">(</span><span class="n">posts</span><span class="p">)</span>
+
+<span class="n">register_blueprints</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Add this method and method call to the main body of the module and not
+in the main block.</p>
+</div>
+<div class="section" id="add-templates">
+<h3>Add Templates<a class="headerlink" href="#add-templates" title="Permalink to this headline">¶</a></h3>
+<p>In the <tt class="file docutils literal"><span class="pre">tumblelog</span></tt> directory add the <tt class="file docutils literal"><span class="pre">templates</span></tt> and
+<tt class="file docutils literal"><span class="pre">templates/posts</span></tt> directories to store the tumblelog templates:</p>
+<div class="highlight-bash"><div class="highlight"><pre>mkdir -p templates/posts
+</pre></div>
+</div>
+<p>Create a base template. All other templates will inherit from this
+template, which should exist in the <tt class="file docutils literal"><span class="pre">templates/base.html</span></tt>
+file:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html</span> <span class="na">lang=</span><span class="s">&quot;en&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;title&gt;</span>My Tumblelog<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;link</span> <span class="na">href=</span><span class="s">&quot;http://twitter.github.com/bootstrap/1.4.0/bootstrap.css&quot;</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;style&gt;</span><span class="nc">.content</span> <span class="p">{</span><span class="k">padding-top</span><span class="o">:</span> <span class="m">80px</span><span class="p">;}</span><span class="nt">&lt;/style&gt;</span>
+  <span class="nt">&lt;/head&gt;</span>
+
+  <span class="nt">&lt;body&gt;</span>
+
+    <span class="cp">{%</span>- <span class="k">block</span> <span class="nv">topbar</span> -<span class="cp">%}</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;topbar&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;fill&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+          <span class="nt">&lt;h2&gt;</span>
+              <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;/&quot;</span> <span class="na">class=</span><span class="s">&quot;brand&quot;</span><span class="nt">&gt;</span>My Tumblelog<span class="nt">&lt;/a&gt;</span> <span class="nt">&lt;small&gt;</span>Starring Flask, MongoDB and MongoEngine<span class="nt">&lt;/small&gt;</span>
+          <span class="nt">&lt;/h2&gt;</span>
+        <span class="nt">&lt;/div&gt;</span>
+      <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+    <span class="cp">{%</span>- <span class="k">endblock</span> -<span class="cp">%}</span>
+
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;content&quot;</span><span class="nt">&gt;</span>
+        <span class="cp">{%</span> <span class="k">block</span> <span class="nv">page_header</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+        <span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+      <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+    <span class="cp">{%</span> <span class="k">block</span> <span class="nv">js_footer</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+  <span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</pre></div>
+</div>
+<p>Continue by creating a landing page for the blog that will list all
+posts. Add the following to the <tt class="file docutils literal"><span class="pre">templates/posts/list.html</span></tt>
+file:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">for</span> <span class="nv">post</span> <span class="k">in</span> <span class="nv">posts</span> <span class="cp">%}</span>
+      <span class="nt">&lt;h2&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s1">&#39;posts.detail&#39;</span><span class="o">,</span> <span class="nv">slug</span><span class="o">=</span><span class="nv">post.slug</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;</span><span class="cp">{{</span> <span class="nv">post.title</span> <span class="cp">}}</span><span class="nt">&lt;/a&gt;&lt;/h2&gt;</span>
+      <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncate</span><span class="o">(</span><span class="m">100</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+      <span class="nt">&lt;p&gt;</span>
+        <span class="cp">{{</span> <span class="nv">post.created_at.strftime</span><span class="o">(</span><span class="s1">&#39;%H:%M %Y-%m-%d&#39;</span><span class="o">)</span> <span class="cp">}}</span> |
+        <span class="cp">{%</span> <span class="k">with</span> <span class="nv">total</span><span class="o">=</span><span class="nv">post.comments</span><span class="o">|</span><span class="nf">length</span> <span class="cp">%}</span>
+            <span class="cp">{{</span> <span class="nv">total</span> <span class="cp">}}</span> comment <span class="cp">{%</span>- <span class="k">if</span> <span class="nv">total</span> <span class="o">&gt;</span> <span class="m">1</span> <span class="cp">%}</span>s<span class="cp">{%</span>- <span class="k">endif</span> -<span class="cp">%}</span>
+        <span class="cp">{%</span> <span class="k">endwith</span> <span class="cp">%}</span>
+      <span class="nt">&lt;/p&gt;</span>
+    <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Finally, add <tt class="file docutils literal"><span class="pre">templates/posts/detail.html</span></tt> template for the individual
+posts:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">page_header</span> <span class="cp">%}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;page-header&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;h1&gt;</span><span class="cp">{{</span> <span class="nv">post.title</span> <span class="cp">}}</span><span class="nt">&lt;/h1&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;p&gt;</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.created_at.strftime</span><span class="o">(</span><span class="s1">&#39;%H:%M %Y-%m-%d&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="nt">&lt;hr&gt;</span>
+  <span class="nt">&lt;h2&gt;</span>Comments<span class="nt">&lt;/h2&gt;</span>
+  <span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.comments</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">for</span> <span class="nv">comment</span> <span class="k">in</span> <span class="nv">post.comments</span> <span class="cp">%}</span>
+       <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">comment.body</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+       <span class="nt">&lt;p&gt;&lt;strong&gt;</span><span class="cp">{{</span> <span class="nv">comment.author</span> <span class="cp">}}</span><span class="nt">&lt;/strong&gt;</span> <span class="nt">&lt;small&gt;</span>on <span class="cp">{{</span> <span class="nv">comment.created_at.strftime</span><span class="o">(</span><span class="s1">&#39;%H:%M %Y-%m-%d&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/small&gt;&lt;/p&gt;</span>
+      <span class="cp">{{</span> <span class="nv">comment.text</span> <span class="cp">}}</span>
+    <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+  <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>At this point, you can run the <tt class="docutils literal"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></tt> command
+again to see your new tumblelog! Go to <a class="reference external" href="http://localhost:5000/">http://localhost:5000</a> to see something that resembles the
+following:</p>
+<img alt="../_images/flask-mongoengine-frontpage.png" class="align-center" src="../_images/flask-mongoengine-frontpage.png" />
+</div>
+</div>
+<div class="section" id="add-comments-to-the-blog">
+<h2>Add Comments to the Blog<a class="headerlink" href="#add-comments-to-the-blog" title="Permalink to this headline">¶</a></h2>
+<p>In the next step you will provide the facility for readers of the
+tumblelog to comment on posts. To provide commenting, you will create
+a form using <a class="reference external" href="http://wtforms.simplecodes.com/docs/dev/">WTForms</a> that will update the view to handle the form
+data and update the template to include the form.</p>
+<div class="section" id="handle-comments-in-the-view">
+<h3>Handle Comments in the View<a class="headerlink" href="#handle-comments-in-the-view" title="Permalink to this headline">¶</a></h3>
+<p>Begin by updating and refactoring the <tt class="file docutils literal"><span class="pre">views.py</span></tt> file so that it
+can handle the form. Begin by adding the <tt class="docutils literal"><span class="pre">import</span></tt> statement
+and the <a class="reference external" href="https://django.readthedocs.org/en/latest/ref/class-based-views/flattened-index.html#DetailView" title="(in Django v1.6)"><tt class="xref py py-class docutils literal"><span class="pre">DetailView</span></tt></a> class to this file:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">flask.ext.mongoengine.wtf</span> <span class="kn">import</span> <span class="n">model_form</span>
+
+<span class="o">...</span>
+
+<span class="k">class</span> <span class="nc">DetailView</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+
+    <span class="n">form</span> <span class="o">=</span> <span class="n">model_form</span><span class="p">(</span><span class="n">Comment</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="s">&#39;created_at&#39;</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_404</span><span class="p">(</span><span class="n">slug</span><span class="o">=</span><span class="n">slug</span><span class="p">)</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">form</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
+
+        <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&quot;post&quot;</span><span class="p">:</span> <span class="n">post</span><span class="p">,</span>
+            <span class="s">&quot;form&quot;</span><span class="p">:</span> <span class="n">form</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">context</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;posts/detail.html&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;form&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">validate</span><span class="p">():</span>
+            <span class="n">comment</span> <span class="o">=</span> <span class="n">Comment</span><span class="p">()</span>
+            <span class="n">form</span><span class="o">.</span><span class="n">populate_obj</span><span class="p">(</span><span class="n">comment</span><span class="p">)</span>
+
+            <span class="n">post</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">)</span>
+            <span class="n">post</span><span class="o">.</span><span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comment</span><span class="p">)</span>
+            <span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s">&#39;posts.detail&#39;</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="n">slug</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;posts/detail.html&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><a class="reference external" href="https://django.readthedocs.org/en/latest/ref/class-based-views/flattened-index.html#DetailView" title="(in Django v1.6)"><tt class="xref py py-class docutils literal"><span class="pre">DetailView</span></tt></a> extends the default Flask
+<tt class="xref py py-class docutils literal"><span class="pre">MethodView</span></tt>.  This code remains DRY by defining a
+<cite>get_context</cite> method to get the default context for both <tt class="docutils literal"><span class="pre">GET</span></tt>
+and <tt class="docutils literal"><span class="pre">POST</span></tt> requests. On <tt class="docutils literal"><span class="pre">POST</span></tt>, <tt class="xref py py-func docutils literal"><span class="pre">post()</span></tt> validates the
+comment: if valid, <tt class="xref py py-func docutils literal"><span class="pre">post()</span></tt> appends the comment to the post.</p>
+</div>
+</div>
+<div class="section" id="add-comments-to-the-templates">
+<h3>Add Comments to the Templates<a class="headerlink" href="#add-comments-to-the-templates" title="Permalink to this headline">¶</a></h3>
+<p>Finally, you can add the form to the templates, so that readers can
+create comments. Create a macro for the forms in
+<tt class="file docutils literal"><span class="pre">templates/_forms.html</span></tt> will allow you to reuse the form code:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">macro</span> <span class="nv">render</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> -<span class="cp">%}</span>
+<span class="nt">&lt;fieldset&gt;</span>
+<span class="cp">{%</span> <span class="k">for</span> <span class="nv">field</span> <span class="k">in</span> <span class="nv">form</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.type</span> <span class="k">in</span> <span class="o">[</span><span class="s1">&#39;CSRFTokenField&#39;</span><span class="o">,</span> <span class="s1">&#39;HiddenField&#39;</span><span class="o">]</span> <span class="cp">%}</span>
+  <span class="cp">{{</span> <span class="nv">field</span><span class="o">()</span> <span class="cp">}}</span>
+<span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;clearfix </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="cp">%}</span><span class="s">error</span><span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span><span class="s">&quot;</span><span class="nt">&gt;</span>
+    <span class="cp">{{</span> <span class="nv">field.label</span> <span class="cp">}}</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;input&quot;</span><span class="nt">&gt;</span>
+      <span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.name</span> <span class="o">==</span> <span class="s2">&quot;body&quot;</span> <span class="cp">%}</span>
+        <span class="cp">{{</span> <span class="nv">field</span><span class="o">(</span><span class="nv">rows</span><span class="o">=</span><span class="m">10</span><span class="o">,</span> <span class="nv">cols</span><span class="o">=</span><span class="m">40</span><span class="o">)</span> <span class="cp">}}</span>
+      <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+        <span class="cp">{{</span> <span class="nv">field</span><span class="o">()</span> <span class="cp">}}</span>
+      <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+      <span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="k">or</span> <span class="nv">field.help_text</span> <span class="cp">%}</span>
+        <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;help-inline&quot;</span><span class="nt">&gt;</span>
+        <span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="cp">%}</span>
+          <span class="cp">{{</span> <span class="nv">field.errors</span><span class="o">|</span><span class="nf">join</span><span class="o">(</span><span class="s1">&#39; &#39;</span><span class="o">)</span> <span class="cp">}}</span>
+        <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+          <span class="cp">{{</span> <span class="nv">field.help_text</span> <span class="cp">}}</span>
+        <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+        <span class="nt">&lt;/span&gt;</span>
+      <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+    <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="nt">&lt;/fieldset&gt;</span>
+<span class="cp">{%</span> <span class="k">endmacro</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Add the comments form to <tt class="file docutils literal"><span class="pre">templates/posts/detail.html</span></tt>.  Insert
+an <tt class="docutils literal"><span class="pre">import</span></tt> statement at the top of the page and then output the
+form after displaying comments:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">import</span> <span class="s2">&quot;_forms.html&quot;</span> <span class="k">as</span> <span class="nv">forms</span> <span class="cp">%}</span>
+
+...
+
+<span class="nt">&lt;hr&gt;</span>
+<span class="nt">&lt;h2&gt;</span>Add a comment<span class="nt">&lt;/h2&gt;</span>
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;.&quot;</span> <span class="na">method=</span><span class="s">&quot;post&quot;</span><span class="nt">&gt;</span>
+  <span class="cp">{{</span> <span class="nv">forms.render</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;actions&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;submit&quot;</span> <span class="na">class=</span><span class="s">&quot;btn primary&quot;</span> <span class="na">value=</span><span class="s">&quot;comment&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/form&gt;</span>
+</pre></div>
+</div>
+<p>Your tumblelog&#8217;s readers can now comment on your posts! Run <tt class="docutils literal"><span class="pre">python</span>
+<span class="pre">manage.py</span> <span class="pre">runserver</span></tt> to see the changes.</p>
+<img alt="../_images/flask-mongoengine-comment-form.png" class="align-center" src="../_images/flask-mongoengine-comment-form.png" />
+</div>
+</div>
+<div class="section" id="add-a-site-administration-interface">
+<h2>Add a Site Administration Interface<a class="headerlink" href="#add-a-site-administration-interface" title="Permalink to this headline">¶</a></h2>
+<p>While you may always add posts using the shell interface as above, in
+this step you will add an administrative interface for the tumblelog
+site. To add the administrative interface you will add authentication
+and an additional view.  This tutorial only addresses adding and
+editing posts: a &#8220;delete&#8221; view and detection of slug collisions are
+beyond the scope of this tutorial.</p>
+<div class="section" id="add-basic-authentication">
+<h3>Add Basic Authentication<a class="headerlink" href="#add-basic-authentication" title="Permalink to this headline">¶</a></h3>
+<p>For the purposes of this tutorial all we need is a very basic form of
+authentication.  The following example borrows from an example Flask
+&#8220;<a class="reference external" href="http://flask.pocoo.org/snippets/8/">Auth snippet</a>&#8221;. Create the file
+<tt class="file docutils literal"><span class="pre">auth.py</span></tt> with the following content:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">request</span><span class="p">,</span> <span class="n">Response</span>
+
+
+<span class="k">def</span> <span class="nf">check_auth</span><span class="p">(</span><span class="n">username</span><span class="p">,</span> <span class="n">password</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function is called to check if a username /</span>
+<span class="sd">    password combination is valid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">username</span> <span class="o">==</span> <span class="s">&#39;admin&#39;</span> <span class="ow">and</span> <span class="n">password</span> <span class="o">==</span> <span class="s">&#39;secret&#39;</span>
+
+
+<span class="k">def</span> <span class="nf">authenticate</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Sends a 401 response that enables basic auth&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
+    <span class="s">&#39;Could not verify your access level for that URL.</span><span class="se">\n</span><span class="s">&#39;</span>
+    <span class="s">&#39;You have to login with proper credentials&#39;</span><span class="p">,</span> <span class="mi">401</span><span class="p">,</span>
+    <span class="p">{</span><span class="s">&#39;WWW-Authenticate&#39;</span><span class="p">:</span> <span class="s">&#39;Basic realm=&quot;Login Required&quot;&#39;</span><span class="p">})</span>
+
+
+<span class="k">def</span> <span class="nf">requires_auth</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">decorated</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">auth</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">authorization</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">auth</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">check_auth</span><span class="p">(</span><span class="n">auth</span><span class="o">.</span><span class="n">username</span><span class="p">,</span> <span class="n">auth</span><span class="o">.</span><span class="n">password</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">authenticate</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">decorated</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This creates a <cite>requires_auth</cite> decorator: provides basic
+authentication. Decorate any view that needs authentication with
+this decorator. The username is <tt class="docutils literal"><span class="pre">admin</span></tt> and password is
+<tt class="docutils literal"><span class="pre">secret</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="write-an-administrative-view">
+<h3>Write an Administrative View<a class="headerlink" href="#write-an-administrative-view" title="Permalink to this headline">¶</a></h3>
+<p>Create the views and admin blueprint in <tt class="file docutils literal"><span class="pre">admin.py</span></tt>. The
+following view is deliberately generic, to facilitate customization.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">redirect</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">url_for</span>
+<span class="kn">from</span> <span class="nn">flask.views</span> <span class="kn">import</span> <span class="n">MethodView</span>
+
+<span class="kn">from</span> <span class="nn">flask.ext.mongoengine.wtf</span> <span class="kn">import</span> <span class="n">model_form</span>
+
+<span class="kn">from</span> <span class="nn">tumblelog.auth</span> <span class="kn">import</span> <span class="n">requires_auth</span>
+<span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Post</span><span class="p">,</span> <span class="n">Comment</span>
+
+<span class="n">admin</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s">&#39;admin&#39;</span><span class="p">,</span> <span class="n">__name__</span><span class="p">,</span> <span class="n">template_folder</span><span class="o">=</span><span class="s">&#39;templates&#39;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">List</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+    <span class="n">decorators</span> <span class="o">=</span> <span class="p">[</span><span class="n">requires_auth</span><span class="p">]</span>
+    <span class="n">cls</span> <span class="o">=</span> <span class="n">Post</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">posts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cls</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;admin/list.html&#39;</span><span class="p">,</span> <span class="n">posts</span><span class="o">=</span><span class="n">posts</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Detail</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+
+    <span class="n">decorators</span> <span class="o">=</span> <span class="p">[</span><span class="n">requires_auth</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">form_cls</span> <span class="o">=</span> <span class="n">model_form</span><span class="p">(</span><span class="n">Post</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="p">(</span><span class="s">&#39;created_at&#39;</span><span class="p">,</span> <span class="s">&#39;comments&#39;</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">slug</span><span class="p">:</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_404</span><span class="p">(</span><span class="n">slug</span><span class="o">=</span><span class="n">slug</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s">&#39;POST&#39;</span><span class="p">:</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="n">inital</span><span class="o">=</span><span class="n">post</span><span class="o">.</span><span class="n">_data</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">obj</span><span class="o">=</span><span class="n">post</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="p">()</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
+
+        <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&quot;post&quot;</span><span class="p">:</span> <span class="n">post</span><span class="p">,</span>
+            <span class="s">&quot;form&quot;</span><span class="p">:</span> <span class="n">form</span><span class="p">,</span>
+            <span class="s">&quot;create&quot;</span><span class="p">:</span> <span class="n">slug</span> <span class="ow">is</span> <span class="bp">None</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">context</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;admin/detail.html&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="p">):</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context</span><span class="p">(</span><span class="n">slug</span><span class="p">)</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;form&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">validate</span><span class="p">():</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">)</span>
+            <span class="n">form</span><span class="o">.</span><span class="n">populate_obj</span><span class="p">(</span><span class="n">post</span><span class="p">)</span>
+            <span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="n">redirect</span><span class="p">(</span><span class="n">url_for</span><span class="p">(</span><span class="s">&#39;admin.index&#39;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s">&#39;admin/detail.html&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">context</span><span class="p">)</span>
+
+
+<span class="c"># Register the urls</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s">&#39;/admin/&#39;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">List</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s">&#39;index&#39;</span><span class="p">))</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s">&#39;/admin/create/&#39;</span><span class="p">,</span> <span class="n">defaults</span><span class="o">=</span><span class="p">{</span><span class="s">&#39;slug&#39;</span><span class="p">:</span> <span class="bp">None</span><span class="p">},</span> <span class="n">view_func</span><span class="o">=</span><span class="n">Detail</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s">&#39;create&#39;</span><span class="p">))</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">add_url_rule</span><span class="p">(</span><span class="s">&#39;/admin/&lt;slug&gt;/&#39;</span><span class="p">,</span> <span class="n">view_func</span><span class="o">=</span><span class="n">Detail</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span><span class="s">&#39;edit&#39;</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Here, the <tt class="xref py py-class docutils literal"><span class="pre">List</span></tt> and <tt class="xref py py-class docutils literal"><span class="pre">Detail</span></tt> views are similar
+to the frontend of the site; however, <tt class="xref py py-obj docutils literal"><span class="pre">requires_auth</span></tt> decorates
+both views.</p>
+<p class="last">The &#8220;Detail&#8221; view is slightly more complex: to set the context,
+this view checks for a slug and if there is no slug,
+<tt class="xref py py-class docutils literal"><span class="pre">Detail</span></tt> uses the view for creating a new post. If a slug
+exists, <tt class="xref py py-class docutils literal"><span class="pre">Detail</span></tt> uses the view for editing an existing
+post.</p>
+</div>
+<p>In the <tt class="file docutils literal"><span class="pre">__init__.py</span></tt> file update the <tt class="xref py py-func docutils literal"><span class="pre">register_blueprints()</span></tt>
+method to import the new admin blueprint.</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">def</span> <span class="nf">register_blueprints</span><span class="p">(</span><span class="n">app</span><span class="p">):</span>
+    <span class="c"># Prevents circular imports</span>
+    <span class="kn">from</span> <span class="nn">tumblelog.views</span> <span class="kn">import</span> <span class="n">posts</span>
+    <span class="kn">from</span> <span class="nn">tumblelog.admin</span> <span class="kn">import</span> <span class="n">admin</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">register_blueprint</span><span class="p">(</span><span class="n">posts</span><span class="p">)</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">register_blueprint</span><span class="p">(</span><span class="n">admin</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="create-administrative-templates">
+<h3>Create Administrative Templates<a class="headerlink" href="#create-administrative-templates" title="Permalink to this headline">¶</a></h3>
+<p>Similar to the user-facing portion of the site, the administrative
+section of the application requires three templates: a base template a
+list view, and a detail view.</p>
+<p>Create an <tt class="file docutils literal"><span class="pre">admin</span></tt> directory for the templates. Add a simple main
+index page for the admin in the <tt class="file docutils literal"><span class="pre">templates/admin/base.html</span></tt>
+file:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span>- <span class="k">block</span> <span class="nv">topbar</span> -<span class="cp">%}</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;topbar&quot;</span> <span class="na">data-dropdown=</span><span class="s">&quot;dropdown&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;fill&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;h2&gt;</span>
+           <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s1">&#39;admin.index&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">class=</span><span class="s">&quot;brand&quot;</span><span class="nt">&gt;</span>My Tumblelog Admin<span class="nt">&lt;/a&gt;</span>
+      <span class="nt">&lt;/h2&gt;</span>
+      <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;nav secondary-nav&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;li</span> <span class="na">class=</span><span class="s">&quot;menu&quot;</span><span class="nt">&gt;</span>
+           <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s2">&quot;admin.create&quot;</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">class=</span><span class="s">&quot;btn primary&quot;</span><span class="nt">&gt;</span>Create new post<span class="nt">&lt;/a&gt;</span>
+        <span class="nt">&lt;/li&gt;</span>
+      <span class="nt">&lt;/ul&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span>- <span class="k">endblock</span> -<span class="cp">%}</span>
+</pre></div>
+</div>
+<p>List all the posts in the <tt class="file docutils literal"><span class="pre">templates/admin/list.html</span></tt> file:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;admin/base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+  <span class="nt">&lt;table</span>  <span class="na">class=</span><span class="s">&quot;condensed-table zebra-striped&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;thead&gt;</span>
+      <span class="nt">&lt;th&gt;</span>Title<span class="nt">&lt;/th&gt;</span>
+      <span class="nt">&lt;th&gt;</span>Created<span class="nt">&lt;/th&gt;</span>
+      <span class="nt">&lt;th&gt;</span>Actions<span class="nt">&lt;/th&gt;</span>
+    <span class="nt">&lt;/thead&gt;</span>
+    <span class="nt">&lt;tbody&gt;</span>
+    <span class="cp">{%</span> <span class="k">for</span> <span class="nv">post</span> <span class="k">in</span> <span class="nv">posts</span> <span class="cp">%}</span>
+      <span class="nt">&lt;tr&gt;</span>
+        <span class="nt">&lt;th&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s1">&#39;admin.edit&#39;</span><span class="o">,</span> <span class="nv">slug</span><span class="o">=</span><span class="nv">post.slug</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;</span><span class="cp">{{</span> <span class="nv">post.title</span> <span class="cp">}}</span><span class="nt">&lt;/a&gt;&lt;/th&gt;</span>
+        <span class="nt">&lt;td&gt;</span><span class="cp">{{</span> <span class="nv">post.created_at.strftime</span><span class="o">(</span><span class="s1">&#39;%Y-%m-%d&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/td&gt;</span>
+        <span class="nt">&lt;td&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s2">&quot;admin.edit&quot;</span><span class="o">,</span> <span class="nv">slug</span><span class="o">=</span><span class="nv">post.slug</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">class=</span><span class="s">&quot;btn primary&quot;</span><span class="nt">&gt;</span>Edit<span class="nt">&lt;/a&gt;&lt;/td&gt;</span>
+      <span class="nt">&lt;/tr&gt;</span>
+    <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+    <span class="nt">&lt;/tbody&gt;</span>
+  <span class="nt">&lt;/table&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Add a template to create and edit posts in the
+<tt class="file docutils literal"><span class="pre">templates/admin/detail.html</span></tt> file:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;admin/base.html&quot;</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">import</span> <span class="s2">&quot;_forms.html&quot;</span> <span class="k">as</span> <span class="nv">forms</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+  <span class="nt">&lt;h2&gt;</span>
+    <span class="cp">{%</span> <span class="k">if</span> <span class="nv">create</span> <span class="cp">%}</span>
+      Add new Post
+    <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+      Edit Post
+    <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+  <span class="nt">&lt;/h2&gt;</span>
+
+  <span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;?</span><span class="cp">{{</span> <span class="nv">request.query_string</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">method=</span><span class="s">&quot;post&quot;</span><span class="nt">&gt;</span>
+    <span class="cp">{{</span> <span class="nv">forms.render</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;actions&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;submit&quot;</span> <span class="na">class=</span><span class="s">&quot;btn primary&quot;</span> <span class="na">value=</span><span class="s">&quot;save&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s2">&quot;admin.index&quot;</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">class=</span><span class="s">&quot;btn secondary&quot;</span><span class="nt">&gt;</span>Cancel<span class="nt">&lt;/a&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;/form&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>The administrative interface is ready for use. Restart the test server
+(i.e. <tt class="docutils literal"><span class="pre">runserver</span></tt>) so that you can log in to the administrative
+interface located at <a class="reference external" href="http://localhost:5000/admin/">http://localhost:5000/admin/</a>.  (The username is <tt class="docutils literal"><span class="pre">admin</span></tt> and the
+password is <tt class="docutils literal"><span class="pre">secret</span></tt>.)</p>
+<img alt="../_images/flask-mongoengine-admin.png" class="align-center" src="../_images/flask-mongoengine-admin.png" />
+</div>
+</div>
+<div class="section" id="converting-the-blog-to-a-tumblelog">
+<h2>Converting the Blog to a Tumblelog<a class="headerlink" href="#converting-the-blog-to-a-tumblelog" title="Permalink to this headline">¶</a></h2>
+<p>Currently, the application only supports posts. In this section you
+will add special post types including: <em>Video</em>, <em>Image</em> and <em>Quote</em> to
+provide a more traditional tumblelog application. Adding this data
+requires no migration because <a class="reference external" href="http://mongoengine.org/">MongoEngine</a> supports document
+inheritance.</p>
+<p>Begin by refactoring the <tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> class to operate as a base
+class and create new classes for the new post types. Update the
+<tt class="file docutils literal"><span class="pre">models.py</span></tt> file to include the code to replace the old
+<tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> class:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Post</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">DynamicDocument</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">slug</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">comments</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">ListField</span><span class="p">(</span><span class="n">db</span><span class="o">.</span><span class="n">EmbeddedDocumentField</span><span class="p">(</span><span class="s">&#39;Comment&#39;</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">get_absolute_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">url_for</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s">&quot;slug&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">slug</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">post_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="o">.</span><span class="n">__name__</span>
+
+    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;allow_inheritance&#39;</span><span class="p">:</span> <span class="bp">True</span><span class="p">,</span>
+        <span class="s">&#39;indexes&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;-created_at&#39;</span><span class="p">,</span> <span class="s">&#39;slug&#39;</span><span class="p">],</span>
+        <span class="s">&#39;ordering&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s">&#39;-created_at&#39;</span><span class="p">]</span>
+    <span class="p">}</span>
+
+
+<span class="k">class</span> <span class="nc">BlogPost</span><span class="p">(</span><span class="n">Post</span><span class="p">):</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Video</span><span class="p">(</span><span class="n">Post</span><span class="p">):</span>
+    <span class="n">embed_code</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Image</span><span class="p">(</span><span class="n">Post</span><span class="p">):</span>
+    <span class="n">image_url</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Quote</span><span class="p">(</span><span class="n">Post</span><span class="p">):</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="n">db</span><span class="o">.</span><span class="n">StringField</span><span class="p">(</span><span class="n">verbose_name</span><span class="o">=</span><span class="s">&quot;Author Name&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In the <tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> class the <tt class="xref py py-obj docutils literal"><span class="pre">post_type</span></tt> helper
+returns the class name, which will make it possible to render the
+various different post types in the templates.</p>
+</div>
+<p>As <a class="reference external" href="http://mongoengine.org/">MongoEngine</a> handles returning the correct classes when fetching
+<tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> objects you do not need to modify the interface view
+logic: only modify the templates.</p>
+<p>Update the <tt class="file docutils literal"><span class="pre">templates/posts/list.html</span></tt> file and change the post
+output format as follows:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.body</span> <span class="cp">%}</span>
+  <span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;Quote&#39;</span> <span class="cp">%}</span>
+    <span class="nt">&lt;blockquote&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncate</span><span class="o">(</span><span class="m">100</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/blockquote&gt;</span>
+    <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.author</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+    <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncate</span><span class="o">(</span><span class="m">100</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.embed_code</span> <span class="cp">%}</span>
+  <span class="cp">{{</span> <span class="nv">post.embed_code</span><span class="o">|</span><span class="nf">safe</span><span class="o">()</span> <span class="cp">}}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.image_url</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">post.image_url</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="nt">/&gt;&lt;p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>In the <tt class="file docutils literal"><span class="pre">templates/posts/detail.html</span></tt> change the output for full
+posts as follows:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.body</span> <span class="cp">%}</span>
+  <span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;Quote&#39;</span> <span class="cp">%}</span>
+    <span class="nt">&lt;blockquote&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;/blockquote&gt;</span>
+    <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.author</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+    <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.embed_code</span> <span class="cp">%}</span>
+  <span class="cp">{{</span> <span class="nv">post.embed_code</span><span class="o">|</span><span class="nf">safe</span><span class="o">()</span> <span class="cp">}}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.image_url</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">post.image_url</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="nt">/&gt;&lt;p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<div class="section" id="updating-the-administration">
+<h3>Updating the Administration<a class="headerlink" href="#updating-the-administration" title="Permalink to this headline">¶</a></h3>
+<p>In this section you will update the administrative interface to
+support the new post types.</p>
+<p>Begin by, updating the <tt class="file docutils literal"><span class="pre">admin.py</span></tt> file to import the new document models and then update
+<tt class="xref py py-func docutils literal"><span class="pre">get_context()</span></tt> in the <tt class="xref py py-class docutils literal"><span class="pre">Detail</span></tt> class to dynamically create the
+correct model form to use:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Post</span><span class="p">,</span> <span class="n">BlogPost</span><span class="p">,</span> <span class="n">Video</span><span class="p">,</span> <span class="n">Image</span><span class="p">,</span> <span class="n">Quote</span><span class="p">,</span> <span class="n">Comment</span>
+
+<span class="c"># ...</span>
+
+<span class="k">class</span> <span class="nc">Detail</span><span class="p">(</span><span class="n">MethodView</span><span class="p">):</span>
+
+    <span class="n">decorators</span> <span class="o">=</span> <span class="p">[</span><span class="n">requires_auth</span><span class="p">]</span>
+    <span class="c"># Map post types to models</span>
+    <span class="n">class_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s">&#39;post&#39;</span><span class="p">:</span> <span class="n">BlogPost</span><span class="p">,</span>
+        <span class="s">&#39;video&#39;</span><span class="p">:</span> <span class="n">Video</span><span class="p">,</span>
+        <span class="s">&#39;image&#39;</span><span class="p">:</span> <span class="n">Image</span><span class="p">,</span>
+        <span class="s">&#39;quote&#39;</span><span class="p">:</span> <span class="n">Quote</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span> <span class="nf">get_context</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">slug</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="n">slug</span><span class="p">:</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get_or_404</span><span class="p">(</span><span class="n">slug</span><span class="o">=</span><span class="n">slug</span><span class="p">)</span>
+            <span class="c"># Handle old posts types as well</span>
+            <span class="n">cls</span> <span class="o">=</span> <span class="n">post</span><span class="o">.</span><span class="n">__class__</span> <span class="k">if</span> <span class="n">post</span><span class="o">.</span><span class="n">__class__</span> <span class="o">!=</span> <span class="n">Post</span> <span class="k">else</span> <span class="n">BlogPost</span>
+            <span class="n">form_cls</span> <span class="o">=</span> <span class="n">model_form</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span>  <span class="n">exclude</span><span class="o">=</span><span class="p">(</span><span class="s">&#39;created_at&#39;</span><span class="p">,</span> <span class="s">&#39;comments&#39;</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s">&#39;POST&#39;</span><span class="p">:</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">,</span> <span class="n">inital</span><span class="o">=</span><span class="n">post</span><span class="o">.</span><span class="n">_data</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">obj</span><span class="o">=</span><span class="n">post</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c"># Determine which post type we need</span>
+            <span class="n">cls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">class_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&#39;type&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">))</span>
+            <span class="n">post</span> <span class="o">=</span> <span class="n">cls</span><span class="p">()</span>
+            <span class="n">form_cls</span> <span class="o">=</span> <span class="n">model_form</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span>  <span class="n">exclude</span><span class="o">=</span><span class="p">(</span><span class="s">&#39;created_at&#39;</span><span class="p">,</span> <span class="s">&#39;comments&#39;</span><span class="p">))</span>
+            <span class="n">form</span> <span class="o">=</span> <span class="n">form_cls</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="p">)</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&quot;post&quot;</span><span class="p">:</span> <span class="n">post</span><span class="p">,</span>
+            <span class="s">&quot;form&quot;</span><span class="p">:</span> <span class="n">form</span><span class="p">,</span>
+            <span class="s">&quot;create&quot;</span><span class="p">:</span> <span class="n">slug</span> <span class="ow">is</span> <span class="bp">None</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">context</span>
+
+    <span class="c"># ...</span>
+</pre></div>
+</div>
+<p>Update the <tt class="file docutils literal"><span class="pre">template/admin/base.html</span></tt> file to create a new post
+drop down menu in the toolbar:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span>- <span class="k">block</span> <span class="nv">topbar</span> -<span class="cp">%}</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;topbar&quot;</span> <span class="na">data-dropdown=</span><span class="s">&quot;dropdown&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;fill&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;h2&gt;</span>
+           <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s1">&#39;admin.index&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="na">class=</span><span class="s">&quot;brand&quot;</span><span class="nt">&gt;</span>My Tumblelog Admin<span class="nt">&lt;/a&gt;</span>
+      <span class="nt">&lt;/h2&gt;</span>
+      <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;nav secondary-nav&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;li</span> <span class="na">class=</span><span class="s">&quot;menu&quot;</span><span class="nt">&gt;</span>
+          <span class="nt">&lt;a</span> <span class="na">href=</span><span class="s">&quot;#&quot;</span> <span class="na">class=</span><span class="s">&quot;menu&quot;</span><span class="nt">&gt;</span>Create new<span class="nt">&lt;/a&gt;</span>
+          <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;menu-dropdown&quot;</span><span class="nt">&gt;</span>
+            <span class="cp">{%</span> <span class="k">for</span> <span class="nv">type</span> <span class="k">in</span> <span class="o">(</span><span class="s1">&#39;post&#39;</span><span class="o">,</span> <span class="s1">&#39;video&#39;</span><span class="o">,</span> <span class="s1">&#39;image&#39;</span><span class="o">,</span> <span class="s1">&#39;quote&#39;</span><span class="o">)</span> <span class="cp">%}</span>
+                <span class="nt">&lt;li&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">url_for</span><span class="o">(</span><span class="s2">&quot;admin.create&quot;</span><span class="o">,</span> <span class="nv">type</span><span class="o">=</span><span class="nv">type</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;</span><span class="cp">{{</span> <span class="nv">type</span><span class="o">|</span><span class="nf">title</span> <span class="cp">}}</span><span class="nt">&lt;/a&gt;&lt;/li&gt;</span>
+            <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+          <span class="nt">&lt;/ul&gt;</span>
+        <span class="nt">&lt;/li&gt;</span>
+      <span class="nt">&lt;/ul&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span>- <span class="k">endblock</span> -<span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">js_footer</span> <span class="cp">%}</span>
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+  <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;http://twitter.github.com/bootstrap/1.4.0/bootstrap-dropdown.js&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Now you have a fully fledged tumbleblog using Flask and MongoEngine!</p>
+<img alt="../_images/flask-mongoengine-tumblelog.png" class="align-center" src="../_images/flask-mongoengine-tumblelog.png" />
+</div>
+</div>
+<div class="section" id="additional-resources">
+<h2>Additional Resources<a class="headerlink" href="#additional-resources" title="Permalink to this headline">¶</a></h2>
+<p>The complete source code is available on Github:
+&lt;<a class="reference external" href="https://github.com/rozza/flask-tumblelog">https://github.com/rozza/flask-tumblelog</a>&gt;</p>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="write-a-tumblelog-application-with-django-mongodb-engine.html" title="Previous Section: Write a Tumblelog Application with Django MongoDB Engine">&lt; &nbsp; Write a Tumblelog Application with Django MongoDB Engine</a></li>
+              <li id="btnvup"><a href="../use-cases.html" title="Parent Section: Use Cases" >&#47;&#92;&nbsp; Use Cases</a></li>
+              <li id="btnvnx"><a href="../faq.html" title="Next Section: Frequently Asked Questions">Frequently Asked Questions &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../use-cases.html">Use Cases</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/storing-log-data.html">Storing Log Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/pre-aggregated-reports.html">Pre-Aggregated Reports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/hierarchical-aggregation.html">Hierarchical Aggregation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/product-catalog.html">Product Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/inventory-management.html">Inventory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/category-hierarchy.html">Category Hierarchy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/metadata-and-asset-management.html">Metadata and Asset Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/storing-comments.html">Storing Comments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="write-a-tumblelog-application-with-django-mongodb-engine.html">Write a Tumblelog Application with Django MongoDB Engine</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Write a Tumblelog Application with Flask and MongoEngine</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/write-a-tumblelog-application-with-flask-mongoengine.txt" target="_blank" title="Edit tutorial/write-a-tumblelog-application-with-flask-mongoengine.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/write-a-tumblelog-application-with-flask-mongoengine%2Etxt%22" target="_blank" title="Report a problem with tutorial/write-a-tumblelog-application-with-flask-mongoengine.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/write-a-tumblelog-application-with-flask-mongoengine.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/write-a-tumblelog-application-with-flask-mongoengine'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/write-a-tumblelog-application-with-flask-mongoengine'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

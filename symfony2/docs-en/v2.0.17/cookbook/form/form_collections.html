@@ -1,0 +1,723 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Embed a Collection of Forms &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Form" href="index.html" />
+    <link rel="next" title="How to Create a Custom Form Field Type" href="create_custom_field_type.html" />
+    <link rel="prev" title="How to Dynamically Generate Forms Using Form Events" href="dynamic_form_generation.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="create_custom_field_type.html" title="How to Create a Custom Form Field Type"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dynamic_form_generation.html" title="How to Dynamically Generate Forms Using Form Events"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Form</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-embed-a-collection-of-forms">
+<span id="index-0"></span><h1>How to Embed a Collection of Forms<a class="headerlink" href="#how-to-embed-a-collection-of-forms" title="Permalink to this headline">¶</a></h1>
+<p>In this entry, you&#8217;ll learn how to create a form that embeds a collection
+of many other forms. This could be useful, for example, if you had a <tt class="docutils literal"><span class="pre">Task</span></tt>
+class and you wanted to edit/create/remove many <tt class="docutils literal"><span class="pre">Tag</span></tt> objects related to
+that Task, right inside the same form.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>In this entry, we&#8217;ll loosely assume that you&#8217;re using Doctrine as your
+database store. But if you&#8217;re not using Doctrine (e.g. Propel or just
+a database connection), it&#8217;s all very similar. There are only a few parts
+of this tutorial that really care about &#8220;persistence&#8221;.</p>
+<p class="last">If you <em>are</em> using Doctrine, you&#8217;ll need to add the Doctrine metadata,
+including the <tt class="docutils literal"><span class="pre">ManyToMany</span></tt> on the Task&#8217;s <tt class="docutils literal"><span class="pre">tags</span></tt> property.</p>
+</div>
+<p>Let&#8217;s start there: suppose that each <tt class="docutils literal"><span class="pre">Task</span></tt> belongs to multiple <tt class="docutils literal"><span class="pre">Tags</span></tt>
+objects. Start by creating a simple <tt class="docutils literal"><span class="pre">Task</span></tt> class:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Entity/Task.php
+namespace Acme\TaskBundle\Entity;
+
+use Doctrine\Common\Collections\ArrayCollection;
+
+class Task
+{
+    protected $description;
+
+    protected $tags;
+
+    public function __construct()
+    {
+        $this-&gt;tags = new ArrayCollection();
+    }
+
+    public function getDescription()
+    {
+        return $this-&gt;description;
+    }
+
+    public function setDescription($description)
+    {
+        $this-&gt;description = $description;
+    }
+
+    public function getTags()
+    {
+        return $this-&gt;tags;
+    }
+
+    public function setTags(ArrayCollection $tags)
+    {
+        $this-&gt;tags = $tags;
+    }
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">ArrayCollection</span></tt> is specific to Doctrine and is basically the
+same as using an <tt class="docutils literal"><span class="pre">array</span></tt> (but it must be an <tt class="docutils literal"><span class="pre">ArrayCollection</span></tt>) if
+you&#8217;re using Doctrine.</p>
+</div>
+<p>Now, create a <tt class="docutils literal"><span class="pre">Tag</span></tt> class. As you saw above, a <tt class="docutils literal"><span class="pre">Task</span></tt> can have many <tt class="docutils literal"><span class="pre">Tag</span></tt>
+objects:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Entity/Tag.php
+namespace Acme\TaskBundle\Entity;
+
+class Tag
+{
+    public $name;
+}</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">name</span></tt> property is public here, but it can just as easily be protected
+or private (but then it would need <tt class="docutils literal"><span class="pre">getName</span></tt> and <tt class="docutils literal"><span class="pre">setName</span></tt> methods).</p>
+</div>
+<p>Now let&#8217;s get to the forms. Create a form class so that a <tt class="docutils literal"><span class="pre">Tag</span></tt> object
+can be modified by the user:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/TagType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+
+class TagType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $builder-&gt;add('name');
+    }
+
+    public function getDefaultOptions(array $options)
+    {
+        return array(
+            'data_class' =&gt; 'Acme\TaskBundle\Entity\Tag',
+        );
+    }
+
+    public function getName()
+    {
+        return 'tag';
+    }
+}</pre>
+</div>
+<p>With this, we have enough to render a tag form by itself. But since the end
+goal is to allow the tags of a <tt class="docutils literal"><span class="pre">Task</span></tt> to be modified right inside the task
+form itself, create a form for the <tt class="docutils literal"><span class="pre">Task</span></tt> class.</p>
+<p>Notice that we embed a collection of <tt class="docutils literal"><span class="pre">TagType</span></tt> forms using the
+<a class="reference internal" href="../../reference/forms/types/collection.html"><em>collection</em></a> field type:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/TaskType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+
+class TaskType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $builder-&gt;add('description');
+
+        $builder-&gt;add('tags', 'collection', array('type' =&gt; new TagType()));
+    }
+
+    public function getDefaultOptions(array $options)
+    {
+        return array(
+            'data_class' =&gt; 'Acme\TaskBundle\Entity\Task',
+        );
+    }
+
+    public function getName()
+    {
+        return 'task';
+    }
+}</pre>
+</div>
+<p>In your controller, you&#8217;ll now initialize a new instance of <tt class="docutils literal"><span class="pre">TaskType</span></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Controller/TaskController.php
+namespace Acme\TaskBundle\Controller;
+
+use Acme\TaskBundle\Entity\Task;
+use Acme\TaskBundle\Entity\Tag;
+use Acme\TaskBundle\Form\Type\TaskType;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+
+class TaskController extends Controller
+{
+    public function newAction(Request $request)
+    {
+        $task = new Task();
+
+        // dummy code - this is here just so that the Task has some tags
+        // otherwise, this isn't an interesting example
+        $tag1 = new Tag();
+        $tag1-&gt;name = 'tag1';
+        $task-&gt;getTags()-&gt;add($tag1);
+        $tag2 = new Tag();
+        $tag2-&gt;name = 'tag2';
+        $task-&gt;getTags()-&gt;add($tag2);
+        // end dummy code
+
+        $form = $this-&gt;createForm(new TaskType(), $task);
+
+        // process the form on POST
+        if ('POST' === $request-&gt;getMethod()) {
+            $form-&gt;bindRequest($request);
+            if ($form-&gt;isValid()) {
+                // maybe do some form processing, like saving the Task and Tag objects
+            }
+        }
+
+        return $this-&gt;render('AcmeTaskBundle:Task:new.html.twig', array(
+            'form' =&gt; $form-&gt;createView(),
+        ));
+    }
+}</pre>
+</div>
+<p>The corresponding template is now able to render both the <tt class="docutils literal"><span class="pre">description</span></tt>
+field for the task form as well as all the <tt class="docutils literal"><span class="pre">TagType</span></tt> forms for any tags
+that are already related to this <tt class="docutils literal"><span class="pre">Task</span></tt>. In the above controller, I added
+some dummy code so that you can see this in action (since a <tt class="docutils literal"><span class="pre">Task</span></tt> has
+zero tags when first created).</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="c">{# src/Acme/TaskBundle/Resources/views/Task/new.html.twig #}</span>
+
+<span class="c">{# ... #}</span>
+
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;...&quot;</span> <span class="na">method=</span><span class="s">&quot;POST&quot;</span> <span class="cp">{{</span> <span class="nv">form_enctype</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&gt;</span>
+    <span class="c">{# render the task&#39;s only field: description #}</span>
+    <span class="cp">{{</span> <span class="nv">form_row</span><span class="o">(</span><span class="nv">form.description</span><span class="o">)</span> <span class="cp">}}</span>
+
+    <span class="nt">&lt;h3&gt;</span>Tags<span class="nt">&lt;/h3&gt;</span>
+    <span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;tags&quot;</span><span class="nt">&gt;</span>
+        <span class="c">{# iterate over each existing tag and render its only field: name #}</span>
+        <span class="cp">{%</span> <span class="k">for</span> <span class="nv">tag</span> <span class="k">in</span> <span class="nv">form.tags</span> <span class="cp">%}</span>
+            <span class="nt">&lt;li&gt;</span><span class="cp">{{</span> <span class="nv">form_row</span><span class="o">(</span><span class="nv">tag.name</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&lt;/li&gt;</span>
+        <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+    <span class="nt">&lt;/ul&gt;</span>
+
+    <span class="cp">{{</span> <span class="nv">form_rest</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span>
+    <span class="c">{# ... #}</span>
+<span class="nt">&lt;/form&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><pre>&lt;!-- src/Acme/TaskBundle/Resources/views/Task/new.html.php --&gt;
+
+&lt;!-- ... --&gt;
+
+&lt;form action="..." method="POST" ...&gt;
+    &lt;h3&gt;Tags&lt;/h3&gt;
+    &lt;ul class="tags"&gt;
+        &lt;?php foreach($form['tags'] as $tag): ?&gt;
+            &lt;li&gt;&lt;?php echo $view['form']-&gt;row($tag['name']) ?&gt;&lt;/li&gt;
+        &lt;?php endforeach; ?&gt;
+    &lt;/ul&gt;
+
+    &lt;?php echo $view['form']-&gt;rest($form) ?&gt;
+&lt;/form&gt;
+
+&lt;!-- ... --&gt;</pre>
+</div>
+</li>
+</ul>
+</div>
+<p>When the user submits the form, the submitted data for the <tt class="docutils literal"><span class="pre">Tags</span></tt> fields
+are used to construct an ArrayCollection of <tt class="docutils literal"><span class="pre">Tag</span></tt> objects, which is then
+set on the <tt class="docutils literal"><span class="pre">tag</span></tt> field of the <tt class="docutils literal"><span class="pre">Task</span></tt> instance.</p>
+<p>The <tt class="docutils literal"><span class="pre">Tags</span></tt> collection is accessible naturally via <tt class="docutils literal"><span class="pre">$task-&gt;getTags()</span></tt>
+and can be persisted to the database or used however you need.</p>
+<p>So far, this works great, but this doesn&#8217;t allow you to dynamically add new
+tags or delete existing tags. So, while editing existing tags will work
+great, your user can&#8217;t actually add any new tags yet.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p>In this entry, we embed only one collection, but you are not limited
+to this. You can also embed nested collection as many level down as you
+like. But if you use Xdebug in your development setup, you may receive
+a <tt class="docutils literal"><span class="pre">Maximum</span> <span class="pre">function</span> <span class="pre">nesting</span> <span class="pre">level</span> <span class="pre">of</span> <span class="pre">'100'</span> <span class="pre">reached,</span> <span class="pre">aborting!</span></tt> error.
+This is due to the <tt class="docutils literal"><span class="pre">xdebug.max_nesting_level</span></tt> PHP setting, which defaults
+to <tt class="docutils literal"><span class="pre">100</span></tt>.</p>
+<p class="last">This directive limits recursion to 100 calls which may not be enough for
+rendering the form in the template if you render the whole form at
+once (e.g <tt class="docutils literal"><span class="pre">form_widget(form)</span></tt>). To fix this you can set this directive
+to a higher value (either via a PHP ini file or via <tt class="docutils literal"><a class="reference external" href="http://php.net/manual/en/function.ini-set.php" title="ini_set"><span class="pre">ini_set</span></a></tt>,
+for example in <tt class="docutils literal"><span class="pre">app/autoload.php</span></tt>) or render each form field by hand
+using <tt class="docutils literal"><span class="pre">form_row</span></tt>.</p>
+</div>
+<div class="section" id="allowing-new-tags-with-the-prototype">
+<span id="cookbook-form-collections-new-prototype"></span><h2>Allowing &#8220;new&#8221; tags with the &#8220;prototype&#8221;<a class="headerlink" href="#allowing-new-tags-with-the-prototype" title="Permalink to this headline">¶</a></h2>
+<p>Allowing the user to dynamically add new tags means that we&#8217;ll need to
+use some JavaScript. Previously we added two tags to our form in the controller.
+Now we need to let the user add as many tag forms as he needs directly in the browser.
+This will be done through a bit of JavaScript.</p>
+<p>The first thing we need to do is to let the form collection know that it will
+receive an unknown number of tags. So far we&#8217;ve added two tags and the form
+type expects to receive exactly two, otherwise an error will be thrown:
+<tt class="docutils literal"><span class="pre">This</span> <span class="pre">form</span> <span class="pre">should</span> <span class="pre">not</span> <span class="pre">contain</span> <span class="pre">extra</span> <span class="pre">fields</span></tt>. To make this flexible, we
+add the <tt class="docutils literal"><span class="pre">allow_add</span></tt> option to our collection field:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/TaskType.php
+
+// ...
+
+public function buildForm(FormBuilder $builder, array $options)
+{
+    $builder-&gt;add('description');
+
+    $builder-&gt;add('tags', 'collection', array(
+        'type' =&gt; new TagType(),
+        'allow_add' =&gt; true,
+        'by_reference' =&gt; false,
+    ));
+}</pre>
+</div>
+<p>Note that we also added <tt class="docutils literal"><span class="pre">'by_reference'</span> <span class="pre">=&gt;</span> <span class="pre">false</span></tt>. Normally, the form
+framework would modify the tags on a <cite>Task</cite> object <em>without</em> actually
+ever calling <cite>setTags</cite>. By setting <a class="reference internal" href="../../reference/forms/types/collection.html#reference-form-types-by-reference"><em>by_reference</em></a>
+to <cite>false</cite>, <cite>setTags</cite> will be called. This will be important later as you&#8217;ll
+see.</p>
+<p>In addition to telling the field to accept any number of submitted objects, the
+<tt class="docutils literal"><span class="pre">allow_add</span></tt> also makes a &#8220;prototype&#8221; variable available to you. This &#8220;prototype&#8221;
+is a little &#8220;template&#8221; that contains all the HTML to be able to render any
+new &#8220;tag&#8221; forms. To render it, make the following change to your template:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;tags&quot;</span> <span class="na">data-prototype=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">form_widget</span><span class="o">(</span><span class="nv">form.tags.vars.prototype</span><span class="o">)|</span><span class="nf">e</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;</span>
+    ...
+<span class="nt">&lt;/ul&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><div class="highlight"><pre><span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;tags&quot;</span> <span class="na">data-prototype=</span><span class="s">&quot;</span><span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="o">-&gt;</span><span class="na">escape</span><span class="p">(</span><span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;form&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">row</span><span class="p">(</span><span class="nv">$form</span><span class="p">[</span><span class="s1">&#39;tags&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;prototype&#39;</span><span class="p">)))</span> <span class="cp">?&gt;</span><span class="s">&quot;</span><span class="nt">&gt;</span>
+    ...
+<span class="nt">&lt;/ul&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you render your whole &#8220;tags&#8221; sub-form at once (e.g. <tt class="docutils literal"><span class="pre">form_row(form.tags)</span></tt>),
+then the prototype is automatically available on the outer <tt class="docutils literal"><span class="pre">div</span></tt> as
+the <tt class="docutils literal"><span class="pre">data-prototype</span></tt> attribute, similar to what you see above.</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>The <tt class="docutils literal"><span class="pre">form.tags.vars.prototype</span></tt> is form element that looks and feels just
+like the individual <tt class="docutils literal"><span class="pre">form_widget(tag)</span></tt> elements inside our <tt class="docutils literal"><span class="pre">for</span></tt> loop.
+This means that you can call <tt class="docutils literal"><span class="pre">form_widget</span></tt>, <tt class="docutils literal"><span class="pre">form_row</span></tt>, or <tt class="docutils literal"><span class="pre">form_label</span></tt>
+on it. You could even choose to render only one of its fields (e.g. the
+<tt class="docutils literal"><span class="pre">name</span></tt> field):</p>
+<div class="last highlight-html+jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">form_widget</span><span class="o">(</span><span class="nv">form.tags.vars.prototype.name</span><span class="o">)|</span><span class="nf">e</span> <span class="cp">}}</span>
+</pre></div>
+</div>
+</div>
+<p>On the rendered page, the result will look something like this:</p>
+<div class="highlight-html"><div class="highlight"><pre><span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">&quot;tags&quot;</span> <span class="na">data-prototype=</span><span class="s">&quot;&amp;lt;div&amp;gt;&amp;lt;label class=&amp;quot; required&amp;quot;&amp;gt;$$name$$&amp;lt;/label&amp;gt;&amp;lt;div id=&amp;quot;task_tags_$$name$$&amp;quot;&amp;gt;&amp;lt;div&amp;gt;&amp;lt;label for=&amp;quot;task_tags_$$name$$_name&amp;quot; class=&amp;quot; required&amp;quot;&amp;gt;Name&amp;lt;/label&amp;gt;&amp;lt;input type=&amp;quot;text&amp;quot; id=&amp;quot;task_tags_$$name$$_name&amp;quot; name=&amp;quot;task[tags][$$name$$][name]&amp;quot; required=&amp;quot;required&amp;quot; maxlength=&amp;quot;255&amp;quot; /&amp;gt;&amp;lt;/div&amp;gt;&amp;lt;/div&amp;gt;&amp;lt;/div&amp;gt;&quot;</span><span class="nt">&gt;</span>
+</pre></div>
+</div>
+<p>The goal of this section will be to use JavaScript to read this attribute
+and dynamically add new tag forms when the user clicks a &#8220;Add a tag&#8221; link.
+To make things simple, we&#8217;ll use jQuery and assume you have it included somewhere
+on your page.</p>
+<p>Add a <tt class="docutils literal"><span class="pre">script</span></tt> tag somewhere on your page so we can start writing some JavaScript.</p>
+<p>First, add a link to the bottom of the &#8220;tags&#8221; list via JavaScript. Second,
+bind to the &#8220;click&#8221; event of that link so we can add a new tag form (<tt class="docutils literal"><span class="pre">addTagForm</span></tt>
+will be show next):</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="c1">// Get the div that holds the collection of tags</span>
+<span class="kd">var</span> <span class="nx">collectionHolder</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;ul.tags&#39;</span><span class="p">);</span>
+
+<span class="c1">// setup an &quot;add a tag&quot; link</span>
+<span class="kd">var</span> <span class="nx">$addTagLink</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;&lt;a href=&quot;#&quot; class=&quot;add_tag_link&quot;&gt;Add a tag&lt;/a&gt;&#39;</span><span class="p">);</span>
+<span class="kd">var</span> <span class="nx">$newLinkLi</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;&lt;li&gt;&lt;/li&gt;&#39;</span><span class="p">).</span><span class="nx">append</span><span class="p">(</span><span class="nx">$addTagLink</span><span class="p">);</span>
+
+<span class="nx">jQuery</span><span class="p">(</span><span class="nb">document</span><span class="p">).</span><span class="nx">ready</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// add the &quot;add a tag&quot; anchor and li to the tags ul</span>
+    <span class="nx">collectionHolder</span><span class="p">.</span><span class="nx">append</span><span class="p">(</span><span class="nx">$newLinkLi</span><span class="p">);</span>
+
+    <span class="nx">$addTagLink</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;click&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// prevent the link from creating a &quot;#&quot; on the URL</span>
+        <span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+
+        <span class="c1">// add a new tag form (see next code block)</span>
+        <span class="nx">addTagForm</span><span class="p">(</span><span class="nx">collectionHolder</span><span class="p">,</span> <span class="nx">$newLinkLi</span><span class="p">);</span>
+    <span class="p">});</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">addTagForm</span></tt> function&#8217;s job will be to use the <tt class="docutils literal"><span class="pre">data-prototype</span></tt> attribute
+to dynamically add a new form when this link is clicked. The <tt class="docutils literal"><span class="pre">data-prototype</span></tt>
+HTML contains the tag <tt class="docutils literal"><span class="pre">text</span></tt> input element with a name of <tt class="docutils literal"><span class="pre">task[tags][$$name$$][name]</span></tt>
+and id of <tt class="docutils literal"><span class="pre">task_tags_$$name$$_name</span></tt>. The <tt class="docutils literal"><span class="pre">$$name</span></tt> is a little &#8220;placeholder&#8221;,
+which we&#8217;ll replace with a unique, incrementing number (e.g. <tt class="docutils literal"><span class="pre">task[tags][3][name]</span></tt>).</p>
+<p>The actual code needed to make this all work can vary quite a bit, but here&#8217;s
+one example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">function</span> <span class="nx">addTagForm</span><span class="p">(</span><span class="nx">collectionHolder</span><span class="p">,</span> <span class="nx">$newLinkLi</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Get the data-prototype we explained earlier</span>
+    <span class="kd">var</span> <span class="nx">prototype</span> <span class="o">=</span> <span class="nx">collectionHolder</span><span class="p">.</span><span class="nx">attr</span><span class="p">(</span><span class="s1">&#39;data-prototype&#39;</span><span class="p">);</span>
+
+    <span class="c1">// Replace &#39;$$name$$&#39; in the prototype&#39;s HTML to</span>
+    <span class="c1">// instead be a number based on the current collection&#39;s length.</span>
+    <span class="kd">var</span> <span class="nx">newForm</span> <span class="o">=</span> <span class="nx">prototype</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/\$\$name\$\$/g</span><span class="p">,</span> <span class="nx">collectionHolder</span><span class="p">.</span><span class="nx">children</span><span class="p">().</span><span class="nx">length</span><span class="p">);</span>
+
+    <span class="c1">// Display the form in the page in an li, before the &quot;Add a tag&quot; link li</span>
+    <span class="kd">var</span> <span class="nx">$newFormLi</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;&lt;li&gt;&lt;/li&gt;&#39;</span><span class="p">).</span><span class="nx">append</span><span class="p">(</span><span class="nx">newForm</span><span class="p">);</span>
+    <span class="nx">$newLinkLi</span><span class="p">.</span><span class="nx">before</span><span class="p">(</span><span class="nx">$newFormLi</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now, each time a user clicks the <tt class="docutils literal"><span class="pre">Add</span> <span class="pre">a</span> <span class="pre">tag</span></tt> link, a new sub form will
+appear on the page. When we submit, any new tag forms will be converted into
+new <tt class="docutils literal"><span class="pre">Tag</span></tt> objects and added to the <tt class="docutils literal"><span class="pre">tags</span></tt> property of the <tt class="docutils literal"><span class="pre">Task</span></tt> object.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Doctrine: Cascading Relations and saving the &#8220;Inverse&#8221; side</p>
+<p>To get the new tags to save in Doctrine, you need to consider a couple
+more things. First, unless you iterate over all of the new <tt class="docutils literal"><span class="pre">Tag</span></tt> objects
+and call <tt class="docutils literal"><span class="pre">$em-&gt;persist($tag)</span></tt> on each, you&#8217;ll receive an error from
+Doctrine:</p>
+<blockquote>
+<div>A new entity was found through the relationship &#8216;AcmeTaskBundleEntityTask#tags&#8217; that was not configured to cascade persist operations for entity...</div></blockquote>
+<p>To fix this, you may choose to &#8220;cascade&#8221; the persist operation automatically
+from the <tt class="docutils literal"><span class="pre">Task</span></tt> object to any related tags. To do this, add the <tt class="docutils literal"><span class="pre">cascade</span></tt>
+option to your <tt class="docutils literal"><span class="pre">ManyToMany</span></tt> metadata:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Annotations</em><div class="highlight-php-annotations"><div class="highlight"><pre><span class="c1">// src/Acme/TaskBundle/Entity/Task.php</span>
+
+<span class="c1">// ...</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @ORM\ManyToMany(targetEntity=&quot;Tag&quot;, cascade={&quot;persist&quot;})</span>
+<span class="sd"> */</span>
+<span class="k">protected</span> <span class="nv">$tags</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/TaskBundle/Resources/config/doctrine/Task.orm.yml</span>
+<span class="l-Scalar-Plain">Acme\TaskBundle\Entity\Task</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">entity</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">oneToMany</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">targetEntity</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Tag</span>
+            <span class="l-Scalar-Plain">cascade</span><span class="p-Indicator">:</span>      <span class="p-Indicator">[</span><span class="nv">persist</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>A second potential issue deals with the <a class="reference external" href="http://docs.doctrine-project.org/en/latest/reference/unitofwork-associations.html">Owning Side and Inverse Side</a>
+of Doctrine relationships. In this example, if the &#8220;owning&#8221; side of the
+relationship is &#8220;Task&#8221;, then persistence will work fine as the tags are
+properly added to the Task. However, if the owning side is on &#8220;Tag&#8221;, then
+you&#8217;ll need to do a little bit more work to ensure that the correct side
+of the relationship is modified.</p>
+<p>The trick is to make sure that the single &#8220;Task&#8221; is set on each &#8220;Tag&#8221;.
+One easy way to do this is to add some extra logic to <tt class="docutils literal"><span class="pre">setTags()</span></tt>,
+which is called by the form framework since <a class="reference internal" href="../../reference/forms/types/collection.html#reference-form-types-by-reference"><em>by_reference</em></a>
+is set to <tt class="docutils literal"><span class="pre">false</span></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Entity/Task.php
+
+// ...
+
+public function setTags(ArrayCollection $tags)
+{
+    foreach ($tags as $tag) {
+        $tag-&gt;addTask($this);
+    }
+
+    $this-&gt;tags = $tags;
+}</pre>
+</div>
+<p>Inside <tt class="docutils literal"><span class="pre">Tag</span></tt>, just make sure you have an <tt class="docutils literal"><span class="pre">addTask</span></tt> method:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Entity/Tag.php
+
+// ...
+
+public function addTask(Task $task)
+{
+    if (!$this-&gt;tasks-&gt;contains($task)) {
+        $this-&gt;tasks-&gt;add($task);
+    }
+}</pre>
+</div>
+<p class="last">If you have a <tt class="docutils literal"><span class="pre">OneToMany</span></tt> relationship, then the workaround is similar,
+except that you can simply call <tt class="docutils literal"><span class="pre">setTask</span></tt> from inside <tt class="docutils literal"><span class="pre">setTags</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="allowing-tags-to-be-removed">
+<span id="cookbook-form-collections-remove"></span><h2>Allowing tags to be removed<a class="headerlink" href="#allowing-tags-to-be-removed" title="Permalink to this headline">¶</a></h2>
+<p>The next step is to allow the deletion of a particular item in the collection.
+The solution is similar to allowing tags to be added.</p>
+<p>Start by adding the <tt class="docutils literal"><span class="pre">allow_delete</span></tt> option in the form Type:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/TaskType.php
+
+// ...
+
+public function buildForm(FormBuilder $builder, array $options)
+{
+    $builder-&gt;add('description');
+
+    $builder-&gt;add('tags', 'collection', array(
+        'type' =&gt; new TagType(),
+        'allow_add' =&gt; true,
+        'allow_delete' =&gt; true,
+        'by_reference' =&gt; false,
+    ));
+}</pre>
+</div>
+<div class="section" id="templates-modifications">
+<h3>Templates Modifications<a class="headerlink" href="#templates-modifications" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">allow_delete</span></tt> option has one consequence: if an item of a collection
+isn&#8217;t sent on submission, the related data is removed from the collection
+on the server. The solution is thus to remove the form element from the DOM.</p>
+<p>First, add a &#8220;delete this tag&#8221; link to each tag form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">jQuery</span><span class="p">(</span><span class="nb">document</span><span class="p">).</span><span class="nx">ready</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// add a delete link to all of the existing tag form li elements</span>
+    <span class="nx">collectionHolder</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span><span class="s1">&#39;li&#39;</span><span class="p">).</span><span class="nx">each</span><span class="p">(</span><span class="kd">function</span><span class="p">()</span> <span class="p">{</span>
+        <span class="nx">addTagFormDeleteLink</span><span class="p">(</span><span class="nx">$</span><span class="p">(</span><span class="k">this</span><span class="p">));</span>
+    <span class="p">});</span>
+
+    <span class="c1">// ... the rest of the block from above</span>
+<span class="p">});</span>
+
+<span class="kd">function</span> <span class="nx">addTagForm</span><span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="c1">// add a delete link to the new form</span>
+    <span class="nx">addTagFormDeleteLink</span><span class="p">(</span><span class="nx">$newFormLi</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">addTagFormDeleteLink</span></tt> function will look something like this:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="kd">function</span> <span class="nx">addTagFormDeleteLink</span><span class="p">(</span><span class="nx">$tagFormLi</span><span class="p">)</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="nx">$removeFormA</span> <span class="o">=</span> <span class="nx">$</span><span class="p">(</span><span class="s1">&#39;&lt;a href=&quot;#&quot;&gt;delete this tag&lt;/a&gt;&#39;</span><span class="p">);</span>
+    <span class="nx">$tagFormLi</span><span class="p">.</span><span class="nx">append</span><span class="p">(</span><span class="nx">$removeFormA</span><span class="p">);</span>
+
+    <span class="nx">$removeFormA</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s1">&#39;click&#39;</span><span class="p">,</span> <span class="kd">function</span><span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// prevent the link from creating a &quot;#&quot; on the URL</span>
+        <span class="nx">e</span><span class="p">.</span><span class="nx">preventDefault</span><span class="p">();</span>
+
+        <span class="c1">// remove the li for the tag form</span>
+        <span class="nx">$tagFormLi</span><span class="p">.</span><span class="nx">remove</span><span class="p">();</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>When a tag form is removed from the DOM and submitted, the removed <tt class="docutils literal"><span class="pre">Tag</span></tt> object
+will not be included in the collection passed to <tt class="docutils literal"><span class="pre">setTags</span></tt>. Depending on
+your persistence layer, this may or may not be enough to actually remove
+the relationship between the removed <tt class="docutils literal"><span class="pre">Tag</span></tt> and <tt class="docutils literal"><span class="pre">Task</span></tt> object.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Doctrine: Ensuring the database persistence</p>
+<p>When removing objects in this way, you may need to do a little bit more
+work to ensure that the relationship between the Task and the removed Tag
+is properly removed.</p>
+<p>In Doctrine, you have two side of the relationship: the owning side and the
+inverse side. Normally in this case you&#8217;ll have a ManyToMany relation
+and the deleted tags will disappear and persist correctly (adding new
+tags also works effortlessly).</p>
+<p>But if you have an <tt class="docutils literal"><span class="pre">OneToMany</span></tt> relation or a <tt class="docutils literal"><span class="pre">ManyToMany</span></tt> with a
+<tt class="docutils literal"><span class="pre">mappedBy</span></tt> on the Task entity (meaning Task is the &#8220;inverse&#8221; side),
+you&#8217;ll need to do more work for the removed tags to persist correctly.</p>
+<p>In this case, you can modify the controller to remove the relationship
+on the removed tag. This assumes that you have some <tt class="docutils literal"><span class="pre">editAction</span></tt> which
+is handling the &#8220;update&#8221; of your Task:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Controller/TaskController.php
+
+// ...
+
+public function editAction($id, Request $request)
+{
+    $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+    $task = $em-&gt;getRepository('AcmeTaskBundle:Task')-&gt;find($id);
+
+    if (!$task) {
+        throw $this-&gt;createNotFoundException('No task found for is '.$id);
+    }
+
+    $originalTags = array();
+
+    // Create an array of the current Tag objects in the database
+    foreach ($task-&gt;getTags() as $tag) $originalTags[] = $tag;
+
+    $editForm = $this-&gt;createForm(new TaskType(), $task);
+
+    if ('POST' === $request-&gt;getMethod()) {
+        $editForm-&gt;bindRequest($this-&gt;getRequest());
+
+        if ($editForm-&gt;isValid()) {
+
+            // filter $originalTags to contain tags no longer present
+            foreach ($task-&gt;getTags() as $tag) {
+                foreach ($originalTags as $key =&gt; $toDel) {
+                    if ($toDel-&gt;getId() === $tag-&gt;getId()) {
+                        unset($originalTags[$key]);
+                    }
+                }
+            }
+
+            // remove the relationship between the tag and the Task
+            foreach ($originalTags as $tag) {
+                // remove the Task from the Tag
+                $tag-&gt;getTasks()-&gt;removeElement($task);
+
+                // if it were a ManyToOne relationship, remove the relationship like this
+                // $tag-&gt;setTask(null);
+
+                $em-&gt;persist($tag);
+
+                // if you wanted to delete the Tag entirely, you can also do that
+                // $em-&gt;remove($tag);
+            }
+
+            $em-&gt;persist($task);
+            $em-&gt;flush();
+
+            // redirect back to some edit page
+            return $this-&gt;redirect($this-&gt;generateUrl('task_edit', array('id' =&gt; $id)));
+        }
+    }
+
+    // render some form template
+}</pre>
+</div>
+<p class="last">As you can see, adding and removing the elements correctly can be tricky.
+Unless you have a ManyToMany relationship where Task is the &#8220;owning&#8221; side,
+you&#8217;ll need to do extra work to make sure that the relationship is properly
+updated (whether you&#8217;re adding new tags or removing existing tags) on
+each Tag object itself.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Embed a Collection of Forms</a><ul>
+<li><a class="reference internal" href="#allowing-new-tags-with-the-prototype">Allowing &#8220;new&#8221; tags with the &#8220;prototype&#8221;</a></li>
+<li><a class="reference internal" href="#allowing-tags-to-be-removed">Allowing tags to be removed</a><ul>
+<li><a class="reference internal" href="#templates-modifications">Templates Modifications</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="dynamic_form_generation.html"
+                        title="previous chapter">How to Dynamically Generate Forms Using Form Events</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="create_custom_field_type.html"
+                        title="next chapter">How to Create a Custom Form Field Type</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/form_collections.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="create_custom_field_type.html" title="How to Create a Custom Form Field Type"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dynamic_form_generation.html" title="How to Dynamically Generate Forms Using Form Events"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Form</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

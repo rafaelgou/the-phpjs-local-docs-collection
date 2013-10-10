@@ -1,0 +1,1041 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>HTTP Cache &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../index.html" />
+    <link rel="up" title="The Book" href="index.html" />
+    <link rel="next" title="Translations" href="translation.html" />
+    <link rel="prev" title="Security" href="security.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="translation.html" title="Translations"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="security.html" title="Security"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Book</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="http-cache">
+<span id="index-0"></span><h1>HTTP Cache<a class="headerlink" href="#http-cache" title="Permalink to this headline">¶</a></h1>
+<p>The nature of rich web applications means that they&#8217;re dynamic. No matter
+how efficient your application, each request will always contain more overhead
+than serving a static file.</p>
+<p>And for most Web applications, that&#8217;s fine. Symfony2 is lightning fast, and
+unless you&#8217;re doing some serious heavy-lifting, each request will come back
+quickly without putting too much stress on your server.</p>
+<p>But as your site grows, that overhead can become a problem. The processing
+that&#8217;s normally performed on every request should be done only once. This
+is exactly what caching aims to accomplish.</p>
+<div class="section" id="caching-on-the-shoulders-of-giants">
+<h2>Caching on the Shoulders of Giants<a class="headerlink" href="#caching-on-the-shoulders-of-giants" title="Permalink to this headline">¶</a></h2>
+<p>The most effective way to improve performance of an application is to cache
+the full output of a page and then bypass the application entirely on each
+subsequent request. Of course, this isn&#8217;t always possible for highly dynamic
+websites, or is it? In this chapter, we&#8217;ll show you how the Symfony2 cache
+system works and why we think this is the best possible approach.</p>
+<p>The Symfony2 cache system is different because it relies on the simplicity
+and power of the HTTP cache as defined in the <a class="reference internal" href="../glossary.html#term-http-specification"><em class="xref std std-term">HTTP specification</em></a>.
+Instead of reinventing a caching methodology, Symfony2 embraces the standard
+that defines basic communication on the Web. Once you understand the fundamental
+HTTP validation and expiration caching models, you&#8217;ll be ready to master
+the Symfony2 cache system.</p>
+<p>For the purposes of learning how to cache with Symfony2, we&#8217;ll cover the
+subject in four steps:</p>
+<ul class="simple">
+<li><strong>Step 1</strong>: A <a class="reference internal" href="#gateway-caches"><em>gateway cache</em></a>, or reverse proxy, is
+an independent layer that sits in front of your application. The reverse
+proxy caches responses as they&#8217;re returned from your application and answers
+requests with cached responses before they hit your application. Symfony2
+provides its own reverse proxy, but any reverse proxy can be used.</li>
+<li><strong>Step 2</strong>: <a class="reference internal" href="#http-cache-introduction"><em>HTTP cache</em></a> headers are used
+to communicate with the gateway cache and any other caches between your
+application and the client. Symfony2 provides sensible defaults and a
+powerful interface for interacting with the cache headers.</li>
+<li><strong>Step 3</strong>: HTTP <a class="reference internal" href="#http-expiration-validation"><em>expiration and validation</em></a>
+are the two models used for determining whether cached content is <em>fresh</em>
+(can be reused from the cache) or <em>stale</em> (should be regenerated by the
+application).</li>
+<li><strong>Step 4</strong>: <a class="reference internal" href="#edge-side-includes"><em>Edge Side Includes</em></a> (ESI) allow HTTP
+cache to be used to cache page fragments (even nested fragments) independently.
+With ESI, you can even cache an entire page for 60 minutes, but an embedded
+sidebar for only 5 minutes.</li>
+</ul>
+<p>Since caching with HTTP isn&#8217;t unique to Symfony, many articles already exist
+on the topic. If you&#8217;re new to HTTP caching, we <em>highly</em> recommend Ryan
+Tomayko&#8217;s article <a class="reference external" href="http://tomayko.com/writings/things-caches-do">Things Caches Do</a>. Another in-depth resource is Mark
+Nottingham&#8217;s <a class="reference external" href="http://www.mnot.net/cache_docs/">Cache Tutorial</a>.</p>
+</div>
+<div class="section" id="caching-with-a-gateway-cache">
+<span id="gateway-caches"></span><span id="index-1"></span><h2>Caching with a Gateway Cache<a class="headerlink" href="#caching-with-a-gateway-cache" title="Permalink to this headline">¶</a></h2>
+<p>When caching with HTTP, the <em>cache</em> is separated from your application entirely
+and sits between your application and the client making the request.</p>
+<p>The job of the cache is to accept requests from the client and pass them
+back to your application. The cache will also receive responses back from
+your application and forward them on to the client. The cache is the &#8220;middle-man&#8221;
+of the request-response communication between the client and your application.</p>
+<p>Along the way, the cache will store each response that is deemed &#8220;cacheable&#8221;
+(See <a class="reference internal" href="#http-cache-introduction"><em>Introduction to HTTP Caching</em></a>). If the same resource is requested again,
+the cache sends the cached response to the client, ignoring your application
+entirely.</p>
+<p>This type of cache is known as a HTTP gateway cache and many exist such
+as <a class="reference external" href="http://www.varnish-cache.org/">Varnish</a>, <a class="reference external" href="http://wiki.squid-cache.org/SquidFaq/ReverseProxy">Squid in reverse proxy mode</a>, and the Symfony2 reverse proxy.</p>
+<div class="section" id="types-of-caches">
+<span id="index-2"></span><h3>Types of Caches<a class="headerlink" href="#types-of-caches" title="Permalink to this headline">¶</a></h3>
+<p>But a gateway cache isn&#8217;t the only type of cache. In fact, the HTTP cache
+headers sent by your application are consumed and interpreted by up to three
+different types of caches:</p>
+<ul class="simple">
+<li><em>Browser caches</em>: Every browser comes with its own local cache that is
+mainly useful for when you hit &#8220;back&#8221; or for images and other assets.
+The browser cache is a <em>private</em> cache as cached resources aren&#8217;t shared
+with anyone else.</li>
+<li><em>Proxy caches</em>: A proxy is a <em>shared</em> cache as many people can be behind a
+single one. It&#8217;s usually installed by large corporations and ISPs to reduce
+latency and network traffic.</li>
+<li><em>Gateway caches</em>: Like a proxy, it&#8217;s also a <em>shared</em> cache but on the server
+side. Installed by network administrators, it makes websites more scalable,
+reliable and performant.</li>
+</ul>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Gateway caches are sometimes referred to as reverse proxy caches,
+surrogate caches, or even HTTP accelerators.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The significance of <em>private</em> versus <em>shared</em> caches will become more
+obvious as we talk about caching responses containing content that is
+specific to exactly one user (e.g. account information).</p>
+</div>
+<p>Each response from your application will likely go through one or both of
+the first two cache types. These caches are outside of your control but follow
+the HTTP cache directions set in the response.</p>
+</div>
+<div class="section" id="symfony2-reverse-proxy">
+<span id="symfony-gateway-cache"></span><span id="index-3"></span><h3>Symfony2 Reverse Proxy<a class="headerlink" href="#symfony2-reverse-proxy" title="Permalink to this headline">¶</a></h3>
+<p>Symfony2 comes with a reverse proxy (also called a gateway cache) written
+in PHP. Enable it and cacheable responses from your application will start
+to be cached right away. Installing it is just as easy. Each new Symfony2
+application comes with a pre-configured caching kernel (<tt class="docutils literal"><span class="pre">AppCache</span></tt>) that
+wraps the default one (<tt class="docutils literal"><span class="pre">AppKernel</span></tt>). The caching Kernel <em>is</em> the reverse
+proxy.</p>
+<p>To enable caching, modify the code of a front controller to use the caching
+kernel:</p>
+<div class="highlight-python"><pre>// web/app.php
+require_once __DIR__.'/../app/bootstrap.php.cache';
+require_once __DIR__.'/../app/AppKernel.php';
+require_once __DIR__.'/../app/AppCache.php';
+
+use Symfony\Component\HttpFoundation\Request;
+
+$kernel = new AppKernel('prod', false);
+$kernel-&gt;loadClassCache();
+// wrap the default AppKernel with the AppCache one
+$kernel = new AppCache($kernel);
+$kernel-&gt;handle(Request::createFromGlobals())-&gt;send();</pre>
+</div>
+<p>The caching kernel will immediately act as a reverse proxy - caching responses
+from your application and returning them to the client.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>The cache kernel has a special <tt class="docutils literal"><span class="pre">getLog()</span></tt> method that returns a string
+representation of what happened in the cache layer. In the development
+environment, use it to debug and validate your cache strategy:</p>
+<div class="last highlight-python"><pre>error_log($kernel-&gt;getLog());</pre>
+</div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">AppCache</span></tt> object has a sensible default configuration, but it can be
+finely tuned via a set of options you can set by overriding the <tt class="docutils literal"><span class="pre">getOptions()</span></tt>
+method:</p>
+<div class="highlight-python"><pre>// app/AppCache.php
+use Symfony\Bundle\FrameworkBundle\HttpCache\HttpCache;
+
+class AppCache extends HttpCache
+{
+    protected function getOptions()
+    {
+        return array(
+            'debug'                  =&gt; false,
+            'default_ttl'            =&gt; 0,
+            'private_headers'        =&gt; array('Authorization', 'Cookie'),
+            'allow_reload'           =&gt; false,
+            'allow_revalidate'       =&gt; false,
+            'stale_while_revalidate' =&gt; 2,
+            'stale_if_error'         =&gt; 60,
+        );
+    }
+}</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Unless overridden in <tt class="docutils literal"><span class="pre">getOptions()</span></tt>, the <tt class="docutils literal"><span class="pre">debug</span></tt> option will be set
+to automatically be the debug value of the wrapped <tt class="docutils literal"><span class="pre">AppKernel</span></tt>.</p>
+</div>
+<p>Here is a list of the main options:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">default_ttl</span></tt>: The number of seconds that a cache entry should be
+considered fresh when no explicit freshness information is provided in a
+response. Explicit <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> or <tt class="docutils literal"><span class="pre">Expires</span></tt> headers override this
+value (default: <tt class="docutils literal"><span class="pre">0</span></tt>);</li>
+<li><tt class="docutils literal"><span class="pre">private_headers</span></tt>: Set of request headers that trigger &#8220;private&#8221;
+<tt class="docutils literal"><span class="pre">Cache-Control</span></tt> behavior on responses that don&#8217;t explicitly state whether
+the response is <tt class="docutils literal"><span class="pre">public</span></tt> or <tt class="docutils literal"><span class="pre">private</span></tt> via a <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> directive.
+(default: <tt class="docutils literal"><span class="pre">Authorization</span></tt> and <tt class="docutils literal"><span class="pre">Cookie</span></tt>);</li>
+<li><tt class="docutils literal"><span class="pre">allow_reload</span></tt>: Specifies whether the client can force a cache reload by
+including a <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> &#8220;no-cache&#8221; directive in the request. Set it to
+<tt class="docutils literal"><span class="pre">true</span></tt> for compliance with RFC 2616 (default: <tt class="docutils literal"><span class="pre">false</span></tt>);</li>
+<li><tt class="docutils literal"><span class="pre">allow_revalidate</span></tt>: Specifies whether the client can force a cache
+revalidate by including a <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> &#8220;max-age=0&#8221; directive in the
+request. Set it to <tt class="docutils literal"><span class="pre">true</span></tt> for compliance with RFC 2616 (default: false);</li>
+<li><tt class="docutils literal"><span class="pre">stale_while_revalidate</span></tt>: Specifies the default number of seconds (the
+granularity is the second as the Response TTL precision is a second) during
+which the cache can immediately return a stale response while it revalidates
+it in the background (default: <tt class="docutils literal"><span class="pre">2</span></tt>); this setting is overridden by the
+<tt class="docutils literal"><span class="pre">stale-while-revalidate</span></tt> HTTP <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> extension (see RFC 5861);</li>
+<li><tt class="docutils literal"><span class="pre">stale_if_error</span></tt>: Specifies the default number of seconds (the granularity
+is the second) during which the cache can serve a stale response when an
+error is encountered (default: <tt class="docutils literal"><span class="pre">60</span></tt>). This setting is overridden by the
+<tt class="docutils literal"><span class="pre">stale-if-error</span></tt> HTTP <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> extension (see RFC 5861).</li>
+</ul>
+<p>If <tt class="docutils literal"><span class="pre">debug</span></tt> is <tt class="docutils literal"><span class="pre">true</span></tt>, Symfony2 automatically adds a <tt class="docutils literal"><span class="pre">X-Symfony-Cache</span></tt>
+header to the response containing useful information about cache hits and
+misses.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Changing from one Reverse Proxy to Another</p>
+<p>The Symfony2 reverse proxy is a great tool to use when developing your
+website or when you deploy your website to a shared host where you cannot
+install anything beyond PHP code. But being written in PHP, it cannot
+be as fast as a proxy written in C. That&#8217;s why we highly recommend you
+to use Varnish or Squid on your production servers if possible. The good
+news is that the switch from one proxy server to another is easy and
+transparent as no code modification is needed in your application. Start
+easy with the Symfony2 reverse proxy and upgrade later to Varnish when
+your traffic increases.</p>
+<p class="last">For more information on using Varnish with Symfony2, see the
+<a class="reference internal" href="../cookbook/cache/varnish.html"><em>How to use Varnish</em></a> cookbook chapter.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The performance of the Symfony2 reverse proxy is independent of the
+complexity of the application. That&#8217;s because the application kernel is
+only booted when the request needs to be forwarded to it.</p>
+</div>
+</div>
+</div>
+<div class="section" id="introduction-to-http-caching">
+<span id="http-cache-introduction"></span><span id="index-4"></span><h2>Introduction to HTTP Caching<a class="headerlink" href="#introduction-to-http-caching" title="Permalink to this headline">¶</a></h2>
+<p>To take advantage of the available cache layers, your application must be
+able to communicate which responses are cacheable and the rules that govern
+when/how that cache should become stale. This is done by setting HTTP cache
+headers on the response.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Keep in mind that &#8220;HTTP&#8221; is nothing more than the language (a simple text
+language) that web clients (e.g. browsers) and web servers use to communicate
+with each other. When we talk about HTTP caching, we&#8217;re talking about the
+part of that language that allows clients and servers to exchange information
+related to caching.</p>
+</div>
+<p>HTTP specifies four response cache headers that we&#8217;re concerned with:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Cache-Control</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Expires</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ETag</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Last-Modified</span></tt></li>
+</ul>
+<p>The most important and versatile header is the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header,
+which is actually a collection of various cache information.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Each of the headers will be explained in full detail in the
+<a class="reference internal" href="#http-expiration-validation"><em>HTTP Expiration and Validation</em></a> section.</p>
+</div>
+<div class="section" id="the-cache-control-header">
+<span id="index-5"></span><h3>The Cache-Control Header<a class="headerlink" href="#the-cache-control-header" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header is unique in that it contains not one, but various
+pieces of information about the cacheability of a response. Each piece of
+information is separated by a comma:</p>
+<blockquote>
+<div><p>Cache-Control: private, max-age=0, must-revalidate</p>
+<p>Cache-Control: max-age=3600, must-revalidate</p>
+</div></blockquote>
+<p>Symfony provides an abstraction around the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header to make
+its creation more manageable:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$response</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Response</span><span class="p">();</span>
+
+<span class="c1">// mark the response as either public or private</span>
+<span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setPublic</span><span class="p">();</span>
+<span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setPrivate</span><span class="p">();</span>
+
+<span class="c1">// set the private or shared max age</span>
+<span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setMaxAge</span><span class="p">(</span><span class="mi">600</span><span class="p">);</span>
+<span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setSharedMaxAge</span><span class="p">(</span><span class="mi">600</span><span class="p">);</span>
+
+<span class="c1">// set a custom Cache-Control directive</span>
+<span class="nv">$response</span><span class="o">-&gt;</span><span class="na">headers</span><span class="o">-&gt;</span><span class="na">addCacheControlDirective</span><span class="p">(</span><span class="s1">&#39;must-revalidate&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="public-vs-private-responses">
+<h3>Public vs Private Responses<a class="headerlink" href="#public-vs-private-responses" title="Permalink to this headline">¶</a></h3>
+<p>Both gateway and proxy caches are considered &#8220;shared&#8221; caches as the cached
+content is shared by more than one user. If a user-specific response were
+ever mistakenly stored by a shared cache, it might be returned later to any
+number of different users. Imagine if your account information were cached
+and then returned to every subsequent user who asked for their account page!</p>
+<p>To handle this situation, every response may be set to be public or private:</p>
+<ul class="simple">
+<li><em>public</em>: Indicates that the response may be cached by both private and
+shared caches;</li>
+<li><em>private</em>: Indicates that all or part of the response message is intended
+for a single user and must not be cached by a shared cache.</li>
+</ul>
+<p>Symfony conservatively defaults each response to be private. To take advantage
+of shared caches (like the Symfony2 reverse proxy), the response will need
+to be explicitly set as public.</p>
+</div>
+<div class="section" id="safe-methods">
+<span id="index-6"></span><h3>Safe Methods<a class="headerlink" href="#safe-methods" title="Permalink to this headline">¶</a></h3>
+<p>HTTP caching only works for &#8220;safe&#8221; HTTP methods (like GET and HEAD). Being
+safe means that you never change the application&#8217;s state on the server when
+serving the request (you can of course log information, cache data, etc).
+This has two very reasonable consequences:</p>
+<ul class="simple">
+<li>You should <em>never</em> change the state of your application when responding
+to a GET or HEAD request. Even if you don&#8217;t use a gateway cache, the presence
+of proxy caches mean that any GET or HEAD request may or may not actually
+hit your server.</li>
+<li>Don&#8217;t expect PUT, POST or DELETE methods to cache. These methods are meant
+to be used when mutating the state of your application (e.g. deleting a
+blog post). Caching them would prevent certain requests from hitting and
+mutating your application.</li>
+</ul>
+</div>
+<div class="section" id="caching-rules-and-defaults">
+<h3>Caching Rules and Defaults<a class="headerlink" href="#caching-rules-and-defaults" title="Permalink to this headline">¶</a></h3>
+<p>HTTP 1.1 allows caching anything by default unless there is an explicit
+<tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header. In practice, most caches do nothing when requests
+have a cookie, an authorization header, use a non-safe method (i.e. PUT, POST,
+DELETE), or when responses have a redirect status code.</p>
+<p>Symfony2 automatically sets a sensible and conservative <tt class="docutils literal"><span class="pre">Cache-Control</span></tt>
+header when none is set by the developer by following these rules:</p>
+<ul class="simple">
+<li>If no cache header is defined (<tt class="docutils literal"><span class="pre">Cache-Control</span></tt>, <tt class="docutils literal"><span class="pre">Expires</span></tt>, <tt class="docutils literal"><span class="pre">ETag</span></tt>
+or <tt class="docutils literal"><span class="pre">Last-Modified</span></tt>), <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> is set to <tt class="docutils literal"><span class="pre">no-cache</span></tt>, meaning
+that the response will not be cached;</li>
+<li>If <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> is empty (but one of the other cache headers is present),
+its value is set to <tt class="docutils literal"><span class="pre">private,</span> <span class="pre">must-revalidate</span></tt>;</li>
+<li>But if at least one <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> directive is set, and no &#8216;public&#8217; or
+<tt class="docutils literal"><span class="pre">private</span></tt> directives have been explicitly added, Symfony2 adds the
+<tt class="docutils literal"><span class="pre">private</span></tt> directive automatically (except when <tt class="docutils literal"><span class="pre">s-maxage</span></tt> is set).</li>
+</ul>
+</div>
+</div>
+<div class="section" id="http-expiration-and-validation">
+<span id="http-expiration-validation"></span><h2>HTTP Expiration and Validation<a class="headerlink" href="#http-expiration-and-validation" title="Permalink to this headline">¶</a></h2>
+<p>The HTTP specification defines two caching models:</p>
+<ul class="simple">
+<li>With the <a class="reference external" href="http://tools.ietf.org/html/rfc2616#section-13.2">expiration model</a>, you simply specify how long a response should
+be considered &#8220;fresh&#8221; by including a <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> and/or an <tt class="docutils literal"><span class="pre">Expires</span></tt>
+header. Caches that understand expiration will not make the same request
+until the cached version reaches its expiration time and becomes &#8220;stale&#8221;.</li>
+<li>When pages are really dynamic (i.e. their representation changes often),
+the <a class="reference external" href="http://tools.ietf.org/html/rfc2616#section-13.3">validation model</a> is often necessary. With this model, the
+cache stores the response, but asks the server on each request whether
+or not the cached response is still valid. The application uses a unique
+response identifier (the <tt class="docutils literal"><span class="pre">Etag</span></tt> header) and/or a timestamp (the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt>
+header) to check if the page has changed since being cached.</li>
+</ul>
+<p>The goal of both models is to never generate the same response twice by relying
+on a cache to store and return &#8220;fresh&#8221; responses.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Reading the HTTP Specification</p>
+<p>The HTTP specification defines a simple but powerful language in which
+clients and servers can communicate. As a web developer, the request-response
+model of the specification dominates our work. Unfortunately, the actual
+specification document - <a class="reference external" href="http://tools.ietf.org/html/rfc2616">RFC 2616</a> - can be difficult to read.</p>
+<p>There is an on-going effort (<a class="reference external" href="http://tools.ietf.org/wg/httpbis/">HTTP Bis</a>) to rewrite the RFC 2616. It does
+not describe a new version of HTTP, but mostly clarifies the original HTTP
+specification. The organization is also improved as the specification
+is split into seven parts; everything related to HTTP caching can be
+found in two dedicated parts (<a class="reference external" href="http://tools.ietf.org/html/draft-ietf-httpbis-p4-conditional-12">P4 - Conditional Requests</a> and <a class="reference external" href="http://tools.ietf.org/html/draft-ietf-httpbis-p6-cache-12">P6 -
+Caching: Browser and intermediary caches</a>).</p>
+<p class="last">As a web developer, we strongly urge you to read the specification. Its
+clarity and power - even more than ten years after its creation - is
+invaluable. Don&#8217;t be put-off by the appearance of the spec - its contents
+are much more beautiful than its cover.</p>
+</div>
+<div class="section" id="expiration">
+<span id="index-7"></span><h3>Expiration<a class="headerlink" href="#expiration" title="Permalink to this headline">¶</a></h3>
+<p>The expiration model is the more efficient and straightforward of the two
+caching models and should be used whenever possible. When a response is cached
+with an expiration, the cache will store the response and return it directly
+without hitting the application until it expires.</p>
+<p>The expiration model can be accomplished using one of two, nearly identical,
+HTTP headers: <tt class="docutils literal"><span class="pre">Expires</span></tt> or <tt class="docutils literal"><span class="pre">Cache-Control</span></tt>.</p>
+</div>
+<div class="section" id="expiration-with-the-expires-header">
+<span id="index-8"></span><h3>Expiration with the <tt class="docutils literal"><span class="pre">Expires</span></tt> Header<a class="headerlink" href="#expiration-with-the-expires-header" title="Permalink to this headline">¶</a></h3>
+<p>According to the HTTP specification, &#8220;the <tt class="docutils literal"><span class="pre">Expires</span></tt> header field gives
+the date/time after which the response is considered stale.&#8221; The <tt class="docutils literal"><span class="pre">Expires</span></tt>
+header can be set with the <tt class="docutils literal"><span class="pre">setExpires()</span></tt> <tt class="docutils literal"><span class="pre">Response</span></tt> method. It takes a
+<tt class="docutils literal"><span class="pre">DateTime</span></tt> instance as an argument:</p>
+<div class="highlight-python"><pre>$date = new DateTime();
+$date-&gt;modify('+600 seconds');
+
+$response-&gt;setExpires($date);</pre>
+</div>
+<p>The resulting HTTP header will look like this:</p>
+<div class="highlight-python"><pre>Expires: Thu, 01 Mar 2011 16:00:00 GMT</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">setExpires()</span></tt> method automatically converts the date to the GMT
+timezone as required by the specification.</p>
+</div>
+<p>Note that in HTTP versions before 1.1 the origin server wasn&#8217;t required to
+send the <tt class="docutils literal"><span class="pre">Date</span></tt> header. Consequently the cache (e.g. the browser) might
+need to rely onto his local clock to evaluate the <tt class="docutils literal"><span class="pre">Expires</span></tt> header making
+the lifetime calculation vulnerable to clock skew. Another limitation
+of the <tt class="docutils literal"><span class="pre">Expires</span></tt> header is that the specification states that &#8220;HTTP/1.1
+servers should not send <tt class="docutils literal"><span class="pre">Expires</span></tt> dates more than one year in the future.&#8221;</p>
+</div>
+<div class="section" id="expiration-with-the-cache-control-header">
+<span id="index-9"></span><h3>Expiration with the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> Header<a class="headerlink" href="#expiration-with-the-cache-control-header" title="Permalink to this headline">¶</a></h3>
+<p>Because of the <tt class="docutils literal"><span class="pre">Expires</span></tt> header limitations, most of the time, you should
+use the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header instead. Recall that the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt>
+header is used to specify many different cache directives. For expiration,
+there are two directives, <tt class="docutils literal"><span class="pre">max-age</span></tt> and <tt class="docutils literal"><span class="pre">s-maxage</span></tt>. The first one is
+used by all caches, whereas the second one is only taken into account by
+shared caches:</p>
+<div class="highlight-python"><pre>// Sets the number of seconds after which the response
+// should no longer be considered fresh
+$response-&gt;setMaxAge(600);
+
+// Same as above but only for shared caches
+$response-&gt;setSharedMaxAge(600);</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> header would take on the following format (it may have
+additional directives):</p>
+<div class="highlight-python"><pre>Cache-Control: max-age=600, s-maxage=600</pre>
+</div>
+</div>
+<div class="section" id="validation">
+<span id="index-10"></span><h3>Validation<a class="headerlink" href="#validation" title="Permalink to this headline">¶</a></h3>
+<p>When a resource needs to be updated as soon as a change is made to the underlying
+data, the expiration model falls short. With the expiration model, the application
+won&#8217;t be asked to return the updated response until the cache finally becomes
+stale.</p>
+<p>The validation model addresses this issue. Under this model, the cache continues
+to store responses. The difference is that, for each request, the cache asks
+the application whether or not the cached response is still valid. If the
+cache <em>is</em> still valid, your application should return a 304 status code
+and no content. This tells the cache that it&#8217;s ok to return the cached response.</p>
+<p>Under this model, you mainly save bandwidth as the representation is not
+sent twice to the same client (a 304 response is sent instead). But if you
+design your application carefully, you might be able to get the bare minimum
+data needed to send a 304 response and save CPU also (see below for an implementation
+example).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The 304 status code means &#8220;Not Modified&#8221;. It&#8217;s important because with
+this status code do <em>not</em> contain the actual content being requested.
+Instead, the response is simply a light-weight set of directions that
+tell cache that it should use its stored version.</p>
+</div>
+<p>Like with expiration, there are two different HTTP headers that can be used
+to implement the validation model: <tt class="docutils literal"><span class="pre">ETag</span></tt> and <tt class="docutils literal"><span class="pre">Last-Modified</span></tt>.</p>
+</div>
+<div class="section" id="validation-with-the-etag-header">
+<span id="index-11"></span><h3>Validation with the <tt class="docutils literal"><span class="pre">ETag</span></tt> Header<a class="headerlink" href="#validation-with-the-etag-header" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">ETag</span></tt> header is a string header (called the &#8220;entity-tag&#8221;) that uniquely
+identifies one representation of the target resource. It&#8217;s entirely generated
+and set by your application so that you can tell, for example, if the <tt class="docutils literal"><span class="pre">/about</span></tt>
+resource that&#8217;s stored by the cache is up-to-date with what your application
+would return. An <tt class="docutils literal"><span class="pre">ETag</span></tt> is like a fingerprint and is used to quickly compare
+if two different versions of a resource are equivalent. Like fingerprints,
+each <tt class="docutils literal"><span class="pre">ETag</span></tt> must be unique across all representations of the same resource.</p>
+<p>Let&#8217;s walk through a simple implementation that generates the ETag as the
+md5 of the content:</p>
+<div class="highlight-python"><pre>public function indexAction()
+{
+    $response = $this-&gt;render('MyBundle:Main:index.html.twig');
+    $response-&gt;setETag(md5($response-&gt;getContent()));
+    $response-&gt;setPublic(); // make sure the response is public/cacheable
+    $response-&gt;isNotModified($this-&gt;getRequest());
+
+    return $response;
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Response::isNotModified()</span></tt> method compares the <tt class="docutils literal"><span class="pre">ETag</span></tt> sent with
+the <tt class="docutils literal"><span class="pre">Request</span></tt> with the one set on the <tt class="docutils literal"><span class="pre">Response</span></tt>. If the two match, the
+method automatically sets the <tt class="docutils literal"><span class="pre">Response</span></tt> status code to 304.</p>
+<p>This algorithm is simple enough and very generic, but you need to create the
+whole <tt class="docutils literal"><span class="pre">Response</span></tt> before being able to compute the ETag, which is sub-optimal.
+In other words, it saves on bandwidth, but not CPU cycles.</p>
+<p>In the <a class="reference internal" href="#optimizing-cache-validation"><em>Optimizing your Code with Validation</em></a> section, we&#8217;ll show how validation
+can be used more intelligently to determine the validity of a cache without
+doing so much work.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Symfony2 also supports weak ETags by passing <tt class="docutils literal"><span class="pre">true</span></tt> as the second
+argument to the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html#method_setETag" title="Symfony\Component\HttpFoundation\Response::setETag()"><span class="pre">setETag()</span></a></tt> method.</p>
+</div>
+</div>
+<div class="section" id="validation-with-the-last-modified-header">
+<span id="index-12"></span><h3>Validation with the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> Header<a class="headerlink" href="#validation-with-the-last-modified-header" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> header is the second form of validation. According
+to the HTTP specification, &#8220;The <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> header field indicates
+the date and time at which the origin server believes the representation
+was last modified.&#8221; In other words, the application decides whether or not
+the cached content has been updated based on whether or not it&#8217;s been updated
+since the response was cached.</p>
+<p>For instance, you can use the latest update date for all the objects needed to
+compute the resource representation as the value for the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt>
+header value:</p>
+<div class="highlight-python"><pre>public function showAction($articleSlug)
+{
+    // ...
+
+    $articleDate = new \DateTime($article-&gt;getUpdatedAt());
+    $authorDate = new \DateTime($author-&gt;getUpdatedAt());
+
+    $date = $authorDate &gt; $articleDate ? $authorDate : $articleDate;
+
+    $response-&gt;setLastModified($date);
+    // Set response as public. Otherwise it will be private by default.
+    $response-&gt;setPublic();
+
+    if ($response-&gt;isNotModified($this-&gt;getRequest())) {
+        return $response;
+    }
+
+    // do more work to populate the response will the full content
+
+    return $response;
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Response::isNotModified()</span></tt> method compares the <tt class="docutils literal"><span class="pre">If-Modified-Since</span></tt>
+header sent by the request with the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> header set on the
+response. If they are equivalent, the <tt class="docutils literal"><span class="pre">Response</span></tt> will be set to a 304 status
+code.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">If-Modified-Since</span></tt> request header equals the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt>
+header of the last response sent to the client for the particular resource.
+This is how the client and server communicate with each other and decide
+whether or not the resource has been updated since it was cached.</p>
+</div>
+</div>
+<div class="section" id="optimizing-your-code-with-validation">
+<span id="optimizing-cache-validation"></span><span id="index-13"></span><h3>Optimizing your Code with Validation<a class="headerlink" href="#optimizing-your-code-with-validation" title="Permalink to this headline">¶</a></h3>
+<p>The main goal of any caching strategy is to lighten the load on the application.
+Put another way, the less you do in your application to return a 304 response,
+the better. The <tt class="docutils literal"><span class="pre">Response::isNotModified()</span></tt> method does exactly that by
+exposing a simple and efficient pattern:</p>
+<div class="highlight-python"><pre>public function showAction($articleSlug)
+{
+    // Get the minimum information to compute
+    // the ETag or the Last-Modified value
+    // (based on the Request, data is retrieved from
+    // a database or a key-value store for instance)
+    $article = ...;
+
+    // create a Response with a ETag and/or a Last-Modified header
+    $response = new Response();
+    $response-&gt;setETag($article-&gt;computeETag());
+    $response-&gt;setLastModified($article-&gt;getPublishedAt());
+
+    // Set response as public. Otherwise it will be private by default.
+    $response-&gt;setPublic();
+
+    // Check that the Response is not modified for the given Request
+    if ($response-&gt;isNotModified($this-&gt;getRequest())) {
+        // return the 304 Response immediately
+        return $response;
+    } else {
+        // do more work here - like retrieving more data
+        $comments = ...;
+
+        // or render a template with the $response you've already started
+        return $this-&gt;render(
+            'MyBundle:MyController:article.html.twig',
+            array('article' =&gt; $article, 'comments' =&gt; $comments),
+            $response
+        );
+    }
+}</pre>
+</div>
+<p>When the <tt class="docutils literal"><span class="pre">Response</span></tt> is not modified, the <tt class="docutils literal"><span class="pre">isNotModified()</span></tt> automatically sets
+the response status code to <tt class="docutils literal"><span class="pre">304</span></tt>, removes the content, and removes some
+headers that must not be present for <tt class="docutils literal"><span class="pre">304</span></tt> responses (see
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html#method_setNotModified" title="Symfony\Component\HttpFoundation\Response::setNotModified()"><span class="pre">setNotModified()</span></a></tt>).</p>
+</div>
+<div class="section" id="varying-the-response">
+<span id="index-14"></span><h3>Varying the Response<a class="headerlink" href="#varying-the-response" title="Permalink to this headline">¶</a></h3>
+<p>So far, we&#8217;ve assumed that each URI has exactly one representation of the
+target resource. By default, HTTP caching is done by using the URI of the
+resource as the cache key. If two people request the same URI of a cacheable
+resource, the second person will receive the cached version.</p>
+<p>Sometimes this isn&#8217;t enough and different versions of the same URI need to
+be cached based on one or more request header values. For instance, if you
+compress pages when the client supports it, any given URI has two representations:
+one when the client supports compression, and one when it does not. This
+determination is done by the value of the <tt class="docutils literal"><span class="pre">Accept-Encoding</span></tt> request header.</p>
+<p>In this case, we need the cache to store both a compressed and uncompressed
+version of the response for the particular URI and return them based on the
+request&#8217;s <tt class="docutils literal"><span class="pre">Accept-Encoding</span></tt> value. This is done by using the <tt class="docutils literal"><span class="pre">Vary</span></tt> response
+header, which is a comma-separated list of different headers whose values
+trigger a different representation of the requested resource:</p>
+<div class="highlight-python"><pre>Vary: Accept-Encoding, User-Agent</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">This particular <tt class="docutils literal"><span class="pre">Vary</span></tt> header would cache different versions of each
+resource based on the URI and the value of the <tt class="docutils literal"><span class="pre">Accept-Encoding</span></tt> and
+<tt class="docutils literal"><span class="pre">User-Agent</span></tt> request header.</p>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Response</span></tt> object offers a clean interface for managing the <tt class="docutils literal"><span class="pre">Vary</span></tt>
+header:</p>
+<div class="highlight-python"><pre>// set one vary header
+$response-&gt;setVary('Accept-Encoding');
+
+// set multiple vary headers
+$response-&gt;setVary(array('Accept-Encoding', 'User-Agent'));</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">setVary()</span></tt> method takes a header name or an array of header names for
+which the response varies.</p>
+</div>
+<div class="section" id="expiration-and-validation">
+<h3>Expiration and Validation<a class="headerlink" href="#expiration-and-validation" title="Permalink to this headline">¶</a></h3>
+<p>You can of course use both validation and expiration within the same <tt class="docutils literal"><span class="pre">Response</span></tt>.
+As expiration wins over validation, you can easily benefit from the best of
+both worlds. In other words, by using both expiration and validation, you
+can instruct the cache to serve the cached content, while checking back
+at some interval (the expiration) to verify that the content is still valid.</p>
+</div>
+<div class="section" id="more-response-methods">
+<span id="index-15"></span><h3>More Response Methods<a class="headerlink" href="#more-response-methods" title="Permalink to this headline">¶</a></h3>
+<p>The Response class provides many more methods related to the cache. Here are
+the most useful ones:</p>
+<div class="highlight-python"><pre>// Marks the Response stale
+$response-&gt;expire();
+
+// Force the response to return a proper 304 response with no content
+$response-&gt;setNotModified();</pre>
+</div>
+<p>Additionally, most cache-related HTTP headers can be set via the single
+<tt class="docutils literal"><span class="pre">setCache()</span></tt> method:</p>
+<div class="highlight-python"><pre>// Set cache settings in one call
+$response-&gt;setCache(array(
+    'etag'          =&gt; $etag,
+    'last_modified' =&gt; $date,
+    'max_age'       =&gt; 10,
+    's_maxage'      =&gt; 10,
+    'public'        =&gt; true,
+    // 'private'    =&gt; true,
+));</pre>
+</div>
+</div>
+</div>
+<div class="section" id="using-edge-side-includes">
+<span id="edge-side-includes"></span><span id="index-16"></span><h2>Using Edge Side Includes<a class="headerlink" href="#using-edge-side-includes" title="Permalink to this headline">¶</a></h2>
+<p>Gateway caches are a great way to make your website perform better. But they
+have one limitation: they can only cache whole pages. If you can&#8217;t cache
+whole pages or if parts of a page has &#8220;more&#8221; dynamic parts, you are out of
+luck. Fortunately, Symfony2 provides a solution for these cases, based on a
+technology called <a class="reference external" href="http://www.w3.org/TR/esi-lang">ESI</a>, or Edge Side Includes. Akamaï wrote this specification
+almost 10 years ago, and it allows specific parts of a page to have a different
+caching strategy than the main page.</p>
+<p>The ESI specification describes tags you can embed in your pages to communicate
+with the gateway cache. Only one tag is implemented in Symfony2, <tt class="docutils literal"><span class="pre">include</span></tt>,
+as this is the only useful one outside of Akamaï context:</p>
+<div class="highlight-html"><div class="highlight"><pre><span class="cp">&lt;!doctype html&gt;</span>
+<span class="nt">&lt;html&gt;</span>
+    <span class="nt">&lt;body&gt;</span>
+        ... some content
+
+        <span class="c">&lt;!-- Embed the content of another page here --&gt;</span>
+        <span class="nt">&lt;esi:include</span> <span class="na">src=</span><span class="s">&quot;http://...&quot;</span> <span class="nt">/&gt;</span>
+
+        ... more content
+    <span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice from the example that each ESI tag has a fully-qualified URL.
+An ESI tag represents a page fragment that can be fetched via the given
+URL.</p>
+</div>
+<p>When a request is handled, the gateway cache fetches the entire page from
+its cache or requests it from the backend application. If the response contains
+one or more ESI tags, these are processed in the same way. In other words,
+the gateway cache either retrieves the included page fragment from its cache
+or requests the page fragment from the backend application again. When all
+the ESI tags have been resolved, the gateway cache merges each into the main
+page and sends the final content to the client.</p>
+<p>All of this happens transparently at the gateway cache level (i.e. outside
+of your application). As you&#8217;ll see, if you choose to take advantage of ESI
+tags, Symfony2 makes the process of including them almost effortless.</p>
+<div class="section" id="using-esi-in-symfony2">
+<h3>Using ESI in Symfony2<a class="headerlink" href="#using-esi-in-symfony2" title="Permalink to this headline">¶</a></h3>
+<p>First, to use ESI, be sure to enable it in your application configuration:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">framework</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">esi</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">enabled</span><span class="p-Indicator">:</span> <span class="nv">true</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><pre>&lt;!-- app/config/config.xml --&gt;
+&lt;framework:config ...&gt;
+    &lt;!-- ... --&gt;
+    &lt;framework:esi enabled="true" /&gt;
+&lt;/framework:config&gt;</pre>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="c1">// ...</span>
+    <span class="s1">&#39;esi&#39;</span>    <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;enabled&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now, suppose we have a page that is relatively static, except for a news
+ticker at the bottom of the content. With ESI, we can cache the news ticker
+independent of the rest of the page.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">indexAction</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$response</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">render</span><span class="p">(</span><span class="s1">&#39;MyBundle:MyController:index.html.twig&#39;</span><span class="p">);</span>
+    <span class="c1">// set the shared max age - the also marks the response as public</span>
+    <span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setSharedMaxAge</span><span class="p">(</span><span class="mi">600</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="nv">$response</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In this example, we&#8217;ve given the full-page cache a lifetime of ten minutes.
+Next, let&#8217;s include the news ticker in the template by embedding an action.
+This is done via the <tt class="docutils literal"><span class="pre">render</span></tt> helper (See <a class="reference internal" href="templating.html#templating-embedding-controller"><em>Embedding Controllers</em></a>
+for more details).</p>
+<p>As the embedded content comes from another page (or controller for that
+matter), Symfony2 uses the standard <tt class="docutils literal"><span class="pre">render</span></tt> helper to configure ESI tags:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">render</span> <span class="s1">&#39;...:news&#39;</span> <span class="k">with</span> <span class="o">{},</span> <span class="o">{</span><span class="s1">&#39;standalone&#39;</span><span class="o">:</span> <span class="kp">true</span><span class="o">}</span> <span class="cp">%}</span><span class="x"></span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="o">&lt;?</span><span class="nx">php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;actions&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">render</span><span class="p">(</span><span class="s1">&#39;...:news&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(),</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;standalone&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">))</span> <span class="cp">?&gt;</span><span class="x"></span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>By setting <tt class="docutils literal"><span class="pre">standalone</span></tt> to <tt class="docutils literal"><span class="pre">true</span></tt>, you tell Symfony2 that the action
+should be rendered as an ESI tag. You might be wondering why you would want to
+use a helper instead of just writing the ESI tag yourself. That&#8217;s because
+using a helper makes your application work even if there is no gateway cache
+installed. Let&#8217;s see how it works.</p>
+<p>When standalone is <tt class="docutils literal"><span class="pre">false</span></tt> (the default), Symfony2 merges the included page
+content within the main one before sending the response to the client. But
+when standalone is <tt class="docutils literal"><span class="pre">true</span></tt>, <em>and</em> if Symfony2 detects that it&#8217;s talking
+to a gateway cache that supports ESI, it generates an ESI include tag. But
+if there is no gateway cache or if it does not support ESI, Symfony2 will
+just merge the included page content within the main one as it would have
+done were standalone set to <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Symfony2 detects if a gateway cache supports ESI via another Akamaï
+specification that is supported out of the box by the Symfony2 reverse
+proxy.</p>
+</div>
+<p>The embedded action can now specify its own caching rules, entirely independent
+of the master page.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">newsAction</span><span class="p">()</span>
+<span class="p">{</span>
+  <span class="c1">// ...</span>
+
+  <span class="nv">$response</span><span class="o">-&gt;</span><span class="na">setSharedMaxAge</span><span class="p">(</span><span class="mi">60</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>With ESI, the full page cache will be valid for 600 seconds, but the news
+component cache will only last for 60 seconds.</p>
+<p>A requirement of ESI, however, is that the embedded action be accessible
+via a URL so the gateway cache can fetch it independently of the rest of
+the page. Of course, an action can&#8217;t be accessed via a URL unless it has
+a route that points to it. Symfony2 takes care of this via a generic route
+and controller. For the ESI include tag to work properly, you must define
+the <tt class="docutils literal"><span class="pre">_internal</span></tt> route:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/routing.yml</span>
+<span class="l-Scalar-Plain">_internal</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">resource</span><span class="p-Indicator">:</span> <span class="s">&quot;@FrameworkBundle/Resources/config/routing/internal.xml&quot;</span>
+    <span class="l-Scalar-Plain">prefix</span><span class="p-Indicator">:</span>   <span class="l-Scalar-Plain">/_internal</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/routing.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+
+<span class="nt">&lt;routes</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/routing&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/routing http://symfony.com/schema/routing/routing-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;import</span> <span class="na">resource=</span><span class="s">&quot;@FrameworkBundle/Resources/config/routing/internal.xml&quot;</span> <span class="na">prefix=</span><span class="s">&quot;/_internal&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/routes&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/routing.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\RouteCollection</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\Route</span><span class="p">;</span>
+
+<span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">addCollection</span><span class="p">(</span><span class="nv">$loader</span><span class="o">-&gt;</span><span class="na">import</span><span class="p">(</span><span class="s1">&#39;@FrameworkBundle/Resources/config/routing/internal.xml&#39;</span><span class="p">,</span> <span class="s1">&#39;/_internal&#39;</span><span class="p">));</span>
+
+<span class="k">return</span> <span class="nv">$collection</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Since this route allows all actions to be accessed via a URL, you might
+want to protect it by using the Symfony2 firewall feature (by allowing
+access to your reverse proxy&#8217;s IP range). See the <a class="reference internal" href="security.html#book-security-securing-ip"><em>Securing by IP</em></a>
+section of the <a class="reference internal" href="security.html"><em>Security Chapter</em></a> for more information
+on how to do this.</p>
+</div>
+<p>One great advantage of this caching strategy is that you can make your
+application as dynamic as needed and at the same time, hit the application as
+little as possible.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Once you start using ESI, remember to always use the <tt class="docutils literal"><span class="pre">s-maxage</span></tt>
+directive instead of <tt class="docutils literal"><span class="pre">max-age</span></tt>. As the browser only ever receives the
+aggregated resource, it is not aware of the sub-components, and so it will
+obey the <tt class="docutils literal"><span class="pre">max-age</span></tt> directive and cache the entire page. And you don&#8217;t
+want that.</p>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">render</span></tt> helper supports two other useful options:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">alt</span></tt>: used as the <tt class="docutils literal"><span class="pre">alt</span></tt> attribute on the ESI tag, which allows you
+to specify an alternative URL to be used if the <tt class="docutils literal"><span class="pre">src</span></tt> cannot be found;</li>
+<li><tt class="docutils literal"><span class="pre">ignore_errors</span></tt>: if set to true, an <tt class="docutils literal"><span class="pre">onerror</span></tt> attribute will be added
+to the ESI with a value of <tt class="docutils literal"><span class="pre">continue</span></tt> indicating that, in the event of
+a failure, the gateway cache will simply remove the ESI tag silently.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="cache-invalidation">
+<span id="http-cache-invalidation"></span><span id="index-17"></span><h2>Cache Invalidation<a class="headerlink" href="#cache-invalidation" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>&#8220;There are only two hard things in Computer Science: cache invalidation
+and naming things.&#8221; &#8211;Phil Karlton</div></blockquote>
+<p>You should never need to invalidate cached data because invalidation is already
+taken into account natively in the HTTP cache models. If you use validation,
+you never need to invalidate anything by definition; and if you use expiration
+and need to invalidate a resource, it means that you set the expires date
+too far away in the future.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Since invalidation is a topic specific to each type of reverse proxy,
+if you don&#8217;t worry about invalidation, you can switch between reverse
+proxies without changing anything in your application code.</p>
+</div>
+<p>Actually, all reverse proxies provide ways to purge cached data, but you
+should avoid them as much as possible. The most standard way is to purge the
+cache for a given URL by requesting it with the special <tt class="docutils literal"><span class="pre">PURGE</span></tt> HTTP method.</p>
+<p>Here is how you can configure the Symfony2 reverse proxy to support the
+<tt class="docutils literal"><span class="pre">PURGE</span></tt> HTTP method:</p>
+<div class="highlight-python"><pre>// app/AppCache.php
+
+use Symfony\Bundle\FrameworkBundle\HttpCache\HttpCache;
+
+class AppCache extends HttpCache
+{
+    protected function invalidate(Request $request)
+    {
+        if ('PURGE' !== $request-&gt;getMethod()) {
+            return parent::invalidate($request);
+        }
+
+        $response = new Response();
+        if (!$this-&gt;getStore()-&gt;purge($request-&gt;getUri())) {
+            $response-&gt;setStatusCode(404, 'Not purged');
+        } else {
+            $response-&gt;setStatusCode(200, 'Purged');
+        }
+
+        return $response;
+    }
+}</pre>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">You must protect the <tt class="docutils literal"><span class="pre">PURGE</span></tt> HTTP method somehow to avoid random people
+purging your cached data.</p>
+</div>
+</div>
+<div class="section" id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Permalink to this headline">¶</a></h2>
+<p>Symfony2 was designed to follow the proven rules of the road: HTTP. Caching
+is no exception. Mastering the Symfony2 cache system means becoming familiar
+with the HTTP cache models and using them effectively. This means that, instead
+of relying only on Symfony2 documentation and code examples, you have access
+to a world of knowledge related to HTTP caching and gateway caches such as
+Varnish.</p>
+</div>
+<div class="section" id="learn-more-from-the-cookbook">
+<h2>Learn more from the Cookbook<a class="headerlink" href="#learn-more-from-the-cookbook" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><a class="reference internal" href="../cookbook/cache/varnish.html"><em>How to use Varnish to speed up my Website</em></a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">HTTP Cache</a><ul>
+<li><a class="reference internal" href="#caching-on-the-shoulders-of-giants">Caching on the Shoulders of Giants</a></li>
+<li><a class="reference internal" href="#caching-with-a-gateway-cache">Caching with a Gateway Cache</a><ul>
+<li><a class="reference internal" href="#types-of-caches">Types of Caches</a></li>
+<li><a class="reference internal" href="#symfony2-reverse-proxy">Symfony2 Reverse Proxy</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#introduction-to-http-caching">Introduction to HTTP Caching</a><ul>
+<li><a class="reference internal" href="#the-cache-control-header">The Cache-Control Header</a></li>
+<li><a class="reference internal" href="#public-vs-private-responses">Public vs Private Responses</a></li>
+<li><a class="reference internal" href="#safe-methods">Safe Methods</a></li>
+<li><a class="reference internal" href="#caching-rules-and-defaults">Caching Rules and Defaults</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#http-expiration-and-validation">HTTP Expiration and Validation</a><ul>
+<li><a class="reference internal" href="#expiration">Expiration</a></li>
+<li><a class="reference internal" href="#expiration-with-the-expires-header">Expiration with the <tt class="docutils literal"><span class="pre">Expires</span></tt> Header</a></li>
+<li><a class="reference internal" href="#expiration-with-the-cache-control-header">Expiration with the <tt class="docutils literal"><span class="pre">Cache-Control</span></tt> Header</a></li>
+<li><a class="reference internal" href="#validation">Validation</a></li>
+<li><a class="reference internal" href="#validation-with-the-etag-header">Validation with the <tt class="docutils literal"><span class="pre">ETag</span></tt> Header</a></li>
+<li><a class="reference internal" href="#validation-with-the-last-modified-header">Validation with the <tt class="docutils literal"><span class="pre">Last-Modified</span></tt> Header</a></li>
+<li><a class="reference internal" href="#optimizing-your-code-with-validation">Optimizing your Code with Validation</a></li>
+<li><a class="reference internal" href="#varying-the-response">Varying the Response</a></li>
+<li><a class="reference internal" href="#expiration-and-validation">Expiration and Validation</a></li>
+<li><a class="reference internal" href="#more-response-methods">More Response Methods</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#using-edge-side-includes">Using Edge Side Includes</a><ul>
+<li><a class="reference internal" href="#using-esi-in-symfony2">Using ESI in Symfony2</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cache-invalidation">Cache Invalidation</a></li>
+<li><a class="reference internal" href="#summary">Summary</a></li>
+<li><a class="reference internal" href="#learn-more-from-the-cookbook">Learn more from the Cookbook</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="security.html"
+                        title="previous chapter">Security</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="translation.html"
+                        title="next chapter">Translations</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/book/http_cache.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="translation.html" title="Translations"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="security.html" title="Security"
+             >previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Book</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

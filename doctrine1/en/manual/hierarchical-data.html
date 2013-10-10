@@ -1,0 +1,660 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Hierarchical Data &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Data Fixtures" href="data-fixtures.html" />
+    <link rel="prev" title="Searching" href="searching.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="Data Fixtures"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="searching.html" title="Searching"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="hierarchical-data">
+<h1>Hierarchical Data<a class="headerlink" href="#hierarchical-data" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Most users at one time or another have dealt with hierarchical data in a
+SQL database and no doubt learned that the management of hierarchical
+data is not what a relational database is intended for. The tables of a
+relational database are not hierarchical (like XML), but are simply a
+flat list. Hierarchical data has a parent-child relationship that is not
+naturally represented in a relational database table.</p>
+<p>For our purposes, hierarchical data is a collection of data where each
+item has a single parent and zero or more children (with the exception
+of the root item, which has no parent). Hierarchical data can be found
+in a variety of database applications, including forum and mailing list
+threads, business organization charts, content management categories,
+and product categories.</p>
+<p>In a hierarchical data model, data is organized into a tree-like
+structure. The tree structure allows repeating information using
+parent/child relationships. For an explanation of the tree data
+structure, see <a class="reference external" href="http://en.wikipedia.org/wiki/Tree_data_structure">here</a>.</p>
+<p>There are three major approaches to managing tree structures in
+relational databases, these are:</p>
+<ul class="simple">
+<li>the adjacency list model</li>
+<li>the nested set model (otherwise known as the modified pre-order tree
+traversal algorithm)</li>
+<li>materialized path model</li>
+</ul>
+<p><strong>These are explained in more detail at the following links:</strong></p>
+<ul class="simple">
+<li><a class="reference external" href="http://www.dbazine.com/oracle/or-articles/tropashko4">http://www.dbazine.com/oracle/or-articles/tropashko4</a></li>
+<li><a class="reference external" href="http://dev.mysql.com/tech-resources/articles/hierarchical-data.html">http://dev.mysql.com/tech-resources/articles/hierarchical-data.html</a></li>
+</ul>
+</div>
+<div class="section" id="nested-set">
+<h2>Nested Set<a class="headerlink" href="#nested-set" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Introduction<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Nested Set is a solution for storing hierarchical data that provides
+very fast read access. However, updating nested set trees is more
+costly. Therefore this solution is best suited for hierarchies that are
+much more frequently read than written to. And because of the nature of
+the web, this is the case for most web applications.</p>
+<p>For more detailed information on the Nested Set, read here:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://www.sitepoint.com/article/hierarchical-data-database/2">http://www.sitepoint.com/article/hierarchical-data-database/2</a></li>
+<li><a class="reference external" href="http://dev.mysql.com/tech-resources/articles/hierarchical-data.html">http://dev.mysql.com/tech-resources/articles/hierarchical-data.html</a></li>
+</ul>
+</div>
+<div class="section" id="setting-up">
+<h3>Setting Up<a class="headerlink" href="#setting-up" title="Permalink to this headline">¶</a></h3>
+<p>To set up your model as Nested Set, you must add some code to the
+<tt class="docutils literal"><span class="pre">setUp()</span></tt> method of your model. Take this <tt class="docutils literal"><span class="pre">Category</span></tt> model below for
+example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/Category.php</span>
+<span class="k">class</span> <span class="nc">Category</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;NestedSet&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">Category</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="nv">NestedSet</span><span class="p-Indicator">]</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+</pre></div>
+</div>
+<p>Detailed information on Doctrine&#8217;s templating model can be found in
+chapter <a class="reference internal" href="behaviors.html"><em>Behaviors</em></a>. These templates add some
+functionality to your model. In the example of the nested set, your
+model gets 3 additional fields: <tt class="docutils literal"><span class="pre">lft</span></tt>, <tt class="docutils literal"><span class="pre">rgt</span></tt> and <tt class="docutils literal"><span class="pre">level</span></tt>. You
+never need to care about the <tt class="docutils literal"><span class="pre">lft</span></tt> and <tt class="docutils literal"><span class="pre">rgt</span></tt> fields. These are used
+internally to manage the tree structure. The <tt class="docutils literal"><span class="pre">level</span></tt> field however, is
+of interest for you because it&#8217;s an integer value that represents the
+depth of a node within it&#8217;s tree. A level of 0 means it&#8217;s a root node. 1
+means it&#8217;s a direct child of a root node and so on. By reading the
+<tt class="docutils literal"><span class="pre">level</span></tt> field from your nodes you can easily display your tree with
+proper indention.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">You must never assign values to <tt class="docutils literal"><span class="pre">lft</span></tt>, <tt class="docutils literal"><span class="pre">rgt</span></tt>,
+<tt class="docutils literal"><span class="pre">level</span></tt>. These are managed transparently by the nested set
+implementation.</p>
+</div>
+</div>
+<div class="section" id="multiple-trees">
+<h3>Multiple Trees<a class="headerlink" href="#multiple-trees" title="Permalink to this headline">¶</a></h3>
+<p>The nested set implementation can be configured to allow your table to
+have multiple root nodes, and therefore multiple trees within the same
+table.</p>
+<p>The example below shows how to setup and use multiple roots with the
+<tt class="docutils literal"><span class="pre">Category</span></tt> model:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/Category.php</span>
+<span class="k">class</span> <span class="nc">Category</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;hasManyRoots&#39;</span>   <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;rootColumnName&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;root_id&#39;</span>
+        <span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;NestedSet&#39;</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Here is the same example in YAML format. You can read more about YAML in
+the <a class="reference internal" href="yaml-schema-files.html"><em>YAML Schema Files</em></a> chapter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="nn">---</span>
+<span class="c1"># schema.yml</span>
+
+<span class="c1"># ...</span>
+<span class="l-Scalar-Plain">Category</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">actAs</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">NestedSet</span><span class="p-Indicator">:</span>
+      <span class="l-Scalar-Plain">hasManyRoots</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+      <span class="l-Scalar-Plain">rootColumnName</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">root_id</span>
+  <span class="l-Scalar-Plain">columns</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">string(255)</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">rootColumnName</span></tt> is the column used to differentiate between
+trees. When you create a new root node you have the option to set the
+<tt class="docutils literal"><span class="pre">root_id</span></tt> manually, otherwise Doctrine will assign a value for you.</p>
+<p>In general use you do not need to deal with the <tt class="docutils literal"><span class="pre">root_id</span></tt> directly.
+For example, when you insert a new node into an existing tree or move a
+node between trees Doctrine transparently handles the associated
+<tt class="docutils literal"><span class="pre">root_id</span></tt> changes for you.</p>
+</div>
+<div class="section" id="working-with-trees">
+<h3>Working with Trees<a class="headerlink" href="#working-with-trees" title="Permalink to this headline">¶</a></h3>
+<p>After you successfully set up your model as a nested set you can start
+working with it. Working with Doctrine&#8217;s nested set implementation is
+all about two classes: <a href="#id3"><span class="problematic" id="id4">:php:class:`Doctrine_Tree_NestedSet`</span></a> and
+<a href="#id5"><span class="problematic" id="id6">:php:class:`Doctrine_Node_NestedSet`</span></a>. These are nested set implementations of
+the interfaces <a href="#id7"><span class="problematic" id="id8">:php:class:`Doctrine_Tree_Interface`</span></a> and
+<a href="#id9"><span class="problematic" id="id10">:php:class:`Doctrine_Node_Interface`</span></a>. Tree objects are bound to your table
+objects and node objects are bound to your record objects. This looks as
+follows:</p>
+<p>The full tree interface is available by using the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$treeObject</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>In the next example <tt class="docutils literal"><span class="pre">$category</span></tt> is an instance of <tt class="docutils literal"><span class="pre">Category</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$nodeObject</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>With the above code the full node interface is available on
+<tt class="docutils literal"><span class="pre">$nodeObject</span></tt>.</p>
+<p>In the following sub-chapters you&#8217;ll see code snippets that demonstrate
+the most frequently used operations with the node and tree classes.</p>
+<div class="section" id="creating-a-root-node">
+<h4>Creating a Root Node<a class="headerlink" href="#creating-a-root-node" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$category</span>       <span class="o">=</span> <span class="k">new</span> <span class="nx">Category</span><span class="p">();</span>
+<span class="nv">$category</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;Root Category 1&#39;</span><span class="p">;</span>
+<span class="nv">$category</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nv">$treeObject</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">createRoot</span><span class="p">(</span><span class="nv">$category</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="inserting-a-node">
+<h4>Inserting a Node<a class="headerlink" href="#inserting-a-node" title="Permalink to this headline">¶</a></h4>
+<p>In the next example we&#8217;re going to add a new <tt class="docutils literal"><span class="pre">Category</span></tt> instance as a
+child of the root <tt class="docutils literal"><span class="pre">Category</span></tt> we created above:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$child1</span>       <span class="o">=</span> <span class="k">new</span> <span class="nx">Category</span><span class="p">();</span>
+<span class="nv">$child1</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;Child Category 1&#39;</span><span class="p">;</span>
+
+<span class="nv">$child2</span>       <span class="o">=</span> <span class="k">new</span> <span class="nx">Category</span><span class="p">();</span>
+<span class="nv">$child2</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;Child Category 1&#39;</span><span class="p">;</span>
+
+<span class="nv">$child1</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">insertAsLastChildOf</span><span class="p">(</span><span class="nv">$category</span><span class="p">);</span>
+<span class="nv">$child2</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">insertAsLastChildOf</span><span class="p">(</span><span class="nv">$category</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="deleting-a-node">
+<h4>Deleting a Node<a class="headerlink" href="#deleting-a-node" title="Permalink to this headline">¶</a></h4>
+<p>Deleting a node from a tree is as simple as calling the <tt class="docutils literal"><span class="pre">delete()</span></tt>
+method on the node object:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$category</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">findOneByName</span><span class="p">(</span><span class="s1">&#39;Child Category 1&#39;</span><span class="p">);</span>
+<span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">delete</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The above code calls <tt class="docutils literal"><span class="pre">$category-&gt;delete()</span></tt> internally.
+It&#8217;s important to delete on the node and not on the record.
+Otherwise you may corrupt the tree.</p>
+</div>
+<p>Deleting a node will also delete all descendants of that node. So make
+sure you move them elsewhere before you delete the node if you don&#8217;t
+want to delete them.</p>
+</div>
+<div class="section" id="moving-a-node">
+<h4>Moving a Node<a class="headerlink" href="#moving-a-node" title="Permalink to this headline">¶</a></h4>
+<p>Moving a node is simple. Doctrine offers several methods for moving
+nodes around between trees:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$category</span>       <span class="o">=</span> <span class="k">new</span> <span class="nx">Category</span><span class="p">();</span>
+<span class="nv">$category</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;Root Category 2&#39;</span><span class="p">;</span>
+<span class="nv">$category</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="nv">$categoryTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">);</span>
+<span class="nv">$treeObject</span>    <span class="o">=</span> <span class="nv">$categoryTable</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">createRoot</span><span class="p">(</span><span class="nv">$category</span><span class="p">);</span>
+
+<span class="nv">$childCategory</span> <span class="o">=</span> <span class="nv">$categoryTable</span><span class="o">-&gt;</span><span class="na">findOneByName</span><span class="p">(</span><span class="s1">&#39;Child Category 1&#39;</span><span class="p">);</span>
+<span class="nv">$childCategory</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">moveAsLastChildOf</span><span class="p">(</span><span class="nv">$category</span><span class="p">);</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>Below is a list of the methods available for moving nodes around:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">moveAsLastChildOf($other)</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">moveAsFirstChildOf($other)</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">moveAsPrevSiblingOf($other)</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">moveAsNextSiblingOf($other)</span></tt></li>
+</ul>
+<p>The method names should be self-explanatory to you.</p>
+</div>
+<div class="section" id="examining-a-node">
+<h4>Examining a Node<a class="headerlink" href="#examining-a-node" title="Permalink to this headline">¶</a></h4>
+<p>You can examine the nodes and what type of node they are by using some
+of the following functions:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$isLeaf</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">isLeaf</span><span class="p">();</span>
+<span class="nv">$isRoot</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">isRoot</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above used functions return true/false depending on
+whether or not they are a leaf or root node.</p>
+</div>
+</div>
+<div class="section" id="examining-and-retrieving-siblings">
+<h4>Examining and Retrieving Siblings<a class="headerlink" href="#examining-and-retrieving-siblings" title="Permalink to this headline">¶</a></h4>
+<p>You can easily check if a node has any next or previous siblings by
+using the following methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$hasNextSib</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">hasNextSibling</span><span class="p">();</span>
+<span class="nv">$hasPrevSib</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">hasPrevSibling</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>You can also retrieve the next or previous siblings if they exist with
+the following methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$nextSib</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getNextSibling</span><span class="p">();</span>
+<span class="nv">$prevSib</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getPrevSibling</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above methods return false if no next or previous
+sibling exists.</p>
+</div>
+<p>If you want to retrieve an array of all the siblings you can simply use
+the <tt class="docutils literal"><span class="pre">getSiblings()</span></tt> method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$siblings</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getSiblings</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="examining-and-retrieving-descendants">
+<h4>Examining and Retrieving Descendants<a class="headerlink" href="#examining-and-retrieving-descendants" title="Permalink to this headline">¶</a></h4>
+<p>You can check if a node has a parent or children by using the following
+methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$hasChildren</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">hasChildren</span><span class="p">();</span>
+<span class="nv">$hasParent</span>   <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">hasParent</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>You can retrieve a nodes first and last child by using the following
+methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$firstChild</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getFirstChild</span><span class="p">();</span>
+<span class="nv">$lastChild</span>  <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getLastChild</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Or if you want to retrieve the parent of a node:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$parent</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getParent</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>You can get the children of a node by using the following method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$children</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getChildren</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">getChildren()</span></tt> method returns only the direct
+descendants. If you want all descendants, use the
+<tt class="docutils literal"><span class="pre">getDescendants()</span></tt> method.</p>
+</div>
+<p>You can get the descendants or ancestors of a node by using the
+following methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$descendants</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getDescendants</span><span class="p">();</span>
+<span class="nv">$ancestors</span>   <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getAncestors</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Sometimes you may just want to get the number of children or
+descendants. You can use the following methods to accomplish this:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$numChildren</span>    <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getNumberChildren</span><span class="p">();</span>
+<span class="nv">$numDescendants</span> <span class="o">=</span> <span class="nv">$category</span><span class="o">-&gt;</span><span class="na">getNode</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getNumberDescendants</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">getDescendants()</span></tt> and <tt class="docutils literal"><span class="pre">getAncestors()</span></tt> both accept a parameter
+that you can use to specify the <tt class="docutils literal"><span class="pre">depth</span></tt> of the resulting branch. For
+example <tt class="docutils literal"><span class="pre">getDescendants(1)</span></tt> retrieves only the direct descendants (the
+descendants that are 1 level below, that&#8217;s the same as
+<tt class="docutils literal"><span class="pre">getChildren()</span></tt>). In the same fashion <tt class="docutils literal"><span class="pre">getAncestors(1)</span></tt> would only
+retrieve the direct ancestor (the parent), etc.`` getAncestors()`` can
+be very useful to efficiently determine the path of this node up to the
+root node or up to some specific ancestor (i.e. to construct a
+breadcrumb navigation).</p>
+</div>
+<div class="section" id="rendering-a-simple-tree">
+<h4>Rendering a Simple Tree<a class="headerlink" href="#rendering-a-simple-tree" title="Permalink to this headline">¶</a></h4>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The next example assumes you have <tt class="docutils literal"><span class="pre">hasManyRoots</span></tt> set to
+false so in order for the below example to work properly you will
+have to set that option to false. We set the value to true in a
+earlier section.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$treeObject</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$tree</span>       <span class="o">=</span> <span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">fetchTree</span><span class="p">();</span>
+
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$tree</span> <span class="k">as</span> <span class="nv">$node</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nb">str_repeat</span><span class="p">(</span><span class="s1">&#39;&amp;nbsp;&amp;nbsp;&#39;</span><span class="p">,</span> <span class="nv">$node</span><span class="p">[</span><span class="s1">&#39;level&#39;</span><span class="p">])</span> <span class="o">.</span> <span class="nv">$node</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="advanced-usage">
+<h3>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Permalink to this headline">¶</a></h3>
+<p>The previous sections have explained the basic usage of Doctrine&#8217;s
+nested set implementation. This section will go one step further.</p>
+<div class="section" id="fetching-a-tree-with-relations">
+<h4>Fetching a Tree with Relations<a class="headerlink" href="#fetching-a-tree-with-relations" title="Permalink to this headline">¶</a></h4>
+<p>If you&#8217;re a demanding software developer this question may already have
+come into your mind: &#8220;How do I fetch a tree/branch with related data?&#8221;.
+Simple example: You want to display a tree of categories, but you also
+want to display some related data of each category, let&#8217;s say some
+details of the hottest product in that category. Fetching the tree as
+seen in the previous sections and simply accessing the relations while
+iterating over the tree is possible but produces a lot of unnecessary
+database queries. Luckily, <a href="#id11"><span class="problematic" id="id12">:php:class:`Doctrine_Query`</span></a> and some flexibility in
+the nested set implementation have come to your rescue. The nested set
+implementation uses <a href="#id13"><span class="problematic" id="id14">:php:class:`Doctrine_Query`</span></a> objects for all it&#8217;s database
+work. By giving you access to the base query object of the nested set
+implementation you can unleash the full power of <a href="#id15"><span class="problematic" id="id16">:php:class:`Doctrine_Query`</span></a>
+while using your nested set.</p>
+<p>First lets create the query we want to use to retrieve our tree data
+with:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span><span class="s1">&#39;c.name, p.name, m.name&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;Category c&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="s1">&#39;c.HottestProduct p&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="s1">&#39;p.Manufacturer m&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now we need to set the above query as the base query for the tree:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$treeObject</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">setBaseQuery</span><span class="p">(</span><span class="nv">$q</span><span class="p">);</span>
+<span class="nv">$tree</span>       <span class="o">=</span> <span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">fetchTree</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>There it is, the tree with all the related data you need, all in one
+query.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you don&#8217;t set your own base query then one will be
+automatically created for you internally.</p>
+</div>
+<p>When you are done it is a good idea to reset the base query back to
+normal:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">resetBaseQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>You can take it even further. As mentioned in the chapter <a class="reference internal" href="improving-performance.html"><em>Improving Performance</em></a> you should only fetch objects when you need
+them. So, if we need the tree only for display purposes (read-only) we
+can use the array hydration to speed things up a bit:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span><span class="s1">&#39;c.name, p.name, m.name&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;Category c&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="s1">&#39;c.HottestProduct p&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="s1">&#39;p.Manufacturer m&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">setHydrationMode</span><span class="p">(</span><span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">HYDRATE_ARRAY</span><span class="p">);</span>
+
+<span class="nv">$treeObject</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">setBaseQuery</span><span class="p">(</span><span class="nv">$q</span><span class="p">);</span>
+<span class="nv">$tree</span>       <span class="o">=</span> <span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">fetchTree</span><span class="p">();</span>
+<span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">resetBaseQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Now you got a nicely structured array in <tt class="docutils literal"><span class="pre">$tree</span></tt> and if you use array
+access on your records anyway, such a change will not even effect any
+other part of your code. This method of modifying the query can be used
+for all node and tree methods (<tt class="docutils literal"><span class="pre">getAncestors()</span></tt>, <tt class="docutils literal"><span class="pre">getDescendants()</span></tt>,
+<tt class="docutils literal"><span class="pre">getChildren()</span></tt>, <tt class="docutils literal"><span class="pre">getParent()</span></tt>, ...). Simply create your query, set
+it as the base query on the tree object and then invoke the appropriate
+method.</p>
+</div>
+</div>
+<div class="section" id="rendering-with-indention">
+<h3>Rendering with Indention<a class="headerlink" href="#rendering-with-indention" title="Permalink to this headline">¶</a></h3>
+<p>Below you will find an example where all trees are rendered with proper
+indention. You can retrieve the roots using the <tt class="docutils literal"><span class="pre">fetchRoots()</span></tt> method
+and retrieve each individual tree by using the <tt class="docutils literal"><span class="pre">fetchTree()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$treeObject</span>     <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;Category&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getTree</span><span class="p">();</span>
+<span class="nv">$rootColumnName</span> <span class="o">=</span> <span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">getAttribute</span><span class="p">(</span><span class="s1">&#39;rootColumnName&#39;</span><span class="p">);</span>
+
+<span class="k">foreach</span> <span class="p">(</span><span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">fetchRoots</span><span class="p">()</span> <span class="k">as</span> <span class="nv">$root</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;root_id&#39;</span> <span class="o">=&gt;</span> <span class="nv">$root</span><span class="o">-&gt;</span><span class="nv">$rootColumnName</span>
+    <span class="p">);</span>
+    <span class="k">foreach</span><span class="p">(</span><span class="nv">$treeObject</span><span class="o">-&gt;</span><span class="na">fetchTree</span><span class="p">(</span><span class="nv">$options</span><span class="p">)</span> <span class="k">as</span> <span class="nv">$node</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">echo</span> <span class="nb">str_repeat</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="nv">$node</span><span class="p">[</span><span class="s1">&#39;level&#39;</span><span class="p">])</span> <span class="o">.</span> <span class="nv">$node</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After doing all the examples above the code above should render as
+follows:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Root Category 1
+Root Category 2
+Child Category 1
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Now that we have learned all about the <tt class="docutils literal"><span class="pre">NestedSet</span></tt> behavior and how to
+manage our hierarchical data using Doctrine we are ready to learn about
+<a class="reference internal" href="data-fixtures.html"><em>Data Fixtures</em></a>. Data fixtures are a great tool for loading
+small sets of test data in to your applications to be used for unit and
+functional tests or to populate your application with its initial data.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Hierarchical Data</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#nested-set">Nested Set</a><ul>
+<li><a class="reference internal" href="#id1">Introduction</a></li>
+<li><a class="reference internal" href="#setting-up">Setting Up</a></li>
+<li><a class="reference internal" href="#multiple-trees">Multiple Trees</a></li>
+<li><a class="reference internal" href="#working-with-trees">Working with Trees</a><ul>
+<li><a class="reference internal" href="#creating-a-root-node">Creating a Root Node</a></li>
+<li><a class="reference internal" href="#inserting-a-node">Inserting a Node</a></li>
+<li><a class="reference internal" href="#deleting-a-node">Deleting a Node</a></li>
+<li><a class="reference internal" href="#moving-a-node">Moving a Node</a></li>
+<li><a class="reference internal" href="#examining-a-node">Examining a Node</a></li>
+<li><a class="reference internal" href="#examining-and-retrieving-siblings">Examining and Retrieving Siblings</a></li>
+<li><a class="reference internal" href="#examining-and-retrieving-descendants">Examining and Retrieving Descendants</a></li>
+<li><a class="reference internal" href="#rendering-a-simple-tree">Rendering a Simple Tree</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#advanced-usage">Advanced Usage</a><ul>
+<li><a class="reference internal" href="#fetching-a-tree-with-relations">Fetching a Tree with Relations</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rendering-with-indention">Rendering with Indention</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="searching.html"
+                        title="previous chapter">Searching</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="data-fixtures.html"
+                        title="next chapter">Data Fixtures</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/hierarchical-data.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="Data Fixtures"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="searching.html" title="Searching"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

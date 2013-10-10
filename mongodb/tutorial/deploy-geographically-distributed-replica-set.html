@@ -1,0 +1,770 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Deploy a Geographically Distributed Replica Set &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/deploy-geographically-distributed-replica-set.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/deploy-geographically-distributed-replica-set" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Replica Set Administration" href="../administration/replica-sets.html" />
+<link rel="next" title="Change the Size of the Oplog" href="change-oplog-size.html" />
+<link rel="prev" title="Resync a Member of a Replica Set" href="resync-replica-set-member.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../replication.html">Replication</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/replica-sets.html">Replica Set Administration</a><span class="bcpoint"> > </span></li>
+          <li>Deploy a Geographically Distributed Replica Set</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="deploy-a-geographically-distributed-replica-set">
+<h1>Deploy a Geographically Distributed Replica Set<a class="headerlink" href="#deploy-a-geographically-distributed-replica-set" title="Permalink to this headline">¶</a></h1>
+<p>This tutorial outlines the process for deploying a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> with members
+in multiple locations. The tutorial addresses three-member sets,
+four-member sets, and sets with more than four members.</p>
+<p>For appropriate background, see <a class="reference internal" href="../core/replication.html"><em>Replica Set Fundamental Concepts</em></a> and
+<a class="reference internal" href="../core/replica-set-architectures.html"><em>Replica Set Architectures and Deployment Patterns</em></a>. For related
+tutorials, see <a class="reference internal" href="deploy-replica-set.html"><em>Deploy a Replica Set</em></a> and
+<a class="reference internal" href="expand-replica-set.html"><em>Add Members to a Replica Set</em></a>.</p>
+<div class="section" id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<p>While <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica sets</em></a> provide basic protection
+against single-instance failure, when all of the members of a replica
+set reside in a single facility, the replica set is still susceptible
+to some classes of errors in that facility including power outages,
+networking distortions, and natural disasters. To protect against
+these classes of failures, deploy a replica set with one or more
+members in a geographically distinct facility or data center.</p>
+</div>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p>For a three-member replica set you need two instances in a
+primary facility (hereafter, &#8220;Site A&#8221;) and one member in a secondary
+facility (hereafter, &#8220;Site B&#8221;.) Site A should be the same facility or
+very close to your primary application infrastructure
+(i.e. application servers, caching layer, users, etc.)</p>
+<p>For a four-member replica set you need two members in Site A,
+two members in Site B (or one member in Site B and one member in Site
+C,) and a single <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiter</em></a> in Site A.</p>
+<p>For replica sets with additional members in the secondary facility or with
+multiple secondary facilities, the requirements are the same as above but with the
+following notes:</p>
+<ul class="simple">
+<li>Ensure that a majority of the <a class="reference internal" href="../core/replication.html#replica-set-non-voting-members"><em>voting members</em></a> are within Site A. This includes
+<a class="reference internal" href="../core/replication.html#replica-set-secondary-only-members"><em>secondary-only members</em></a> and
+<a class="reference internal" href="../core/replication.html#replica-set-arbiters"><em>arbiters</em></a> For more information on the
+need to keep the voting majority on one site, see
+<a class="reference internal" href="../core/replication.html#replica-set-elections"><em>Elections</em></a>.</li>
+<li>If you deploy a replica set with an uneven number of members, deploy
+an <a class="reference internal" href="../core/replication.html#replica-set-arbiters"><em>arbiter</em></a> on Site A. The arbiter must
+be on site A to keep the majority there.</li>
+</ul>
+<p>For all configurations in this tutorial, deploy each replica set member
+on a separate system. Although you may deploy more than one replica set member on a
+single system, doing so reduces the redundancy and capacity
+of the replica set. Such deployments are typically for testing
+purposes and beyond the scope of this tutorial.</p>
+</div>
+<div class="section" id="procedures">
+<h2>Procedures<a class="headerlink" href="#procedures" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="deploy-a-distributed-three-member-replica-set">
+<span id="replica-set-deploy-distributed-three-member"></span><h3>Deploy a Distributed Three-Member Replica Set<a class="headerlink" href="#deploy-a-distributed-three-member-replica-set" title="Permalink to this headline">¶</a></h3>
+<p>A geographically distributed three-member deployment has the following
+features:</p>
+<ul>
+<li><p class="first">Each member of the replica set resides on its own machine, and the
+MongoDB processes all bind to port <tt class="docutils literal"><span class="pre">27017</span></tt>, which is the standard
+MongoDB port.</p>
+</li>
+<li><p class="first">Each member of the replica set must be accessible by way of
+resolvable DNS or hostnames in the following scheme:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">mongodb0.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mongodb1.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt></li>
+</ul>
+<p>Configure DNS names appropriately, <em>or</em> set up your systems&#8217;
+<tt class="docutils literal"><span class="pre">/etc/hosts</span></tt> file to reflect this configuration. Ensure that one
+system (e.g. <tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt>) resides in Site B. Host all
+other systems in Site A.</p>
+</li>
+<li><p class="first">Ensure that network traffic can pass between all members in the
+network securely and efficiently. Consider the following:</p>
+<ul>
+<li><p class="first">Establish a virtual private network between the systems in Site A
+and Site B to encrypt all traffic between the sites and remains
+private. Ensure that your network topology routes all traffic between
+members within a single site over the local area network.</p>
+</li>
+<li><p class="first">Configure authentication using <a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a> and
+<a class="reference internal" href="../reference/configuration-options.html#keyFile" title="keyFile"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">keyFile</span></tt></a>, so that only servers and process with
+authentication can connect to the replica set.</p>
+</li>
+<li><p class="first">Configure networking and firewall rules so that only traffic
+(incoming and outgoing packets) on the default MongoDB port
+(e.g. <tt class="docutils literal"><span class="pre">27017</span></tt>) from <em>within</em> your deployment.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">For more information on security and firewalls, see <a class="reference internal" href="../core/replication.html#replica-set-security"><em>Security</em></a>.</p>
+</div>
+</li>
+</ul>
+</li>
+<li><p class="first">Specify run-time configuration on each system in a
+<a class="reference internal" href="../reference/configuration-options.html"><em>configuration file</em></a> stored in
+<tt class="docutils literal"><span class="pre">/etc/mongodb.conf</span></tt> or in a related location. <em>Do not</em> specify
+run-time configuration through command line options.</p>
+<p>For each MongoDB instance, use the following configuration, with values
+set appropriate to your systems:</p>
+<div class="highlight-cfg"><div class="highlight"><pre><span class="na">port</span> <span class="o">=</span> <span class="s">27017</span>
+
+<span class="na">bind_ip</span> <span class="o">=</span> <span class="s">10.8.0.10</span>
+
+<span class="na">dbpath</span> <span class="o">=</span> <span class="s">/srv/mongodb/</span>
+
+<span class="na">fork</span> <span class="o">=</span> <span class="s">true</span>
+
+<span class="na">replSet</span> <span class="o">=</span> <span class="s">rs0/mongodb0.example.net,mongodb1.example.net,mongodb2.example.net</span>
+</pre></div>
+</div>
+<p>Modify <a class="reference internal" href="../reference/configuration-options.html#bind_ip" title="bind_ip"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">bind_ip</span></tt></a> to reflect a secure interface on your
+system that is able to access all other members of the set <em>and</em>
+that is accessible to all other members of the replica set. The DNS or
+host names need to point and resolve to this IP address. Configure
+network rules or a virtual private network (i.e. &#8220;VPN&#8221;) to permit this
+access.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The portion of the <a class="reference internal" href="../reference/configuration-options.html#replSet" title="replSet"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">replSet</span></tt></a> following the <tt class="docutils literal"><span class="pre">/</span></tt> provides
+a &#8220;seed list&#8221; of known members of the replica set.
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> uses this list to fetch configuration changes
+following restarts. It is acceptable to omit this section entirely,
+and have the <a class="reference internal" href="../reference/configuration-options.html#replSet" title="replSet"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">replSet</span></tt></a> option resemble:</p>
+<div class="last highlight-cfg"><div class="highlight"><pre><span class="na">replSet</span> <span class="o">=</span> <span class="s">rs0</span>
+</pre></div>
+</div>
+</div>
+<p>For more documentation on the above run time configurations, as well as
+additional configuration options, see
+<a class="reference internal" href="../reference/configuration-options.html"><em>Configuration File Options</em></a>.</p>
+</li>
+</ul>
+<p>To deploy a geographically distributed three-member set:</p>
+<ol class="arabic">
+<li><p class="first">On each system start the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> process by issuing a
+command similar to following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --config /etc/mongodb.conf
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In production deployments you likely want to use and configure a
+<a class="reference internal" href="../reference/glossary.html#term-100"><em class="xref std std-term">control script</em></a> to manage this process based on this
+command. Control scripts are beyond the scope of this document.</p>
+</div>
+</li>
+<li><p class="first">Open a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell connected to <em>one</em> of the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo
+</pre></div>
+</div>
+</li>
+<li><p class="first">Use the <a class="reference internal" href="../reference/method/rs.initiate.html#rs.initiate" title="rs.initiate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.initiate()</span></tt></a> method on <em>one</em> member to initiate
+a replica set consisting of the current member and using the
+default configuration:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">initiate</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Display the current <a class="reference internal" href="../reference/replica-configuration.html"><em>replica configuration</em></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Add the remaining members to the replica set by issuing a sequence of
+commands similar to the following. The example commands assume the
+current <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> is <tt class="docutils literal"><span class="pre">mongodb0.example.net</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="s2">&quot;mongodb1.example.net&quot;</span><span class="p">)</span>
+<span class="nx">rs</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="s2">&quot;mongodb2.example.net&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Make sure that you have configured the member located in Site B
+(i.e. <tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt>) as a <a class="reference internal" href="../core/replication.html#replica-set-secondary-only-members"><em>secondary-only member</em></a>:</p>
+<ol class="loweralpha">
+<li><p class="first">Issue the following command to determine the
+<a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members[n]._id" title="local.system.replset.members[n]._id"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">_id</span></tt></a> value for
+<tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">In the <a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members" title="local.system.replset.members"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">members</span></tt></a> array, save the
+<a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members[n]._id" title="local.system.replset.members[n]._id"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">_id</span></tt></a> value. The example in
+the next step assumes this value is <tt class="docutils literal"><span class="pre">2</span></tt>.</p>
+</li>
+<li><p class="first">In the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell connected to the replica set&#8217;s
+primary, issue a command sequence similar to the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">cfg</span> <span class="o">=</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+<span class="nx">cfg</span><span class="p">.</span><span class="nx">members</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="nx">priority</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="nx">rs</span><span class="p">.</span><span class="nx">reconfig</span><span class="p">(</span><span class="nx">cfg</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In some situations, the <a class="reference internal" href="../reference/method/rs.reconfig.html#rs.reconfig" title="rs.reconfig()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.reconfig()</span></tt></a> shell method
+can force the current primary to step down and causes an
+election. When the primary steps down, all clients will
+disconnect. This is the intended behavior. While, this
+typically takes 10-20 seconds, attempt to make these changes
+during scheduled maintenance periods.</p>
+</div>
+</li>
+</ol>
+<p>After these commands return you have a geographically distributed
+three-member replica set.</p>
+</li>
+<li><p class="first">To check the status of your replica set, issue <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a>.</p>
+</li>
+</ol>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p>The documentation of the following shell functions for
+more information:</p>
+<ul class="last simple">
+<li><a class="reference internal" href="../reference/method/rs.initiate.html#rs.initiate" title="rs.initiate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.initiate()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.conf.html#rs.conf" title="rs.conf()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.conf()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.reconfig.html#rs.reconfig" title="rs.reconfig()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.reconfig()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.add.html#rs.add" title="rs.add()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.add()</span></tt></a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="deploy-a-distributed-four-member-replica-set">
+<span id="replica-set-deploy-distributed-four-member"></span><h3>Deploy a Distributed Four-Member Replica Set<a class="headerlink" href="#deploy-a-distributed-four-member-replica-set" title="Permalink to this headline">¶</a></h3>
+<p>A geographically distributed four-member deployment has the following
+features:</p>
+<ul>
+<li><p class="first">Each member of the replica set, except for the <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiter</em></a> (see
+below), resides on its own machine, and the MongoDB processes all bind
+to port <tt class="docutils literal"><span class="pre">27017</span></tt>, which is the standard MongoDB port.</p>
+</li>
+<li><p class="first">Each member of the replica set must be accessible by way of
+resolvable DNS or hostnames in the following scheme:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">mongodb0.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mongodb1.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">mongodb3.example.net</span></tt></li>
+</ul>
+<p>Configure DNS names appropriately, <em>or</em> set up your systems&#8217;
+<tt class="docutils literal"><span class="pre">/etc/host</span></tt> file to reflect this configuration. Ensure that one
+system (e.g. <tt class="docutils literal"><span class="pre">mongodb2.example.net</span></tt>) resides in Site B. Host all
+other systems in Site A.</p>
+</li>
+<li><p class="first">One host (e.g. <tt class="docutils literal"><span class="pre">mongodb3.example.net</span></tt>) will be an <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiter</em></a>
+and can run on a system that is also used for an application server
+or some other shared purpose.</p>
+</li>
+<li><p class="first">There are three possible architectures for this replica set:</p>
+<ul class="simple">
+<li>Two members in Site A, two <a class="reference internal" href="../core/replication.html#replica-set-secondary-only-members"><em>secondary-only members</em></a> in Site B, and an
+arbiter in Site A.</li>
+<li>Three members in Site A and one secondary-only member in Site B.</li>
+<li>Two members in Site A, one secondary-only member in Site B, one
+secondary-only member in Site C, and an arbiter in site A.</li>
+</ul>
+<p>In most cases the first architecture is preferable because it is the
+least complex.</p>
+</li>
+<li><p class="first">Ensure that network traffic can pass between all members in the
+network securely and efficiently. Consider the following:</p>
+<ul>
+<li><p class="first">Establish a virtual private network between the systems in Site A
+and Site B (and Site C if it exists) to encrypt all traffic
+between the sites and remains private. Ensure that your network
+topology routes all traffic between members within a single site
+over the local area network.</p>
+</li>
+<li><p class="first">Configure authentication using <a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a> and
+<a class="reference internal" href="../reference/configuration-options.html#keyFile" title="keyFile"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">keyFile</span></tt></a>, so that only servers and process with
+authentication can connect to the replica set.</p>
+</li>
+<li><p class="first">Configure networking and firewall rules so that only traffic
+(incoming and outgoing packets) on the default MongoDB port
+(e.g. <tt class="docutils literal"><span class="pre">27017</span></tt>) from <em>within</em> your deployment.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">For more information on security and firewalls, see <a class="reference internal" href="../core/replication.html#replica-set-security"><em>Security</em></a>.</p>
+</div>
+</li>
+</ul>
+</li>
+<li><p class="first">Specify run-time configuration on each system in a
+<a class="reference internal" href="../reference/configuration-options.html"><em>configuration file</em></a> stored in
+<tt class="docutils literal"><span class="pre">/etc/mongodb.conf</span></tt> or in a related location. <em>Do not</em> specify
+run-time configuration through command line options.</p>
+<p>For each MongoDB instance, use the following configuration, with values
+set appropriate to your systems:</p>
+<div class="highlight-cfg"><div class="highlight"><pre><span class="na">port</span> <span class="o">=</span> <span class="s">27017</span>
+
+<span class="na">bind_ip</span> <span class="o">=</span> <span class="s">10.8.0.10</span>
+
+<span class="na">dbpath</span> <span class="o">=</span> <span class="s">/srv/mongodb/</span>
+
+<span class="na">fork</span> <span class="o">=</span> <span class="s">true</span>
+
+<span class="na">replSet</span> <span class="o">=</span> <span class="s">rs0/mongodb0.example.net,mongodb1.example.net,mongodb2.example.net,mongodb3.example.net</span>
+</pre></div>
+</div>
+<p>Modify <a class="reference internal" href="../reference/configuration-options.html#bind_ip" title="bind_ip"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">bind_ip</span></tt></a> to reflect a secure interface on your
+system that is able to access all other members of the set <em>and</em>
+that is accessible to all other members of the replica set. The DNS or
+host names need to point and resolve to this IP address. Configure
+network rules or a virtual private network (i.e. &#8220;VPN&#8221;) to permit this
+access.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The portion of the <a class="reference internal" href="../reference/configuration-options.html#replSet" title="replSet"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">replSet</span></tt></a> following the <tt class="docutils literal"><span class="pre">/</span></tt> provides
+a &#8220;seed list&#8221; of known members of the replica set.
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> uses this list to fetch configuration changes
+following restarts. It is acceptable to omit this section entirely,
+and have the <a class="reference internal" href="../reference/configuration-options.html#replSet" title="replSet"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">replSet</span></tt></a> option resemble:</p>
+<div class="last highlight-cfg"><div class="highlight"><pre><span class="na">replSet</span> <span class="o">=</span> <span class="s">rs0</span>
+</pre></div>
+</div>
+</div>
+<p>For more documentation on the above run time configurations, as well
+as additional configuration options, see
+doc:<cite>/reference/configuration-options</cite>.</p>
+</li>
+</ul>
+<p>To deploy a geographically distributed four-member set:</p>
+<ol class="arabic">
+<li><p class="first">On each system start the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> process by issuing a
+command similar to following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --config /etc/mongodb.conf
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In production deployments you likely want to use and configure a
+<a class="reference internal" href="../reference/glossary.html#term-100"><em class="xref std std-term">control script</em></a> to manage this process based on this
+command. Control scripts are beyond the scope of this document.</p>
+</div>
+</li>
+<li><p class="first">Open a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell connected to this host:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo
+</pre></div>
+</div>
+</li>
+<li><p class="first">Use <a class="reference internal" href="../reference/method/rs.initiate.html#rs.initiate" title="rs.initiate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.initiate()</span></tt></a> to initiate a replica set consisting of
+the current member and using the default configuration:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">initiate</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Display the current <a class="reference internal" href="../reference/replica-configuration.html"><em>replica configuration</em></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Add the remaining members to the replica set by issuing a sequence of
+commands similar to the following. The example commands assume the
+current <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> is <tt class="docutils literal"><span class="pre">mongodb0.example.net</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="s2">&quot;mongodb1.example.net&quot;</span><span class="p">)</span>
+<span class="nx">rs</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="s2">&quot;mongodb2.example.net&quot;</span><span class="p">)</span>
+<span class="nx">rs</span><span class="p">.</span><span class="nx">add</span><span class="p">(</span><span class="s2">&quot;mongodb3.example.net&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">In the same shell session, issue the following command to add the
+arbiter (e.g. <tt class="docutils literal"><span class="pre">mongodb4.example.net</span></tt>):</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">addArb</span><span class="p">(</span><span class="s2">&quot;mongodb4.example.net&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Make sure that you have configured each member located in Site B
+(e.g. <tt class="docutils literal"><span class="pre">mongodb3.example.net</span></tt>) as a <a class="reference internal" href="../core/replication.html#replica-set-secondary-only-members"><em>secondary-only member</em></a>:</p>
+<ol class="loweralpha">
+<li><p class="first">Issue the following command to determine the
+<a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members[n]._id" title="local.system.replset.members[n]._id"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">_id</span></tt></a> value for the member:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">In the <a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members" title="local.system.replset.members"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">members</span></tt></a> array, save the
+<a class="reference internal" href="../reference/replica-configuration.html#local.system.replset.members[n]._id" title="local.system.replset.members[n]._id"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">_id</span></tt></a> value. The example in
+the next step assumes this value is <tt class="docutils literal"><span class="pre">2</span></tt>.</p>
+</li>
+<li><p class="first">In the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell connected to the replica set&#8217;s
+primary, issue a command sequence similar to the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">cfg</span> <span class="o">=</span> <span class="nx">rs</span><span class="p">.</span><span class="nx">conf</span><span class="p">()</span>
+<span class="nx">cfg</span><span class="p">.</span><span class="nx">members</span><span class="p">[</span><span class="mi">2</span><span class="p">].</span><span class="nx">priority</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="nx">rs</span><span class="p">.</span><span class="nx">reconfig</span><span class="p">(</span><span class="nx">cfg</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In some situations, the <a class="reference internal" href="../reference/method/rs.reconfig.html#rs.reconfig" title="rs.reconfig()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.reconfig()</span></tt></a> shell method
+can force the current primary to step down and causes an
+election. When the primary steps down, all clients will
+disconnect. This is the intended behavior. While, this
+typically takes 10-20 seconds, attempt to make these changes
+during scheduled maintenance periods.</p>
+</div>
+</li>
+</ol>
+<p>After these commands return you have a geographically distributed
+four-member replica set.</p>
+</li>
+<li><p class="first">To check the status of your replica set, issue <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a>.</p>
+</li>
+</ol>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p>The documentation of the following shell functions for
+more information:</p>
+<ul class="last simple">
+<li><a class="reference internal" href="../reference/method/rs.initiate.html#rs.initiate" title="rs.initiate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.initiate()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.conf.html#rs.conf" title="rs.conf()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.conf()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.reconfig.html#rs.reconfig" title="rs.reconfig()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.reconfig()</span></tt></a></li>
+<li><a class="reference internal" href="../reference/method/rs.add.html#rs.add" title="rs.add()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.add()</span></tt></a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="deploy-a-distributed-set-with-more-than-four-members">
+<h3>Deploy a Distributed Set with More than Four Members<a class="headerlink" href="#deploy-a-distributed-set-with-more-than-four-members" title="Permalink to this headline">¶</a></h3>
+<p>The procedure for deploying a geographically distributed set with more
+than four members is similar to the above procedures, with the following
+differences:</p>
+<ul class="simple">
+<li>Never deploy more than seven voting members.</li>
+<li>Use the procedure for a four-member set if you have an even number of
+members (see <a class="reference internal" href="#replica-set-deploy-distributed-four-member"><em>Deploy a Distributed Four-Member Replica Set</em></a>).
+Ensure that Site A always has a majority of the members by deploying
+the <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiter</em></a> within Site A. For six member sets, deploy at
+least three voting members in addition to the arbiter in Site A, the
+remaining members in alternate sites.</li>
+<li>Use the procedure for a three-member set if you have an odd number of
+members (see <a class="reference internal" href="#replica-set-deploy-distributed-three-member"><em>Deploy a Distributed Three-Member Replica Set</em></a>).
+Ensure that Site A always has a majority of the members of the set.
+For example, if a set has five members, deploy three members within
+the primary facility and two members in other facilities.</li>
+<li>If you have a majority of the members of the set <em>outside</em> of Site A
+and the network partitions to prevent communication between sites,
+the current primary in Site A will step down, even if none of the
+members outside of Site A are eligible to become primary.</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="resync-replica-set-member.html" title="Previous Section: Resync a Member of a Replica Set">&lt; &nbsp; Resync a Member of a Replica Set</a></li>
+              <li id="btnvup"><a href="../replication.html" title="Parent Section: Replication" >&#47;&#92;&nbsp; Replication</a></li>
+              <li id="btnvnx"><a href="change-oplog-size.html" title="Next Section: Change the Size of the Oplog">Change the Size of the Oplog &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../administration.html">Administration</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../administration/configuration.html">Run-time Database Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../data-center-awareness.html">Data Center Awareness</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core/operational-segregation.html">Operational Segregation in MongoDB Operations and Deployments</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/tag-aware-sharding.html">Tag Aware Sharding</a></li>
+<li class="toctree-l3"><a class="reference internal" href="administer-shard-tags.html">Administer and Manage Shard Tags</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Deploy a Geographically Distributed Replica Set</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/journaling.html">Journaling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure-ssl.html">Connect to MongoDB with SSL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="monitor-with-snmp.html">Monitor MongoDB with SNMP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-mongodb-processes.html">Manage <tt class="docutils literal"><span class="pre">mongod</span></tt> Processes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rotate-log-files.html">Rotate Log Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/monitoring.html">Monitoring for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-the-database-profiler.html">Analyze Performance of Database Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/import-export.html">Import and Export MongoDB Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ulimit.html">Linux <tt class="docutils literal"><span class="pre">ulimit</span></tt> Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/production-notes.html">Production Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="use-database-commands.html">Use Database Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">MongoDB Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../replication.html">Replication</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/replication.html">Replica Set Fundamental Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replica-set-architectures.html">Replica Set Architectures and Deployment Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/replication.html">Replica Set Considerations and Behaviors for Applications and Development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replication-internals.html">Replica Set Internals and Behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/master-slave.html">Master Slave Replication</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/replica-sets.html">Replica Set Administration</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="deploy-replica-set.html">Deploy a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-standalone-to-replica-set.html">Convert a Standalone to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="expand-replica-set.html">Add Members to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="remove-replica-set-member.html">Remove Members from Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="replace-replica-set-member.html">Replace a Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="adjust-replica-set-member-priority.html">Adjust Priority for Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resync-replica-set-member.html">Resync a Member of a Replica Set</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Deploy a Geographically Distributed Replica Set</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="change-oplog-size.html">Change the Size of the Oplog</a></li>
+<li class="toctree-l3"><a class="reference internal" href="force-member-to-be-primary.html">Force a Member to Become Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="manage-chained-replication.html">Manage Chained Replication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change-hostnames-in-a-replica-set.html">Change Hostnames in a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="troubleshoot-replica-sets.html">Troubleshoot Replica Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="add-replica-set-arbiter.html">Add an Arbiter to Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-secondary-into-arbiter.html">Convert a Secondary to an Arbiter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-delayed-replica-set-member.html">Configure a Delayed Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-hidden-replica-set-member.html">Configure a Replica Set Member as Hidden</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-non-voting-replica-set-member.html">Configure a Non-Voting Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-secondary-only-replica-set-member.html">Prevent Replica Set Member from Becoming Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-secondary-sync-target.html">Configure a Secondary&#8217;s Sync Target</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-tag-sets.html">Configure Replica Set Tag Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reconfigure-replica-set-with-unavailable-members.html">Reconfigure a Replica Set with Unavailable Members</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-configuration.html">Replica Set Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-commands.html">Replica Set Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/replica-set-features.html">Replica Set Features and Version Compatibility</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/deploy-geographically-distributed-replica-set.txt" target="_blank" title="Edit tutorial/deploy-geographically-distributed-replica-set.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/deploy-geographically-distributed-replica-set%2Etxt%22" target="_blank" title="Report a problem with tutorial/deploy-geographically-distributed-replica-set.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/deploy-geographically-distributed-replica-set.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/deploy-geographically-distributed-replica-set'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/deploy-geographically-distributed-replica-set'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,219 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to use Bundle Inheritance to Override parts of a Bundle &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Bundles" href="index.html" />
+    <link rel="next" title="How to Override any Part of a Bundle" href="override.html" />
+    <link rel="prev" title="How to use Best Practices for Structuring Bundles" href="best_practices.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="override.html" title="How to Override any Part of a Bundle"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="best_practices.html" title="How to use Best Practices for Structuring Bundles"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Bundles</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-use-bundle-inheritance-to-override-parts-of-a-bundle">
+<span id="index-0"></span><h1>How to use Bundle Inheritance to Override parts of a Bundle<a class="headerlink" href="#how-to-use-bundle-inheritance-to-override-parts-of-a-bundle" title="Permalink to this headline">¶</a></h1>
+<p>When working with third-party bundles, you&#8217;ll probably come across a situation
+where you want to override a file in that third-party bundle with a file
+in one of your own bundles. Symfony gives you a very convenient way to override
+things like controllers, templates, and other files in a bundle&#8217;s
+<tt class="docutils literal"><span class="pre">Resources/</span></tt> directory.</p>
+<p>For example, suppose that you&#8217;re installing the <a class="reference external" href="https://github.com/friendsofsymfony/fosuserbundle">FOSUserBundle</a>, but you
+want to override its base <tt class="docutils literal"><span class="pre">layout.html.twig</span></tt> template, as well as one of
+its controllers. Suppose also that you have your own <tt class="docutils literal"><span class="pre">AcmeUserBundle</span></tt>
+where you want the overridden files to live. Start by registering the <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt>
+as the &#8220;parent&#8221; of your bundle:</p>
+<div class="highlight-python"><pre>// src/Acme/UserBundle/AcmeUserBundle.php
+namespace Acme\UserBundle;
+
+use Symfony\Component\HttpKernel\Bundle\Bundle;
+
+class AcmeUserBundle extends Bundle
+{
+    public function getParent()
+    {
+        return 'FOSUserBundle';
+    }
+}</pre>
+</div>
+<p>By making this simple change, you can now override several parts of the <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt>
+simply by creating a file with the same name.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Despite the method name, there is no parent/child relationship between
+the bundles, it is just a way to extend and override an existing bundle.</p>
+</div>
+<div class="section" id="overriding-controllers">
+<h2>Overriding Controllers<a class="headerlink" href="#overriding-controllers" title="Permalink to this headline">¶</a></h2>
+<p>Suppose you want to add some functionality to the <tt class="docutils literal"><span class="pre">registerAction</span></tt> of a
+<tt class="docutils literal"><span class="pre">RegistrationController</span></tt> that lives inside <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt>. To do so,
+just create your own <tt class="docutils literal"><span class="pre">RegistrationController.php</span></tt> file, override the bundle&#8217;s
+original method, and change its functionality:</p>
+<div class="highlight-python"><pre>// src/Acme/UserBundle/Controller/RegistrationController.php
+namespace Acme\UserBundle\Controller;
+
+use FOS\UserBundle\Controller\RegistrationController as BaseController;
+
+class RegistrationController extends BaseController
+{
+    public function registerAction()
+    {
+        $response = parent::registerAction();
+
+        // ... do custom stuff
+        return $response;
+    }
+}</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Depending on how severely you need to change the behavior, you might
+call <tt class="docutils literal"><span class="pre">parent::registerAction()</span></tt> or completely replace its logic with
+your own.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Overriding controllers in this way only works if the bundle refers to
+the controller using the standard <tt class="docutils literal"><span class="pre">FOSUserBundle:Registration:register</span></tt>
+syntax in routes and templates. This is the best practice.</p>
+</div>
+</div>
+<div class="section" id="overriding-resources-templates-routing-validation-etc">
+<h2>Overriding Resources: Templates, Routing, Validation, etc<a class="headerlink" href="#overriding-resources-templates-routing-validation-etc" title="Permalink to this headline">¶</a></h2>
+<p>Most resources can also be overridden, simply by creating a file in the same
+location as your parent bundle.</p>
+<p>For example, it&#8217;s very common to need to override the <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt>&#8216;s
+<tt class="docutils literal"><span class="pre">layout.html.twig</span></tt> template so that it uses your application&#8217;s base layout.
+Since the file lives at <tt class="docutils literal"><span class="pre">Resources/views/layout.html.twig</span></tt> in the <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt>,
+you can create your own file in the same location of <tt class="docutils literal"><span class="pre">AcmeUserBundle</span></tt>.
+Symfony will ignore the file that lives inside the <tt class="docutils literal"><span class="pre">FOSUserBundle</span></tt> entirely,
+and use your file instead.</p>
+<p>The same goes for routing files, validation configuration and other resources.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The overriding of resources only works when you refer to resources with
+the <tt class="docutils literal"><span class="pre">&#64;FosUserBundle/Resources/config/routing/security.xml</span></tt> method.
+If you refer to resources without using the &#64;BundleName shortcut, they
+can&#8217;t be overridden in this way.</p>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Translation files do not work in the same way as described above. All
+translation files are accumulated into a set of &#8220;pools&#8221; (one for each)
+domain. Symfony loads translation files from bundles first (in the order
+that the bundles are initialized) and then from your <tt class="docutils literal"><span class="pre">app/Resources</span></tt>
+directory. If the same translation is specified in two resources, the
+translation from the resource that&#8217;s loaded last will win.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to use Bundle Inheritance to Override parts of a Bundle</a><ul>
+<li><a class="reference internal" href="#overriding-controllers">Overriding Controllers</a></li>
+<li><a class="reference internal" href="#overriding-resources-templates-routing-validation-etc">Overriding Resources: Templates, Routing, Validation, etc</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="best_practices.html"
+                        title="previous chapter">How to use Best Practices for Structuring Bundles</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="override.html"
+                        title="next chapter">How to Override any Part of a Bundle</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/bundles/inheritance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="override.html" title="How to Override any Part of a Bundle"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="best_practices.html" title="How to use Best Practices for Structuring Bundles"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Bundles</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

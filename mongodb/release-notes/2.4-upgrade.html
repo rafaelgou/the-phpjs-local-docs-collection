@@ -1,0 +1,783 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Upgrade MongoDB to 2.4 &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/release-notes/2.4-upgrade.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/release-notes/2.4-upgrade" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Release Notes for MongoDB 2.4" href="2.4.html" />
+<link rel="next" title="Compatibility and Index Type Changes in MongoDB 2.4" href="2.4-index-types.html" />
+<link rel="prev" title="What’s New in MongoDB 2.4" href="2.4-overview.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../release-notes.html">Release Notes</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="2.4.html">Release Notes for MongoDB 2.4</a><span class="bcpoint"> > </span></li>
+          <li>Upgrade MongoDB to 2.4</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="upgrade-mongodb-to-2-4">
+<h1>Upgrade MongoDB to 2.4<a class="headerlink" href="#upgrade-mongodb-to-2-4" title="Permalink to this headline">¶</a></h1>
+<p>In the general case, the upgrade from MongoDB 2.2 to 2.4 is a
+binary-compatible &#8220;drop-in&#8221; upgrade: shut down the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances and replace them with <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances running
+2.4. <strong>However</strong>, before you attempt any upgrade please familiarize
+yourself with the content of this document, particularly the procedure
+for <a class="reference internal" href="#upgrade-cluster"><em>upgrading sharded clusters</em></a> and the
+considerations for <a class="reference internal" href="#downgrade"><em>reverting to 2.2 after running 2.4</em></a>.</p>
+<div class="contents local topic" id="content">
+<p class="topic-title first">Content</p>
+<ul class="simple">
+<li><a class="reference internal" href="#upgrade-recommendations-and-checklist" id="id1">Upgrade Recommendations and Checklist</a></li>
+<li><a class="reference internal" href="#upgrade-standalone-mongod-instance-to-mongodb-2-4" id="id2">Upgrade Standalone <tt class="docutils literal"><span class="pre">mongod</span></tt> Instance to MongoDB 2.4</a></li>
+<li><a class="reference internal" href="#upgrade-a-replica-set-from-mongodb-2-2-to-mongodb-2-4" id="id3">Upgrade a Replica Set from MongoDB 2.2 to MongoDB 2.4</a></li>
+<li><a class="reference internal" href="#upgrade-a-sharded-cluster-from-mongodb-2-2-to-mongodb-2-4" id="id4">Upgrade a Sharded Cluster from MongoDB 2.2 to MongoDB 2.4</a></li>
+<li><a class="reference internal" href="#rolling-upgrade-limitation-for-2-2-0-deployments-running-with-auth-enabled" id="id5">Rolling Upgrade Limitation for 2.2.0 Deployments Running with <tt class="docutils literal"><span class="pre">auth</span></tt> Enabled</a></li>
+<li><a class="reference internal" href="#upgrade-from-2-3-to-2-4" id="id6">Upgrade from 2.3 to 2.4</a></li>
+<li><a class="reference internal" href="#downgrade-mongodb-from-2-4-to-previous-versions" id="id7">Downgrade MongoDB from 2.4 to Previous Versions</a></li>
+</ul>
+</div>
+<div class="section" id="upgrade-recommendations-and-checklist">
+<h2>Upgrade Recommendations and Checklist<a class="headerlink" href="#upgrade-recommendations-and-checklist" title="Permalink to this headline">¶</a></h2>
+<p>When upgrading, consider the following:</p>
+<ul>
+<li><p class="first">For all deployments using authentication, upgrade the
+drivers (i.e. client libraries), before upgrading the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance or instances.</p>
+</li>
+<li><p class="first">To upgrade to 2.4 sharded clusters <em>must</em> upgrade following the
+<a class="reference internal" href="#upgrade-cluster"><em>meta-data upgrade procedure</em></a>.</p>
+</li>
+<li><p class="first">If you&#8217;re using 2.2.0 and running with <a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a> enabled, you
+will need to upgrade first to 2.2.1 and then upgrade to 2.4. See
+<a class="reference internal" href="#upgrade-auth-limitation"><em>Rolling Upgrade Limitation for 2.2.0 Deployments Running with auth Enabled</em></a>.</p>
+</li>
+<li><p class="first">If you have <a class="reference internal" href="../reference/privilege-documents.html#&lt;database&gt;.system.users" title="&lt;database&gt;.system.users"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">system.users</span></tt></a> documents
+(i.e. for <a class="reference internal" href="../reference/configuration-options.html#auth" title="auth"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">auth</span></tt></a>) that you created before 2.4 you <em>must</em>
+ensure that there are no duplicate values for the <tt class="docutils literal"><span class="pre">user</span></tt> field in
+the <a class="reference internal" href="../reference/privilege-documents.html#&lt;database&gt;.system.users" title="&lt;database&gt;.system.users"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">system.users</span></tt></a> collection in
+<em>any</em> database.  If you <em>do</em> have documents with duplicate user
+fields, you must remove them before upgrading.</p>
+<p>See <a class="reference internal" href="2.4.html#unique-users"><em>Compatibility Change: User Uniqueness Enforced</em></a> for more information.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="upgrade-standalone-mongod-instance-to-mongodb-2-4">
+<span id="upgrade-standalone"></span><h2>Upgrade Standalone <tt class="docutils literal"><span class="pre">mongod</span></tt> Instance to MongoDB 2.4<a class="headerlink" href="#upgrade-standalone-mongod-instance-to-mongodb-2-4" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li>Download binaries of the latest release in the 2.4 series from the
+<a class="reference external" href="http://www.mongodb.org/downloads">MongoDB Download Page</a>. See <a class="reference internal" href="../installation.html"><em>Install MongoDB</em></a> for more
+information.</li>
+<li>Shutdown your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance. Replace the existing
+binary with the 2.4 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> binary and restart <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</li>
+</ol>
+</div>
+<div class="section" id="upgrade-a-replica-set-from-mongodb-2-2-to-mongodb-2-4">
+<span id="upgrade-replica-set"></span><h2>Upgrade a Replica Set from MongoDB 2.2 to MongoDB 2.4<a class="headerlink" href="#upgrade-a-replica-set-from-mongodb-2-2-to-mongodb-2-4" title="Permalink to this headline">¶</a></h2>
+<p>You can upgrade to 2.4 by performing a &#8220;rolling&#8221;
+upgrade of the set by upgrading the members individually while the
+other members are available to minimize downtime. Use the following
+procedure:</p>
+<ol class="arabic">
+<li><p class="first">Upgrade the <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members of the set one at a time by
+shutting down the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and replacing the 2.2 binary
+with the 2.4 binary.  After upgrading a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance,
+wait for the member to recover to <tt class="docutils literal"><span class="pre">SECONDARY</span></tt> state
+before upgrading the next instance.
+To check the member&#8217;s state, issue <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a> in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell.</p>
+</li>
+<li><p class="first">Use the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell method <a class="reference internal" href="../reference/method/rs.stepDown.html#rs.stepDown" title="rs.stepDown()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.stepDown()</span></tt></a> to
+step down the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> to allow the normal <a class="reference internal" href="../core/replication.html#replica-set-failover"><em>failover</em></a> procedure.  <a class="reference internal" href="../reference/method/rs.stepDown.html#rs.stepDown" title="rs.stepDown()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.stepDown()</span></tt></a>
+expedites the failover procedure and is preferable to shutting down
+the primary directly.</p>
+<p>Once the primary has stepped down and another member has assumed
+<tt class="docutils literal"><span class="pre">PRIMARY</span></tt> state, as observed in the output of
+<a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a>, shut down the previous primary and replace
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> binary with the 2.4 binary and start the new
+process.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Replica set failover is not instant but will
+render the set unavailable to read or accept writes
+until the failover process completes. Typically this takes
+10 seconds or more. You may wish to plan the upgrade during
+a predefined maintenance window.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="section" id="upgrade-a-sharded-cluster-from-mongodb-2-2-to-mongodb-2-4">
+<span id="upgrade-cluster"></span><h2>Upgrade a Sharded Cluster from MongoDB 2.2 to MongoDB 2.4<a class="headerlink" href="#upgrade-a-sharded-cluster-from-mongodb-2-2-to-mongodb-2-4" title="Permalink to this headline">¶</a></h2>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">Only upgrade sharded clusters to 2.4 if <strong>all</strong> members
+of the cluster are currently running instances of 2.2. The only
+supported upgrade path for sharded clusters running 2.0 is via 2.2.</p>
+</div>
+<p>Upgrading a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> from MongoDB version 2.2 to 2.4
+(or 2.3) requires that you run a 2.4 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+with the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--upgrade"><em class="xref std std-option">--upgrade</em></a> option, described in
+this procedure. The upgrade process does not require downtime.</p>
+<p>The upgrade to MongoDB 2.4 adds epochs to the meta-data for all
+collections and chunks in the existing cluster. MongoDB 2.2 processes
+are capable of handling epochs, even though 2.2 did not require them.</p>
+<p>This procedure applies only to upgrades from version 2.2. Earlier
+versions of MongoDB do not correctly handle epochs.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<ul class="last simple">
+<li>Before you start the upgrade, ensure that the amount of free space on
+the filesystem for the <a class="reference internal" href="../reference/config-database.html"><em>config database</em></a> is 4 to 5 times the amount of space
+currently used by the <a class="reference internal" href="../reference/config-database.html"><em>config database</em></a> data files.</li>
+<li>While the upgrade is in progress, you cannot make changes to the
+collection meta-data. For example, during the upgrade, do <strong>not</strong>
+perform:<ul>
+<li><a class="reference internal" href="../reference/method/sh.enableSharding.html#sh.enableSharding" title="sh.enableSharding()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.enableSharding()</span></tt></a>,</li>
+<li><a class="reference internal" href="../reference/method/sh.shardCollection.html#sh.shardCollection" title="sh.shardCollection()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.shardCollection()</span></tt></a>,</li>
+<li><a class="reference internal" href="../reference/method/sh.addShard.html#sh.addShard" title="sh.addShard()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.addShard()</span></tt></a>,</li>
+<li><a class="reference internal" href="../reference/method/db.createCollection.html#db.createCollection" title="db.createCollection()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.createCollection()</span></tt></a>,</li>
+<li><a class="reference internal" href="../reference/method/db.collection.drop.html#db.collection.drop" title="db.collection.drop()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.collection.drop()</span></tt></a>,</li>
+<li><a class="reference internal" href="../reference/method/db.dropDatabase.html#db.dropDatabase" title="db.dropDatabase()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.dropDatabase()</span></tt></a>,</li>
+<li>any operation that creates a database, or</li>
+<li>any other operation that modifies the cluster meta-data in any
+way. See <a class="reference internal" href="../reference/sharding-commands.html"><em>Sharding Commands</em></a> for a complete list
+of sharding commands. Note, however, that not all commands on
+the <a class="reference internal" href="../reference/sharding-commands.html"><em>Sharding Commands</em></a> page modifies the
+cluster meta-data.</li>
+</ul>
+</li>
+<li>Once you upgrade to 2.4 and complete the upgrade procedure <strong>do
+not</strong> use 2.0 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> processes in
+your cluster. 2.0 process may re-introduce old meta-data formats
+into cluster meta-data.</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The upgraded config database will require more storage space than
+before, to make backup and working copies of the
+<a class="reference internal" href="../reference/config-database.html#config.chunks" title="config.chunks"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">config.chunks</span></tt></a> and <a class="reference internal" href="../reference/config-database.html#config.collections" title="config.collections"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">config.collections</span></tt></a> collections.
+As always, if storage requirements increase, the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+might need to pre-allocate additional data files. See
+<a class="reference internal" href="../faq/storage.html#faq-tools-for-measuring-storage-use"><em>What tools can I use to investigate storage use in MongoDB?</em></a> for more information.</p>
+</div>
+<div class="section" id="meta-data-upgrade-procedure">
+<span id="upgrade-meta-data"></span><h3>Meta-Data Upgrade Procedure<a class="headerlink" href="#meta-data-upgrade-procedure" title="Permalink to this headline">¶</a></h3>
+<p>Changes to the meta-data format for sharded clusters, stored in the
+<a class="reference internal" href="../reference/config-database.html"><em>config database</em></a>, require a special
+meta-data upgrade procedure when moving to 2.4.</p>
+<p>Do not perform operations that modify meta-data while performing this
+procedure. See <a class="reference internal" href="#upgrade-cluster"><em>Upgrade a Sharded Cluster from MongoDB 2.2 to MongoDB 2.4</em></a> for examples of prohibited
+operations.</p>
+<ol class="arabic">
+<li><p class="first">Before you start the upgrade, ensure that the amount of free space on
+the filesystem for the <a class="reference internal" href="../reference/config-database.html"><em>config database</em></a> is 4 to 5 times the amount of space
+currently used by the <a class="reference internal" href="../reference/config-database.html"><em>config database</em></a> data files.</p>
+</li>
+<li><p class="first">Turn off the <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-balancing-internals"><em>balancer</em></a> in the
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>, as described in
+<a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html#sharding-balancing-disable-temporally"><em>Disable the Balancer</em></a>.</p>
+<div class="admonition-optional admonition">
+<p class="first admonition-title">Optional</p>
+<p class="last">For additional security during the upgrade, you can make a
+backup of the config database using <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> or
+other backup tools.</p>
+</div>
+</li>
+<li><p class="first">Ensure there are no version 2.0 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> processes still active in the sharded
+cluster. The automated upgrade process checks for 2.0 processes,
+but network availability can prevent a definitive check. Wait 5
+minutes after stopping or upgrading version 2.0 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+processes to confirm that none are still active.</p>
+</li>
+<li><p class="first">Start a single 2.4 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> process with
+<a class="reference internal" href="../reference/configuration-options.html#configdb" title="configdb"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">configdb</span></tt></a> pointing to the sharded cluster&#8217;s <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-config-server"><em>config
+servers</em></a> and with the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--upgrade"><em class="xref std std-option">--upgrade</em></a> option.  The upgrade process happens before the
+process becomes a daemon (i.e. before
+<a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--fork"><em class="xref std std-option">--fork</em></a>.)</p>
+<p>You can upgrade an existing
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance to 2.4 or you can start a new <cite>mongos</cite>
+instance that can reach all config servers if you need to avoid
+reconfiguring a production <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>.</p>
+<p>Start the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> with a command that resembles the
+following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongos --configdb &lt;config server&gt; --upgrade
+</pre></div>
+</div>
+<p>Without the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--upgrade"><em class="xref std std-option">--upgrade</em></a> option 2.4
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> processes will fail to start until the upgrade
+process is complete.</p>
+<p>The upgrade will prevent any chunk moves or splits from occurring
+during the upgrade process. If there are very many sharded
+collections or there are stale locks held by other failed processes,
+acquiring the locks for all collections can take
+seconds or minutes. See the log for progress updates.</p>
+</li>
+<li><p class="first">When the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> process starts successfully, the upgrade is
+complete. If the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> process fails to start, check the
+log for more information.</p>
+<p>If the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> terminates or loses its connection to the
+config servers during the upgrade, you may always safely retry the
+upgrade.</p>
+<p>However, if the upgrade failed during the short critical section,
+the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> will exit and report that the upgrade will
+require manual intervention. To continue the upgrade process, you
+must follow the <a class="reference internal" href="#upgrade-cluster-resync"><em>Resync after an Interruption of the Critical Section</em></a> procedure.</p>
+<div class="admonition-optional admonition">
+<p class="first admonition-title">Optional</p>
+<p>If the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> logs show the upgrade waiting for the
+upgrade lock, a previous upgrade process may still be active or
+may have ended abnormally.  After 15 minutes of no remote
+activity <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> will force the upgrade lock. If you
+can verify that there are no running upgrade processes, you may
+connect to a 2.2 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> process and force the lock
+manually:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo &lt;mongos.example.net&gt;
+</pre></div>
+</div>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">getMongo</span><span class="p">().</span><span class="nx">getCollection</span><span class="p">(</span><span class="s2">&quot;config.locks&quot;</span><span class="p">).</span><span class="nx">findOne</span><span class="p">({</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;configUpgrade&quot;</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p>If the process specified in the <tt class="docutils literal"><span class="pre">process</span></tt> field of this document
+is <em>verifiably</em> offline, run the following operation to force the
+lock.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">getMongo</span><span class="p">().</span><span class="nx">getCollection</span><span class="p">(</span><span class="s2">&quot;config.locks&quot;</span><span class="p">).</span><span class="nx">update</span><span class="p">({</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;configUpgrade&quot;</span> <span class="p">},</span> <span class="p">{</span> <span class="nx">$set</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">state</span> <span class="o">:</span> <span class="mi">0</span> <span class="p">}</span> <span class="p">})</span>
+</pre></div>
+</div>
+<p class="last">It is always more safe to wait for the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> to
+verify that the lock is inactive, if you have any doubts about
+the activity of another upgrade operation.  In addition to the
+<tt class="docutils literal"><span class="pre">configUpgrade</span></tt>, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> may need to wait for
+specific collection locks. Do not force the specific collection
+locks.</p>
+</div>
+</li>
+<li><p class="first">Upgrade and restart other <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> processes in the
+sharded cluster, <em>without</em> the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--upgrade"><em class="xref std std-option">--upgrade</em></a>
+option.</p>
+<p>See <a class="reference internal" href="#finalize-shard-cluster-upgrade"><em>Complete Sharded Cluster Upgrade</em></a> for more information.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html#sharding-balancing-disable-temporally"><em>Re-enable the balancer</em></a>. You can now perform
+operations that modify cluster meta-data.</p>
+</li>
+</ol>
+<p>Once you have upgraded, <em>do not</em> introduce version 2.0 MongoDB
+processes into the sharded cluster. This can reintroduce old meta-data
+formats into the config servers. The meta-data change made by this
+upgrade process will help prevent errors caused by cross-version
+incompatibilities in future versions of MongoDB.</p>
+</div>
+<div class="section" id="resync-after-an-interruption-of-the-critical-section">
+<span id="upgrade-cluster-resync"></span><h3>Resync after an Interruption of the Critical Section<a class="headerlink" href="#resync-after-an-interruption-of-the-critical-section" title="Permalink to this headline">¶</a></h3>
+<p>During the short critical section of the upgrade that applies changes
+to the meta-data, it is unlikely but possible that a network
+interruption can prevent all three config servers from verifying or
+modifying data. If this occurs, the <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-config-server"><em>config servers</em></a> must be re-synced, and there may be problems
+starting new <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> processes. The <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>
+will remain accessible, but avoid all cluster meta-data changes until
+you resync the config servers. Operations that change meta-data include:
+adding shards, dropping databases, and dropping collections.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Only perform the following procedure <em>if</em> something (e.g. network,
+power, etc.) interrupts the upgrade process during the short
+critical section of the upgrade. Remember, you may always safely
+attempt the <a class="reference internal" href="#upgrade-meta-data"><em>meta data upgrade procedure</em></a>.</p>
+</div>
+<p>To resync the config servers:</p>
+<ol class="arabic">
+<li><p class="first">Turn off the <a class="reference internal" href="../core/sharded-cluster-internals.html#sharding-balancing-internals"><em>balancer</em></a> in the
+sharded cluster and stop all meta-data operations. If you are in the
+middle of an upgrade process (<a class="reference internal" href="#upgrade-cluster"><em>Upgrade a Sharded Cluster from MongoDB 2.2 to MongoDB 2.4</em></a>), you
+have already disabled the balancer.</p>
+</li>
+<li><p class="first">Shut down two of the three config servers, preferably the last two listed
+in the <a class="reference internal" href="../reference/configuration-options.html#configdb" title="configdb"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">configdb</span></tt></a> string. For example, if your <a class="reference internal" href="../reference/configuration-options.html#configdb" title="configdb"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">configdb</span></tt></a>
+string is <tt class="docutils literal"><span class="pre">configA:27019,configB:27019,configC:27019</span></tt>, shut down
+<tt class="docutils literal"><span class="pre">configB</span></tt> and <tt class="docutils literal"><span class="pre">configC</span></tt>. Shutting down the last two config servers
+ensures that most <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances will have
+uninterrupted access to cluster meta-data.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a> the data files of the active config server
+(<tt class="docutils literal"><span class="pre">configA</span></tt>).</p>
+</li>
+<li><p class="first">Move the data files of the deactivated config servers (<tt class="docutils literal"><span class="pre">configB</span></tt>
+and <tt class="docutils literal"><span class="pre">configC</span></tt>) to a backup location.</p>
+</li>
+<li><p class="first">Create new, empty <a class="reference internal" href="../reference/glossary.html#term-dbpath"><em class="xref std std-term">data directories</em></a>.</p>
+</li>
+<li><p class="first">Restart the disabled config servers with <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--dbpath"><em class="xref std std-option">--dbpath</em></a>
+pointing to the now-empty data directory and <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--port"><em class="xref std std-option">--port</em></a>
+pointing to an alternate port (e.g. <tt class="docutils literal"><span class="pre">27020</span></tt>).</p>
+</li>
+<li><p class="first">Use <a class="reference internal" href="../reference/program/mongorestore.html#bin.mongorestore" title="mongorestore"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongorestore</span></tt></a> to repopulate the data files on the
+disabled documents from the active
+config server (<tt class="docutils literal"><span class="pre">configA</span></tt>) to the restarted config servers on the new
+port (<tt class="docutils literal"><span class="pre">configB:27020,configC:27020</span></tt>). These config servers are now
+re-synced.</p>
+</li>
+<li><p class="first">Restart the restored config servers on the old port, resetting the
+port back to the old settings (<tt class="docutils literal"><span class="pre">configB:27019</span></tt> and <tt class="docutils literal"><span class="pre">configC:27019</span></tt>).</p>
+</li>
+<li><p class="first">In some cases connection pooling may cause spurious failures, as
+the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> disables old connections only after attempted
+use. 2.4 fixes this problem, but to avoid this issue in version
+2.2, you can restart all <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances (one-by-one,
+to avoid downtime) and use the <a class="reference internal" href="../reference/method/rs.stepDown.html#rs.stepDown" title="rs.stepDown()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.stepDown()</span></tt></a> method
+before restarting each of the shard <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primaries</em></a>.</p>
+</li>
+<li><p class="first">The sharded cluster is now fully resynced; however before you
+attempt the upgrade process again, you must manually reset the
+upgrade state using a version 2.2 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>. Begin by
+connecting to the 2.2 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> with the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo &lt;mongos.example.net&gt;
+</pre></div>
+</div>
+<p>Then, use the following operation to reset the upgrade process:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">getMongo</span><span class="p">().</span><span class="nx">getCollection</span><span class="p">(</span><span class="s2">&quot;config.version&quot;</span><span class="p">).</span><span class="nx">update</span><span class="p">({</span> <span class="nx">_id</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">},</span> <span class="p">{</span> <span class="nx">$unset</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">upgradeState</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">})</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Finally retry the upgrade process, as in
+<a class="reference internal" href="#upgrade-cluster"><em>Upgrade a Sharded Cluster from MongoDB 2.2 to MongoDB 2.4</em></a>.</p>
+</li>
+</ol>
+</div>
+<div class="section" id="complete-sharded-cluster-upgrade">
+<span id="finalize-shard-cluster-upgrade"></span><h3>Complete Sharded Cluster Upgrade<a class="headerlink" href="#complete-sharded-cluster-upgrade" title="Permalink to this headline">¶</a></h3>
+<p>After you have successfully completed the meta-data upgrade process
+described in <a class="reference internal" href="#upgrade-meta-data"><em>Meta-Data Upgrade Procedure</em></a>, and the 2.4
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance starts, you can upgrade the other processes
+in your MongoDB deployment.</p>
+<p>While the balancer is still disabled, upgrade the components of your
+sharded cluster in the following order:</p>
+<ul class="simple">
+<li>Upgrade all <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances in the cluster, in any
+order.</li>
+<li>Upgrade all 3 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> config server instances, upgrading
+the <em>first</em> system in the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--configdb"><em class="xref std std-option">mongos --configdb</em></a> argument
+<em>last</em>.</li>
+<li>Upgrade each shard, one at a time, upgrading the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+secondaries before running <a class="reference internal" href="../reference/command/replSetStepDown.html#dbcmd.replSetStepDown" title="replSetStepDown"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetStepDown</span></tt></a> and
+upgrading the primary of each shard.</li>
+</ul>
+<p>When this process is complete, you can now <a class="reference internal" href="../tutorial/manage-sharded-cluster-balancer.html#sharding-balancing-disable-temporally"><em>re-enable the
+balancer</em></a>.</p>
+</div>
+</div>
+<div class="section" id="rolling-upgrade-limitation-for-2-2-0-deployments-running-with-auth-enabled">
+<span id="upgrade-auth-limitation"></span><h2>Rolling Upgrade Limitation for 2.2.0 Deployments Running with <tt class="docutils literal"><span class="pre">auth</span></tt> Enabled<a class="headerlink" href="#rolling-upgrade-limitation-for-2-2-0-deployments-running-with-auth-enabled" title="Permalink to this headline">¶</a></h2>
+<p>MongoDB <em>cannot</em> support deployments that mix 2.2.0 and 2.4.0, or
+greater, components. MongoDB version 2.2.1 and later processes <em>can</em>
+exist in mixed deployments with 2.4-series processes. Therefore you
+cannot perform a rolling upgrade from MongoDB 2.2.0 to MongoDB
+2.4.0. To upgrade a cluster with 2.2.0 components, use one of the
+following procedures.</p>
+<ol class="arabic simple">
+<li>Perform a rolling upgrade of all 2.2.0 processes to the latest
+2.2-series release (e.g. 2.2.3) so that there are no processes in
+the deployment that predate 2.2.1. When there are no 2.2.0
+processes in the deployment, perform a rolling upgrade to 2.4.0.</li>
+<li>Stop all processes in the cluster. Upgrade all processes to a
+2.4-series release of MongoDB, and start all processes at the same
+time.</li>
+</ol>
+</div>
+<div class="section" id="upgrade-from-2-3-to-2-4">
+<h2>Upgrade from 2.3 to 2.4<a class="headerlink" href="#upgrade-from-2-3-to-2-4" title="Permalink to this headline">¶</a></h2>
+<p>If you used a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> from the 2.3 or 2.4-rc (release
+candidate) series, you can safely transition these databases to 2.4.0
+or later; <em>however</em>, if you created <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> indexes
+using a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> before v2.4-rc2, you will need to rebuild
+these indexes. For example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">dropIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span><span class="o">:</span> <span class="s2">&quot;2dsphere&quot;</span> <span class="p">}</span> <span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">dropIndex</span><span class="p">(</span> <span class="s2">&quot;records_text&quot;</span> <span class="p">)</span>
+
+<span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span><span class="o">:</span> <span class="s2">&quot;2dsphere&quot;</span> <span class="p">}</span> <span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">ensureIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">records</span><span class="o">:</span> <span class="s2">&quot;text&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="downgrade-mongodb-from-2-4-to-previous-versions">
+<span id="downgrade"></span><h2>Downgrade MongoDB from 2.4 to Previous Versions<a class="headerlink" href="#downgrade-mongodb-from-2-4-to-previous-versions" title="Permalink to this headline">¶</a></h2>
+<p>For some cases the on-disk format of data files used by 2.4 and 2.2
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> is compatible, and you can upgrade and downgrade if
+needed. However, several new features in 2.4 are incompatible with
+previous versions:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">2dsphere</span></tt> indexes are incompatible with 2.2 and earlier
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances.</li>
+<li><tt class="docutils literal"><span class="pre">text</span></tt> indexes are incompatible with 2.2 and earlier
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances.</li>
+<li>using a <tt class="docutils literal"><span class="pre">hashed</span></tt> index as a shard key are incompatible with 2.2 and
+earlier <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances</li>
+<li><tt class="docutils literal"><span class="pre">hashed</span></tt> indexes are incompatible with 2.0 and earlier
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>In sharded clusters, once you have completed the <a class="reference internal" href="#upgrade-cluster"><em>meta-data upgrade
+procedure</em></a>, you cannot use 2.0
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances in the same
+cluster.</p>
+<p class="last">If you complete the meta-data upgrade, you can have a mixed cluster
+that has both 2.2 and 2.4 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instances, if needed. However, <strong>do not</strong> create <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or
+<tt class="docutils literal"><span class="pre">text</span></tt> indexes in a cluster that has 2.2 components.</p>
+</div>
+<div class="section" id="considerations-and-compatibility">
+<h3>Considerations and Compatibility<a class="headerlink" href="#considerations-and-compatibility" title="Permalink to this headline">¶</a></h3>
+<p>If you upgrade to MongoDB 2.4, and then need to run MongoDB 2.2 with
+the same data files, consider the following limitations.</p>
+<ul class="simple">
+<li>If you use a <tt class="docutils literal"><span class="pre">hashed</span></tt> index as the shard key index, which is only
+possible under 2.4 you will not be able to query data in this
+sharded collection. Furthermore, a 2.2 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> cannot
+properly route an insert operation for a collections sharded using a
+<tt class="docutils literal"><span class="pre">hashed</span></tt> index for the shard key index: any data that you insert
+using a 2.2 <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>, will not arrive on the correct shard
+and will not be reachable by future queries.</li>
+<li>If you <em>never</em> create an <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> index, you can
+move between a 2.4 and 2.2 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> for a given data set;
+however, after you create the first <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> index
+with a 2.4 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> you will need to run a 2.2
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--upgrade"><em class="xref std std-option">--upgrade</em></a>
+option and drop any <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> index.</li>
+</ul>
+</div>
+<div class="section" id="upgrade-and-downgrade-procedures">
+<h3>Upgrade and Downgrade Procedures<a class="headerlink" href="#upgrade-and-downgrade-procedures" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="basic-downgrade-and-upgrade">
+<h4>Basic Downgrade and Upgrade<a class="headerlink" href="#basic-downgrade-and-upgrade" title="Permalink to this headline">¶</a></h4>
+<p><strong>Except</strong> as described below, moving between 2.2 and 2.4 is a drop-in
+replacement:</p>
+<ul>
+<li><p class="first">stop the existing <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, using the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--shutdown"><em class="xref std std-option">--shutdown</em></a> option as follows:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --dbpath /var/mongod/data --shutdown
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">/var/mongod/data</span></tt> with your MongoDB <a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a>.</p>
+</li>
+<li><p class="first">start the new <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> processes with the same
+<a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a> setting, for example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --dbpath /var/mongod/data
+</pre></div>
+</div>
+<p>Replace <tt class="docutils literal"><span class="pre">/var/mongod/data</span></tt> with your MongoDB <a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a>.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="downgrade-to-2-2-after-creating-a-2dsphere-or-text-index">
+<span id="downgrade-pdfile"></span><h4>Downgrade to 2.2 After Creating a <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> Index<a class="headerlink" href="#downgrade-to-2-2-after-creating-a-2dsphere-or-text-index" title="Permalink to this headline">¶</a></h4>
+<p>If you have created <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> indexes while running a
+2.4 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance, you can downgrade at any time, by
+starting the <tt class="docutils literal"><span class="pre">2.2</span></tt> <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--upgrade"><em class="xref std std-option">--upgrade</em></a> option as follows:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --dbpath /var/mongod/data/ --upgrade
+</pre></div>
+</div>
+<p>Then, you will need to drop any existing <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt>
+indexes using <a class="reference internal" href="../reference/method/db.collection.dropIndex.html#db.collection.dropIndex" title="db.collection.dropIndex()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.collection.dropIndex()</span></tt></a>, for example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">dropIndex</span><span class="p">(</span> <span class="p">{</span> <span class="nx">loc</span><span class="o">:</span> <span class="s2">&quot;2dsphere&quot;</span> <span class="p">}</span> <span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">records</span><span class="p">.</span><span class="nx">dropIndex</span><span class="p">(</span> <span class="s2">&quot;records_text&quot;</span> <span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last"><a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--upgrade"><em class="xref std std-option">--upgrade</em></a> will run
+<a class="reference internal" href="../reference/command/repairDatabase.html#dbcmd.repairDatabase" title="repairDatabase"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">repairDatabase</span></tt></a> on any database where you have created
+a <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> index, which will rebuild <em>all</em>
+indexes.</p>
+</div>
+</div>
+<div class="section" id="troubleshooting-upgrade-downgrade-operations">
+<h4>Troubleshooting Upgrade/Downgrade Operations<a class="headerlink" href="#troubleshooting-upgrade-downgrade-operations" title="Permalink to this headline">¶</a></h4>
+<p>If you do not use <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--upgrade"><em class="xref std std-option">--upgrade</em></a>, when you
+attempt to start a 2.2 <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and you have created a
+<tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt> index, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> will return the
+following message:</p>
+<div class="highlight-none"><div class="highlight"><pre>&#39;need to upgrade database index_plugin_upgrade with pdfile version 4.6, new version: 4.5 Not upgrading, exiting&#39;
+</pre></div>
+</div>
+<p>While running 2.4, to check the data file version of a MongoDB
+database, use the following operation in the shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">getSiblingDB</span><span class="p">(</span><span class="s1">&#39;&lt;databasename&gt;&#39;</span><span class="p">).</span><span class="nx">stats</span><span class="p">().</span><span class="nx">dataFileVersion</span>
+</pre></div>
+</div>
+<p>The major data file version for both 2.2 and 2.4 is <tt class="docutils literal"><span class="pre">4</span></tt>, the minor
+data file version for 2.2 is <tt class="docutils literal"><span class="pre">5</span></tt> and the minor data file version for
+2.4 is <tt class="docutils literal"><span class="pre">6</span></tt> if you have created a <tt class="docutils literal"><span class="pre">2dsphere</span></tt> or <tt class="docutils literal"><span class="pre">text</span></tt>.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="2.4-overview.html" title="Previous Section: What’s New in MongoDB 2.4">&lt; &nbsp; What’s New in MongoDB 2.4</a></li>
+              <li id="btnvup"><a href="../release-notes.html" title="Parent Section: Release Notes" >&#47;&#92;&nbsp; Release Notes</a></li>
+              <li id="btnvnx"><a href="2.4-index-types.html" title="Next Section: Compatibility and Index Type Changes in MongoDB 2.4">Compatibility and Index Type Changes in MongoDB 2.4 &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../release-notes.html">Release Notes</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="2.4.html">Release Notes for MongoDB 2.4</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="2.4-overview.html">What’s New in MongoDB 2.4</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Upgrade MongoDB to 2.4</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="2.4-index-types.html">Compatibility and Index Type Changes in MongoDB 2.4</a></li>
+<li class="toctree-l3"><a class="reference internal" href="2.4-javascript.html">JavaScript Changes in MongoDB 2.4</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="2.2.html">Release Notes for MongoDB 2.2</a></li>
+<li class="toctree-l2"><a class="reference internal" href="2.0.html">Release Notes for MongoDB 2.0</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.8.html">Release Notes for MongoDB 1.8</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.6.html">Release Notes for MongoDB 1.6</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.4.html">Release Notes for MongoDB 1.4</a></li>
+<li class="toctree-l2"><a class="reference internal" href="1.2.html">Release Notes for MongoDB 1.2.x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="drivers-write-concern.html">Default Write Concern Change</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/release-notes/2.4-upgrade.txt" target="_blank" title="Edit release-notes/2.4-upgrade.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22release-notes/2.4-upgrade%2Etxt%22" target="_blank" title="Report a problem with release-notes/2.4-upgrade.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/release-notes/2.4-upgrade.txt"'},
+		environment: {'repo': 'docs','source': 'release-notes/2.4-upgrade'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'release-notes/2.4-upgrade'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

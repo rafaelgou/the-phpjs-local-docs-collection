@@ -1,0 +1,514 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>エクスポート &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="transactions.html" />
+    <link rel="prev" title="インポートする" href="data-fixtures.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="transactions.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="インポートする"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <p>Doctrine Database Abstraction
+Layerは内臓されるフレームワークで、使用しているデータベースとコミュニケーションを行いデータベースタイプに応じて適切なSQLを送信するためにORMが使用しています。このフレームワークはデータベースが持つテーブルもしくはテーブルが持つフィールドのような情報をデータベースに問い合わせる機能も持ち、ORMが既存のデータベースからモデルを簡単に生成できる手段です。</p>
+<p>このレイヤーはORMから独立して使うことができます。例えば既存のアプリケーションがPDOを直接使用しこれをDoctrine
+ConnectionsとDBALを使うためにこれを移植したい場合に役立ちます。後のフェーズで新しいことのためにORMを使い始めたりORMで使えるように古いピースを書き直したりします。</p>
+<p>DBALは少数の異なるモジュールで構成されます。この章では異なるモジュールとそれらが担っている仕事を検討します</p>
+<div class="section" id="id1">
+<h1>エクスポート<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>Exportモジュールはデータベース構造を管理するためのメソッドを提供します。メソッドはそれぞれの責務に基づいて分類できます。例えばデータベースの要素をcreate、edit(alterもしくはupdate)、listもしくはdelete
+(drop)するなどです。以下のドキュメントでは利用可能なメソッドの一覧と使い方の例を示します。</p>
+<div class="section" id="id2">
+<h2>はじめに<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h2>
+<p>Exportモジュールでメソッドを変更するすべてのスキーマはalterオペレーションのために使われるSQLを返す同等物を持ちます。例えば``createTable()``は``createTableSql()``によって返されるクエリを実行します。</p>
+<p>この章では``events_db``という名前のデータベースで、次のテーブルが作成され、変更され最後には削除されます:</p>
+<p><strong>events</strong></p>
+<p>||~ 名前 ||~ 型 ||~ Primary ||~ Auto Increment || || <tt class="docutils literal"><span class="pre">id</span></tt>
+|| <tt class="docutils literal"><span class="pre">integer</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || || <tt class="docutils literal"><span class="pre">name</span></tt> ||
+<tt class="docutils literal"><span class="pre">string(255)</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> || || <tt class="docutils literal"><span class="pre">datetime</span></tt>
+|| <tt class="docutils literal"><span class="pre">timestamp</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> ||</p>
+<p><strong>people</strong></p>
+<p>||~ 名前 ||~ 型 ||~ Primary ||~ Auto Increment || || <tt class="docutils literal"><span class="pre">id</span></tt>
+|| <tt class="docutils literal"><span class="pre">integer</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || || <tt class="docutils literal"><span class="pre">name</span></tt> ||
+<tt class="docutils literal"><span class="pre">string(255)</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt>|| <tt class="docutils literal"><span class="pre">false</span></tt> ||</p>
+<p><strong>event_participants</strong></p>
+<p>||~ 名前 ||~ 型 ||~ Primary ||~ Auto Increment || ||
+<tt class="docutils literal"><span class="pre">event_id</span></tt> || <tt class="docutils literal"><span class="pre">integer</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> || ||
+<tt class="docutils literal"><span class="pre">person_id</span></tt> || <tt class="docutils literal"><span class="pre">string(255)</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> ||</p>
+</div>
+<div class="section" id="id3">
+<h2>データベースを作成する<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineで新しいデータベースを作成するのはシンプルです。作成するデータベースの名前を引数にして``createDatabase()``メソッドを呼び出すだけです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $conn-&gt;export-&gt;createDatabase(&#8216;events_db&#8217;);</p>
+<p>新しい``events_db``に接続するために``bootstrap.php``ファイルの接続を変更してみましょう:</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>/** * Bootstrap Doctrine.php, register autoloader and specify *
+configuration attributes */</p>
+<p>// ...</p>
+<p>$conn =
+Doctrine_Manager::connection(&#8216;mysql://root:&#64;localhost/events_db&#8217;,
+&#8216;doctrine&#8217;);</p>
+<p>// ...</p>
+</div>
+<div class="section" id="id4">
+<h2>テーブルを作成する<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
+<p>データベースは作成され接続を再設定しました。テーブルに追加に移ります。<a href="#id5"><span class="problematic" id="id6">``</span></a>createTable()``メソッドは3つのパラメータ:
+テーブルの名前、フィールド定義の配列、と追加オプション(オプションでRDBMS固有)を受けとります。</p>
+<p><a href="#id7"><span class="problematic" id="id8">``</span></a>events``テーブルを作成しましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// $definition = array( &#8216;id&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;, &#8216;primary&#8217; =&gt;
+true, &#8216;autoincrement&#8217; =&gt; true ), &#8216;name&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;string&#8217;,
+&#8216;length&#8217; =&gt; 255 ), &#8216;datetime&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;timestamp&#8217; ) );</p>
+<p>$conn-&gt;export-&gt;createTable(&#8216;events&#8217;, $definition);</p>
+<p>定義配列のキーはテーブルのフィールド名です。値は他のキーと同じように必須キーの``type``を格納する配列で、<a href="#id9"><span class="problematic" id="id10">``</span></a>type``の値によって、<a href="#id11"><span class="problematic" id="id12">``</span></a>type``キーの値はDoctrineのデータ型と同じものが可能です。データ型によって、他のオプションが変わることがあります。</p>
+<p>||~ データ型 ||~ 長さ ||~ デフォルト ||~ not null ||~ unsigned
+||~ autoincrement || || <tt class="docutils literal"><span class="pre">string</span></tt> || x || x || x || ||
+|| || <tt class="docutils literal"><span class="pre">boolean</span></tt> || || x || x || || || || <tt class="docutils literal"><span class="pre">integer</span></tt>
+|| x || x || x || x || x || || <tt class="docutils literal"><span class="pre">decimal</span></tt> || || x
+|| x || || || || <tt class="docutils literal"><span class="pre">float</span></tt> || || x || x || || ||
+|| <tt class="docutils literal"><span class="pre">timestamp</span></tt> || || x || x || || || || <tt class="docutils literal"><span class="pre">time</span></tt> ||
+|| x || x || || || || <tt class="docutils literal"><span class="pre">date</span></tt> || || x || x || ||
+|| || <tt class="docutils literal"><span class="pre">clob</span></tt> || x || || x || || || || <tt class="docutils literal"><span class="pre">blob</span></tt> ||
+x || || x || || ||</p>
+<p><a href="#id13"><span class="problematic" id="id14">``</span></a>people``テーブルを作ることができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $definition = array( &#8216;id&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;,
+&#8216;primary&#8217; =&gt; true, &#8216;autoincrement&#8217; =&gt; true ), &#8216;name&#8217; =&gt; array( &#8216;type&#8217; =&gt;
+&#8216;string&#8217;, &#8216;length&#8217; =&gt; 255 ) );</p>
+<p>$conn-&gt;export-&gt;createTable(&#8216;people&#8217;, $definition);</p>
+<p><a href="#id15"><span class="problematic" id="id16">``</span></a>createTable()``メソッドの3番目の引数としてオプションの配列を指定することもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $options = array( &#8216;comment&#8217; =&gt; &#8216;Repository of people&#8217;,
+&#8216;character_set&#8217; =&gt; &#8216;utf8&#8217;, &#8216;collate&#8217; =&gt; &#8216;utf8_unicode_ci&#8217;, &#8216;type&#8217; =&gt;
+&#8216;innodb&#8217;, );</p>
+<p>// ...</p>
+<p>$conn-&gt;export-&gt;createTable(&#8216;people&#8217;, $definition, $options);</p>
+</div>
+<div class="section" id="id17">
+<h2>外部キーを作成する<a class="headerlink" href="#id17" title="Permalink to this headline">¶</a></h2>
+<p>外部キーで``event_participants``テーブルを作成します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $options = array( &#8216;foreignKeys&#8217; =&gt; array( &#8216;events_id_fk&#8217; =&gt;
+array( &#8216;local&#8217; =&gt; &#8216;event_id&#8217;, &#8216;foreign&#8217; =&gt; &#8216;id&#8217;, &#8216;foreignTable&#8217; =&gt;
+&#8216;events&#8217;, &#8216;onDelete&#8217; =&gt; &#8216;CASCADE&#8217;, ) ), &#8216;primary&#8217; =&gt; array(&#8216;event_id&#8217;,
+&#8216;person_id&#8217;), );</p>
+<p>$definition = array( &#8216;event_id&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;,
+&#8216;primary&#8217; =&gt; true ), &#8216;person_id&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;,
+&#8216;primary&#8217; =&gt; true ), );</p>
+<p>$conn-&gt;export-&gt;createTable(&#8216;event_participants&#8217;, $definition,
+$options);</p>
+<blockquote>
+<div><strong>TIP</strong>
+上記の例で``person_id``に対して外部キーを省略していることに注目してください。この例では次の例で個別の外部キーをテーブルに追加する方法を示すために省略しました。通常は``foreignKeys``で定義された両方の外部キーがあることがベストです。</div></blockquote>
+<p><a href="#id18"><span class="problematic" id="id19">``</span></a>person_id``カラムの``event_participants``テーブルに見つからない外部キーを追加してみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $definition = array(&#8216;local&#8217; =&gt; &#8216;person_id&#8217;, &#8216;foreign&#8217; =&gt; &#8216;id&#8217;,
+&#8216;foreignTable&#8217; =&gt; &#8216;people&#8217;, &#8216;onDelete&#8217; =&gt; &#8216;CASCADE&#8217;);</p>
+<p>$conn-&gt;export-&gt;createForeignKey(&#8216;event_participants&#8217;, $definition);</p>
+</div>
+<div class="section" id="id20">
+<h2>テーブルを変更する<a class="headerlink" href="#id20" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id21"><span class="problematic" id="id22">``</span></a>Doctrine_Export``ドライバはデータベースがポータブルでありながら既存のデータベーステーブルを簡単に変更する方法を提供します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $alter = array( &#8216;add&#8217; =&gt; array( &#8216;new_column&#8217; =&gt; array( &#8216;type&#8217; =&gt;
+&#8216;string&#8217;, &#8216;length&#8217; =&gt; 255 ), &#8216;new_column2&#8217; =&gt; array( &#8216;type&#8217; =&gt;
+&#8216;string&#8217;, &#8216;length&#8217; =&gt; 255 ) ) );</p>
+<p>echo $conn-&gt;export-&gt;alterTableSql(&#8216;events&#8217;, $alter);</p>
+<p><a href="#id23"><span class="problematic" id="id24">``</span></a>alterTableSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>ALTER TABLE events ADD new_column VARCHAR(255), ADD new_column2</div></blockquote>
+<p>VARCHAR(255)</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+生成SQLのみを実行しこれを返したくない場合、<a href="#id25"><span class="problematic" id="id26">``</span></a>alterTable()``メソッドを使います。</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ...</p>
+<p>$conn-&gt;export-&gt;alterTable(&#8216;events&#8217;, $alter);</p>
+<p><a href="#id27"><span class="problematic" id="id28">``</span></a>alterTable()``メソッドは2つのパラメータを必須とし3番目のパラメータはオプションです:</p>
+<p>||~ 名前 ||~ 型 ||~ 説明 || ||
+//<tt class="code docutils literal"><span class="pre">name//</span> <span class="pre">||</span> <span class="pre">``string`</span></tt> || 変更が想定されるテーブルの名前。 || || //<cite>changes//
+|| ``array`</cite> ||
+実行を前提とされる変更のそれぞれのタイプの詳細を含む連想配列。||</p>
+<p>オプションの3番目のパラメータ(デフォルト: false):</p>
+<p>||~ 名前 ||~ 型 ||~ 説明 || || //$check// || <tt class="docutils literal"><span class="pre">boolean</span></tt>
+|| 実行前にDBMSが実際にオペレーションを実行できるかチェックする ||</p>
+<p>現在サポートされる変更のタイプは次のように定義されます:</p>
+<p>||~ 変更 ||~ 説明 || || //name// || テーブル用の新しい名前
+|| || //add// ||
+配列のインデックスとして追加されるフィールドの名前を格納する連想配列。配列のそれぞれのエントリの値は追加されるフィールドのプロパティを格納する別の連想配列に設定されます。フィールドのプロパティはDoctrineパーサーによって定義されたものと同じです。||
+|| // remove// ||
+配列のインデックスとして削除されるフィールドの名前を格納する連想配列。現在それぞれのエントリに割り当てられた値は無視されます。空の配列は将来の互換性のために使われます。||
+|| //rename// ||
+配列のインデックスとしてリネームされるフィールドの名前を格納する連想配列。配列のそれぞれのエントリの値は別の連想配列に設定されます。この別の連想配列は新しいフィールド名と``CREATE
+TABLE``文として使われるDBM固有のSQLコードで既にあるフィールドの宣言の一部を格納するものとして設定されるDeclarationという名前のエントリを持ちます。||
+|| //change// ||
+配列のインデックスとして変更されるフィールドの名前を格納する連想配列。フィールドと他のプロパティを変更するか、change配列エントリは配列インデックスとしてフィールドの新しい名前を格納するかを念頭においてください。||</p>
+<p>配列のそれぞれのエントリの値はフィールドのプロパティを格納する別の連想配列に設定されます。これは配列エントリとして変更されることを意味します。これらのエントリはそれぞれのプロパティの新しい値に割り当てられます。フィールドのプロパティはDoctrineパーサーが定義するものと同じです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $alter = array(&#8216;name&#8217; =&gt; &#8216;event&#8217;, &#8216;add&#8217; =&gt; array( &#8216;quota&#8217; =&gt;
+array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;, &#8216;unsigned&#8217; =&gt; 1 ) ), &#8216;remove&#8217; =&gt; array(
+&#8216;new_column2&#8217; =&gt; array() ), &#8216;change&#8217; =&gt; array( &#8216;name&#8217; =&gt; array(
+&#8216;length&#8217; =&gt; &#8216;20&#8217;, &#8216;definition&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt;
+20 ) ) ), &#8216;rename&#8217; =&gt; array( &#8216;new_column&#8217; =&gt; array( &#8216;name&#8217; =&gt; &#8216;gender&#8217;,
+&#8216;definition&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt; 1, &#8216;default&#8217; =&gt;
+&#8216;M&#8217; ) ) )</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">);</span>
+</pre></div>
+</div>
+<p>$conn-&gt;export-&gt;alterTable(&#8216;events&#8217;, $alter);</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+テーブルを``event``にリネームしたことに注目してください。テーブルを``events``にリネームし直しましょう。機能を示すためだけにテーブルをリネームしたので次の例のためにテーブルを``events``と名づける必要があります。</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $alter = array( &#8216;name&#8217; =&gt; &#8216;events&#8217; );</p>
+<p>$conn-&gt;export-&gt;alterTable(&#8216;event&#8217;, $alter);</p>
+</div>
+<div class="section" id="id29">
+<h2>インデックスを作成する<a class="headerlink" href="#id29" title="Permalink to this headline">¶</a></h2>
+<p>インデックスを作成するために、<a href="#id30"><span class="problematic" id="id31">``</span></a>createIndex()``メソッドが使われます。このメソッドは``createConstraint()``と似たシグニチャを持ち、テーブルの名前、インデックスの名前と定義配列を受け取ります。定義配列は``fields``という名前の1つのキーを持ち、その値はインデックスの一部であるフィールドを格納する別の連想配列です。フィールドは次のキーを持つ配列として定義されます:
+ソート、昇順と降順の長さを持つ値、整数値</p>
+<p>すべてのRDBMSはインデックスソートもしくは長さをサポートしないので、これらの場合ドライバはこれらを無視します。テストのeventデータベースでは、アプリケーションが固有のtimeframeで起きるイベントを表示することを前提とすることができます。selectは``WHERE``条件でdatatimeフィールドを使います。このフィールドにインデックスが存在する場合に手助けになります。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $definition = array( &#8216;fields&#8217; =&gt; array( &#8216;datetime&#8217; =&gt; array() )
+);</p>
+<p>$conn-&gt;export-&gt;createIndex(&#8216;events&#8217;, &#8216;datetime&#8217;, $definition);</p>
+</div>
+<div class="section" id="id32">
+<h2>データベースの要素を削除する<a class="headerlink" href="#id32" title="Permalink to this headline">¶</a></h2>
+<p>上記で示されたそれぞれの``create*()``メソッドに対して、データベース、テーブル、フィールド、インデックスもしくは制約を削除するために対応する``drop*()``メソッドが存在します。<a href="#id33"><span class="problematic" id="id34">``</span></a>drop*()``メソッドは削除されるアイテムの存在をチェックしません。try-catchブロックを使用して例外をチェックするのは開発者の責務です:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... try { $conn-&gt;export-&gt;dropSequence(&#8216;nonexisting&#8217;); }
+catch(Doctrine_Exception $e) {</p>
+<p>}</p>
+<p>次のコードで制約を簡単に削除できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $conn-&gt;export-&gt;dropConstraint(&#8216;events&#8217;, &#8216;PRIMARY&#8217;, true);</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong> 3番目の引数はこれが主キーであることのヒントを与えます。</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $conn-&gt;export-&gt;dropConstraint(&#8216;event_participants&#8217;,
+&#8216;event_id&#8217;);</p>
+<p>次のコードでインデックスを簡単に削除できます:</p>
+<blockquote>
+<div><p>$conn-&gt;export-&gt;dropIndex(&#8216;events&#8217;, &#8216;event_timestamp&#8217;);</p>
+<blockquote>
+<div><strong>TIP</strong>
+次の2つの例を実際に実行するのは推奨されません。次のセクションで我々の例が無傷で動作できるように``events_db``が必要です。</div></blockquote>
+</div></blockquote>
+<p>次のコードでデータベースからテーブルを削除します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $conn-&gt;export-&gt;dropTable(&#8216;events&#8217;);</p>
+<p>次のコードでデータベースを削除できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $conn-&gt;export-&gt;dropDatabase(&#8216;events_db&#8217;);</p>
+</div>
+</div>
+<div class="section" id="import">
+<h1>Import<a class="headerlink" href="#import" title="Permalink to this headline">¶</a></h1>
+<p>importモジュールによってデータベース接続の内容を検証できます。それぞれのデータベースとそれぞれのデータベースのスキーマを学びます。</p>
+<div class="section" id="id35">
+<h2>紹介<a class="headerlink" href="#id35" title="Permalink to this headline">¶</a></h2>
+<p>データベースに何があるのか見るために、Importモジュールの``list*()``ファミリーのメソッドを使うことができます。</p>
+<p>||~ 名前 ||~ 説明 || || <tt class="docutils literal"><span class="pre">listDatabases()</span></tt> ||
+データベースの一覧を表示する。|| || <tt class="docutils literal"><span class="pre">listFunctions()</span></tt> ||
+利用可能なメソッドの一覧を表示する。|| ||
+<tt class="docutils literal"><span class="pre">listSequences(:code:`dbName)</span></tt> || 利用可能なシーケンスの一覧を表示する。オプションパラメータとしてデータベースの名前を受け取る。帝京されない場合、選択されたデータベースが想定されます。|| || <tt class="docutils literal"><span class="pre">listTableConstraints(`\</span> <span class="pre">tableName)</span></tt>
+|| 利用可能なテーブルの一覧を表示する。テーブルの名前を受け取る。||
+||
+<tt class="docutils literal"><span class="pre">listTableColumns(:code:`tableName)</span></tt> || テーブルで利用可能なカラムの一覧を表示する。|| || <tt class="docutils literal"><span class="pre">listTableIndexes(`\</span> <span class="pre">tableName)</span></tt>
+|| テーブルで定義されているインデックスの一覧を表示する。|| ||
+<tt class="docutils literal"><span class="pre">listTables(:code:`dbName)</span></tt> || データベースのテーブルの一覧を表示する。 || || <tt class="docutils literal"><span class="pre">listTableTriggers(`\</span> <span class="pre">tableName)</span></tt>
+|| テーブルのトリッガーの一覧を表示する。|| ||
+<tt class="docutils literal"><span class="pre">listTableViews(:code:`tableName)</span></tt> || テーブルで利用可能なビューの一覧を表示する。|| || <tt class="docutils literal"><span class="pre">listUsers()</span></tt> || データベース用のユーザーの一覧を表示する。|| || <tt class="docutils literal"><span class="pre">listViews(`\</span> <span class="pre">dbName)</span></tt>
+|| データベース用のビューの一覧を表示する。||</p>
+<p>下記において上記のメソッドの使い方の例が見つかります:</p>
+</div>
+<div class="section" id="id36">
+<h2>データベースの一覧を表示する<a class="headerlink" href="#id36" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $databases = <tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listDatabases();</span> <span class="pre">print_r(</span></tt>databases);</p>
+</div>
+<div class="section" id="id37">
+<h2>シーケンスの一覧を表示する<a class="headerlink" href="#id37" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sequences =
+<tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listSequences('events_db');</span> <span class="pre">print_r(</span></tt>sequences);</p>
+</div>
+<div class="section" id="id38">
+<h2>制約の一覧を表示する<a class="headerlink" href="#id38" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $constraints =
+<tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listTableConstraints('event_participants');</span> <span class="pre">print_r(</span></tt>constraints);</p>
+</div>
+<div class="section" id="id39">
+<h2>テーブルカラムの一覧を表示する<a class="headerlink" href="#id39" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $columns =
+<tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listTableColumns('events');</span> <span class="pre">print_r(</span></tt>columns);</p>
+</div>
+<div class="section" id="id40">
+<h2>テーブルインデックスの一覧を表示する<a class="headerlink" href="#id40" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $indexes =
+<tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listTableIndexes('events');</span> <span class="pre">print_r(</span></tt>indexes);</p>
+</div>
+<div class="section" id="id41">
+<h2>テーブルの一覧を表示する<a class="headerlink" href="#id41" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>$tables = <tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listTables();</span> <span class="pre">print_r(</span></tt>tables);</div></blockquote>
+</div>
+<div class="section" id="id42">
+<h2>ビューの一覧を表示する<a class="headerlink" href="#id42" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+現在、ビューを作成するメソッドは存在しないので、手動で作成してください。</div></blockquote>
+<p>$sql = &#8220;CREATE VIEW names_only AS SELECT name FROM people&#8221;;</p>
+</div></blockquote>
+<p><tt class="code docutils literal"><span class="pre">conn-&gt;exec(</span></tt>sql);</p>
+<p>$sql = &#8220;CREATE VIEW last_ten_events AS SELECT * FROM events ORDER BY
+id DESC LIMIT 0,10&#8221;; <tt class="code docutils literal"><span class="pre">conn-&gt;exec(</span></tt>sql);</p>
+<p>先ほど作成したビューの一覧を表示できます:</p>
+<blockquote>
+<div>$views = <tt class="code docutils literal"><span class="pre">conn-&gt;import-&gt;listViews();</span> <span class="pre">print_r(</span></tt>views);</div></blockquote>
+</div>
+</div>
+<div class="section" id="datadict">
+<h1>DataDict<a class="headerlink" href="#datadict" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id43">
+<h2>はじめに<a class="headerlink" href="#id43" title="Permalink to this headline">¶</a></h2>
+<p>ネイティブのRDBMの型をDoctrineの型に変換するもしくはその逆を行うためにDoctrineは内部で``DataDict``モジュールを使用します。<a href="#id44"><span class="problematic" id="id45">``</span></a>DataDict``モジュールは変換のために2つのメソッドを使用します:</p>
+<ul class="simple">
+<li><a href="#id46"><span class="problematic" id="id47">``</span></a>getPortableDeclaration()``はネイティブなRDBMSの型宣言をポータブルなDoctrine宣言に変換するために使われる</li>
+<li><a href="#id48"><span class="problematic" id="id49">``</span></a>getNativeDeclaration()``はDoctrine宣言をドライバ固有の型宣言に変換するために使われる</li>
+</ul>
+</div>
+<div class="section" id="id50">
+<h2>ポータブルな宣言を取得する<a class="headerlink" href="#id50" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $declaration =
+$conn-&gt;dataDict-&gt;getPortableDeclaration(&#8216;VARCHAR(255)&#8217;);</p>
+<p>print_r($declaration);</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [type] =&gt; Array ( [0] =&gt; string )</div></blockquote>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">[</span><span class="nx">length</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="mi">255</span>
+<span class="p">[</span><span class="nx">unsigned</span><span class="p">]</span> <span class="o">=&gt;</span>
+<span class="p">[</span><span class="nx">fixed</span><span class="p">]</span> <span class="o">=&gt;</span>
+</pre></div>
+</div>
+<p>)</p>
+</div>
+<div class="section" id="id51">
+<h2>ネイティブな宣言を取得する<a class="headerlink" href="#id51" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $portableDeclaration = array( &#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt; 20,
+&#8216;fixed&#8217; =&gt; true );</p>
+<p>$nativeDeclaration = <tt class="code docutils literal"><span class="pre">conn-&gt;dataDict-&gt;getNativeDeclaration(</span></tt>portableDeclaration);</p>
+<p>echo $nativeDeclaration;</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php CHAR(20)</div></blockquote>
+</div>
+</div>
+<div class="section" id="id52">
+<h1>ドライバ<a class="headerlink" href="#id52" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="mysql">
+<h2>Mysql<a class="headerlink" href="#mysql" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id53">
+<h3>テーブル型を設定する<a class="headerlink" href="#id53" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $fields = array( &#8216;id&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;integer&#8217;,
+&#8216;autoincrement&#8217; =&gt; true ), &#8216;name&#8217; =&gt; array( &#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;fixed&#8217;
+=&gt; true, &#8216;length&#8217; =&gt; 8 ) );</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong> 次のオプションはMySQL固有で他のドライバはスキップします。</div></blockquote>
+<p>$options = array(&#8216;type&#8217; =&gt; &#8216;INNODB&#8217;);</p>
+</div></blockquote>
+<p>$sql = $conn-&gt;export-&gt;createTableSql(&#8216;test_table&#8217;, $fields); echo
+$sql[0];</p>
+<p>上記の例は次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE test_table (id INT AUTO_INCREMENT, name CHAR(8)) ENGINE</div></blockquote>
+<p>= INNODB</p>
+</div>
+</div>
+</div>
+<div class="section" id="id54">
+<h1>まとめ<a class="headerlink" href="#id54" title="Permalink to this headline">¶</a></h1>
+<p>この章は本当に素晴らしいものです。Doctrine
+DBALはそれ自身が偉大なツールです。おそらく最も機能を持つものの1つでPHPデータベース抽象化レイヤーを簡単に利用できます。</p>
+<p>[doc transactions :name]の使い方を学ぶ準備が整いました。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">エクスポート</a><ul>
+<li><a class="reference internal" href="#id2">はじめに</a></li>
+<li><a class="reference internal" href="#id3">データベースを作成する</a></li>
+<li><a class="reference internal" href="#id4">テーブルを作成する</a></li>
+<li><a class="reference internal" href="#id17">外部キーを作成する</a></li>
+<li><a class="reference internal" href="#id20">テーブルを変更する</a></li>
+<li><a class="reference internal" href="#id29">インデックスを作成する</a></li>
+<li><a class="reference internal" href="#id32">データベースの要素を削除する</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#import">Import</a><ul>
+<li><a class="reference internal" href="#id35">紹介</a></li>
+<li><a class="reference internal" href="#id36">データベースの一覧を表示する</a></li>
+<li><a class="reference internal" href="#id37">シーケンスの一覧を表示する</a></li>
+<li><a class="reference internal" href="#id38">制約の一覧を表示する</a></li>
+<li><a class="reference internal" href="#id39">テーブルカラムの一覧を表示する</a></li>
+<li><a class="reference internal" href="#id40">テーブルインデックスの一覧を表示する</a></li>
+<li><a class="reference internal" href="#id41">テーブルの一覧を表示する</a></li>
+<li><a class="reference internal" href="#id42">ビューの一覧を表示する</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#datadict">DataDict</a><ul>
+<li><a class="reference internal" href="#id43">はじめに</a></li>
+<li><a class="reference internal" href="#id50">ポータブルな宣言を取得する</a></li>
+<li><a class="reference internal" href="#id51">ネイティブな宣言を取得する</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id52">ドライバ</a><ul>
+<li><a class="reference internal" href="#mysql">Mysql</a><ul>
+<li><a class="reference internal" href="#id53">テーブル型を設定する</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id54">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="data-fixtures.html"
+                        title="previous chapter">インポートする</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="transactions.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/database-abstraction-layer.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="transactions.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="インポートする"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

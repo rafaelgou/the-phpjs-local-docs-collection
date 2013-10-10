@@ -1,0 +1,328 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>単一継承 &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="Behaviours" href="behaviors.html" />
+    <link rel="prev" title="コアハイドレーションメソッド" href="data-hydrators.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviours"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="data-hydrators.html" title="コアハイドレーションメソッド"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <p>Doctrineは3種類の継承戦略をサポートします。これらの戦略は混ぜることができます。三種類は単一、具象とカラム集約です。これらの異なる継承の使い方をこの章で学びます。</p>
+<p>この章では前の章で利用してきたテスト環境の既存のすべてのスキーマとモデルを削除してください。</p>
+<blockquote>
+<div>$ rm schema.yml $ touch schema.yml $ rm -rf models/*</div></blockquote>
+<div class="section" id="id1">
+<h1>単一継承<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>単一継承は最も簡単でシンプルです。単一継承においてすべての子クラスは同じカラムを親として共有しすべての情報は親テーブルに保存されます。</p>
+<blockquote>
+<div>// models/Entity.php</div></blockquote>
+<p>class Entity extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, 30);
+$this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 20); $this-&gt;hasColumn(&#8216;password&#8217;,
+&#8216;string&#8217;, 16); $this-&gt;hasColumn(&#8216;created_at&#8217;, &#8216;timestamp&#8217;);
+$this-&gt;hasColumn(&#8216;update_at&#8217;, &#8216;timestamp&#8217;); } }</p>
+<p><a href="#id2"><span class="problematic" id="id3">``</span></a>Entity``を継承する``User``モデルを作りましょう:</p>
+<blockquote>
+<div>// models/User.php</div></blockquote>
+<p>class User extends Entity { }</p>
+<p><a href="#id4"><span class="problematic" id="id5">``</span></a>Group``モデルに対しても同じことを行いましょう:</p>
+<blockquote>
+<div>// models/Group.php</div></blockquote>
+<p>class Group extends Entity { }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>Entity: columns: name: string(30) username: string(20) password:
+string(16) created_at: timestamp updated_at: timestamp</p>
+<p>User: inheritance: extends: Entity type: simple</p>
+<p>Group: inheritance: extends: Entity type: simple</p>
+<p>上記のコードによって生成されたSQLを確認してみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;Entity&#8217;,
+&#8216;User&#8217;, &#8216;Group&#8217;)); echo $sql[0];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE entity (id BIGINT AUTO_INCREMENT, username VARCHAR(20),</div></blockquote>
+<p>password VARCHAR(16), created_at DATETIME, updated_at DATETIME, type
+VARCHAR(255), name VARCHAR(30), PRIMARY KEY(id)) ENGINE = INNODB</p>
+<blockquote>
+<div><strong>NOTE</strong>
+YAMLスキーマファイルを使うとき子クラスでカラムを定義できますがYAMLが解析されるときカラムは自動的に親に移動します。これはカラムを簡単に組織できるようにするためだけです。</div></blockquote>
+</div>
+<div class="section" id="id6">
+<h1>具象継承<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h1>
+<p>具象継承は子クラス用の独立したテーブルを作成します。しかしながら具象継承ではそれぞれのクラスはすべてのカラムを含むテーブルを生成します(継承されたカラムを含む)。具象継承を使うには下記で示されるように子クラスへの明示的な``parent::setTableDefinition()``を追加する必要があります。</p>
+<blockquote>
+<div>// models/TextItem.php</div></blockquote>
+<p>class TextItem extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;topic&#8217;, &#8216;string&#8217;, 100); } }</p>
+<p><a href="#id7"><span class="problematic" id="id8">``</span></a>TextItem``を継承する``Comment``という名前のモデルを作り``content``という名前のカラムを追加してみましょう:</p>
+<blockquote>
+<div>// models/Comment.php</div></blockquote>
+<p>class Comment extends TextItem { public function setTableDefinition() {
+parent::setTableDefinition();</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;content&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">300</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>TextItem: columns: topic: string(100)</p>
+<p>Comment: inheritance: extends: TextItem type: concrete columns: content:
+string(300)</p>
+<p>上記のモデルによって生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine::generateSqlFromArray(array(&#8216;TextItem&#8217;,
+&#8216;Comment&#8217;)); echo $sql[0] . &#8220;&#8221;; echo $sql[1];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE text_item (id BIGINT AUTO_INCREMENT, topic VARCHAR(100),</div></blockquote>
+<p>PRIMARY KEY(id)) ENGINE = INNODB CREATE TABLE comment (id BIGINT
+AUTO_INCREMENT, topic VARCHAR(100), content TEXT, PRIMARY KEY(id))
+ENGINE = INNODB</p>
+<p>具象クラスにおいて追加のカラムを定義する必要はありませんが、それぞれのクラス用に個別のテーブルを作るには``setTableDefinition()``の呼び出しを繰り返し書かなければなりません。</p>
+<p>次の例では``entity``、<tt class="docutils literal"><span class="pre">user``と``group``と呼ばれるデータベーステーブルがあります。``Users``と``groups``は両方とも``entities``です。行わなければならないことは3つのクラス(``Entity</span></tt>、<tt class="docutils literal"><span class="pre">Group``と``User</span></tt>)を書き``setTableDefinition()``メソッドの呼び出しを繰り返し記述することです。</p>
+<blockquote>
+<div>// models/Entity.php</div></blockquote>
+<p>class Entity extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, 30);
+$this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 20); $this-&gt;hasColumn(&#8216;password&#8217;,
+&#8216;string&#8217;, 16); $this-&gt;hasColumn(&#8216;created&#8217;, &#8216;integer&#8217;, 11); } }</p>
+<p>// models/User.php</p>
+<p>class User extends Entity { public function setTableDefinition() { //
+次のメソッド呼び出しは // 具象継承で必要 parent::setTableDefinition(); }
+}</p>
+<p>// models/Group.php class Group extends Entity { public function
+setTableDefinition() { // 次のメソッド呼び出しは // 具象継承で必要
+parent::setTableDefinition(); } }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>Entity: columns: name: string(30) username: string(20) password:</div></blockquote>
+<p>string(16) created: integer(11)</p>
+<p>User: inheritance: extends: Entity type: concrete</p>
+<p>Group: tableName: groups inheritance: extends: Entity type: concrete</p>
+<p>上記のモデルによって生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine::generateSqlFromArray(array(&#8216;Entity&#8217;, &#8216;User&#8217;,
+&#8216;Group&#8217;)); echo $sql[0] . &#8220;&#8221;; echo $sql[1] . &#8220;&#8221;; echo $sql[2] . &#8220;&#8221;;</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE user (id BIGINT AUTO_INCREMENT, name VARCHAR(30),</div></blockquote>
+<p>username VARCHAR(20), password VARCHAR(16), created BIGINT, PRIMARY
+KEY(id)) ENGINE = INNODB CREATE TABLE groups (id BIGINT AUTO_INCREMENT,
+name VARCHAR(30), username VARCHAR(20), password VARCHAR(16), created
+BIGINT, PRIMARY KEY(id)) ENGINE = INNODB CREATE TABLE entity (id BIGINT
+AUTO_INCREMENT, name VARCHAR(30), username VARCHAR(20), password
+VARCHAR(16), created BIGINT, PRIMARY KEY(id)) ENGINE = INNODB</p>
+</div>
+<div class="section" id="id9">
+<h1>カラム集約<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h1>
+<p>次の例において``entity``という名前の1つのデータベーステーブルがあります。<a href="#id10"><span class="problematic" id="id11">``</span></a>Users``と``groups``は両方とも``entities``でこれらは同じデータベーステーブルを共有します。</p>
+<p><a href="#id12"><span class="problematic" id="id13">``</span></a>entity``テーブルは``type``と呼ばれる1つのカラムを持ちます。このカラムは``group``もしくは``user``であることを伝えます。<a href="#id14"><span class="problematic" id="id15">``</span></a>users``はタイプ1でグループはタイプ2であると決めます。</p>
+<p>行わなければならない唯一の作業は3のレコード(以前と同じ)を作成し親クラスからの``Doctrine_Table::setSubclasses()``メソッド呼び出しを追加することです。</p>
+<blockquote>
+<div>// models/Entity.php</div></blockquote>
+<p>class Entity extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, 30);
+$this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 20); $this-&gt;hasColumn(&#8216;password&#8217;,
+&#8216;string&#8217;, 16); $this-&gt;hasColumn(&#8216;created_at&#8217;, &#8216;timestamp&#8217;);
+$this-&gt;hasColumn(&#8216;update_at&#8217;, &#8216;timestamp&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">setSubclasses</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;User&#39;</span>  <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">),</span>
+            <span class="s1">&#39;Group&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>// models/User.php class User extends Entity { }</p>
+<p>// models/Group.php class Group extends Entity { }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>Entity: columns: username: string(20) password: string(16) created_at:</div></blockquote>
+<p>timestamp updated_at: timestamp</p>
+<p>User: inheritance: extends: Entity type: column_aggregation keyField:
+type keyValue: 1</p>
+<p>Group: inheritance: extends: Entity type: column_aggregation keyField:
+type keyValue: 2</p>
+<p>上記のモデルによって生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine::generateSqlFromArray(array(&#8216;Entity&#8217;, &#8216;User&#8217;,
+&#8216;Group&#8217;)); echo $sql[0];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE entity (id BIGINT AUTO_INCREMENT, username VARCHAR(20),</div></blockquote>
+<p>password VARCHAR(16), created_at DATETIME, updated_at DATETIME, type
+VARCHAR(255), PRIMARY KEY(id)) ENGINE = INNODB</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id16"><span class="problematic" id="id17">``</span></a>type``カラムが自動的に追加されたことに注目してください。データベースのそれぞれのレコードが所属するモデルを知っているカラム集約継承です。</div></blockquote>
+<p>この機能によって``Entity``テーブルにクエリを行い変えされたオブジェクトが親クラスで設定された制約にマッチする場合``User``もしくは``Group``オブジェクトを戻します。</p>
+<p>具体的な内容は下記のコードで見てみましょう。最初に新しい``User``オブジェクトを保存しましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;name = &#8216;Bjarte S. Karlsen&#8217;;
+$user-&gt;username = &#8216;meus&#8217;; $user-&gt;password = &#8216;rat&#8217;; $user-&gt;save();</p>
+<p>新しい``Group``オブジェクトを保存しましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $group = new Group(); $group-&gt;name = &#8216;Users&#8217;; $group-&gt;username =
+&#8216;users&#8217;; $group-&gt;password = &#8216;password&#8217;; $group-&gt;save();</p>
+<p>作成した``User``のid用の``Entity``モデルにクエリを行うと、<a href="#id18"><span class="problematic" id="id19">``</span></a>Doctrine_Query``は``User``のインスタンスを返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;Entity e&#8217;) -&gt;where(&#8216;e.id =
+?&#8217;);</p>
+<p>$user = <tt class="code docutils literal"><span class="pre">q-&gt;fetchOne(array(</span></tt>user-&gt;id));</p>
+<p>echo get_class($user); // User</p>
+<p><a href="#id20"><span class="problematic" id="id21">``</span></a>Group``レコードに対して同じようなことを行うと、<a href="#id22"><span class="problematic" id="id23">``</span></a>Group``のインスタンスが戻されます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;Entity e&#8217;) -&gt;where(&#8216;e.id =
+?&#8217;);</p>
+<p>$group = <tt class="code docutils literal"><span class="pre">q-&gt;fetchOne(array(</span></tt>group-&gt;id));</p>
+<p>echo get_class($group); // Group</p>
+<blockquote>
+<div><strong>NOTE</strong>
+上記の内容は``type``カラムであるから可能です。Doctrineはどのクラスによってそれぞれのレコードが作成されたのか知っているので、データは適切なサブクラスにハイドレイトされます。</div></blockquote>
+<p>個別の``User``もしくは``Group``モデルにクエリを行うこともできます:</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;);</div></blockquote>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記の``getSql()``の呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div><p>SELECT e.id AS e__id FROM entity e WHERE (e.type = &#8216;1&#8217;)</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id24"><span class="problematic" id="id25">``</span></a>User``型であるレコードのみが返されるように``type``の条件が自動的に追加されたことに注目してください。</div></blockquote>
+</div></blockquote>
+</div>
+<div class="section" id="id26">
+<h1>まとめ<a class="headerlink" href="#id26" title="Permalink to this headline">¶</a></h1>
+<p>モデルでPHPの継承機能を利用する方法を学んだので[doc behaviors
+:name]の章に移動します。これは複雑なモデルを小さくて簡単なコードで維持するためのもっとも洗練された便利な機能の1つです。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">単一継承</a></li>
+<li><a class="reference internal" href="#id6">具象継承</a></li>
+<li><a class="reference internal" href="#id9">カラム集約</a></li>
+<li><a class="reference internal" href="#id26">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="data-hydrators.html"
+                        title="previous chapter">コアハイドレーションメソッド</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="behaviors.html"
+                        title="next chapter">Behaviours</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/inheritance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="behaviors.html" title="Behaviours"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="data-hydrators.html" title="コアハイドレーションメソッド"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

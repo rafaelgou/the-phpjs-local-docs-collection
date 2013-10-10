@@ -1,0 +1,200 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to configure Empty Data for a Form Class &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Form" href="index.html" />
+    <link rel="next" title="How to use the submit() Function to handle Form Submissions" href="direct_submit.html" />
+    <link rel="prev" title="How to Unit Test your Forms" href="unit_testing.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="direct_submit.html" title="How to use the submit() Function to handle Form Submissions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="unit_testing.html" title="How to Unit Test your Forms"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Form</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-configure-empty-data-for-a-form-class">
+<span id="index-0"></span><h1>How to configure Empty Data for a Form Class<a class="headerlink" href="#how-to-configure-empty-data-for-a-form-class" title="Permalink to this headline">¶</a></h1>
+<p>The <tt class="docutils literal"><span class="pre">empty_data</span></tt> option allows you to specify an empty data set for your
+form class. This empty data set would be used if you submit your form, but
+haven&#8217;t called <tt class="docutils literal"><span class="pre">setData()</span></tt> on your form or passed in data when you created
+you form. For example:</p>
+<div class="highlight-python"><pre>public function indexAction()
+{
+    $blog = ...;
+
+    // $blog is passed in as the data, so the empty_data option is not needed
+    $form = $this-&gt;createForm(new BlogType(), $blog);
+
+    // no data is passed in, so empty_data is used to get the "starting data"
+    $form = $this-&gt;createForm(new BlogType());
+}</pre>
+</div>
+<p>By default, <tt class="docutils literal"><span class="pre">empty_data</span></tt> is set to <tt class="docutils literal"><span class="pre">null</span></tt>. Or, if you have specified
+a <tt class="docutils literal"><span class="pre">data_class</span></tt> option for your form class, it will default to a new instance
+of that class. That instance will be created by calling the constructor
+with no arguments.</p>
+<p>If you want to override this default behavior, there are two ways to do this.</p>
+<div class="section" id="option-1-instantiate-a-new-class">
+<h2>Option 1: Instantiate a new Class<a class="headerlink" href="#option-1-instantiate-a-new-class" title="Permalink to this headline">¶</a></h2>
+<p>One reason you might use this option is if you want to use a constructor
+that takes arguments. Remember, the default <tt class="docutils literal"><span class="pre">data_class</span></tt> option calls
+that constructor with no arguments:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Form/Type/BlogType.php
+
+// ...
+use Symfony\Component\Form\AbstractType;
+use Acme\DemoBundle\Entity\Blog;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class BlogType extends AbstractType
+{
+    private $someDependency;
+
+    public function __construct($someDependency)
+    {
+        $this-&gt;someDependency = $someDependency;
+    }
+    // ...
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            'empty_data' =&gt; new Blog($this-&gt;someDependency),
+        ));
+    }
+}</pre>
+</div>
+<p>You can instantiate your class however you want. In this example, we pass
+some dependency into the <tt class="docutils literal"><span class="pre">BlogType</span></tt> when we instantiate it, then use that
+to instantiate the <tt class="docutils literal"><span class="pre">Blog</span></tt> object. The point is, you can set <tt class="docutils literal"><span class="pre">empty_data</span></tt>
+to the exact &#8220;new&#8221; object that you want to use.</p>
+</div>
+<div class="section" id="option-2-provide-a-closure">
+<h2>Option 2: Provide a Closure<a class="headerlink" href="#option-2-provide-a-closure" title="Permalink to this headline">¶</a></h2>
+<p>Using a closure is the preferred method, since it will only create the object
+if it is needed.</p>
+<p>The closure must accept a <tt class="docutils literal"><span class="pre">FormInterface</span></tt> instance as the first argument:</p>
+<div class="highlight-python"><pre>use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+use Symfony\Component\Form\FormInterface;
+// ...
+
+public function setDefaultOptions(OptionsResolverInterface $resolver)
+{
+    $resolver-&gt;setDefaults(array(
+        'empty_data' =&gt; function (FormInterface $form) {
+            return new Blog($form-&gt;get('title')-&gt;getData());
+        },
+    ));
+}</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to configure Empty Data for a Form Class</a><ul>
+<li><a class="reference internal" href="#option-1-instantiate-a-new-class">Option 1: Instantiate a new Class</a></li>
+<li><a class="reference internal" href="#option-2-provide-a-closure">Option 2: Provide a Closure</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="unit_testing.html"
+                        title="previous chapter">How to Unit Test your Forms</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="direct_submit.html"
+                        title="next chapter">How to use the submit() Function to handle Form Submissions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/use_empty_data.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="direct_submit.html" title="How to use the submit() Function to handle Form Submissions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="unit_testing.html" title="How to Unit Test your Forms"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Form</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

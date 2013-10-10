@@ -1,0 +1,544 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Journaling &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/journaling.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/journaling" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Administration" href="../administration.html" />
+<link rel="next" title="Connect to MongoDB with SSL" href="../tutorial/configure-ssl.html" />
+<link rel="prev" title="Deploy a Geographically Distributed Replica Set" href="../tutorial/deploy-geographically-distributed-replica-set.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../administration.html">Administration</a><span class="bcpoint"> > </span></li>
+          <li>Journaling</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="journaling">
+<h1>Journaling<a class="headerlink" href="#journaling" title="Permalink to this headline">¶</a></h1>
+<p>MongoDB uses <em>write ahead logging</em> to an on-disk <a class="reference internal" href="../reference/glossary.html#term-journal"><em class="xref std std-term">journal</em></a> to
+guarantee <a class="reference internal" href="write-operations.html"><em>write operation</em></a> durability
+and to provide crash resiliency. Before applying a change to the data
+files, MongoDB writes the change operation to the journal. If MongoDB
+should terminate or encounter an error before it can write the changes
+from the journal to the data files, MongoDB can re-apply the write
+operation and maintain a consistent state.</p>
+<p><em>Without</em> a journal, if <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> exits unexpectedly, you must
+assume your data is in an inconsistent state, and you must run either
+<a class="reference internal" href="../tutorial/recover-data-following-unexpected-shutdown.html"><em>repair</em></a>
+or, preferably, <a class="reference internal" href="../tutorial/resync-replica-set-member.html"><em>resync</em></a>
+from a clean member of the replica set.</p>
+<p>With journaling enabled, if <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> stops unexpectedly,
+the program can recover everything written to the journal, and the
+data remains in a consistent state. By default, the greatest extent of lost
+writes, i.e., those not made to the journal, are those made in the last
+100 milliseconds. See <a class="reference internal" href="../reference/configuration-options.html#journalCommitInterval" title="journalCommitInterval"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">journalCommitInterval</span></tt></a> for more
+information on the default.</p>
+<p>With journaling, if you want a data set to reside entirely in RAM, you
+need enough RAM to hold the dataset plus the &#8220;write working set.&#8221; The
+&#8220;write working set&#8221; is the amount of unique data you expect to see
+written between re-mappings of the private view. For information on
+views, see <a class="reference internal" href="#journaling-storage-views"><em>Storage Views used in Journaling</em></a>.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last versionchanged">
+<span class="versionmodified">Changed in version 2.0: </span>For 64-bit builds of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, journaling is enabled by
+default.  For other platforms, see <a class="reference internal" href="../reference/configuration-options.html#journal" title="journal"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">journal</span></tt></a>.</p>
+</div>
+<div class="section" id="procedures">
+<h2>Procedures<a class="headerlink" href="#procedures" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="enable-journaling">
+<h3>Enable Journaling<a class="headerlink" href="#enable-journaling" title="Permalink to this headline">¶</a></h3>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.0: </span>For 64-bit builds of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>, journaling is enabled by default.</p>
+<p>To enable journaling, start <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with the
+<a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--journal"><em class="xref std std-option">--journal</em></a> command line option.</p>
+<p>If no journal files exist, when <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> starts, it must
+preallocate new journal files. During this operation, the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> is not listening for connections until preallocation
+completes: for some systems this may take a several minutes. During
+this period your applications and the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell are not
+available.</p>
+</div>
+<div class="section" id="disable-journaling">
+<h3>Disable Journaling<a class="headerlink" href="#disable-journaling" title="Permalink to this headline">¶</a></h3>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">Do not disable journaling on production systems. If your
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance stops without shutting down cleanly
+unexpectedly for any reason, (e.g. power failure) and you are
+not running with journaling, then you must recover from an
+unaffected <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> member or backup, as described in
+<a class="reference internal" href="../tutorial/recover-data-following-unexpected-shutdown.html"><em>repair</em></a>.</p>
+</div>
+<p>To disable journaling, start <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with the
+<a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--nojournal"><em class="xref std std-option">--nojournal</em></a> command line option.</p>
+</div>
+<div class="section" id="get-commit-acknowledgment">
+<h3>Get Commit Acknowledgment<a class="headerlink" href="#get-commit-acknowledgment" title="Permalink to this headline">¶</a></h3>
+<p>You can get commit acknowledgment with the
+<a class="reference internal" href="../reference/command/getLastError.html#dbcmd.getLastError" title="getLastError"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">getLastError</span></tt></a> command and the <tt class="docutils literal"><span class="pre">j</span></tt> option. For details, see
+<a class="reference internal" href="../reference/write-concern.html#write-concern-operation"><em>Write Concern Reference</em></a>.</p>
+</div>
+<div class="section" id="avoid-preallocation-lag">
+<span id="journaling-avoid-preallocation-lag"></span><h3>Avoid Preallocation Lag<a class="headerlink" href="#avoid-preallocation-lag" title="Permalink to this headline">¶</a></h3>
+<p>To avoid <a class="reference internal" href="#journaling-journal-files"><em>preallocation lag</em></a>, you can
+preallocate files in the journal directory by copying them from another
+instance of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</p>
+<p>Preallocated files do not contain data. It is safe to later remove them.
+But if you restart <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with journaling, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+will create them again.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>The following sequence preallocates journal files for an
+instance of <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> running on port <tt class="docutils literal"><span class="pre">27017</span></tt> with a database
+path of <tt class="docutils literal"><span class="pre">/data/db</span></tt>.</p>
+<p>For demonstration purposes, the sequence starts by creating a set of
+journal files in the usual way.</p>
+<ol class="last arabic">
+<li><p class="first">Create a temporary directory into which to create a set of journal
+files:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mkdir ~/tmpDbpath
+</pre></div>
+</div>
+</li>
+<li><p class="first">Create a set of journal files by staring a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instance that uses the temporary directory:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --port 10000 --dbpath ~/tmpDbpath --journal
+</pre></div>
+</div>
+</li>
+<li><p class="first">When you see the following log output, indicating
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> has the files, press CONTROL+C to stop the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance:</p>
+<div class="highlight-sh"><div class="highlight"><pre>web admin interface listening on port 11000
+</pre></div>
+</div>
+</li>
+<li><p class="first">Preallocate journal files for the new instance of
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> by moving the journal files from the data directory
+of the existing instance to the data directory of the new instance:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mv ~/tmpDbpath/journal /data/db/
+</pre></div>
+</div>
+</li>
+<li><p class="first">Start the new <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --port 27017 --dbpath /data/db --journal
+</pre></div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+<div class="section" id="monitor-journal-status">
+<h3>Monitor Journal Status<a class="headerlink" href="#monitor-journal-status" title="Permalink to this headline">¶</a></h3>
+<p>Use the following commands and methods to monitor journal status:</p>
+<ul>
+<li><p class="first"><a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a></p>
+<p>The <a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> command returns database status
+information that is useful for assessing performance.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/command/journalLatencyTest.html#dbcmd.journalLatencyTest" title="journalLatencyTest"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">journalLatencyTest</span></tt></a></p>
+<p>Use <a class="reference internal" href="../reference/command/journalLatencyTest.html#dbcmd.journalLatencyTest" title="journalLatencyTest"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">journalLatencyTest</span></tt></a> to measure how long it takes on
+your volume to write to the disk in an append-only fashion. You can
+run this command on an idle system to get a baseline sync time for
+journaling. You can also run this command on a busy system to see the
+sync time on a busy system, which may be higher if the journal
+directory is on the same volume as the data files.</p>
+<p>The <a class="reference internal" href="../reference/command/journalLatencyTest.html#dbcmd.journalLatencyTest" title="journalLatencyTest"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">journalLatencyTest</span></tt></a> command also provides a way to
+check if your disk drive is buffering writes in its local cache. If
+the number is very low (i.e., less than 2 milliseconds) and the drive
+is non-SSD, the drive is probably buffering writes. In that case,
+enable cache write-through for the device in your operating system,
+unless you have a disk controller card with battery backed RAM.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="change-the-group-commit-interval">
+<span id="journaling-journal-commit-interval"></span><h3>Change the Group Commit Interval<a class="headerlink" href="#change-the-group-commit-interval" title="Permalink to this headline">¶</a></h3>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.0.</span></p>
+<p>You can set the group commit interval using the
+<a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--journalCommitInterval"><em class="xref std std-option">--journalCommitInterval</em></a>
+command line option. The allowed range is <tt class="docutils literal"><span class="pre">2</span></tt> to <tt class="docutils literal"><span class="pre">300</span></tt> milliseconds.</p>
+<p>Lower values increase the durability of the journal at the expense of
+disk performance.</p>
+</div>
+<div class="section" id="recover-data-after-unexpected-shutdown">
+<h3>Recover Data After Unexpected Shutdown<a class="headerlink" href="#recover-data-after-unexpected-shutdown" title="Permalink to this headline">¶</a></h3>
+<p>On a restart after a crash, MongoDB replays all journal files in the
+journal directory before the server becomes available. If MongoDB must
+replay journal files, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> notes these events in the log
+output.</p>
+<p>There is no reason to run <a class="reference internal" href="../reference/command/repairDatabase.html#dbcmd.repairDatabase" title="repairDatabase"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">repairDatabase</span></tt></a> in these situations.</p>
+</div>
+</div>
+<div class="section" id="journaling-internals">
+<span id="id1"></span><h2>Journaling Internals<a class="headerlink" href="#journaling-internals" title="Permalink to this headline">¶</a></h2>
+<p>When running with journaling, MongoDB stores and applies <a class="reference internal" href="write-operations.html"><em>write
+operations</em></a> in memory and in the journal before
+the changes are in the data files.</p>
+<div class="section" id="journal-files">
+<span id="journaling-journal-files"></span><h3>Journal Files<a class="headerlink" href="#journal-files" title="Permalink to this headline">¶</a></h3>
+<p>With journaling enabled, MongoDB creates a journal directory within
+the directory defined by <a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a>, which is <tt class="file docutils literal"><span class="pre">/data/db</span></tt>
+by default. The journal directory holds journal files, which contain
+write-ahead redo logs. The directory also holds a last-sequence-number
+file. A clean shutdown removes all the files in the journal directory.</p>
+<p>Journal files are append-only files and have file names prefixed with
+<tt class="docutils literal"><span class="pre">j._</span></tt>. When a journal file holds 1 gigabyte of data, MongoDB creates
+a new journal file. Once MongoDB applies all the write operations in
+the journal files, it deletes these files. Unless you
+write <em>many</em> bytes of data per-second, the journal directory should
+contain only two or three journal files.</p>
+<p>To limit the size of each journal file to 128 megabytes, use the
+<a class="reference internal" href="../reference/configuration-options.html#smallfiles" title="smallfiles"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">smallfiles</span></tt></a> run time option when starting <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</p>
+<p>To speed the frequent sequential writes that occur to the current
+journal file, you can ensure that the journal directory is on a
+different system.</p>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">If you place the journal on a different filesystem from your data
+files you <em>cannot</em> use a filesystem snapshot to capture consistent
+backups of a <a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a> directory.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Depending on your file system, you might experience a preallocation
+lag the first time you start a <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance with
+journaling enabled. MongoDB preallocates journal files if it is
+faster on your file system to create files of a
+pre-defined. The amount of time required to pre-allocate
+lag might last several minutes, during which you will not be able
+to connect to the database.  This is a one-time preallocation and
+does not occur with future invocations.</p>
+</div>
+<p>To avoid preallocation lag, see <a class="reference internal" href="#journaling-avoid-preallocation-lag"><em>Avoid Preallocation Lag</em></a>.</p>
+</div>
+<div class="section" id="storage-views-used-in-journaling">
+<span id="journaling-storage-views"></span><h3>Storage Views used in Journaling<a class="headerlink" href="#storage-views-used-in-journaling" title="Permalink to this headline">¶</a></h3>
+<p>Journaling adds three storage views to MongoDB.</p>
+<p>The <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> stores modified data for upload to the MongoDB
+data files. The <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> is the only view with direct access
+to the MongoDB data files. When running with journaling, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+asks the operating system to map your existing on-disk data files to the
+<tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> memory view. The operating system maps the files but
+does not load them. MongoDB later loads data files to <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> as
+needed.</p>
+<p>The <tt class="docutils literal"><span class="pre">private</span> <span class="pre">view</span></tt> stores data for use in <a class="reference internal" href="read-operations.html"><em>read operations</em></a>. MongoDB maps <tt class="docutils literal"><span class="pre">private</span> <span class="pre">view</span></tt> to the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt>
+and is the first place MongoDB applies new <a class="reference internal" href="write-operations.html"><em>write operations</em></a>.</p>
+<p>The journal is an on-disk view that stores new write operations
+after MongoDB applies the operation to the <tt class="docutils literal"><span class="pre">private</span> <span class="pre">cache</span></tt> but
+before applying them to the data files. The journal provides durability.
+If the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance were to crash without having applied
+the writes to the data files, the journal could replay the writes to
+the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> for eventual upload to the data files.</p>
+</div>
+<div class="section" id="how-journaling-records-write-operations">
+<span id="journaling-record-write-operation"></span><h3>How Journaling Records Write Operations<a class="headerlink" href="#how-journaling-records-write-operations" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB copies the write operations to the journal in batches called
+group commits. See <a class="reference internal" href="../reference/configuration-options.html#journalCommitInterval" title="journalCommitInterval"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">journalCommitInterval</span></tt></a> for more
+information on the default commit interval. These &#8220;group commits&#8221; help
+minimize the performance impact of journaling.</p>
+<p>Journaling stores raw operations that allow MongoDB to reconstruct the
+following:</p>
+<ul class="simple">
+<li>document insertion/updates</li>
+<li>index modifications</li>
+<li>changes to the namespace files</li>
+</ul>
+<p>As <a class="reference internal" href="write-operations.html"><em>write operations</em></a> occur, MongoDB
+writes the data to the <tt class="docutils literal"><span class="pre">private</span> <span class="pre">view</span></tt> in RAM and then copies the write
+operations in batches to the journal. The journal stores the operations
+on disk to ensure durability. MongoDB adds the operations as entries on
+the journal&#8217;s forward pointer. Each entry describes which bytes the
+write operation changed in the data files.</p>
+<p>MongoDB next applies the journal&#8217;s write operations to the <tt class="docutils literal"><span class="pre">shared</span>
+<span class="pre">view</span></tt>. At this point, the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> becomes inconsistent with the
+data files.</p>
+<p>At default intervals of 60 seconds, MongoDB asks the operating system to
+flush the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> to disk. This brings the data files up-to-date
+with the latest write operations.</p>
+<p>When MongoDB flushes write operations to the data files, MongoDB removes the
+write operations from the journal&#8217;s behind pointer. The behind pointer
+is always far back from advanced pointer.</p>
+<p>As part of journaling, MongoDB routinely asks the operating system to
+remap the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> to the <tt class="docutils literal"><span class="pre">private</span> <span class="pre">view</span></tt>, for consistency.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The interaction between the <tt class="docutils literal"><span class="pre">shared</span> <span class="pre">view</span></tt> and the on-disk
+data files is similar to how MongoDB works <em>without</em>
+journaling, which is that MongoDB asks the operating system to flush
+in-memory changes back to the data files every 60 seconds.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../tutorial/deploy-geographically-distributed-replica-set.html" title="Previous Section: Deploy a Geographically Distributed Replica Set">&lt; &nbsp; Deploy a Geographically Distributed Replica Set</a></li>
+              <li id="btnvup"><a href="../administration.html" title="Parent Section: Administration" >&#47;&#92;&nbsp; Administration</a></li>
+              <li id="btnvnx"><a href="../tutorial/configure-ssl.html" title="Next Section: Connect to MongoDB with SSL">Connect to MongoDB with SSL &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../administration.html">Administration</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../administration/configuration.html">Run-time Database Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../data-center-awareness.html">Data Center Awareness</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Journaling</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/configure-ssl.html">Connect to MongoDB with SSL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/monitor-with-snmp.html">Monitor MongoDB with SNMP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/manage-mongodb-processes.html">Manage <tt class="docutils literal"><span class="pre">mongod</span></tt> Processes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/rotate-log-files.html">Rotate Log Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/monitoring.html">Monitoring for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/manage-the-database-profiler.html">Analyze Performance of Database Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="import-export.html">Import and Export MongoDB Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ulimit.html">Linux <tt class="docutils literal"><span class="pre">ulimit</span></tt> Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/production-notes.html">Production Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/use-database-commands.html">Use Database Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">MongoDB Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/journaling.txt" target="_blank" title="Edit core/journaling.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/journaling%2Etxt%22" target="_blank" title="Report a problem with core/journaling.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/journaling.txt"'},
+		environment: {'repo': 'docs','source': 'core/journaling'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/journaling'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

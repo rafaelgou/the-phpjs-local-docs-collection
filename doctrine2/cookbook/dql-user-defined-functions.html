@@ -1,0 +1,530 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>DQL User Defined Functions &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="Implementing ArrayAccess for Domain Objects" href="implementing-arrayaccess-for-domain-objects.html" />
+    <link rel="prev" title="Extending DQL in Doctrine 2: Custom AST Walkers" href="dql-custom-walkers.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="implementing-arrayaccess-for-domain-objects.html" title="Implementing ArrayAccess for Domain Objects"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dql-custom-walkers.html" title="Extending DQL in Doctrine 2: Custom AST Walkers"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="dql-user-defined-functions">
+<h1>DQL User Defined Functions<a class="headerlink" href="#dql-user-defined-functions" title="Permalink to this headline">¶</a></h1>
+<p><em>Section author: Benjamin Eberlei &lt;<a class="reference external" href="mailto:kontakt&#37;&#52;&#48;beberlei&#46;de">kontakt<span>&#64;</span>beberlei<span>&#46;</span>de</a>&gt;</em></p>
+<p>By default DQL supports a limited subset of all the vendor-specific
+SQL functions common between all the vendors. However in many cases
+once you have decided on a specific database vendor, you will never
+change it during the life of your project. This decision for a
+specific vendor potentially allows you to make use of powerful SQL
+features that are unique to the vendor.</p>
+<p>It is worth to mention that Doctrine 2 also allows you to handwrite
+your SQL instead of extending the DQL parser. Extending DQL is sort of an
+advanced extension point. You can map arbitrary SQL to your objects
+and gain access to vendor specific functionalities using the
+<tt class="docutils literal"><span class="pre">EntityManager#createNativeQuery()</span></tt> API as described in
+the <a class="reference internal" href="../reference/native-sql.html"><em>Native Query</em></a> chapter.</p>
+<p>The DQL Parser has hooks to register functions that can then be
+used in your DQL queries and transformed into SQL, allowing to
+extend Doctrines Query capabilities to the vendors strength. This
+post explains the Used-Defined Functions API (UDF) of the Dql
+Parser and shows some examples to give you some hints how you would
+extend DQL.</p>
+<p>There are three types of functions in DQL, those that return a
+numerical value, those that return a string and those that return a
+Date. Your custom method has to be registered as either one of
+those. The return type information is used by the DQL parser to
+check possible syntax errors during the parsing process, for
+example using a string function return value in a math expression.</p>
+<div class="section" id="registering-your-own-dql-functions">
+<h2>Registering your own DQL functions<a class="headerlink" href="#registering-your-own-dql-functions" title="Permalink to this headline">¶</a></h2>
+<p>You can register your functions adding them to the ORM
+configuration:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\ORM\Configuration</span><span class="p">();</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">addCustomStringFunction</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$class</span><span class="p">);</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">addCustomNumericFunction</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$class</span><span class="p">);</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">addCustomDatetimeFunction</span><span class="p">(</span><span class="nv">$name</span><span class="p">,</span> <span class="nv">$class</span><span class="p">);</span>
+
+<span class="nv">$em</span> <span class="o">=</span> <span class="nx">EntityManager</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="nv">$dbParams</span><span class="p">,</span> <span class="nv">$config</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">$name</span></tt> is the name the function will be referred to in the
+DQL query. <tt class="docutils literal"><span class="pre">$class</span></tt> is a string of a class-name which has to
+extend <tt class="docutils literal"><span class="pre">Doctrine\ORM\Query\Node\FunctionNode</span></tt>. This is a class
+that offers all the necessary API and methods to implement a UDF.</p>
+<p>In this post we will implement some MySql specific Date calculation
+methods, which are quite handy in my opinion:</p>
+</div>
+<div class="section" id="date-diff">
+<h2>Date Diff<a class="headerlink" href="#date-diff" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference external" href="http://dev.mysql.com/doc/refman/5.1/en/date-and-time-functions.html#function_datediff">Mysql&#8217;s DateDiff function</a>
+takes two dates as argument and calculates the difference in days
+with <tt class="docutils literal"><span class="pre">date1-date2</span></tt>.</p>
+<p>The DQL parser is a top-down recursive descent parser to generate
+the Abstract-Syntax Tree (AST) and uses a TreeWalker approach to
+generate the appropriate SQL from the AST. This makes reading the
+Parser/TreeWalker code manageable in a finite amount of time.</p>
+<p>The <tt class="docutils literal"><span class="pre">FunctionNode</span></tt> class I referred to earlier requires you to
+implement two methods, one for the parsing process (obviously)
+called <tt class="docutils literal"><span class="pre">parse</span></tt> and one for the TreeWalker process called
+<tt class="docutils literal"><span class="pre">getSql()</span></tt>. I show you the code for the DateDiff method and
+discuss it step by step:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * DateDiffFunction ::= &quot;DATEDIFF&quot; &quot;(&quot; ArithmeticPrimary &quot;,&quot; ArithmeticPrimary &quot;)&quot;</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">DateDiff</span> <span class="k">extends</span> <span class="nx">FunctionNode</span>
+<span class="p">{</span>
+    <span class="c1">// (1)</span>
+    <span class="k">public</span> <span class="nv">$firstDateExpression</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+    <span class="k">public</span> <span class="nv">$secondDateExpression</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">parse</span><span class="p">(</span><span class="nx">\Doctrine\ORM\Query\Parser</span> <span class="nv">$parser</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_IDENTIFIER</span><span class="p">);</span> <span class="c1">// (2)</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_OPEN_PARENTHESIS</span><span class="p">);</span> <span class="c1">// (3)</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">firstDateExpression</span> <span class="o">=</span> <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">ArithmeticPrimary</span><span class="p">();</span> <span class="c1">// (4)</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_COMMA</span><span class="p">);</span> <span class="c1">// (5)</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">secondDateExpression</span> <span class="o">=</span> <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">ArithmeticPrimary</span><span class="p">();</span> <span class="c1">// (6)</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_CLOSE_PARENTHESIS</span><span class="p">);</span> <span class="c1">// (3)</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getSql</span><span class="p">(</span><span class="nx">\Doctrine\ORM\Query\SqlWalker</span> <span class="nv">$sqlWalker</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s1">&#39;DATEDIFF(&#39;</span> <span class="o">.</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">firstDateExpression</span><span class="o">-&gt;</span><span class="na">dispatch</span><span class="p">(</span><span class="nv">$sqlWalker</span><span class="p">)</span> <span class="o">.</span> <span class="s1">&#39;, &#39;</span> <span class="o">.</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">secondDateExpression</span><span class="o">-&gt;</span><span class="na">dispatch</span><span class="p">(</span><span class="nv">$sqlWalker</span><span class="p">)</span> <span class="o">.</span>
+        <span class="s1">&#39;)&#39;</span><span class="p">;</span> <span class="c1">// (7)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The Parsing process of the DATEDIFF function is going to find two
+expressions the date1 and the date2 values, whose AST Node
+representations will be saved in the variables of the DateDiff
+FunctionNode instance at (1).</p>
+<p>The parse() method has to cut the function call &#8220;DATEDIFF&#8221; and its
+argument into pieces. Since the parser detects the function using a
+lookahead the T_IDENTIFIER of the function name has to be taken
+from the stack (2), followed by a detection of the arguments in
+(4)-(6). The opening and closing parenthesis have to be detected
+also. This happens during the Parsing process and leads to the
+generation of a DateDiff FunctionNode somewhere in the AST of the
+dql statement.</p>
+<p>The <tt class="docutils literal"><span class="pre">ArithmeticPrimary</span></tt> method call is the most common
+denominator of valid EBNF tokens taken from the
+<a class="reference external" href="http://www.doctrine-project.org/documentation/manual/2_0/en/dql-doctrine-query-language#ebnf">DQL EBNF grammar</a>
+that matches our requirements for valid input into the DateDiff Dql
+function. Picking the right tokens for your methods is a tricky
+business, but the EBNF grammar is pretty helpful finding it, as is
+looking at the Parser source code.</p>
+<p>Now in the TreeWalker process we have to pick up this node and
+generate SQL from it, which apparently is quite easy looking at the
+code in (7). Since we don&#8217;t know which type of AST Node the first
+and second Date expression are we are just dispatching them back to
+the SQL Walker to generate SQL from and then wrap our DATEDIFF
+function call around this output.</p>
+<p>Now registering this DateDiff FunctionNode with the ORM using:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\ORM\Configuration</span><span class="p">();</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">addCustomStringFunction</span><span class="p">(</span><span class="s1">&#39;DATEDIFF&#39;</span><span class="p">,</span> <span class="s1">&#39;DoctrineExtensions\Query\MySql\DateDiff&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>We can do fancy stuff like:</p>
+<div class="highlight-sql"><pre>SELECT p FROM DoctrineExtensions\Query\BlogPost p WHERE DATEDIFF(CURRENT_TIME(), p.created) &lt; 7</pre>
+</div>
+</div>
+<div class="section" id="date-add">
+<h2>Date Add<a class="headerlink" href="#date-add" title="Permalink to this headline">¶</a></h2>
+<p>Often useful it the ability to do some simple date calculations in
+your DQL query using
+<a class="reference external" href="http://dev.mysql.com/doc/refman/5.1/en/date-and-time-functions.html#function_date-add">MySql&#8217;s DATE_ADD function</a>.</p>
+<p>I&#8217;ll skip the blah and show the code for this function:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="sd">/**</span>
+<span class="sd"> * DateAddFunction ::=</span>
+<span class="sd"> *     &quot;DATE_ADD&quot; &quot;(&quot; ArithmeticPrimary &quot;, INTERVAL&quot; ArithmeticPrimary Identifier &quot;)&quot;</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">DateAdd</span> <span class="k">extends</span> <span class="nx">FunctionNode</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="nv">$firstDateExpression</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+    <span class="k">public</span> <span class="nv">$intervalExpression</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+    <span class="k">public</span> <span class="nv">$unit</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">parse</span><span class="p">(</span><span class="nx">\Doctrine\ORM\Query\Parser</span> <span class="nv">$parser</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_IDENTIFIER</span><span class="p">);</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_OPEN_PARENTHESIS</span><span class="p">);</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">firstDateExpression</span> <span class="o">=</span> <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">ArithmeticPrimary</span><span class="p">();</span>
+
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_COMMA</span><span class="p">);</span>
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_IDENTIFIER</span><span class="p">);</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">intervalExpression</span> <span class="o">=</span> <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">ArithmeticPrimary</span><span class="p">();</span>
+
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_IDENTIFIER</span><span class="p">);</span>
+
+        <span class="cm">/* @var $lexer Lexer */</span>
+        <span class="nv">$lexer</span> <span class="o">=</span> <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">getLexer</span><span class="p">();</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">unit</span> <span class="o">=</span> <span class="nv">$lexer</span><span class="o">-&gt;</span><span class="na">token</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">];</span>
+
+        <span class="nv">$parser</span><span class="o">-&gt;</span><span class="na">match</span><span class="p">(</span><span class="nx">Lexer</span><span class="o">::</span><span class="na">T_CLOSE_PARENTHESIS</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getSql</span><span class="p">(</span><span class="nx">\Doctrine\ORM\Query\SqlWalker</span> <span class="nv">$sqlWalker</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s1">&#39;DATE_ADD(&#39;</span> <span class="o">.</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">firstDateExpression</span><span class="o">-&gt;</span><span class="na">dispatch</span><span class="p">(</span><span class="nv">$sqlWalker</span><span class="p">)</span> <span class="o">.</span> <span class="s1">&#39;, INTERVAL &#39;</span> <span class="o">.</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">intervalExpression</span><span class="o">-&gt;</span><span class="na">dispatch</span><span class="p">(</span><span class="nv">$sqlWalker</span><span class="p">)</span> <span class="o">.</span> <span class="s1">&#39; &#39;</span> <span class="o">.</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">unit</span> <span class="o">.</span>
+        <span class="s1">&#39;)&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The only difference compared to the DATEDIFF here is, we
+additionally need the <tt class="docutils literal"><span class="pre">Lexer</span></tt> to access the value of the
+<tt class="docutils literal"><span class="pre">T_IDENTIFIER</span></tt> token for the Date Interval unit, for example the
+MONTH in:</p>
+<div class="highlight-sql"><pre>SELECT p FROM DoctrineExtensions\Query\BlogPost p WHERE DATE_ADD(CURRENT_TIME(), INTERVAL 4 MONTH) &gt; p.created</pre>
+</div>
+<p>The above method now only supports the specification using
+<tt class="docutils literal"><span class="pre">INTERVAL</span></tt>, to also allow a real date in DATE_ADD we need to add
+some decision logic to the parsing process (makes up for a nice
+exercise).</p>
+<p>Now as you see, the Parsing process doesn&#8217;t catch all the possible
+SQL errors, here we don&#8217;t match for all the valid inputs for the
+interval unit. However where necessary we rely on the database
+vendors SQL parser to show us further errors in the parsing
+process, for example if the Unit would not be one of the supported
+values by MySql.</p>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Now that you all know how you can implement vendor specific SQL
+functionalities in DQL, we would be excited to see user extensions
+that add vendor specific function packages, for example more math
+functions, XML + GIS Support, Hashing functions and so on.</p>
+<p>For 2.0 we will come with the current set of functions, however for
+a future version we will re-evaluate if we can abstract even more
+vendor sql functions and extend the DQL languages scope.</p>
+<p>Code for this Extension to DQL and other Doctrine Extensions can be
+found
+<a class="reference external" href="http://github.com/beberlei/DoctrineExtensions">in my Github DoctrineExtensions repository</a>.</p>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">DQL User Defined Functions</a><ul>
+<li><a class="reference internal" href="#registering-your-own-dql-functions">Registering your own DQL functions</a></li>
+<li><a class="reference internal" href="#date-diff">Date Diff</a></li>
+<li><a class="reference internal" href="#date-add">Date Add</a></li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="dql-custom-walkers.html"
+                                  title="previous chapter">Extending DQL in Doctrine 2: Custom AST Walkers</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="implementing-arrayaccess-for-domain-objects.html"
+                                  title="next chapter">Implementing ArrayAccess for Domain Objects</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/cookbook/dql-user-defined-functions.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/cookbook/dql-user-defined-functions.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/cookbook/dql-user-defined-functions.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

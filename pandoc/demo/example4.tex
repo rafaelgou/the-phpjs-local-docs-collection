@@ -1,0 +1,3011 @@
+\documentclass[]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amssymb,amsmath}
+\usepackage{ifxetex,ifluatex}
+\usepackage{fixltx2e} % provides \textsubscript
+% use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\ifnum 0\ifxetex 1\fi\ifluatex 1\fi=0 % if pdftex
+  \usepackage[utf8]{inputenc}
+\else % if luatex or xelatex
+  \usepackage{fontspec}
+  \ifxetex
+    \usepackage{xltxtra,xunicode}
+  \fi
+  \defaultfontfeatures{Mapping=tex-text,Scale=MatchLowercase}
+  \newcommand{\euro}{€}
+\fi
+% use microtype if available
+\IfFileExists{microtype.sty}{\usepackage{microtype}}{}
+\usepackage{fancyvrb}
+\usepackage{longtable}
+\ifxetex
+  \usepackage[setpagesize=false, % page size defined by xetex
+              unicode=false, % unicode breaks when used with xetex
+              xetex]{hyperref}
+\else
+  \usepackage[unicode=true]{hyperref}
+\fi
+\hypersetup{breaklinks=true,
+            bookmarks=true,
+            pdfauthor={John MacFarlane},
+            pdftitle={Pandoc User’s Guide},
+            colorlinks=true,
+            urlcolor=blue,
+            linkcolor=magenta,
+            pdfborder={0 0 0}}
+\urlstyle{same}  % don't use monospace font for urls
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{3em}  % prevent overfull lines
+\setcounter{secnumdepth}{0}
+\VerbatimFootnotes % allows verbatim text in footnotes
+
+\title{Pandoc User's Guide}
+\author{John MacFarlane}
+\date{January 19, 2013}
+
+\begin{document}
+\maketitle
+
+\section{Synopsis}
+
+pandoc {[}\emph{options}{]}{[}*input-file*{]}\ldots{}
+
+\section{Description}
+
+Pandoc is a \href{http://www.haskell.org/}{Haskell} library for
+converting from one markup format to another, and a command-line tool
+that uses this library. It can read
+\href{http://daringfireball.net/projects/markdown/}{markdown} and
+(subsets of) \href{http://redcloth.org/textile}{Textile},
+\href{http://docutils.sourceforge.net/docs/ref/rst/introduction.html}{reStructuredText},
+\href{http://www.w3.org/TR/html40/}{HTML},
+\href{http://www.latex-project.org/}{LaTeX},
+\href{http://www.mediawiki.org/wiki/Help:Formatting}{MediaWiki markup},
+and \href{http://www.docbook.org/}{DocBook XML}; and it can write plain
+text, \href{http://daringfireball.net/projects/markdown/}{markdown},
+\href{http://docutils.sourceforge.net/docs/ref/rst/introduction.html}{reStructuredText},
+\href{http://www.w3.org/TR/xhtml1/}{XHTML},
+\href{http://www.w3.org/TR/html5/}{HTML 5},
+\href{http://www.latex-project.org/}{LaTeX} (including
+\href{http://www.tex.ac.uk/CTAN/macros/latex/contrib/beamer}{beamer}
+slide shows), \href{http://www.pragma-ade.nl/}{ConTeXt},
+\href{http://en.wikipedia.org/wiki/Rich_Text_Format}{RTF},
+\href{http://www.docbook.org/}{DocBook XML},
+\href{http://opendocument.xml.org/}{OpenDocument XML},
+\href{http://en.wikipedia.org/wiki/OpenDocument}{ODT},
+\href{http://www.microsoft.com/interop/openup/openxml/default.aspx}{Word
+docx}, \href{http://www.gnu.org/software/texinfo/}{GNU Texinfo},
+\href{http://www.mediawiki.org/wiki/Help:Formatting}{MediaWiki markup},
+\href{http://www.idpf.org/}{EPUB} (v2 or v3),
+\href{http://www.fictionbook.org/index.php/Eng:XML_Schema_Fictionbook_2.1}{FictionBook2},
+\href{http://redcloth.org/textile}{Textile},
+\href{http://developer.apple.com/DOCUMENTATION/Darwin/Reference/ManPages/man7/groff_man.7.html}{groff
+man} pages, \href{http://orgmode.org}{Emacs Org-Mode},
+\href{http://www.methods.co.nz/asciidoc/}{AsciiDoc}, and
+\href{http://www.w3.org/Talks/Tools/Slidy/}{Slidy},
+\href{http://goessner.net/articles/slideous/}{Slideous},
+\href{http://paulrouget.com/dzslides/}{DZSlides}, or
+\href{http://meyerweb.com/eric/tools/s5/}{S5} HTML slide shows. It can
+also produce \href{http://www.adobe.com/pdf/}{PDF} output on systems
+where LaTeX is installed.
+
+Pandoc's enhanced version of markdown includes syntax for footnotes,
+tables, flexible ordered lists, definition lists, fenced code blocks,
+superscript, subscript, strikeout, title blocks, automatic tables of
+contents, embedded LaTeX math, citations, and markdown inside HTML block
+elements. (These enhancements, described below under
+\hyperref[pandocs-markdown]{Pandoc's markdown}, can be disabled using
+the \texttt{markdown\_strict} input or output format.)
+
+In contrast to most existing tools for converting markdown to HTML,
+which use regex substitutions, Pandoc has a modular design: it consists
+of a set of readers, which parse text in a given format and produce a
+native representation of the document, and a set of writers, which
+convert this native representation into a target format. Thus, adding an
+input or output format requires only adding a reader or writer.
+
+\subsection{Using \texttt{pandoc}}
+
+If no \emph{input-file} is specified, input is read from \emph{stdin}.
+Otherwise, the \emph{input-files} are concatenated (with a blank line
+between each) and used as input. Output goes to \emph{stdout} by default
+(though output to \emph{stdout} is disabled for the \texttt{odt},
+\texttt{docx}, \texttt{epub}, and \texttt{epub3} output formats). For
+output to a file, use the \texttt{-o} option:
+
+\begin{verbatim}
+pandoc -o output.html input.txt
+\end{verbatim}
+
+Instead of a file, an absolute URI may be given. In this case pandoc
+will fetch the content using HTTP:
+
+\begin{verbatim}
+pandoc -f html -t markdown http://www.fsf.org
+\end{verbatim}
+
+If multiple input files are given, \texttt{pandoc} will concatenate them
+all (with blank lines between them) before parsing.
+
+The format of the input and output can be specified explicitly using
+command-line options. The input format can be specified using the
+\texttt{-r/-{}-read} or \texttt{-f/-{}-from} options, the output format
+using the \texttt{-w/-{}-write} or \texttt{-t/-{}-to} options. Thus, to
+convert \texttt{hello.txt} from markdown to LaTeX, you could type:
+
+\begin{verbatim}
+pandoc -f markdown -t latex hello.txt
+\end{verbatim}
+
+To convert \texttt{hello.html} from html to markdown:
+
+\begin{verbatim}
+pandoc -f html -t markdown hello.html
+\end{verbatim}
+
+Supported output formats are listed below under the \texttt{-t/-{}-to}
+option. Supported input formats are listed below under the
+\texttt{-f/-{}-from} option. Note that the \texttt{rst},
+\texttt{textile}, \texttt{latex}, and \texttt{html} readers are not
+complete; there are some constructs that they do not parse.
+
+If the input or output format is not specified explicitly,
+\texttt{pandoc} will attempt to guess it from the extensions of the
+input and output filenames. Thus, for example,
+
+\begin{verbatim}
+pandoc -o hello.tex hello.txt
+\end{verbatim}
+
+will convert \texttt{hello.txt} from markdown to LaTeX. If no output
+file is specified (so that output goes to \emph{stdout}), or if the
+output file's extension is unknown, the output format will default to
+HTML. If no input file is specified (so that input comes from
+\emph{stdin}), or if the input files' extensions are unknown, the input
+format will be assumed to be markdown unless explicitly specified.
+
+Pandoc uses the UTF-8 character encoding for both input and output. If
+your local character encoding is not UTF-8, you should pipe input and
+output through \texttt{iconv}:
+
+\begin{verbatim}
+iconv -t utf-8 input.txt | pandoc | iconv -f utf-8
+\end{verbatim}
+
+\subsection{Creating a PDF}
+
+Earlier versions of pandoc came with a program, \texttt{markdown2pdf},
+that used pandoc and pdflatex to produce a PDF. This is no longer
+needed, since \texttt{pandoc} can now produce \texttt{pdf} output
+itself. To produce a PDF, simply specify an output file with a
+\texttt{.pdf} extension. Pandoc will create a latex file and use
+pdflatex (or another engine, see \texttt{-{}-latex-engine}) to convert
+it to PDF:
+
+\begin{verbatim}
+pandoc test.txt -o test.pdf
+\end{verbatim}
+
+Production of a PDF requires that a LaTeX engine be installed (see
+\texttt{-{}-latex-engine}, below), and assumes that the following LaTeX
+packages are available: \texttt{amssymb}, \texttt{amsmath},
+\texttt{ifxetex}, \texttt{ifluatex}, \texttt{listings} (if the
+\texttt{-{}-listings} option is used), \texttt{fancyvrb},
+\texttt{longtable}, \texttt{url}, \texttt{graphicx}, \texttt{hyperref},
+\texttt{ulem}, \texttt{babel} (if the \texttt{lang} variable is set),
+\texttt{fontspec} (if \texttt{xelatex} or \texttt{lualatex} is used as
+the LaTeX engine), \texttt{xltxtra} and \texttt{xunicode} (if
+\texttt{xelatex} is used).
+
+\subsection{\texttt{hsmarkdown}}
+
+A user who wants a drop-in replacement for \texttt{Markdown.pl} may
+create a symbolic link to the \texttt{pandoc} executable called
+\texttt{hsmarkdown}. When invoked under the name \texttt{hsmarkdown},
+\texttt{pandoc} will behave as if invoked with
+\texttt{-f markdown\_strict -{}-email-obfuscation=references}, and all
+command-line options will be treated as regular arguments. However, this
+approach does not work under Cygwin, due to problems with its simulation
+of symbolic links.
+
+\section{Options}
+
+\subsection{General options}
+
+\begin{description}
+\item[\texttt{-f} \emph{FORMAT}, \texttt{-r} \emph{FORMAT},
+\texttt{-{}-from=}\emph{FORMAT}, \texttt{-{}-read=}\emph{FORMAT}]
+Specify input format. \emph{FORMAT} can be \texttt{native} (native
+Haskell), \texttt{json} (JSON version of native AST), \texttt{markdown}
+(pandoc's extended markdown), \texttt{markdown\_strict} (original
+unextended markdown), \texttt{markdown\_phpextra} (PHP Markdown Extra
+extended markdown), \texttt{markdown\_github} (github extended
+markdown), \texttt{textile} (Textile), \texttt{rst} (reStructuredText),
+\texttt{html} (HTML), \texttt{docbook} (DocBook XML), \texttt{mediawiki}
+(MediaWiki markup), or \texttt{latex} (LaTeX). If \texttt{+lhs} is
+appended to \texttt{markdown}, \texttt{rst}, \texttt{latex}, the input
+will be treated as literate Haskell source: see
+\hyperref[literate-haskell-support]{Literate Haskell support}, below.
+Markdown syntax extensions can be individually enabled or disabled by
+appending \texttt{+EXTENSION} or \texttt{-EXTENSION} to the format name.
+So, for example, \texttt{markdown\_strict+footnotes+definition\_lists}
+is strict markdown with footnotes and definition lists enabled, and
+\texttt{markdown-pipe\_tables+hard\_line\_breaks} is pandoc's markdown
+without pipe tables and with hard line breaks. See
+\hyperref[pandocs-markdown]{Pandoc's markdown}, below, for a list of
+extensions and their names.
+\item[\texttt{-t} \emph{FORMAT}, \texttt{-w} \emph{FORMAT},
+\texttt{-{}-to=}\emph{FORMAT}, \texttt{-{}-write=}\emph{FORMAT}]
+Specify output format. \emph{FORMAT} can be \texttt{native} (native
+Haskell), \texttt{json} (JSON version of native AST), \texttt{plain}
+(plain text), \texttt{markdown} (pandoc's extended markdown),
+\texttt{markdown\_strict} (original unextended markdown),
+\texttt{markdown\_phpextra} (PHP Markdown extra extended markdown),
+\texttt{markdown\_github} (github extended markdown), \texttt{rst}
+(reStructuredText), \texttt{html} (XHTML 1), \texttt{html5} (HTML 5),
+\texttt{latex} (LaTeX), \texttt{beamer} (LaTeX beamer slide show),
+\texttt{context} (ConTeXt), \texttt{man} (groff man), \texttt{mediawiki}
+(MediaWiki markup), \texttt{textile} (Textile), \texttt{org} (Emacs
+Org-Mode), \texttt{texinfo} (GNU Texinfo), \texttt{docbook} (DocBook
+XML), \texttt{opendocument} (OpenDocument XML), \texttt{odt} (OpenOffice
+text document), \texttt{docx} (Word docx), \texttt{epub} (EPUB book),
+\texttt{epub3} (EPUB v3), \texttt{fb2} (FictionBook2 e-book),
+\texttt{asciidoc} (AsciiDoc), \texttt{slidy} (Slidy HTML and javascript
+slide show), \texttt{slideous} (Slideous HTML and javascript slide
+show), \texttt{dzslides} (HTML5 + javascript slide show), \texttt{s5}
+(S5 HTML and javascript slide show), or \texttt{rtf} (rich text format).
+Note that \texttt{odt}, \texttt{epub}, and \texttt{epub3} output will
+not be directed to \emph{stdout}; an output filename must be specified
+using the \texttt{-o/-{}-output} option. If \texttt{+lhs} is appended to
+\texttt{markdown}, \texttt{rst}, \texttt{latex}, \texttt{beamer},
+\texttt{html}, or \texttt{html5}, the output will be rendered as
+literate Haskell source: see
+\hyperref[literate-haskell-support]{Literate Haskell support}, below.
+Markdown syntax extensions can be individually enabled or disabled by
+appending \texttt{+EXTENSION} or \texttt{-EXTENSION} to the format name,
+as described above under \texttt{-f}.
+\item[\texttt{-o} \emph{FILE}, \texttt{-{}-output=}\emph{FILE}]
+Write output to \emph{FILE} instead of \emph{stdout}. If \emph{FILE} is
+\texttt{-}, output will go to \emph{stdout}. (Exception: if the output
+format is \texttt{odt}, \texttt{docx}, \texttt{epub}, or \texttt{epub3},
+output to stdout is disabled.)
+\item[\texttt{-{}-data-dir=}\emph{DIRECTORY}]
+Specify the user data directory to search for pandoc data files. If this
+option is not specified, the default user data directory will be used.
+This is
+
+\begin{verbatim}
+$HOME/.pandoc
+\end{verbatim}
+
+in unix,
+
+\begin{verbatim}
+C:\Documents And Settings\USERNAME\Application Data\pandoc
+\end{verbatim}
+
+in Windows XP, and
+
+\begin{verbatim}
+C:\Users\USERNAME\AppData\Roaming\pandoc
+\end{verbatim}
+
+in Windows 7. (You can find the default user data directory on your
+system by looking at the output of \texttt{pandoc -{}-version}.) A
+\texttt{reference.odt}, \texttt{reference.docx}, \texttt{default.csl},
+\texttt{epub.css}, \texttt{templates}, \texttt{slidy},
+\texttt{slideous}, or \texttt{s5} directory placed in this directory
+will override pandoc's normal defaults.
+\item[\texttt{-v}, \texttt{-{}-version}]
+Print version.
+\item[\texttt{-h}, \texttt{-{}-help}]
+Show usage message.
+\end{description}
+
+\subsection{Reader options}
+
+\begin{description}
+\item[\texttt{-R}, \texttt{-{}-parse-raw}]
+Parse untranslatable HTML codes and LaTeX environments as raw HTML or
+LaTeX, instead of ignoring them. Affects only HTML and LaTeX input. Raw
+HTML can be printed in markdown, reStructuredText, HTML, Slidy,
+Slideous, DZSlides, and S5 output; raw LaTeX can be printed in markdown,
+reStructuredText, LaTeX, and ConTeXt output. The default is for the
+readers to omit untranslatable HTML codes and LaTeX environments. (The
+LaTeX reader does pass through untranslatable LaTeX \emph{commands},
+even if \texttt{-R} is not specified.)
+\item[\texttt{-S}, \texttt{-{}-smart}]
+Produce typographically correct output, converting straight quotes to
+curly quotes, \texttt{-{}-{}-} to em-dashes, \texttt{-{}-} to en-dashes,
+and \texttt{...} to ellipses. Nonbreaking spaces are inserted after
+certain abbreviations, such as ``Mr.'' (Note: This option is significant
+only when the input format is \texttt{markdown},
+\texttt{markdown\_strict}, or \texttt{textile}. It is selected
+automatically when the input format is \texttt{textile} or the output
+format is \texttt{latex} or \texttt{context}, unless
+\texttt{-{}-no-tex-ligatures} is used.)
+\item[\texttt{-{}-old-dashes}]
+Selects the pandoc \textless{}= 1.8.2.1 behavior for parsing smart
+dashes: \texttt{-} before a numeral is an en-dash, and \texttt{-{}-} is
+an em-dash. This option is selected automatically for \texttt{textile}
+input.
+\item[\texttt{-{}-base-header-level=}\emph{NUMBER}]
+Specify the base level for headers (defaults to 1).
+\item[\texttt{-{}-indented-code-classes=}\emph{CLASSES}]
+Specify classes to use for indented code blocks--for example,
+\texttt{perl,numberLines} or \texttt{haskell}. Multiple classes may be
+separated by spaces or commas.
+\item[\texttt{-{}-default-image-extension=}\emph{EXTENSION}]
+Specify a default extension to use when image paths/URLs have no
+extension. This allows you to use the same source for formats that
+require different kinds of images. Currently this option only affects
+the markdown and LaTeX readers.
+\item[\texttt{-{}-normalize}]
+Normalize the document after reading: merge adjacent \texttt{Str} or
+\texttt{Emph} elements, for example, and remove repeated
+\texttt{Space}s.
+\item[\texttt{-p}, \texttt{-{}-preserve-tabs}]
+Preserve tabs instead of converting them to spaces (the default). Note
+that this will only affect tabs in literal code spans and code blocks;
+tabs in regular text will be treated as spaces.
+\item[\texttt{-{}-tab-stop=}\emph{NUMBER}]
+Specify the number of spaces per tab (default is 4).
+\end{description}
+
+\subsection{General writer options}
+
+\begin{description}
+\item[\texttt{-s}, \texttt{-{}-standalone}]
+Produce output with an appropriate header and footer (e.g.~a standalone
+HTML, LaTeX, or RTF file, not a fragment). This option is set
+automatically for \texttt{pdf}, \texttt{epub}, \texttt{epub3},
+\texttt{fb2}, \texttt{docx}, and \texttt{odt} output.
+\item[\texttt{-{}-template=}\emph{FILE}]
+Use \emph{FILE} as a custom template for the generated document. Implies
+\texttt{-{}-standalone}. See \hyperref[templates]{Templates} below for a
+description of template syntax. If no extension is specified, an
+extension corresponding to the writer will be added, so that
+\texttt{-{}-template=special} looks for \texttt{special.html} for HTML
+output. If the template is not found, pandoc will search for it in the
+user data directory (see \texttt{-{}-data-dir}). If this option is not
+used, a default template appropriate for the output format will be used
+(see \texttt{-D/-{}-print-default-template}).
+\item[\texttt{-V} \emph{KEY{[}=VAL{]}},
+\texttt{-{}-variable=}\emph{KEY{[}:VAL{]}}]
+Set the template variable \emph{KEY} to the value \emph{VAL} when
+rendering the document in standalone mode. This is generally only useful
+when the \texttt{-{}-template} option is used to specify a custom
+template, since pandoc automatically sets the variables used in the
+default templates. If no \emph{VAL} is specified, the key will be given
+the value \texttt{true}.
+\item[\texttt{-D} \emph{FORMAT},
+\texttt{-{}-print-default-template=}\emph{FORMAT}]
+Print the default template for an output \emph{FORMAT}. (See \texttt{-t}
+for a list of possible \emph{FORMAT}s.)
+\item[\texttt{-{}-no-wrap}]
+Disable text wrapping in output. By default, text is wrapped
+appropriately for the output format.
+\item[\texttt{-{}-columns}=\emph{NUMBER}]
+Specify length of lines in characters (for text wrapping).
+\item[\texttt{-{}-toc}, \texttt{-{}-table-of-contents}]
+Include an automatically generated table of contents (or, in the case of
+\texttt{latex}, \texttt{context}, and \texttt{rst}, an instruction to
+create one) in the output document. This option has no effect on
+\texttt{man}, \texttt{docbook}, \texttt{slidy}, \texttt{slideous}, or
+\texttt{s5} output.
+\item[\texttt{-{}-toc-depth=}\emph{NUMBER}]
+Specify the number of section levels to include in the table of
+contents. The default is 3 (which means that level 1, 2, and 3 headers
+will be listed in the contents). Implies \texttt{-{}-toc}.
+\item[\texttt{-{}-no-highlight}]
+Disables syntax highlighting for code blocks and inlines, even when a
+language attribute is given.
+\item[\texttt{-{}-highlight-style}=\emph{STYLE}]
+Specifies the coloring style to be used in highlighted source code.
+Options are \texttt{pygments} (the default), \texttt{kate},
+\texttt{monochrome}, \texttt{espresso}, \texttt{zenburn},
+\texttt{haddock}, and \texttt{tango}.
+\item[\texttt{-H} \emph{FILE},
+\texttt{-{}-include-in-header=}\emph{FILE}]
+Include contents of \emph{FILE}, verbatim, at the end of the header.
+This can be used, for example, to include special CSS or javascript in
+HTML documents. This option can be used repeatedly to include multiple
+files in the header. They will be included in the order specified.
+Implies \texttt{-{}-standalone}.
+\item[\texttt{-B} \emph{FILE},
+\texttt{-{}-include-before-body=}\emph{FILE}]
+Include contents of \emph{FILE}, verbatim, at the beginning of the
+document body (e.g.~after the \texttt{\textless{}body\textgreater{}} tag
+in HTML, or the \texttt{\textbackslash{}begin\{document\}} command in
+LaTeX). This can be used to include navigation bars or banners in HTML
+documents. This option can be used repeatedly to include multiple files.
+They will be included in the order specified. Implies
+\texttt{-{}-standalone}.
+\item[\texttt{-A} \emph{FILE},
+\texttt{-{}-include-after-body=}\emph{FILE}]
+Include contents of \emph{FILE}, verbatim, at the end of the document
+body (before the \texttt{\textless{}/body\textgreater{}} tag in HTML, or
+the \texttt{\textbackslash{}end\{document\}} command in LaTeX). This
+option can be be used repeatedly to include multiple files. They will be
+included in the order specified. Implies \texttt{-{}-standalone}.
+\end{description}
+
+\subsection{Options affecting specific writers}
+
+\begin{description}
+\item[\texttt{-{}-self-contained}]
+Produce a standalone HTML file with no external dependencies, using
+\texttt{data:} URIs to incorporate the contents of linked scripts,
+stylesheets, images, and videos. The resulting file should be
+``self-contained,'' in the sense that it needs no external files and no
+net access to be displayed properly by a browser. This option works only
+with HTML output formats, including \texttt{html}, \texttt{html5},
+\texttt{html+lhs}, \texttt{html5+lhs}, \texttt{s5}, \texttt{slidy},
+\texttt{slideous}, and \texttt{dzslides}. Scripts, images, and
+stylesheets at absolute URLs will be downloaded; those at relative URLs
+will be sought first relative to the working directory, then relative to
+the user data directory (see \texttt{-{}-data-dir}), and finally
+relative to pandoc's default data directory.
+\item[\texttt{-{}-offline}]
+Deprecated synonym for \texttt{-{}-self-contained}.
+\item[\texttt{-5}, \texttt{-{}-html5}]
+Produce HTML5 instead of HTML4. This option has no effect for writers
+other than \texttt{html}. (\emph{Deprecated:} Use the \texttt{html5}
+output format instead.)
+\item[\texttt{-{}-html-q-tags}]
+Use \texttt{\textless{}q\textgreater{}} tags for quotes in HTML.
+\item[\texttt{-{}-ascii}]
+Use only ascii characters in output. Currently supported only for HTML
+output (which uses numerical entities instead of UTF-8 when this option
+is selected).
+\item[\texttt{-{}-reference-links}]
+Use reference-style links, rather than inline links, in writing markdown
+or reStructuredText. By default inline links are used.
+\item[\texttt{-{}-atx-headers}]
+Use ATX style headers in markdown output. The default is to use
+setext-style headers for levels 1-2, and then ATX headers.
+\item[\texttt{-{}-chapters}]
+Treat top-level headers as chapters in LaTeX, ConTeXt, and DocBook
+output. When the LaTeX template uses the report, book, or memoir class,
+this option is implied. If \texttt{-{}-beamer} is used, top-level
+headers will become \texttt{\textbackslash{}part\{..\}}.
+\item[\texttt{-N}, \texttt{-{}-number-sections}]
+Number section headings in LaTeX, ConTeXt, HTML, or EPUB output. By
+default, sections are not numbered. Sections with class
+\texttt{unnumbered} will never be numbered, even if
+\texttt{-{}-number-sections} is specified.
+\item[\texttt{-{}-number-offset}=\emph{NUMBER{[},NUMBER,\ldots{}{]}},]
+Offset for section headings in HTML output (ignored in other output
+formats). The first number is added to the section number for top-level
+headers, the second for second-level headers, and so on. So, for
+example, if you want the first top-level header in your document to be
+numbered ``6'', specify \texttt{-{}-number-offset=5}. If your document
+starts with a level-2 header which you want to be numbered ``1.5'',
+specify \texttt{-{}-number-offset=1,4}. Offsets are 0 by default.
+Implies \texttt{-{}-number-sections}.
+\item[\texttt{-{}-no-tex-ligatures}]
+Do not convert quotation marks, apostrophes, and dashes to the TeX
+ligatures when writing LaTeX or ConTeXt. Instead, just use literal
+unicode characters. This is needed for using advanced OpenType features
+with XeLaTeX and LuaLaTeX. Note: normally \texttt{-{}-smart} is selected
+automatically for LaTeX and ConTeXt output, but it must be specified
+explicitly if \texttt{-{}-no-tex-ligatures} is selected. If you use
+literal curly quotes, dashes, and ellipses in your source, then you may
+want to use \texttt{-{}-no-tex-ligatures} without \texttt{-{}-smart}.
+\item[\texttt{-{}-listings}]
+Use listings package for LaTeX code blocks
+\item[\texttt{-i}, \texttt{-{}-incremental}]
+Make list items in slide shows display incrementally (one by one). The
+default is for lists to be displayed all at once.
+\item[\texttt{-{}-slide-level}=\emph{NUMBER}]
+Specifies that headers with the specified level create slides (for
+\texttt{beamer}, \texttt{s5}, \texttt{slidy}, \texttt{slideous},
+\texttt{dzslides}). Headers above this level in the hierarchy are used
+to divide the slide show into sections; headers below this level create
+subheads within a slide. The default is to set the slide level based on
+the contents of the document; see
+\hyperref[structuring-the-slide-show]{Structuring the slide show},
+below.
+\item[\texttt{-{}-section-divs}]
+Wrap sections in \texttt{\textless{}div\textgreater{}} tags (or
+\texttt{\textless{}section\textgreater{}} tags in HTML5), and attach
+identifiers to the enclosing \texttt{\textless{}div\textgreater{}} (or
+\texttt{\textless{}section\textgreater{}}) rather than the header
+itself. See
+\hyperref[header-identifiers-in-html-latex-and-context]{Section
+identifiers}, below.
+\item[\texttt{-{}-email-obfuscation=}\emph{none\textbar{}javascript\textbar{}references}]
+Specify a method for obfuscating \texttt{mailto:} links in HTML
+documents. \emph{none} leaves \texttt{mailto:} links as they are.
+\emph{javascript} obfuscates them using javascript. \emph{references}
+obfuscates them by printing their letters as decimal or hexadecimal
+character references.
+\item[\texttt{-{}-id-prefix}=\emph{STRING}]
+Specify a prefix to be added to all automatically generated identifiers
+in HTML and DocBook output, and to footnote numbers in markdown output.
+This is useful for preventing duplicate identifiers when generating
+fragments to be included in other pages.
+\item[\texttt{-T} \emph{STRING},
+\texttt{-{}-title-prefix=}\emph{STRING}]
+Specify \emph{STRING} as a prefix at the beginning of the title that
+appears in the HTML header (but not in the title as it appears at the
+beginning of the HTML body). Implies \texttt{-{}-standalone}.
+\item[\texttt{-c} \emph{URL}, \texttt{-{}-css=}\emph{URL}]
+Link to a CSS style sheet. This option can be be used repeatedly to
+include multiple files. They will be included in the order specified.
+\item[\texttt{-{}-reference-odt=}\emph{FILE}]
+Use the specified file as a style reference in producing an ODT. For
+best results, the reference ODT should be a modified version of an ODT
+produced using pandoc. The contents of the reference ODT are ignored,
+but its stylesheets are used in the new ODT. If no reference ODT is
+specified on the command line, pandoc will look for a file
+\texttt{reference.odt} in the user data directory (see
+\texttt{-{}-data-dir}). If this is not found either, sensible defaults
+will be used.
+\item[\texttt{-{}-reference-docx=}\emph{FILE}]
+Use the specified file as a style reference in producing a docx file.
+For best results, the reference docx should be a modified version of a
+docx file produced using pandoc. The contents of the reference docx are
+ignored, but its stylesheets are used in the new docx. If no reference
+docx is specified on the command line, pandoc will look for a file
+\texttt{reference.docx} in the user data directory (see
+\texttt{-{}-data-dir}). If this is not found either, sensible defaults
+will be used. The following styles are used by pandoc: {[}paragraph{]}
+Normal, Title, Authors, Date, Heading 1, Heading 2, Heading 3, Heading
+4, Heading 5, Block Quote, Definition Term, Definition, Body Text, Table
+Caption, Image Caption; {[}character{]} Default Paragraph Font, Body
+Text Char, Verbatim Char, Footnote Ref, Link.
+\item[\texttt{-{}-epub-stylesheet=}\emph{FILE}]
+Use the specified CSS file to style the EPUB. If no stylesheet is
+specified, pandoc will look for a file \texttt{epub.css} in the user
+data directory (see \texttt{-{}-data-dir}). If it is not found there,
+sensible defaults will be used.
+\item[\texttt{-{}-epub-cover-image=}\emph{FILE}]
+Use the specified image as the EPUB cover. It is recommended that the
+image be less than 1000px in width and height.
+\item[\texttt{-{}-epub-metadata=}\emph{FILE}]
+Look in the specified XML file for metadata for the EPUB. The file
+should contain a series of Dublin Core elements, as documented at
+\url{http://dublincore.org/documents/dces/}. For example:
+
+\begin{verbatim}
+ <dc:rights>Creative Commons</dc:rights>
+ <dc:language>es-AR</dc:language>
+\end{verbatim}
+
+By default, pandoc will include the following metadata elements:
+\texttt{\textless{}dc:title\textgreater{}} (from the document title),
+\texttt{\textless{}dc:creator\textgreater{}} (from the document
+authors), \texttt{\textless{}dc:date\textgreater{}} (from the document
+date, which should be in \href{http://www.w3.org/TR/NOTE-datetime}{ISO
+8601 format}), \texttt{\textless{}dc:language\textgreater{}} (from the
+\texttt{lang} variable, or, if is not set, the locale), and
+\texttt{\textless{}dc:identifier id="BookId"\textgreater{}} (a randomly
+generated UUID). Any of these may be overridden by elements in the
+metadata file.
+\item[\texttt{-{}-epub-embed-font=}\emph{FILE}]
+Embed the specified font in the EPUB. This option can be repeated to
+embed multiple fonts. To use embedded fonts, you will need to add
+declarations like the following to your CSS (see
+\texttt{-{}-epub-stylesheet}):
+
+\begin{verbatim}
+@font-face {
+font-family: DejaVuSans;
+font-style: normal;
+font-weight: normal;
+src:url("DejaVuSans-Regular.ttf");
+}
+@font-face {
+font-family: DejaVuSans;
+font-style: normal;
+font-weight: bold;
+src:url("DejaVuSans-Bold.ttf");
+}
+@font-face {
+font-family: DejaVuSans;
+font-style: italic;
+font-weight: normal;
+src:url("DejaVuSans-Oblique.ttf");
+}
+@font-face {
+font-family: DejaVuSans;
+font-style: italic;
+font-weight: bold;
+src:url("DejaVuSans-BoldOblique.ttf");
+}
+body { font-family: "DejaVuSans"; }
+\end{verbatim}
+\item[\texttt{-{}-epub-chapter-level=}\emph{NUMBER}]
+Specify the header level at which to split the EPUB into separate
+``chapter'' files. The default is to split into chapters at level 1
+headers. This option only affects the internal composition of the EPUB,
+not the way chapters and sections are displayed to users. Some readers
+may be slow if the chapter files are too large, so for large documents
+with few level 1 headers, one might want to use a chapter level of 2 or
+3.
+\item[\texttt{-{}-latex-engine=}\emph{pdflatex\textbar{}lualatex\textbar{}xelatex}]
+Use the specified LaTeX engine when producing PDF output. The default is
+\texttt{pdflatex}. If the engine is not in your PATH, the full path of
+the engine may be specified here.
+\end{description}
+
+\subsection{Citation rendering}
+
+\begin{description}
+\item[\texttt{-{}-bibliography=}\emph{FILE}]
+Specify bibliography database to be used in resolving citations. The
+database type will be determined from the extension of \emph{FILE},
+which may be \texttt{.mods} (MODS format), \texttt{.bib} (BibLaTeX
+format, which will normally work for BibTeX files as well),
+\texttt{.bibtex} (BibTeX format), \texttt{.ris} (RIS format),
+\texttt{.enl} (EndNote format), \texttt{.xml} (EndNote XML format),
+\texttt{.wos} (ISI format), \texttt{.medline} (MEDLINE format),
+\texttt{.copac} (Copac format), or \texttt{.json} (citeproc JSON). If
+you want to use multiple bibliographies, just use this option
+repeatedly.
+\item[\texttt{-{}-csl=}\emph{FILE}]
+Specify \href{http://CitationStyles.org}{CSL} style to be used in
+formatting citations and the bibliography. If \emph{FILE} is not found,
+pandoc will look for it in
+
+\begin{verbatim}
+$HOME/.csl
+\end{verbatim}
+
+in unix,
+
+\begin{verbatim}
+C:\Documents And Settings\USERNAME\Application Data\csl
+\end{verbatim}
+
+in Windows XP, and
+
+\begin{verbatim}
+C:\Users\USERNAME\AppData\Roaming\csl
+\end{verbatim}
+
+in Windows 7. If the \texttt{-{}-csl} option is not specified, pandoc
+will use a default style: either \texttt{default.csl} in the user data
+directory (see \texttt{-{}-data-dir}), or, if that is not present, the
+Chicago author-date style.
+\item[\texttt{-{}-citation-abbreviations=}\emph{FILE}]
+Specify a file containing abbreviations for journal titles and other
+bibliographic fields (indicated by setting \texttt{form="short"} in the
+CSL node for the field). The format is described at
+\url{http://citationstylist.org/2011/10/19/abbreviations-for-zotero-test-release/}.
+Here is a short example:
+
+\begin{verbatim}
+{ "default": {
+    "container-title": {
+            "Lloyd's Law Reports": "Lloyd's Rep",
+            "Estates Gazette": "EG",
+            "Scots Law Times": "SLT"
+    }
+  }
+}
+\end{verbatim}
+\item[\texttt{-{}-natbib}]
+Use natbib for citations in LaTeX output.
+\item[\texttt{-{}-biblatex}]
+Use biblatex for citations in LaTeX output.
+\end{description}
+
+\subsection{Math rendering in HTML}
+
+\begin{description}
+\item[\texttt{-m} {[}\emph{URL}{]},
+\texttt{-{}-latexmathml}{[}=\emph{URL}{]}]
+Use the \href{http://math.etsu.edu/LaTeXMathML/}{LaTeXMathML} script to
+display embedded TeX math in HTML output. To insert a link to a local
+copy of the \texttt{LaTeXMathML.js} script, provide a \emph{URL}. If no
+\emph{URL} is provided, the contents of the script will be inserted
+directly into the HTML header, preserving portability at the price of
+efficiency. If you plan to use math on several pages, it is much better
+to link to a copy of the script, so it can be cached.
+\item[\texttt{-{}-mathml}{[}=\emph{URL}{]}]
+Convert TeX math to MathML (in \texttt{docbook} as well as \texttt{html}
+and \texttt{html5}). In standalone \texttt{html} output, a small
+javascript (or a link to such a script if a \emph{URL} is supplied) will
+be inserted that allows the MathML to be viewed on some browsers.
+\item[\texttt{-{}-jsmath}{[}=\emph{URL}{]}]
+Use \href{http://www.math.union.edu/~dpvc/jsmath/}{jsMath} to display
+embedded TeX math in HTML output. The \emph{URL} should point to the
+jsMath load script (e.g. \texttt{jsMath/easy/load.js}); if provided, it
+will be linked to in the header of standalone HTML documents. If a
+\emph{URL} is not provided, no link to the jsMath load script will be
+inserted; it is then up to the author to provide such a link in the HTML
+template.
+\item[\texttt{-{}-mathjax}{[}=\emph{URL}{]}]
+Use \href{http://www.mathjax.org/}{MathJax} to display embedded TeX math
+in HTML output. The \emph{URL} should point to the \texttt{MathJax.js}
+load script. If a \emph{URL} is not provided, a link to the MathJax CDN
+will be inserted.
+\item[\texttt{-{}-gladtex}]
+Enclose TeX math in \texttt{\textless{}eq\textgreater{}} tags in HTML
+output. These can then be processed by
+\href{http://ans.hsh.no/home/mgg/gladtex/}{gladTeX} to produce links to
+images of the typeset formulas.
+\item[\texttt{-{}-mimetex}{[}=\emph{URL}{]}]
+Render TeX math using the
+\href{http://www.forkosh.com/mimetex.html}{mimeTeX} CGI script. If
+\emph{URL} is not specified, it is assumed that the script is at
+\texttt{/cgi-bin/mimetex.cgi}.
+\item[\texttt{-{}-webtex}{[}=\emph{URL}{]}]
+Render TeX formulas using an external script that converts TeX formulas
+to images. The formula will be concatenated with the URL provided. If
+\emph{URL} is not specified, the Google Chart API will be used.
+\end{description}
+
+\subsection{Options for wrapper scripts}
+
+\begin{description}
+\item[\texttt{-{}-dump-args}]
+Print information about command-line arguments to \emph{stdout}, then
+exit. This option is intended primarily for use in wrapper scripts. The
+first line of output contains the name of the output file specified with
+the \texttt{-o} option, or \texttt{-} (for \emph{stdout}) if no output
+file was specified. The remaining lines contain the command-line
+arguments, one per line, in the order they appear. These do not include
+regular Pandoc options and their arguments, but do include any options
+appearing after a \texttt{-{}-} separator at the end of the line.
+\item[\texttt{-{}-ignore-args}]
+Ignore command-line arguments (for use in wrapper scripts). Regular
+Pandoc options are not ignored. Thus, for example,
+
+\begin{verbatim}
+pandoc --ignore-args -o foo.html -s foo.txt -- -e latin1
+\end{verbatim}
+
+is equivalent to
+
+\begin{verbatim}
+pandoc -o foo.html -s
+\end{verbatim}
+\end{description}
+
+\hyperdef{}{templates}{\section{Templates}\label{templates}}
+
+When the \texttt{-s/-{}-standalone} option is used, pandoc uses a
+template to add header and footer material that is needed for a
+self-standing document. To see the default template that is used, just
+type
+
+\begin{verbatim}
+pandoc -D FORMAT
+\end{verbatim}
+
+where \texttt{FORMAT} is the name of the output format. A custom
+template can be specified using the \texttt{-{}-template} option. You
+can also override the system default templates for a given output format
+\texttt{FORMAT} by putting a file \texttt{templates/default.FORMAT} in
+the user data directory (see \texttt{-{}-data-dir}, above).
+\emph{Exceptions:} For \texttt{odt} output, customize the
+\texttt{default.opendocument} template. For \texttt{pdf} output,
+customize the \texttt{default.latex} template.
+
+Templates may contain \emph{variables}. Variable names are sequences of
+alphanumerics, \texttt{-}, and \texttt{\_}, starting with a letter. A
+variable name surrounded by \texttt{\$} signs will be replaced by its
+value. For example, the string \texttt{\$title\$} in
+
+\begin{verbatim}
+<title>$title$</title>
+\end{verbatim}
+
+will be replaced by the document title.
+
+To write a literal \texttt{\$} in a template, use \texttt{\$\$}.
+
+Some variables are set automatically by pandoc. These vary somewhat
+depending on the output format, but include:
+
+\begin{description}
+\itemsep1pt\parskip0pt\parsep0pt
+\item[\texttt{header-includes}]
+contents specified by \texttt{-H/-{}-include-in-header} (may have
+multiple values)
+\item[\texttt{toc}]
+non-null value if \texttt{-{}-toc/-{}-table-of-contents} was specified
+\item[\texttt{include-before}]
+contents specified by \texttt{-B/-{}-include-before-body} (may have
+multiple values)
+\item[\texttt{include-after}]
+contents specified by \texttt{-A/-{}-include-after-body} (may have
+multiple values)
+\item[\texttt{body}]
+body of document
+\item[\texttt{title}]
+title of document, as specified in title block
+\item[\texttt{author}]
+author of document, as specified in title block (may have multiple
+values)
+\item[\texttt{date}]
+date of document, as specified in title block
+\item[\texttt{lang}]
+language code for HTML or LaTeX documents
+\item[\texttt{slidy-url}]
+base URL for Slidy documents (defaults to
+\texttt{http://www.w3.org/Talks/Tools/Slidy2})
+\item[\texttt{slideous-url}]
+base URL for Slideous documents (defaults to \texttt{default})
+\item[\texttt{s5-url}]
+base URL for S5 documents (defaults to \texttt{ui/default})
+\item[\texttt{fontsize}]
+font size (10pt, 11pt, 12pt) for LaTeX documents
+\item[\texttt{documentclass}]
+document class for LaTeX documents
+\item[\texttt{geometry}]
+options for LaTeX \texttt{geometry} class, e.g. \texttt{margin=1in}; may
+be repeated for multiple options
+\item[\texttt{mainfont}, \texttt{sansfont}, \texttt{monofont},
+\texttt{mathfont}]
+fonts for LaTeX documents (works only with xelatex and lualatex)
+\item[\texttt{theme}]
+theme for LaTeX beamer documents
+\item[\texttt{colortheme}]
+colortheme for LaTeX beamer documents
+\item[\texttt{linkcolor}]
+color for internal links in LaTeX documents (\texttt{red},
+\texttt{green}, \texttt{magenta}, \texttt{cyan}, \texttt{blue},
+\texttt{black})
+\item[\texttt{urlcolor}]
+color for external links in LaTeX documents
+\item[\texttt{links-as-notes}]
+causes links to be printed as footnotes in LaTeX documents
+\end{description}
+
+Variables may be set at the command line using the
+\texttt{-V/-{}-variable} option. This allows users to include custom
+variables in their templates.
+
+Templates may contain conditionals. The syntax is as follows:
+
+\begin{verbatim}
+$if(variable)$
+X
+$else$
+Y
+$endif$
+\end{verbatim}
+
+This will include \texttt{X} in the template if \texttt{variable} has a
+non-null value; otherwise it will include \texttt{Y}. \texttt{X} and
+\texttt{Y} are placeholders for any valid template text, and may include
+interpolated variables or other conditionals. The \texttt{\$else\$}
+section may be omitted.
+
+When variables can have multiple values (for example, \texttt{author} in
+a multi-author document), you can use the \texttt{\$for\$} keyword:
+
+\begin{verbatim}
+$for(author)$
+<meta name="author" content="$author$" />
+$endfor$
+\end{verbatim}
+
+You can optionally specify a separator to be used between consecutive
+items:
+
+\begin{verbatim}
+$for(author)$$author$$sep$, $endfor$
+\end{verbatim}
+
+If you use custom templates, you may need to revise them as pandoc
+changes. We recommend tracking the changes in the default templates, and
+modifying your custom templates accordingly. An easy way to do this is
+to fork the pandoc-templates repository
+(\url{http://github.com/jgm/pandoc-templates}) and merge in changes
+after each pandoc release.
+
+\hyperdef{}{pandocs-markdown}{\section{Pandoc's
+markdown}\label{pandocs-markdown}}
+
+Pandoc understands an extended and slightly revised version of John
+Gruber's \href{http://daringfireball.net/projects/markdown/}{markdown}
+syntax. This document explains the syntax, noting differences from
+standard markdown. Except where noted, these differences can be
+suppressed by using the \texttt{markdown\_strict} format instead of
+\texttt{markdown}. An extensions can be enabled by adding
+\texttt{+EXTENSION} to the format name and disabled by adding
+\texttt{-EXTENSION}. For example, \texttt{markdown\_strict+footnotes} is
+strict markdown with footnotes enabled, while
+\texttt{markdown-footnotes-pipe\_tables} is pandoc's markdown without
+footnotes or pipe tables.
+
+\subsection{Philosophy}
+
+Markdown is designed to be easy to write, and, even more importantly,
+easy to read:
+
+\begin{quote}
+A Markdown-formatted document should be publishable as-is, as plain
+text, without looking like it's been marked up with tags or formatting
+instructions. --
+\href{http://daringfireball.net/projects/markdown/syntax\#philosophy}{John
+Gruber}
+\end{quote}
+
+This principle has guided pandoc's decisions in finding syntax for
+tables, footnotes, and other extensions.
+
+There is, however, one respect in which pandoc's aims are different from
+the original aims of markdown. Whereas markdown was originally designed
+with HTML generation in mind, pandoc is designed for multiple output
+formats. Thus, while pandoc allows the embedding of raw HTML, it
+discourages it, and provides other, non-HTMLish ways of representing
+important document elements like definition lists, tables, mathematics,
+and footnotes.
+
+\subsection{Paragraphs}
+
+A paragraph is one or more lines of text followed by one or more blank
+line. Newlines are treated as spaces, so you can reflow your paragraphs
+as you like. If you need a hard line break, put two or more spaces at
+the end of a line.
+
+\textbf{Extension: \texttt{escaped\_line\_breaks}}
+
+A backslash followed by a newline is also a hard line break.
+
+\subsection{Headers}
+
+There are two kinds of headers, Setext and atx.
+
+\subsubsection{Setext-style headers}
+
+A setext-style header is a line of text ``underlined'' with a row of
+\texttt{=} signs (for a level one header) of \texttt{-} signs (for a
+level two header):
+
+\begin{verbatim}
+A level-one header
+==================
+
+A level-two header
+------------------
+\end{verbatim}
+
+The header text can contain inline formatting, such as emphasis (see
+\hyperref[inline-formatting]{Inline formatting}, below).
+
+\subsubsection{Atx-style headers}
+
+An Atx-style header consists of one to six \texttt{\#} signs and a line
+of text, optionally followed by any number of \texttt{\#} signs. The
+number of \texttt{\#} signs at the beginning of the line is the header
+level:
+
+\begin{verbatim}
+## A level-two header
+
+### A level-three header ###
+\end{verbatim}
+
+As with setext-style headers, the header text can contain formatting:
+
+\begin{verbatim}
+# A level-one header with a [link](/url) and *emphasis*
+\end{verbatim}
+
+\textbf{Extension: \texttt{blank\_before\_header}}
+
+Standard markdown syntax does not require a blank line before a header.
+Pandoc does require this (except, of course, at the beginning of the
+document). The reason for the requirement is that it is all too easy for
+a \texttt{\#} to end up at the beginning of a line by accident (perhaps
+through line wrapping). Consider, for example:
+
+\begin{verbatim}
+I like several of their flavors of ice cream:
+#22, for example, and #5.
+\end{verbatim}
+
+\hyperdef{}{header-identifiers-in-html-latex-and-context}{\subsubsection{Header
+identifiers in HTML, LaTeX, and
+ConTeXt}\label{header-identifiers-in-html-latex-and-context}}
+
+\textbf{Extension: \texttt{header\_attributes}}
+
+Headers can be assigned attributes using this syntax at the end of the
+line containing the header text:
+
+\begin{verbatim}
+{#identifier .class .class key=value key=value}
+\end{verbatim}
+
+Although this syntax allows assignment of classes and key/value
+attributes, only identifiers currently have any affect in the writers
+(and only in some writers: HTML, LaTeX, ConTeXt, Textile, AsciiDoc).
+Thus, for example, the following headers will all be assigned the
+identifier \texttt{foo}:
+
+\begin{verbatim}
+# My header {#foo}
+
+## My header ##    {#foo}
+
+My other header   {#foo}
+---------------
+\end{verbatim}
+
+(This syntax is compatible with
+\href{http://www.michelf.com/projects/php-markdown/extra/}{PHP Markdown
+Extra}.)
+
+Headers with the class \texttt{unnumbered} will not be numbered, even if
+\texttt{-{}-number-sections} is specified. A single hyphen (\texttt{-})
+in an attribute context is equivalent to \texttt{.unnumbered}, and
+preferable in non-English documents. So,
+
+\begin{verbatim}
+# My header {-}
+\end{verbatim}
+
+is just the same as
+
+\begin{verbatim}
+# My header {.unnumbered}
+\end{verbatim}
+
+\textbf{Extension: \texttt{auto\_identifiers}}
+
+A header without an explicitly specified identifier will be
+automatically assigned a unique identifier based on the header text. To
+derive the identifier from the header text,
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  Remove all formatting, links, etc.
+\item
+  Remove all punctuation, except underscores, hyphens, and periods.
+\item
+  Replace all spaces and newlines with hyphens.
+\item
+  Convert all alphabetic characters to lowercase.
+\item
+  Remove everything up to the first letter (identifiers may not begin
+  with a number or punctuation mark).
+\item
+  If nothing is left after this, use the identifier \texttt{section}.
+\end{itemize}
+
+Thus, for example,
+
+\begin{longtable}[c]{@{}ll@{}}
+\hline\noalign{\medskip}
+Header & Identifier
+\\\noalign{\medskip}
+\hline\noalign{\medskip}
+Header identifiers in HTML & \texttt{header-identifiers-in-html}
+\\\noalign{\medskip}
+\emph{Dogs}?--in \emph{my} house? & \texttt{dogs-{}-in-my-house}
+\\\noalign{\medskip}
+\href{http://www.w3.org/TR/html40/}{HTML},
+\href{http://meyerweb.com/eric/tools/s5/}{S5}, or
+\href{http://en.wikipedia.org/wiki/Rich_Text_Format}{RTF}? &
+\texttt{html-s5-or-rtf}
+\\\noalign{\medskip}
+3. Applications & \texttt{applications}
+\\\noalign{\medskip}
+33 & \texttt{section}
+\\\noalign{\medskip}
+\hline
+\end{longtable}
+
+These rules should, in most cases, allow one to determine the identifier
+from the header text. The exception is when several headers have the
+same text; in this case, the first will get an identifier as described
+above; the second will get the same identifier with \texttt{-1}
+appended; the third with \texttt{-2}; and so on.
+
+These identifiers are used to provide link targets in the table of
+contents generated by the
+\texttt{-{}-toc\textbar{}-{}-table-of-contents} option. They also make
+it easy to provide links from one section of a document to another. A
+link to this section, for example, might look like this:
+
+\begin{verbatim}
+See the section on
+[header identifiers](#header-identifiers-in-html-latex-and-context).
+\end{verbatim}
+
+Note, however, that this method of providing links to sections works
+only in HTML, LaTeX, and ConTeXt formats.
+
+If the \texttt{-{}-section-divs} option is specified, then each section
+will be wrapped in a \texttt{div} (or a \texttt{section}, if
+\texttt{-{}-html5} was specified), and the identifier will be attached
+to the enclosing \texttt{\textless{}div\textgreater{}} (or
+\texttt{\textless{}section\textgreater{}}) tag rather than the header
+itself. This allows entire sections to be manipulated using javascript
+or treated differently in CSS.
+
+\textbf{Extension: \texttt{implicit\_header\_references}}
+
+Pandoc behaves as if reference links have been defined for each header.
+So, instead of
+
+\begin{verbatim}
+[header identifiers](#header-identifiers-in-html)
+\end{verbatim}
+
+you can simply write
+
+\begin{verbatim}
+[header identifiers]
+\end{verbatim}
+
+or
+
+\begin{verbatim}
+[header identifiers][]
+\end{verbatim}
+
+or
+
+\begin{verbatim}
+[the section on header identifiers][header identifiers]
+\end{verbatim}
+
+If there are multiple headers with identical text, the corresponding
+reference will link to the first one only, and you will need to use
+explicit links to link to the others, as described above.
+
+Unlike regular reference links, these references are case-sensitive.
+
+Note: if you have defined an explicit identifier for a header, then
+implicit references to it will not work.
+
+\subsection{Block quotations}
+
+Markdown uses email conventions for quoting blocks of text. A block
+quotation is one or more paragraphs or other block elements (such as
+lists or headers), with each line preceded by a \texttt{\textgreater{}}
+character and a space. (The \texttt{\textgreater{}} need not start at
+the left margin, but it should not be indented more than three spaces.)
+
+\begin{verbatim}
+> This is a block quote. This
+> paragraph has two lines.
+>
+> 1. This is a list inside a block quote.
+> 2. Second item.
+\end{verbatim}
+
+A ``lazy'' form, which requires the \texttt{\textgreater{}} character
+only on the first line of each block, is also allowed:
+
+\begin{verbatim}
+> This is a block quote. This
+paragraph has two lines.
+
+> 1. This is a list inside a block quote.
+2. Second item.
+\end{verbatim}
+
+Among the block elements that can be contained in a block quote are
+other block quotes. That is, block quotes can be nested:
+
+\begin{verbatim}
+> This is a block quote.
+>
+> > A block quote within a block quote.
+\end{verbatim}
+
+\textbf{Extension: \texttt{blank\_before\_blockquote}}
+
+Standard markdown syntax does not require a blank line before a block
+quote. Pandoc does require this (except, of course, at the beginning of
+the document). The reason for the requirement is that it is all too easy
+for a \texttt{\textgreater{}} to end up at the beginning of a line by
+accident (perhaps through line wrapping). So, unless the
+\texttt{markdown\_strict} format is used, the following does not produce
+a nested block quote in pandoc:
+
+\begin{verbatim}
+> This is a block quote.
+>> Nested.
+\end{verbatim}
+
+\subsection{Verbatim (code) blocks}
+
+\subsubsection{Indented code blocks}
+
+A block of text indented four spaces (or one tab) is treated as verbatim
+text: that is, special characters do not trigger special formatting, and
+all spaces and line breaks are preserved. For example,
+
+\begin{verbatim}
+    if (a > 3) {
+      moveShip(5 * gravity, DOWN);
+    }
+\end{verbatim}
+
+The initial (four space or one tab) indentation is not considered part
+of the verbatim text, and is removed in the output.
+
+Note: blank lines in the verbatim text need not begin with four spaces.
+
+\hyperdef{}{fenced-code-blocks}{\subsubsection{Fenced code
+blocks}\label{fenced-code-blocks}}
+
+\textbf{Extension: \texttt{fenced\_code\_blocks}}
+
+In addition to standard indented code blocks, Pandoc supports
+\emph{fenced} code blocks. These begin with a row of three or more
+tildes (\texttt{\textasciitilde{}}) or backticks (\texttt{`}) and end
+with a row of tildes or backticks that must be at least as long as the
+starting row. Everything between these lines is treated as code. No
+indentation is necessary:
+
+\begin{verbatim}
+~~~~~~~
+if (a > 3) {
+  moveShip(5 * gravity, DOWN);
+}
+~~~~~~~
+\end{verbatim}
+
+Like regular code blocks, fenced code blocks must be separated from
+surrounding text by blank lines.
+
+If the code itself contains a row of tildes or backticks, just use a
+longer row of tildes or backticks at the start and end:
+
+\begin{verbatim}
+~~~~~~~~~~~~~~~~
+~~~~~~~~~~
+code including tildes
+~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+\end{verbatim}
+
+Optionally, you may attach attributes to the code block using this
+syntax:
+
+\begin{verbatim}
+~~~~ {#mycode .haskell .numberLines startFrom="100"}
+qsort []     = []
+qsort (x:xs) = qsort (filter (< x) xs) ++ [x] ++
+               qsort (filter (>= x) xs)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+\end{verbatim}
+
+Here \texttt{mycode} is an identifier, \texttt{haskell} and
+\texttt{numberLines} are classes, and \texttt{startFrom} is an attribute
+with value \texttt{100}. Some output formats can use this information to
+do syntax highlighting. Currently, the only output formats that uses
+this information are HTML and LaTeX. If highlighting is supported for
+your output format and language, then the code block above will appear
+highlighted, with numbered lines. (To see which languages are supported,
+do \texttt{pandoc -{}-version}.) Otherwise, the code block above will
+appear as follows:
+
+\begin{verbatim}
+<pre id="mycode" class="haskell numberLines" startFrom="100">
+  <code>
+  ...
+  </code>
+</pre>
+\end{verbatim}
+
+A shortcut form can also be used for specifying the language of the code
+block:
+
+\begin{verbatim}
+```haskell
+qsort [] = []
+```
+\end{verbatim}
+
+This is equivalent to:
+
+\begin{verbatim}
+``` {.haskell}
+qsort [] = []
+```
+\end{verbatim}
+
+To prevent all highlighting, use the \texttt{-{}-no-highlight} flag. To
+set the highlighting style, use \texttt{-{}-highlight-style}.
+
+\subsection{Line blocks}
+
+\textbf{Extension: \texttt{line\_blocks}}
+
+A line block is a sequence of lines beginning with a vertical bar
+(\texttt{\textbar{}}) followed by a space. The division into lines will
+be preserved in the output, as will any leading spaces; otherwise, the
+lines will be formatted as markdown. This is useful for verse and
+addresses:
+
+\begin{verbatim}
+| The limerick packs laughs anatomical
+| In space that is quite economical.
+|    But the good ones I've seen
+|    So seldom are clean
+| And the clean ones so seldom are comical
+
+| 200 Main St.
+| Berkeley, CA 94718
+\end{verbatim}
+
+The lines can be hard-wrapped if needed, but the continuation line must
+begin with a space.
+
+\begin{verbatim}
+| The Right Honorable Most Venerable and Righteous Samuel L.
+  Constable, Jr.
+| 200 Main St.
+| Berkeley, CA 94718
+\end{verbatim}
+
+This syntax is borrowed from
+\href{http://docutils.sourceforge.net/docs/ref/rst/introduction.html}{reStructuredText}.
+
+\subsection{Lists}
+
+\subsubsection{Bullet lists}
+
+A bullet list is a list of bulleted list items. A bulleted list item
+begins with a bullet (\texttt{*}, \texttt{+}, or \texttt{-}). Here is a
+simple example:
+
+\begin{verbatim}
+* one
+* two
+* three
+\end{verbatim}
+
+This will produce a ``compact'' list. If you want a ``loose'' list, in
+which each item is formatted as a paragraph, put spaces between the
+items:
+
+\begin{verbatim}
+* one
+
+* two
+
+* three
+\end{verbatim}
+
+The bullets need not be flush with the left margin; they may be indented
+one, two, or three spaces. The bullet must be followed by whitespace.
+
+List items look best if subsequent lines are flush with the first line
+(after the bullet):
+
+\begin{verbatim}
+* here is my first
+  list item.
+* and my second.
+\end{verbatim}
+
+But markdown also allows a ``lazy'' format:
+
+\begin{verbatim}
+* here is my first
+list item.
+* and my second.
+\end{verbatim}
+
+\subsubsection{The four-space rule}
+
+A list item may contain multiple paragraphs and other block-level
+content. However, subsequent paragraphs must be preceded by a blank line
+and indented four spaces or a tab. The list will look better if the
+first paragraph is aligned with the rest:
+
+\begin{verbatim}
+  * First paragraph.
+
+    Continued.
+
+  * Second paragraph. With a code block, which must be indented
+    eight spaces:
+
+        { code }
+\end{verbatim}
+
+List items may include other lists. In this case the preceding blank
+line is optional. The nested list must be indented four spaces or one
+tab:
+
+\begin{verbatim}
+* fruits
+    + apples
+        - macintosh
+        - red delicious
+    + pears
+    + peaches
+* vegetables
+    + brocolli
+    + chard
+\end{verbatim}
+
+As noted above, markdown allows you to write list items ``lazily,''
+instead of indenting continuation lines. However, if there are multiple
+paragraphs or other blocks in a list item, the first line of each must
+be indented.
+
+\begin{verbatim}
++ A lazy, lazy, list
+item.
+
++ Another one; this looks
+bad but is legal.
+
+    Second paragraph of second
+list item.
+\end{verbatim}
+
+\textbf{Note:} Although the four-space rule for continuation paragraphs
+comes from the official
+\href{http://daringfireball.net/projects/markdown/syntax\#list}{markdown
+syntax guide}, the reference implementation, \texttt{Markdown.pl}, does
+not follow it. So pandoc will give different results than
+\texttt{Markdown.pl} when authors have indented continuation paragraphs
+fewer than four spaces.
+
+The
+\href{http://daringfireball.net/projects/markdown/syntax\#list}{markdown
+syntax guide} is not explicit whether the four-space rule applies to
+\emph{all} block-level content in a list item; it only mentions
+paragraphs and code blocks. But it implies that the rule applies to all
+block-level content (including nested lists), and pandoc interprets it
+that way.
+
+\subsubsection{Ordered lists}
+
+Ordered lists work just like bulleted lists, except that the items begin
+with enumerators rather than bullets.
+
+In standard markdown, enumerators are decimal numbers followed by a
+period and a space. The numbers themselves are ignored, so there is no
+difference between this list:
+
+\begin{verbatim}
+1.  one
+2.  two
+3.  three
+\end{verbatim}
+
+and this one:
+
+\begin{verbatim}
+5.  one
+7.  two
+1.  three
+\end{verbatim}
+
+\textbf{Extension: \texttt{fancy\_lists}}
+
+Unlike standard markdown, Pandoc allows ordered list items to be marked
+with uppercase and lowercase letters and roman numerals, in addition to
+arabic numerals. List markers may be enclosed in parentheses or followed
+by a single right-parentheses or period. They must be separated from the
+text that follows by at least one space, and, if the list marker is a
+capital letter with a period, by at least two spaces.\footnote{The point
+  of this rule is to ensure that normal paragraphs starting with
+  people's initials, like
+
+\begin{Verbatim}
+B. Russell was an English philosopher.
+\end{Verbatim}
+
+  do not get treated as list items.
+
+  This rule will not prevent
+
+\begin{Verbatim}
+(C) 2007 Joe Smith
+\end{Verbatim}
+
+  from being interpreted as a list item. In this case, a backslash
+  escape can be used:
+
+\begin{Verbatim}
+(C\) 2007 Joe Smith
+\end{Verbatim}
+}
+
+\textbf{Extension: \texttt{startnum}}
+
+Pandoc also pays attention to the type of list marker used, and to the
+starting number, and both of these are preserved where possible in the
+output format. Thus, the following yields a list with numbers followed
+by a single parenthesis, starting with 9, and a sublist with lowercase
+roman numerals:
+
+\begin{verbatim}
+ 9)  Ninth
+10)  Tenth
+11)  Eleventh
+       i. subone
+      ii. subtwo
+     iii. subthree
+\end{verbatim}
+
+Pandoc will start a new list each time a different type of list marker
+is used. So, the following will create three lists:
+
+\begin{verbatim}
+(2) Two
+(5) Three
+1.  Four
+*   Five
+\end{verbatim}
+
+If default list markers are desired, use \texttt{\#.}:
+
+\begin{verbatim}
+#.  one
+#.  two
+#.  three
+\end{verbatim}
+
+\subsubsection{Definition lists}
+
+\textbf{Extension: \texttt{definition\_lists}}
+
+Pandoc supports definition lists, using a syntax inspired by
+\href{http://www.michelf.com/projects/php-markdown/extra/}{PHP Markdown
+Extra} and
+\href{http://docutils.sourceforge.net/docs/ref/rst/introduction.html}{reStructuredText}:\footnote{I
+  have also been influenced by the suggestions of
+  \href{http://www.justatheory.com/computers/markup/modest-markdown-proposal.html}{David
+  Wheeler}.}
+
+\begin{verbatim}
+Term 1
+
+:   Definition 1
+
+Term 2 with *inline markup*
+
+:   Definition 2
+
+        { some code, part of Definition 2 }
+
+    Third paragraph of definition 2.
+\end{verbatim}
+
+Each term must fit on one line, which may optionally be followed by a
+blank line, and must be followed by one or more definitions. A
+definition begins with a colon or tilde, which may be indented one or
+two spaces. The body of the definition (including the first line, aside
+from the colon or tilde) should be indented four spaces. A term may have
+multiple definitions, and each definition may consist of one or more
+block elements (paragraph, code block, list, etc.), each indented four
+spaces or one tab stop.
+
+If you leave space after the definition (as in the example above), the
+blocks of the definitions will be considered paragraphs. In some output
+formats, this will mean greater spacing between term/definition pairs.
+For a compact definition list, do not leave space between the definition
+and the next term:
+
+\begin{verbatim}
+Term 1
+  ~ Definition 1
+Term 2
+  ~ Definition 2a
+  ~ Definition 2b
+\end{verbatim}
+
+\subsubsection{Numbered example lists}
+
+\textbf{Extension: \texttt{example\_lists}}
+
+The special list marker \texttt{@} can be used for sequentially numbered
+examples. The first list item with a \texttt{@} marker will be numbered
+`1', the next `2', and so on, throughout the document. The numbered
+examples need not occur in a single list; each new list using \texttt{@}
+will take up where the last stopped. So, for example:
+
+\begin{verbatim}
+(@)  My first example will be numbered (1).
+(@)  My second example will be numbered (2).
+
+Explanation of examples.
+
+(@)  My third example will be numbered (3).
+\end{verbatim}
+
+Numbered examples can be labeled and referred to elsewhere in the
+document:
+
+\begin{verbatim}
+(@good)  This is a good example.
+
+As (@good) illustrates, ...
+\end{verbatim}
+
+The label can be any string of alphanumeric characters, underscores, or
+hyphens.
+
+\subsubsection{Compact and loose lists}
+
+Pandoc behaves differently from \texttt{Markdown.pl} on some ``edge
+cases'' involving lists. Consider this source:
+
+\begin{verbatim}
++   First
++   Second:
+    -   Fee
+    -   Fie
+    -   Foe
+
++   Third
+\end{verbatim}
+
+Pandoc transforms this into a ``compact list'' (with no
+\texttt{\textless{}p\textgreater{}} tags around ``First'', ``Second'',
+or ``Third''), while markdown puts \texttt{\textless{}p\textgreater{}}
+tags around ``Second'' and ``Third'' (but not ``First''), because of the
+blank space around ``Third''. Pandoc follows a simple rule: if the text
+is followed by a blank line, it is treated as a paragraph. Since
+``Second'' is followed by a list, and not a blank line, it isn't treated
+as a paragraph. The fact that the list is followed by a blank line is
+irrelevant. (Note: Pandoc works this way even when the
+\texttt{markdown\_strict} format is specified. This behavior is
+consistent with the official markdown syntax description, even though it
+is different from that of \texttt{Markdown.pl}.)
+
+\subsubsection{Ending a list}
+
+What if you want to put an indented code block after a list?
+
+\begin{verbatim}
+-   item one
+-   item two
+
+    { my code block }
+\end{verbatim}
+
+Trouble! Here pandoc (like other markdown implementations) will treat
+\texttt{\{ my code block \}} as the second paragraph of item two, and
+not as a code block.
+
+To ``cut off'' the list after item two, you can insert some non-indented
+content, like an HTML comment, which won't produce visible output in any
+format:
+
+\begin{verbatim}
+-   item one
+-   item two
+
+<!-- end of list -->
+
+    { my code block }
+\end{verbatim}
+
+You can use the same trick if you want two consecutive lists instead of
+one big list:
+
+\begin{verbatim}
+1.  one
+2.  two
+3.  three
+
+<!-- -->
+
+1.  uno
+2.  dos
+3.  tres
+\end{verbatim}
+
+\subsection{Horizontal rules}
+
+A line containing a row of three or more \texttt{*}, \texttt{-}, or
+\texttt{\_} characters (optionally separated by spaces) produces a
+horizontal rule:
+
+\begin{verbatim}
+*  *  *  *
+
+---------------
+\end{verbatim}
+
+\subsection{Tables}
+
+Four kinds of tables may be used. The first three kinds presuppose the
+use of a fixed-width font, such as Courier. The fourth kind can be used
+with proportionally spaced fonts, as it does not require lining up
+columns.
+
+\subsubsection{Simple tables}
+
+\textbf{Extension: \texttt{simple\_tables}, \texttt{table\_captions}}
+
+Simple tables look like this:
+
+\begin{verbatim}
+  Right     Left     Center     Default
+-------     ------ ----------   -------
+     12     12        12            12
+    123     123       123          123
+      1     1          1             1
+
+Table:  Demonstration of simple table syntax.
+\end{verbatim}
+
+The headers and table rows must each fit on one line. Column alignments
+are determined by the position of the header text relative to the dashed
+line below it:\footnote{This scheme is due to Michel Fortin, who
+  proposed it on the
+  \href{http://six.pairlist.net/pipermail/markdown-discuss/2005-March/001097.html}{Markdown
+  discussion list}.}
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  If the dashed line is flush with the header text on the right side but
+  extends beyond it on the left, the column is right-aligned.
+\item
+  If the dashed line is flush with the header text on the left side but
+  extends beyond it on the right, the column is left-aligned.
+\item
+  If the dashed line extends beyond the header text on both sides, the
+  column is centered.
+\item
+  If the dashed line is flush with the header text on both sides, the
+  default alignment is used (in most cases, this will be left).
+\end{itemize}
+
+The table must end with a blank line, or a line of dashes followed by a
+blank line. A caption may optionally be provided (as illustrated in the
+example above). A caption is a paragraph beginning with the string
+\texttt{Table:} (or just \texttt{:}), which will be stripped off. It may
+appear either before or after the table.
+
+The column headers may be omitted, provided a dashed line is used to end
+the table. For example:
+
+\begin{verbatim}
+-------     ------ ----------   -------
+     12     12        12             12
+    123     123       123           123
+      1     1          1              1
+-------     ------ ----------   -------
+\end{verbatim}
+
+When headers are omitted, column alignments are determined on the basis
+of the first line of the table body. So, in the tables above, the
+columns would be right, left, center, and right aligned, respectively.
+
+\subsubsection{Multiline tables}
+
+\textbf{Extension: \texttt{multiline\_tables}, \texttt{table\_captions}}
+
+Multiline tables allow headers and table rows to span multiple lines of
+text (but cells that span multiple columns or rows of the table are not
+supported). Here is an example:
+
+\begin{verbatim}
+-------------------------------------------------------------
+ Centered   Default           Right Left
+  Header    Aligned         Aligned Aligned
+----------- ------- --------------- -------------------------
+   First    row                12.0 Example of a row that
+                                    spans multiple lines.
+
+  Second    row                 5.0 Here's another one. Note
+                                    the blank line between
+                                    rows.
+-------------------------------------------------------------
+
+Table: Here's the caption. It, too, may span
+multiple lines.
+\end{verbatim}
+
+These work like simple tables, but with the following differences:
+
+\begin{itemize}
+\itemsep1pt\parskip0pt\parsep0pt
+\item
+  They must begin with a row of dashes, before the header text (unless
+  the headers are omitted).
+\item
+  They must end with a row of dashes, then a blank line.
+\item
+  The rows must be separated by blank lines.
+\end{itemize}
+
+In multiline tables, the table parser pays attention to the widths of
+the columns, and the writers try to reproduce these relative widths in
+the output. So, if you find that one of the columns is too narrow in the
+output, try widening it in the markdown source.
+
+Headers may be omitted in multiline tables as well as simple tables:
+
+\begin{verbatim}
+----------- ------- --------------- -------------------------
+   First    row                12.0 Example of a row that
+                                    spans multiple lines.
+
+  Second    row                 5.0 Here's another one. Note
+                                    the blank line between
+                                    rows.
+----------- ------- --------------- -------------------------
+
+: Here's a multiline table without headers.
+\end{verbatim}
+
+It is possible for a multiline table to have just one row, but the row
+should be followed by a blank line (and then the row of dashes that ends
+the table), or the table may be interpreted as a simple table.
+
+\subsubsection{Grid tables}
+
+\textbf{Extension: \texttt{grid\_tables}, \texttt{table\_captions}}
+
+Grid tables look like this:
+
+\begin{verbatim}
+: Sample grid table.
+
++---------------+---------------+--------------------+
+| Fruit         | Price         | Advantages         |
++===============+===============+====================+
+| Bananas       | $1.34         | - built-in wrapper |
+|               |               | - bright color     |
++---------------+---------------+--------------------+
+| Oranges       | $2.10         | - cures scurvy     |
+|               |               | - tasty            |
++---------------+---------------+--------------------+
+\end{verbatim}
+
+The row of \texttt{=}s separates the header from the table body, and can
+be omitted for a headerless table. The cells of grid tables may contain
+arbitrary block elements (multiple paragraphs, code blocks, lists,
+etc.). Alignments are not supported, nor are cells that span multiple
+columns or rows. Grid tables can be created easily using
+\href{http://table.sourceforge.net/}{Emacs table mode}.
+
+\subsubsection{Pipe tables}
+
+\textbf{Extension: \texttt{pipe\_tables}, \texttt{table\_captions}}
+
+Pipe tables look like this:
+
+\begin{verbatim}
+| Right | Left | Default | Center |
+|------:|:-----|---------|:------:|
+|   12  |  12  |    12   |    12  |
+|  123  |  123 |   123   |   123  |
+|    1  |    1 |     1   |     1  |
+
+  : Demonstration of simple table syntax.
+\end{verbatim}
+
+The syntax is
+\href{http://michelf.ca/projects/php-markdown/extra/\#table}{the same as
+in PHP markdown extra}. The beginning and ending pipe characters are
+optional, but pipes are required between all columns. The colons
+indicate column alignment as shown. The header can be omitted, but the
+horizontal line must still be included, as it defines column alignments.
+
+Since the pipes indicate column boundaries, columns need not be
+vertically aligned, as they are in the above example. So, this is a
+perfectly legal (though ugly) pipe table:
+
+\begin{verbatim}
+fruit| price
+-----|-----:
+apple|2.05
+pear|1.37
+orange|3.09
+\end{verbatim}
+
+The cells of pipe tables cannot contain block elements like paragraphs
+and lists, and cannot span multiple lines.
+
+Note: Pandoc also recognizes pipe tables of the following form, as can
+produced by Emacs' orgtbl-mode:
+
+\begin{verbatim}
+| One | Two   |
+|-----+-------|
+| my  | table |
+| is  | nice  |
+\end{verbatim}
+
+The difference is that \texttt{+} is used instead of
+\texttt{\textbar{}}. Other orgtbl features are not supported. In
+particular, to get non-default column alignment, you'll need to add
+colons as above.
+
+\subsection{Title block}
+
+\textbf{Extension: \texttt{pandoc\_title\_block}}
+
+If the file begins with a title block
+
+\begin{verbatim}
+% title
+% author(s) (separated by semicolons)
+% date
+\end{verbatim}
+
+it will be parsed as bibliographic information, not regular text. (It
+will be used, for example, in the title of standalone LaTeX or HTML
+output.) The block may contain just a title, a title and an author, or
+all three elements. If you want to include an author but no title, or a
+title and a date but no author, you need a blank line:
+
+\begin{verbatim}
+%
+% Author
+
+% My title
+%
+% June 15, 2006
+\end{verbatim}
+
+The title may occupy multiple lines, but continuation lines must begin
+with leading space, thus:
+
+\begin{verbatim}
+% My title
+  on multiple lines
+\end{verbatim}
+
+If a document has multiple authors, the authors may be put on separate
+lines with leading space, or separated by semicolons, or both. So, all
+of the following are equivalent:
+
+\begin{verbatim}
+% Author One
+  Author Two
+
+% Author One; Author Two
+
+% Author One;
+  Author Two
+\end{verbatim}
+
+The date must fit on one line.
+
+All three metadata fields may contain standard inline formatting
+(italics, links, footnotes, etc.).
+
+Title blocks will always be parsed, but they will affect the output only
+when the \texttt{-{}-standalone} (\texttt{-s}) option is chosen. In HTML
+output, titles will appear twice: once in the document head -- this is
+the title that will appear at the top of the window in a browser -- and
+once at the beginning of the document body. The title in the document
+head can have an optional prefix attached (\texttt{-{}-title-prefix} or
+\texttt{-T} option). The title in the body appears as an H1 element with
+class ``title'', so it can be suppressed or reformatted with CSS. If a
+title prefix is specified with \texttt{-T} and no title block appears in
+the document, the title prefix will be used by itself as the HTML title.
+
+The man page writer extracts a title, man page section number, and other
+header and footer information from the title line. The title is assumed
+to be the first word on the title line, which may optionally end with a
+(single-digit) section number in parentheses. (There should be no space
+between the title and the parentheses.) Anything after this is assumed
+to be additional footer and header text. A single pipe character
+(\texttt{\textbar{}}) should be used to separate the footer text from
+the header text. Thus,
+
+\begin{verbatim}
+% PANDOC(1)
+\end{verbatim}
+
+will yield a man page with the title \texttt{PANDOC} and section 1.
+
+\begin{verbatim}
+% PANDOC(1) Pandoc User Manuals
+\end{verbatim}
+
+will also have ``Pandoc User Manuals'' in the footer.
+
+\begin{verbatim}
+% PANDOC(1) Pandoc User Manuals | Version 4.0
+\end{verbatim}
+
+will also have ``Version 4.0'' in the header.
+
+\subsection{Backslash escapes}
+
+\textbf{Extension: \texttt{all\_symbols\_escapable}}
+
+Except inside a code block or inline code, any punctuation or space
+character preceded by a backslash will be treated literally, even if it
+would normally indicate formatting. Thus, for example, if one writes
+
+\begin{verbatim}
+*\*hello\**
+\end{verbatim}
+
+one will get
+
+\begin{verbatim}
+<em>*hello*</em>
+\end{verbatim}
+
+instead of
+
+\begin{verbatim}
+<strong>hello</strong>
+\end{verbatim}
+
+This rule is easier to remember than standard markdown's rule, which
+allows only the following characters to be backslash-escaped:
+
+\begin{verbatim}
+\`*_{}[]()>#+-.!
+\end{verbatim}
+
+(However, if the \texttt{markdown\_strict} format is used, the standard
+markdown rule will be used.)
+
+A backslash-escaped space is parsed as a nonbreaking space. It will
+appear in TeX output as \texttt{\textasciitilde{}} and in HTML and XML
+as \texttt{\textbackslash{}\&\#160;} or
+\texttt{\textbackslash{}\&nbsp;}.
+
+A backslash-escaped newline (i.e.~a backslash occurring at the end of a
+line) is parsed as a hard line break. It will appear in TeX output as
+\texttt{\textbackslash{}\textbackslash{}} and in HTML as
+\texttt{\textless{}br /\textgreater{}}. This is a nice alternative to
+markdown's ``invisible'' way of indicating hard line breaks using two
+trailing spaces on a line.
+
+Backslash escapes do not work in verbatim contexts.
+
+\subsection{Smart punctuation}
+
+\textbf{Extension}
+
+If the \texttt{-{}-smart} option is specified, pandoc will produce
+typographically correct output, converting straight quotes to curly
+quotes, \texttt{-{}-{}-} to em-dashes, \texttt{-{}-} to en-dashes, and
+\texttt{...} to ellipses. Nonbreaking spaces are inserted after certain
+abbreviations, such as ``Mr.''
+
+Note: if your LaTeX template uses the \texttt{csquotes} package, pandoc
+will detect automatically this and use
+\texttt{\textbackslash{}enquote\{...\}} for quoted text.
+
+\hyperdef{}{inline-formatting}{\subsection{Inline
+formatting}\label{inline-formatting}}
+
+\subsubsection{Emphasis}
+
+To \emph{emphasize} some text, surround it with \texttt{*}s or
+\texttt{\_}, like this:
+
+\begin{verbatim}
+This text is _emphasized with underscores_, and this
+is *emphasized with asterisks*.
+\end{verbatim}
+
+Double \texttt{*} or \texttt{\_} produces \textbf{strong emphasis}:
+
+\begin{verbatim}
+This is **strong emphasis** and __with underscores__.
+\end{verbatim}
+
+A \texttt{*} or \texttt{\_} character surrounded by spaces, or
+backslash-escaped, will not trigger emphasis:
+
+\begin{verbatim}
+This is * not emphasized *, and \*neither is this\*.
+\end{verbatim}
+
+\textbf{Extension: \texttt{intraword\_underscores}}
+
+Because \texttt{\_} is sometimes used inside words and identifiers,
+pandoc does not interpret a \texttt{\_} surrounded by alphanumeric
+characters as an emphasis marker. If you want to emphasize just part of
+a word, use \texttt{*}:
+
+\begin{verbatim}
+feas*ible*, not feas*able*.
+\end{verbatim}
+
+\subsubsection{Strikeout}
+
+\textbf{Extension: \texttt{strikeout}}
+
+To strikeout a section of text with a horizontal line, begin and end it
+with \texttt{\textasciitilde{}\textasciitilde{}}. Thus, for example,
+
+\begin{verbatim}
+This ~~is deleted text.~~
+\end{verbatim}
+
+\subsubsection{Superscripts and subscripts}
+
+\textbf{Extension: \texttt{superscript}, \texttt{subscript}}
+
+Superscripts may be written by surrounding the superscripted text by
+\texttt{\^{}} characters; subscripts may be written by surrounding the
+subscripted text by \texttt{\textasciitilde{}} characters. Thus, for
+example,
+
+\begin{verbatim}
+H~2~O is a liquid.  2^10^ is 1024.
+\end{verbatim}
+
+If the superscripted or subscripted text contains spaces, these spaces
+must be escaped with backslashes. (This is to prevent accidental
+superscripting and subscripting through the ordinary use of
+\texttt{\textasciitilde{}} and \texttt{\^{}}.) Thus, if you want the
+letter P with `a cat' in subscripts, use
+\texttt{P\textasciitilde{}a\textbackslash{} cat\textasciitilde{}}, not
+\texttt{P\textasciitilde{}a cat\textasciitilde{}}.
+
+\subsubsection{Verbatim}
+
+To make a short span of text verbatim, put it inside backticks:
+
+\begin{verbatim}
+What is the difference between `>>=` and `>>`?
+\end{verbatim}
+
+If the verbatim text includes a backtick, use double backticks:
+
+\begin{verbatim}
+Here is a literal backtick `` ` ``.
+\end{verbatim}
+
+(The spaces after the opening backticks and before the closing backticks
+will be ignored.)
+
+The general rule is that a verbatim span starts with a string of
+consecutive backticks (optionally followed by a space) and ends with a
+string of the same number of backticks (optionally preceded by a space).
+
+Note that backslash-escapes (and other markdown constructs) do not work
+in verbatim contexts:
+
+\begin{verbatim}
+This is a backslash followed by an asterisk: `\*`.
+\end{verbatim}
+
+\textbf{Extension: \texttt{inline\_code\_attributes}}
+
+Attributes can be attached to verbatim text, just as with
+\hyperref[fenced-code-blocks]{fenced code blocks}:
+
+\begin{verbatim}
+`<$>`{.haskell}
+\end{verbatim}
+
+\subsection{Math}
+
+\textbf{Extension: \texttt{tex\_math\_dollars}}
+
+Anything between two \texttt{\$} characters will be treated as TeX math.
+The opening \texttt{\$} must have a character immediately to its right,
+while the closing \texttt{\$} must have a character immediately to its
+left. Thus, \texttt{\$20,000 and \$30,000} won't parse as math. If for
+some reason you need to enclose text in literal \texttt{\$} characters,
+backslash-escape them and they won't be treated as math delimiters.
+
+TeX math will be printed in all output formats. How it is rendered
+depends on the output format:
+
+\begin{description}
+\item[Markdown, LaTeX, Org-Mode, ConTeXt]
+It will appear verbatim between \texttt{\$} characters.
+\item[reStructuredText]
+It will be rendered using an interpreted text role \texttt{:math:}, as
+described
+\href{http://www.american.edu/econ/itex2mml/mathhack.rst}{here}.
+\item[AsciiDoc]
+It will be rendered as \texttt{latexmath:{[}...{]}}.
+\item[Texinfo]
+It will be rendered inside a \texttt{@math} command.
+\item[groff man]
+It will be rendered verbatim without \texttt{\$}'s.
+\item[MediaWiki]
+It will be rendered inside \texttt{\textless{}math\textgreater{}} tags.
+\item[Textile]
+It will be rendered inside
+\texttt{\textless{}span class="math"\textgreater{}} tags.
+\item[RTF, OpenDocument, ODT]
+It will be rendered, if possible, using unicode characters, and will
+otherwise appear verbatim.
+\item[Docbook]
+If the \texttt{-{}-mathml} flag is used, it will be rendered using
+mathml in an \texttt{inlineequation} or \texttt{informalequation} tag.
+Otherwise it will be rendered, if possible, using unicode characters.
+\item[Docx]
+It will be rendered using OMML math markup.
+\item[FictionBook2]
+If the \texttt{-{}-webtex} option is used, formulas are rendered as
+images using Google Charts or other compatible web service, downloaded
+and embedded in the e-book. Otherwise, they will appear verbatim.
+\item[HTML, Slidy, DZSlides, S5, EPUB]
+The way math is rendered in HTML will depend on the command-line options
+selected:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  The default is to render TeX math as far as possible using unicode
+  characters, as with RTF, DocBook, and OpenDocument output. Formulas
+  are put inside a \texttt{span} with \texttt{class="math"}, so that
+  they may be styled differently from the surrounding text if needed.
+\item
+  If the \texttt{-{}-latexmathml} option is used, TeX math will be
+  displayed between \texttt{\$} or \texttt{\$\$} characters and put in
+  \texttt{\textless{}span\textgreater{}} tags with class \texttt{LaTeX}.
+  The \href{http://math.etsu.edu/LaTeXMathML/}{LaTeXMathML} script will
+  be used to render it as formulas. (This trick does not work in all
+  browsers, but it works in Firefox. In browsers that do not support
+  LaTeXMathML, TeX math will appear verbatim between \texttt{\$}
+  characters.)
+\item
+  If the \texttt{-{}-jsmath} option is used, TeX math will be put inside
+  \texttt{\textless{}span\textgreater{}} tags (for inline math) or
+  \texttt{\textless{}div\textgreater{}} tags (for display math) with
+  class \texttt{math}. The
+  \href{http://www.math.union.edu/~dpvc/jsmath/}{jsMath} script will be
+  used to render it.
+\item
+  If the \texttt{-{}-mimetex} option is used, the
+  \href{http://www.forkosh.com/mimetex.html}{mimeTeX} CGI script will be
+  called to generate images for each TeX formula. This should work in
+  all browsers. The \texttt{-{}-mimetex} option takes an optional URL as
+  argument. If no URL is specified, it will be assumed that the mimeTeX
+  CGI script is at \texttt{/cgi-bin/mimetex.cgi}.
+\item
+  If the \texttt{-{}-gladtex} option is used, TeX formulas will be
+  enclosed in \texttt{\textless{}eq\textgreater{}} tags in the HTML
+  output. The resulting \texttt{htex} file may then be processed by
+  \href{http://ans.hsh.no/home/mgg/gladtex/}{gladTeX}, which will
+  produce image files for each formula and an \texttt{html} file with
+  links to these images. So, the procedure is:
+
+\begin{verbatim}
+pandoc -s --gladtex myfile.txt -o myfile.htex
+gladtex -d myfile-images myfile.htex
+# produces myfile.html and images in myfile-images
+\end{verbatim}
+\item
+  If the \texttt{-{}-webtex} option is used, TeX formulas will be
+  converted to \texttt{\textless{}img\textgreater{}} tags that link to
+  an external script that converts formulas to images. The formula will
+  be URL-encoded and concatenated with the URL provided. If no URL is
+  specified, the Google Chart API will be used
+  (\texttt{http://chart.apis.google.com/chart?cht=tx\&chl=}).
+\item
+  If the \texttt{-{}-mathjax} option is used, TeX math will be displayed
+  between \texttt{\textbackslash{}(...\textbackslash{})} (for inline
+  math) or \texttt{\textbackslash{}{[}...\textbackslash{}{]}} (for
+  display math) and put in \texttt{\textless{}span\textgreater{}} tags
+  with class \texttt{math}. The \href{http://www.mathjax.org/}{MathJax}
+  script will be used to render it as formulas.
+\end{enumerate}
+\end{description}
+
+\subsection{Raw HTML}
+
+\textbf{Extension: \texttt{raw\_html}}
+
+Markdown allows you to insert raw HTML (or DocBook) anywhere in a
+document (except verbatim contexts, where \texttt{\textless{}},
+\texttt{\textgreater{}}, and \texttt{\&} are interpreted literally).
+(Techncially this is not an extension, since standard markdown allows
+it, but it has been made an extension so that it can be disabled if
+desired.)
+
+The raw HTML is passed through unchanged in HTML, S5, Slidy, Slideous,
+DZSlides, EPUB, Markdown, and Textile output, and suppressed in other
+formats.
+
+\textbf{Extension: \texttt{markdown\_in\_html\_blocks}}
+
+Standard markdown allows you to include HTML ``blocks'': blocks of HTML
+between balanced tags that are separated from the surrounding text with
+blank lines, and start and end at the left margin. Within these blocks,
+everything is interpreted as HTML, not markdown; so (for example),
+\texttt{*} does not signify emphasis.
+
+Pandoc behaves this way when the \texttt{markdown\_strict} format is
+used; but by default, pandoc interprets material between HTML block tags
+as markdown. Thus, for example, Pandoc will turn
+
+\begin{verbatim}
+<table>
+    <tr>
+        <td>*one*</td>
+        <td>[a link](http://google.com)</td>
+    </tr>
+</table>
+\end{verbatim}
+
+into
+
+\begin{verbatim}
+<table>
+    <tr>
+        <td><em>one</em></td>
+        <td><a href="http://google.com">a link</a></td>
+    </tr>
+</table>
+\end{verbatim}
+
+whereas \texttt{Markdown.pl} will preserve it as is.
+
+There is one exception to this rule: text between
+\texttt{\textless{}script\textgreater{}} and
+\texttt{\textless{}style\textgreater{}} tags is not interpreted as
+markdown.
+
+This departure from standard markdown should make it easier to mix
+markdown with HTML block elements. For example, one can surround a block
+of markdown text with \texttt{\textless{}div\textgreater{}} tags without
+preventing it from being interpreted as markdown.
+
+\subsection{Raw TeX}
+
+\textbf{Extension: \texttt{raw\_tex}}
+
+In addition to raw HTML, pandoc allows raw LaTeX, TeX, and ConTeXt to be
+included in a document. Inline TeX commands will be preserved and passed
+unchanged to the LaTeX and ConTeXt writers. Thus, for example, you can
+use LaTeX to include BibTeX citations:
+
+\begin{verbatim}
+This result was proved in \cite{jones.1967}.
+\end{verbatim}
+
+Note that in LaTeX environments, like
+
+\begin{verbatim}
+\begin{tabular}{|l|l|}\hline
+Age & Frequency \\ \hline
+18--25  & 15 \\
+26--35  & 33 \\
+36--45  & 22 \\ \hline
+\end{tabular}
+\end{verbatim}
+
+the material between the begin and end tags will be interpreted as raw
+LaTeX, not as markdown.
+
+Inline LaTeX is ignored in output formats other than Markdown, LaTeX,
+and ConTeXt.
+
+\subsection{LaTeX macros}
+
+\textbf{Extension: \texttt{latex\_macros}}
+
+For output formats other than LaTeX, pandoc will parse LaTeX
+\texttt{\textbackslash{}newcommand} and
+\texttt{\textbackslash{}renewcommand} definitions and apply the
+resulting macros to all LaTeX math. So, for example, the following will
+work in all output formats, not just LaTeX:
+
+\begin{verbatim}
+\newcommand{\tuple}[1]{\langle #1 \rangle}
+
+$\tuple{a, b, c}$
+\end{verbatim}
+
+In LaTeX output, the \texttt{\textbackslash{}newcommand} definition will
+simply be passed unchanged to the output.
+
+\subsection{Links}
+
+Markdown allows links to be specified in several ways.
+
+\subsubsection{Automatic links}
+
+If you enclose a URL or email address in pointy brackets, it will become
+a link:
+
+\begin{verbatim}
+<http://google.com>
+<sam@green.eggs.ham>
+\end{verbatim}
+
+\subsubsection{Inline links}
+
+An inline link consists of the link text in square brackets, followed by
+the URL in parentheses. (Optionally, the URL can be followed by a link
+title, in quotes.)
+
+\begin{verbatim}
+This is an [inline link](/url), and here's [one with
+a title](http://fsf.org "click here for a good time!").
+\end{verbatim}
+
+There can be no space between the bracketed part and the parenthesized
+part. The link text can contain formatting (such as emphasis), but the
+title cannot.
+
+\subsubsection{Reference links}
+
+An \emph{explicit} reference link has two parts, the link itself and the
+link definition, which may occur elsewhere in the document (either
+before or after the link).
+
+The link consists of link text in square brackets, followed by a label
+in square brackets. (There can be space between the two.) The link
+definition consists of the bracketed label, followed by a colon and a
+space, followed by the URL, and optionally (after a space) a link title
+either in quotes or in parentheses.
+
+Here are some examples:
+
+\begin{verbatim}
+[my label 1]: /foo/bar.html  "My title, optional"
+[my label 2]: /foo
+[my label 3]: http://fsf.org (The free software foundation)
+[my label 4]: /bar#special  'A title in single quotes'
+\end{verbatim}
+
+The URL may optionally be surrounded by angle brackets:
+
+\begin{verbatim}
+[my label 5]: <http://foo.bar.baz>
+\end{verbatim}
+
+The title may go on the next line:
+
+\begin{verbatim}
+[my label 3]: http://fsf.org
+  "The free software foundation"
+\end{verbatim}
+
+Note that link labels are not case sensitive. So, this will work:
+
+\begin{verbatim}
+Here is [my link][FOO]
+
+[Foo]: /bar/baz
+\end{verbatim}
+
+In an \emph{implicit} reference link, the second pair of brackets is
+empty, or omitted entirely:
+
+\begin{verbatim}
+See [my website][], or [my website].
+
+[my website]: http://foo.bar.baz
+\end{verbatim}
+
+Note: In \texttt{Markdown.pl} and most other markdown implementations,
+reference link definitions cannot occur in nested constructions such as
+list items or block quotes. Pandoc lifts this arbitrary seeming
+restriction. So the following is fine in pandoc, though not in most
+other implementations:
+
+\begin{verbatim}
+> My block [quote].
+>
+> [quote]: /foo
+\end{verbatim}
+
+\subsubsection{Internal links}
+
+To link to another section of the same document, use the automatically
+generated identifier (see
+\hyperref[header-identifiers-in-html-latex-and-context]{Header
+identifiers in HTML, LaTeX, and ConTeXt}, below). For example:
+
+\begin{verbatim}
+See the [Introduction](#introduction).
+\end{verbatim}
+
+or
+
+\begin{verbatim}
+See the [Introduction].
+
+[Introduction]: #introduction
+\end{verbatim}
+
+Internal links are currently supported for HTML formats (including HTML
+slide shows and EPUB), LaTeX, and ConTeXt.
+
+\subsection{Images}
+
+A link immediately preceded by a \texttt{!} will be treated as an image.
+The link text will be used as the image's alt text:
+
+\begin{verbatim}
+![la lune](lalune.jpg "Voyage to the moon")
+
+![movie reel]
+
+[movie reel]: movie.gif
+\end{verbatim}
+
+\subsubsection{Pictures with captions}
+
+\textbf{Extension: \texttt{implicit\_figures}}
+
+An image occurring by itself in a paragraph will be rendered as a figure
+with a caption.\footnote{This feature is not yet implemented for RTF,
+  OpenDocument, or ODT. In those formats, you'll just get an image in a
+  paragraph by itself, with no caption.} (In LaTeX, a figure environment
+will be used; in HTML, the image will be placed in a \texttt{div} with
+class \texttt{figure}, together with a caption in a \texttt{p} with
+class \texttt{caption}.) The image's alt text will be used as the
+caption.
+
+\begin{verbatim}
+![This is the caption](/url/of/image.png)
+\end{verbatim}
+
+If you just want a regular inline image, just make sure it is not the
+only thing in the paragraph. One way to do this is to insert a
+nonbreaking space after the image:
+
+\begin{verbatim}
+![This image won't be a figure](/url/of/image.png)\
+\end{verbatim}
+
+\subsection{Footnotes}
+
+\textbf{Extension: \texttt{footnotes}}
+
+Pandoc's markdown allows footnotes, using the following syntax:
+
+\begin{verbatim}
+Here is a footnote reference,[^1] and another.[^longnote]
+
+[^1]: Here is the footnote.
+
+[^longnote]: Here's one with multiple blocks.
+
+    Subsequent paragraphs are indented to show that they
+belong to the previous footnote.
+
+        { some.code }
+
+    The whole paragraph can be indented, or just the first
+    line.  In this way, multi-paragraph footnotes work like
+    multi-paragraph list items.
+
+This paragraph won't be part of the note, because it
+isn't indented.
+\end{verbatim}
+
+The identifiers in footnote references may not contain spaces, tabs, or
+newlines. These identifiers are used only to correlate the footnote
+reference with the note itself; in the output, footnotes will be
+numbered sequentially.
+
+The footnotes themselves need not be placed at the end of the document.
+They may appear anywhere except inside other block elements (lists,
+block quotes, tables, etc.).
+
+\textbf{Extension: \texttt{inline\_notes}}
+
+Inline footnotes are also allowed (though, unlike regular notes, they
+cannot contain multiple paragraphs). The syntax is as follows:
+
+\begin{verbatim}
+Here is an inline note.^[Inlines notes are easier to write, since
+you don't have to pick an identifier and move down to type the
+note.]
+\end{verbatim}
+
+Inline and regular footnotes may be mixed freely.
+
+\subsection{Citations}
+
+\textbf{Extension: \texttt{citations}}
+
+Pandoc can automatically generate citations and a bibliography in a
+number of styles (using Andrea Rossato's \texttt{hs-citeproc}). In order
+to use this feature, you will need a bibliographic database in one of
+the following formats:
+
+\begin{longtable}[c]{@{}ll@{}}
+\hline\noalign{\medskip}
+Format & File extension
+\\\noalign{\medskip}
+\hline\noalign{\medskip}
+MODS & .mods
+\\\noalign{\medskip}
+BibLaTeX & .bib
+\\\noalign{\medskip}
+BibTeX & .bibtex
+\\\noalign{\medskip}
+RIS & .ris
+\\\noalign{\medskip}
+EndNote & .enl
+\\\noalign{\medskip}
+EndNote XML & .xml
+\\\noalign{\medskip}
+ISI & .wos
+\\\noalign{\medskip}
+MEDLINE & .medline
+\\\noalign{\medskip}
+Copac & .copac
+\\\noalign{\medskip}
+JSON citeproc & .json
+\\\noalign{\medskip}
+\hline
+\end{longtable}
+
+Note that \texttt{.bib} can generally be used with both BibTeX and
+BibLaTeX files, but you can use \texttt{.bibtex} to force BibTeX.
+
+You will need to specify the bibliography file using the
+\texttt{-{}-bibliography} command-line option (which may be repeated if
+you have several bibliographies).
+
+By default, pandoc will use a Chicago author-date format for citations
+and references. To use another style, you will need to use the
+\texttt{-{}-csl} option to specify a
+\href{http://CitationStyles.org}{CSL} 1.0 style file. A primer on
+creating and modifying CSL styles can be found at
+\url{http://citationstyles.org/downloads/primer.html}. A repository of
+CSL styles can be found at
+\url{https://github.com/citation-style-language/styles}. See also
+\url{http://zotero.org/styles} for easy browsing.
+
+Citations go inside square brackets and are separated by semicolons.
+Each citation must have a key, composed of `@' + the citation identifier
+from the database, and may optionally have a prefix, a locator, and a
+suffix. Here are some examples:
+
+\begin{verbatim}
+Blah blah [see @doe99, pp. 33-35; also @smith04, ch. 1].
+
+Blah blah [@doe99, pp. 33-35, 38-39 and *passim*].
+
+Blah blah [@smith04; @doe99].
+\end{verbatim}
+
+A minus sign (\texttt{-}) before the \texttt{@} will suppress mention of
+the author in the citation. This can be useful when the author is
+already mentioned in the text:
+
+\begin{verbatim}
+Smith says blah [-@smith04].
+\end{verbatim}
+
+You can also write an in-text citation, as follows:
+
+\begin{verbatim}
+@smith04 says blah.
+
+@smith04 [p. 33] says blah.
+\end{verbatim}
+
+If the style calls for a list of works cited, it will be placed at the
+end of the document. Normally, you will want to end your document with
+an appropriate header:
+
+\begin{verbatim}
+last paragraph...
+
+# References
+\end{verbatim}
+
+The bibliography will be inserted after this header.
+
+\section{Non-pandoc extensions}
+
+The following markdown syntax extensions are not enabled by default in
+pandoc, but may be enabled by adding \texttt{+EXTENSION} to the format
+name, where \texttt{EXTENSION} is the name of the extension. Thus, for
+example, \texttt{markdown+hard\_line\_breaks} is markdown with hard line
+breaks.
+
+\textbf{Extension: \texttt{hard\_line\_breaks}}\\Causes all newlines
+within a paragraph to be interpreted as hard line breaks instead of
+spaces.
+
+\textbf{Extension: \texttt{tex\_math\_single\_backslash}}\\Causes
+anything between \texttt{\textbackslash{}(} and
+\texttt{\textbackslash{})} to be interpreted as inline TeX math, and
+anything between \texttt{\textbackslash{}{[}} and
+\texttt{\textbackslash{}{]}} to be interpreted as display TeX math.
+Note: a drawback of this extension is that it precludes escaping
+\texttt{(} and \texttt{{[}}.
+
+\textbf{Extension: \texttt{tex\_math\_double\_backslash}}\\Causes
+anything between \texttt{\textbackslash{}\textbackslash{}(} and
+\texttt{\textbackslash{}\textbackslash{})} to be interpreted as inline
+TeX math, and anything between
+\texttt{\textbackslash{}\textbackslash{}{[}} and
+\texttt{\textbackslash{}\textbackslash{}{]}} to be interpreted as
+display TeX math.
+
+\textbf{Extension: \texttt{markdown\_attribute}}\\By default, pandoc
+interprets material inside block-level tags as markdown. This extension
+changes the behavior so that markdown is only parsed inside block-level
+tags if the tags have the attribute \texttt{markdown=1}.
+
+\textbf{Extension: \texttt{mmd\_title\_block}}\\Enables a
+\href{http://fletcherpenney.net/multimarkdown/}{MultiMarkdown} style
+title block at the top of the document, for example:
+
+\begin{verbatim}
+Title:   My title
+Author:  John Doe
+Date:    September 1, 2008
+Comment: This is a sample mmd title block, with
+         a field spanning multiple lines.
+\end{verbatim}
+
+See the MultiMarkdown documentation for details. Note that only title,
+author, and date are recognized; other fields are simply ignored by
+pandoc. If \texttt{pandoc\_title\_block} is enabled, it will take
+precedence over \texttt{mmd\_title\_block}.
+
+\textbf{Extension: \texttt{abbrevations}}\\Parses PHP Markdown Extra
+abbreviation keys, like
+
+\begin{verbatim}
+*[HTML]: Hyper Text Markup Language
+\end{verbatim}
+
+Note that the pandoc document model does not support abbreviations, so
+if this extension is enabled, abbreviation keys are simply skipped (as
+opposed to being parsed as paragraphs).
+
+\textbf{Extension: \texttt{autolink\_bare\_uris}}\\Makes all absolute
+URIs into links, even when not surrounded by pointy braces
+\texttt{\textless{}...\textgreater{}}.
+
+\textbf{Extension: \texttt{link\_attributes}}\\Parses multimarkdown
+style key-value attributes on link and image references. Note that
+pandoc's internal document model provides nowhere to put these, so they
+are presently just ignored.
+
+\textbf{Extension: \texttt{mmd\_header\_identifiers}}\\Parses
+multimarkdown style header identifiers (in square brackets, after the
+header but before any trailing \texttt{\#}s in an ATX header).
+
+\section{Producing slide shows with Pandoc}
+
+You can use Pandoc to produce an HTML + javascript slide presentation
+that can be viewed via a web browser. There are four ways to do this,
+using \href{http://meyerweb.com/eric/tools/s5/}{S5},
+\href{http://paulrouget.com/dzslides/}{DZSlides},
+\href{http://www.w3.org/Talks/Tools/Slidy/}{Slidy}, or
+\href{http://goessner.net/articles/slideous/}{Slideous}. You can also
+produce a PDF slide show using LaTeX
+\href{http://www.tex.ac.uk/CTAN/macros/latex/contrib/beamer}{beamer}.
+
+Here's the markdown source for a simple slide show, \texttt{habits.txt}:
+
+\begin{verbatim}
+% Habits
+% John Doe
+% March 22, 2005
+
+# In the morning
+
+## Getting up
+
+- Turn off alarm
+- Get out of bed
+
+## Breakfast
+
+- Eat eggs
+- Drink coffee
+
+# In the evening
+
+## Dinner
+
+- Eat spaghetti
+- Drink wine
+
+------------------
+
+![picture of spaghetti](images/spaghetti.jpg)
+
+## Going to sleep
+
+- Get in bed
+- Count sheep
+\end{verbatim}
+
+To produce the slide show, simply type
+
+\begin{verbatim}
+pandoc -t s5 -s habits.txt -o habits.html
+\end{verbatim}
+
+for S5,
+
+\begin{verbatim}
+pandoc -t slidy -s habits.txt -o habits.html
+\end{verbatim}
+
+for Slidy,
+
+\begin{verbatim}
+pandoc -t slideous -s habits.txt -o habits.html
+\end{verbatim}
+
+for Slideous,
+
+\begin{verbatim}
+pandoc -t dzslides -s habits.txt -o habits.html
+\end{verbatim}
+
+for DZSlides, or
+
+\begin{verbatim}
+pandoc -t beamer habits.txt -o habits.pdf
+\end{verbatim}
+
+for beamer.
+
+With all HTML slide formats, the \texttt{-{}-self-contained} option can
+be used to produce a single file that contains all of the data necessary
+to display the slide show, including linked scripts, stylesheets,
+images, and videos.
+
+\hyperdef{}{structuring-the-slide-show}{\subsection{Structuring the
+slide show}\label{structuring-the-slide-show}}
+
+By default, the \emph{slide level} is the highest header level in the
+hierarchy that is followed immediately by content, and not another
+header, somewhere in the document. In the example above, level 1 headers
+are always followed by level 2 headers, which are followed by content,
+so 2 is the slide level. This default can be overridden using the
+\texttt{-{}-slide-level} option.
+
+The document is carved up into slides according to the following rules:
+
+\begin{itemize}
+\item
+  A horizontal rule always starts a new slide.
+\item
+  A header at the slide level always starts a new slide.
+\item
+  Headers \emph{below} the slide level in the hierarchy create headers
+  \emph{within} a slide.
+\item
+  Headers \emph{above} the slide level in the hierarchy create ``title
+  slides,'' which just contain the section title and help to break the
+  slide show into sections.
+\item
+  A title page is constructed automatically from the document's title
+  block, if present. (In the case of beamer, this can be disabled by
+  commenting out some lines in the default template.)
+\end{itemize}
+
+These rules are designed to support many different styles of slide show.
+If you don't care about structuring your slides into sections and
+subsections, you can just use level 1 headers for all each slide. (In
+that case, level 1 will be the slide level.) But you can also structure
+the slide show into sections, as in the example above.
+
+For Slidy, Slideous and S5, the file produced by pandoc with the
+\texttt{-s/-{}-standalone} option embeds a link to javascripts and CSS
+files, which are assumed to be available at the relative path
+\texttt{s5/default} (for S5) or \texttt{slideous} (for Slideous), or at
+the Slidy website at \texttt{w3.org} (for Slidy). (These paths can be
+changed by setting the \texttt{slidy-url}, \texttt{slideous-url} or
+\texttt{s5-url} variables; see \texttt{-{}-variable}, above.) For
+DZSlides, the (relatively short) javascript and css are included in the
+file by default.
+
+\subsection{Incremental lists}
+
+By default, these writers produces lists that display ``all at once.''
+If you want your lists to display incrementally (one item at a time),
+use the \texttt{-i} option. If you want a particular list to depart from
+the default (that is, to display incrementally without the \texttt{-i}
+option and all at once with the \texttt{-i} option), put it in a block
+quote:
+
+\begin{verbatim}
+> - Eat spaghetti
+> - Drink wine
+\end{verbatim}
+
+In this way incremental and nonincremental lists can be mixed in a
+single document.
+
+\subsection{Styling the slides}
+
+You can change the style of HTML slides by putting customized CSS files
+in \texttt{\$DATADIR/s5/default} (for S5), \texttt{\$DATADIR/slidy} (for
+Slidy), or \texttt{\$DATADIR/slideous} (for Slideous), where
+\texttt{\$DATADIR} is the user data directory (see
+\texttt{-{}-data-dir}, above). The originals may be found in pandoc's
+system data directory (generally
+\texttt{\$CABALDIR/pandoc-VERSION/s5/default}). Pandoc will look there
+for any files it does not find in the user data directory.
+
+For dzslides, the CSS is included in the HTML file itself, and may be
+modified there.
+
+To style beamer slides, you can specify a beamer ``theme'' or
+``colortheme'' using the \texttt{-V} option:
+
+\begin{verbatim}
+pandoc -t beamer habits.txt -V theme:Warsaw -o habits.pdf
+\end{verbatim}
+
+\hyperdef{}{literate-haskell-support}{\section{Literate Haskell
+support}\label{literate-haskell-support}}
+
+If you append \texttt{+lhs} (or \texttt{+literate\_haskell}) to an
+appropriate input or output format (\texttt{markdown},
+\texttt{mardkown\_strict}, \texttt{rst}, or \texttt{latex} for input or
+output; \texttt{beamer}, \texttt{html} or \texttt{html5} for output
+only), pandoc will treat the document as literate Haskell source. This
+means that
+
+\begin{itemize}
+\item
+  In markdown input, ``bird track'' sections will be parsed as Haskell
+  code rather than block quotations. Text between
+  \texttt{\textbackslash{}begin\{code\}} and
+  \texttt{\textbackslash{}end\{code\}} will also be treated as Haskell
+  code.
+\item
+  In markdown output, code blocks with classes \texttt{haskell} and
+  \texttt{literate} will be rendered using bird tracks, and block
+  quotations will be indented one space, so they will not be treated as
+  Haskell code. In addition, headers will be rendered setext-style (with
+  underlines) rather than atx-style (with `\#' characters). (This is
+  because ghc treats `\#' characters in column 1 as introducing line
+  numbers.)
+\item
+  In restructured text input, ``bird track'' sections will be parsed as
+  Haskell code.
+\item
+  In restructured text output, code blocks with class \texttt{haskell}
+  will be rendered using bird tracks.
+\item
+  In LaTeX input, text in \texttt{code} environments will be parsed as
+  Haskell code.
+\item
+  In LaTeX output, code blocks with class \texttt{haskell} will be
+  rendered inside \texttt{code} environments.
+\item
+  In HTML output, code blocks with class \texttt{haskell} will be
+  rendered with class \texttt{literatehaskell} and bird tracks.
+\end{itemize}
+
+Examples:
+
+\begin{verbatim}
+pandoc -f markdown+lhs -t html
+\end{verbatim}
+
+reads literate Haskell source formatted with markdown conventions and
+writes ordinary HTML (without bird tracks).
+
+\begin{verbatim}
+pandoc -f markdown+lhs -t html+lhs
+\end{verbatim}
+
+writes HTML with the Haskell code in bird tracks, so it can be copied
+and pasted as literate Haskell source.
+
+\section{Authors}
+
+© 2006-2013 John MacFarlane (jgm at berkeley dot edu). Released under
+the \href{http://www.gnu.org/copyleft/gpl.html}{GPL}, version 2 or
+greater. This software carries no warranty of any kind. (See COPYRIGHT
+for full copyright and warranty notices.) Other contributors include
+Recai Oktaş, Paulo Tanimoto, Peter Wang, Andrea Rossato, Eric Kow,
+infinity0x, Luke Plant, shreevatsa.public, Puneeth Chaganti, Paul
+Rivier, rodja.trappe, Bradley Kuhn, thsutton, Nathan Gass, Jonathan
+Daugherty, Jérémy Bobbio, Justin Bogner, qerub, Christopher Sawicki,
+Kelsey Hightower, Masayoshi Takahashi, Antoine Latter, Ralf Stephan,
+Eric Seidel, B. Scott Michel, Gavin Beatty, Sergey Astanin, Arlo
+O'Keeffe, Denis Laxalde, Brent Yorgey.
+
+\end{document}

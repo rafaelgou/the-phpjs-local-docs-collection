@@ -1,0 +1,1030 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Database Abstraction Layer &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Transactions" href="transactions.html" />
+    <link rel="prev" title="Data Fixtures" href="data-fixtures.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="transactions.html" title="Transactions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="Data Fixtures"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="database-abstraction-layer">
+<h1>Database Abstraction Layer<a class="headerlink" href="#database-abstraction-layer" title="Permalink to this headline">¶</a></h1>
+<p>The Doctrine Database Abstraction Layer is the underlying framework that
+the ORM uses to communicate with the database and send the appropriate
+SQL depending on which database type you are using. It also has the
+ability to query the database for information like what table a database
+has or what fields a table has. This is how Doctrine is able to generate
+your models from existing databases so easily.</p>
+<p>This layer can be used independently of the ORM. This might be of use
+for example if you have an existing application that uses PDO directly
+and you want to port it to use the Doctrine Connections and DBAL. At a
+later phase you could begin to use the ORM for new things and rewrite
+old pieces to use the ORM.</p>
+<p>The DBAL is composed of a few different modules. In this chapter we will
+discuss the different modules and what their jobs are.</p>
+<div class="section" id="export">
+<span id="database-abstraction-layer-export"></span><h2>Export<a class="headerlink" href="#export" title="Permalink to this headline">¶</a></h2>
+<p>The Export module provides methods for managing database structure. The
+methods can be grouped based on their responsibility: create, edit
+(alter or update), list or delete (drop) database elements. The
+following document lists the available methods, providing examples of
+their use.</p>
+<div class="section" id="introduction">
+<h3>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h3>
+<p>Every schema altering method in the Export module has an equivalent
+which returns the SQL that is used for the altering operation. For
+example <tt class="docutils literal"><span class="pre">createTable()</span></tt> executes the query / queries returned by
+<tt class="docutils literal"><span class="pre">createTableSql()</span></tt>.</p>
+<p>In this chapter the following tables will be created, altered and
+finally dropped, in a database named <tt class="docutils literal"><span class="pre">events_db</span></tt>:</p>
+<p><strong>events</strong></p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="29%" />
+<col width="17%" />
+<col width="31%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Type</th>
+<th class="head">Primary</th>
+<th class="head">Auto Increment</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">integer</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">string(255)</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">datetime</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">timestamp</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p><strong>people</strong></p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="17%" />
+<col width="31%" />
+<col width="19%" />
+<col width="33%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Type</th>
+<th class="head">Primary</th>
+<th class="head">Auto Increment</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">id</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">integer</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">name</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">string(255)</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p><strong>event_participants</strong></p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="25%" />
+<col width="29%" />
+<col width="15%" />
+<col width="31%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Type</th>
+<th class="head">Primary</th>
+<th class="head">Auto Increment</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">event_id</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">integer</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">person_id</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">string(255)</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">true</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">false</span></tt></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="creating-databases">
+<h3>Creating Databases<a class="headerlink" href="#creating-databases" title="Permalink to this headline">¶</a></h3>
+<p>It is simple to create new databases with Doctrine. It is only a matter
+of calling the <tt class="docutils literal"><span class="pre">createDatabase()</span></tt> function with an argument that is
+the name of the database to create.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createDatabase</span><span class="p">(</span><span class="s1">&#39;events_db&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now lets change the connection in our <tt class="docutils literal"><span class="pre">bootstrap.php</span></tt> file to connect
+to the new <tt class="docutils literal"><span class="pre">events_db</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// bootstrap.php</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Bootstrap Doctrine.php, register autoloader and specify</span>
+<span class="sd"> * configuration attributes</span>
+<span class="sd"> */</span>
+
+ <span class="c1">// ...</span>
+ <span class="nv">$conn</span> <span class="o">=</span> <span class="nx">Doctrine_Manager</span><span class="o">::</span><span class="na">connection</span><span class="p">(</span><span class="s1">&#39;mysql://root:@localhost/events_db&#39;</span><span class="p">,</span> <span class="s1">&#39;doctrine&#39;</span><span class="p">);</span>
+
+ <span class="c1">// ...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="creating-tables">
+<h3>Creating Tables<a class="headerlink" href="#creating-tables" title="Permalink to this headline">¶</a></h3>
+<p>Now that the database is created and we&#8217;ve re-configured our connection,
+we can proceed with adding some tables. The method <tt class="docutils literal"><span class="pre">createTable()</span></tt>
+takes three parameters: the table name, an array of field definition and
+some extra options (optional and RDBMS-specific).</p>
+<p>Now lets create the <tt class="docutils literal"><span class="pre">events</span></tt> table:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">//</span>
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+        <span class="s1">&#39;autoincrement&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">255</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;datetime&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;timestamp&#39;</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createTable</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The keys of the definition array are the names of the fields in the
+table. The values are arrays containing the required key <tt class="docutils literal"><span class="pre">type</span></tt> as
+well as other keys, depending on the value of <tt class="docutils literal"><span class="pre">type</span></tt>. The values for
+the <tt class="docutils literal"><span class="pre">type</span></tt> key are the same as the possible Doctrine datatypes.
+Depending on the datatype, the other options may vary.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="12%" />
+<col width="12%" />
+<col width="16%" />
+<col width="14%" />
+<col width="23%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Datatype</th>
+<th class="head">length</th>
+<th class="head">default</th>
+<th class="head">not null</th>
+<th class="head">unsigned</th>
+<th class="head">autoincrement</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">string</span></tt></td>
+<td>x</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">boolean</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">integer</span></tt></td>
+<td>x</td>
+<td>x</td>
+<td>x</td>
+<td>x</td>
+<td>x</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">decimal</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">float</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">timestamp</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">time</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">date</span></tt></td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">clob</span></tt></td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">blob</span></tt></td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>x</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+<p>And now we can go ahead and create the <tt class="docutils literal"><span class="pre">people</span></tt> table:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+        <span class="s1">&#39;autoincrement&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">255</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createTable</span><span class="p">(</span><span class="s1">&#39;people&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>You can also specify an array of options as the third argument to the
+<tt class="docutils literal"><span class="pre">createTable()</span></tt> method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;comment&#39;</span>       <span class="o">=&gt;</span> <span class="s1">&#39;Repository of people&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;character_set&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;utf8&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;collate&#39;</span>       <span class="o">=&gt;</span> <span class="s1">&#39;utf8_unicode_ci&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;type&#39;</span>          <span class="o">=&gt;</span> <span class="s1">&#39;innodb&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+
+<span class="c1">// ...</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createTable</span><span class="p">(</span><span class="s1">&#39;people&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="creating-foreign-keys">
+<h3>Creating Foreign Keys<a class="headerlink" href="#creating-foreign-keys" title="Permalink to this headline">¶</a></h3>
+<p>Creating the <tt class="docutils literal"><span class="pre">event_participants</span></tt> table with a foreign key:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;foreignKeys&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;events_id_fk&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;event_id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreignTable&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;events&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;onDelete&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;CASCADE&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span> <span class="s1">&#39;event_id&#39;</span><span class="p">,</span> <span class="s1">&#39;person_id&#39;</span><span class="p">),</span>
+<span class="p">);</span>
+
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;event_id&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;person_id&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+    <span class="p">),</span>
+<span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createTable</span><span class="p">(</span><span class="s1">&#39;event_participants&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">In the above example notice how we omit a foreign key for
+the <tt class="docutils literal"><span class="pre">person_id</span></tt>. In that example we omit it so we can show you
+how to add an individual foreign key to a table in the next example.
+Normally it would be best to have both foreign keys defined on the
+in the <tt class="docutils literal"><span class="pre">foreignKeys</span></tt>.</p>
+</div>
+<p>Now lets add the missing foreign key in the <tt class="docutils literal"><span class="pre">event_participants</span></tt>
+table the on <tt class="docutils literal"><span class="pre">person_id</span></tt> column:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;person_id&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;foreignTable&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;people&#39;</span><span class="p">,</span>
+                    <span class="s1">&#39;onDelete&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;CASCADE&#39;</span><span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createForeignKey</span><span class="p">(</span><span class="s1">&#39;event_participants&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="altering-table">
+<h3>Altering table<a class="headerlink" href="#altering-table" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id1"><span class="problematic" id="id2">:php:class:`Doctrine_Export`</span></a> drivers provide an easy database portable way of
+altering existing database tables.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$alter</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;add&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;new_column&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">255</span>
+        <span class="p">),</span>
+        <span class="s1">&#39;new_column2&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">255</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">alterTableSql</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="nv">$alter</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The above call to <tt class="docutils literal"><span class="pre">alterTableSql()</span></tt> would output the following SQL
+query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">ALTER</span> <span class="nx">TABLE</span> <span class="nx">events</span> <span class="nx">ADD</span> <span class="nx">new_column</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">),</span>
+<span class="nx">ADD</span> <span class="nx">new_column2</span> <span class="nx">VARCHAR</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you only want execute generated sql and not return it,
+use the <tt class="docutils literal"><span class="pre">alterTable()</span></tt> method.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">alterTable</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="nv">$alter</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">alterTable()</span></tt> method requires two parameters and has an optional
+third:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="9%" />
+<col width="12%" />
+<col width="79%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><strong>$name</strong></td>
+<td><tt class="docutils literal"><span class="pre">string</span></tt></td>
+<td>Name of the table that is intended to be changed.</td>
+</tr>
+<tr class="row-odd"><td><strong>$changes</strong></td>
+<td><tt class="docutils literal"><span class="pre">array</span></tt></td>
+<td>Associative array that contains the details of each type of change that is intended to be performed.</td>
+</tr>
+</tbody>
+</table>
+<p>An optional third parameter (default: <tt class="docutils literal"><span class="pre">false</span></tt>):</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="11%" />
+<col width="12%" />
+<col width="77%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Type</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><strong>$check</strong></td>
+<td><tt class="docutils literal"><span class="pre">boolean</span></tt></td>
+<td>Check if the DBMS can actually perform the operation before executing.</td>
+</tr>
+</tbody>
+</table>
+<p>The types of changes that are currently supported are defined as
+follows:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="7%" />
+<col width="93%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Change</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><strong>name</strong></td>
+<td>New name for the table.</td>
+</tr>
+<tr class="row-odd"><td><strong>add</strong></td>
+<td>Associative array with the names of fields to be added as indexes of the array. The value of each entry of
+the array should be set to another associative array with the properties of
+the fields to be added. The properties of the fields should be the same as defined by the Doctrine parser.</td>
+</tr>
+<tr class="row-even"><td><strong>remove</strong></td>
+<td>Associative array with the names of fields to be removed as indexes of the array. Currently the values assigned to each entry are ignored. An
+empty array should be used for future compatibility.</td>
+</tr>
+<tr class="row-odd"><td><strong>rename</strong></td>
+<td>Associative array with the names of fields to be renamed as indexes of the array. The value of each entry of the array should be set to
+another associative array with the entry named name with the new
+field name and the entry named Declaration that is expected to contain the portion of the field declaration already in DBMS specific SQL code
+as it is used in the <tt class="docutils literal"><span class="pre">CREATE</span> <span class="pre">TABLE</span></tt> statement.</td>
+</tr>
+<tr class="row-even"><td><strong>change</strong></td>
+<td>Associative array with the names of the fields to be changed as indexes of the array. Keep in mind that if it is intended to change
+either the name of a field and any other properties, the change array
+entries should have the new names of the fields as array indexes.</td>
+</tr>
+</tbody>
+</table>
+<p>The value of each entry of the array should be set to another
+associative array with the properties of the fields to that are meant to
+be changed as array entries. These entries should be assigned to the new
+values of the respective properties. The properties of the fields should
+be the same as defined by the Doctrine parser.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$alter</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;event&#39;</span><span class="p">,</span>
+               <span class="s1">&#39;add&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                   <span class="s1">&#39;quota&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                       <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;unsigned&#39;</span> <span class="o">=&gt;</span> <span class="mi">1</span>
+                   <span class="p">)</span>
+               <span class="p">),</span>
+               <span class="s1">&#39;remove&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                   <span class="s1">&#39;new_column2&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">()</span>
+               <span class="p">),</span>
+               <span class="s1">&#39;change&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                   <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                       <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;20&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;definition&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                           <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+                           <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">20</span>
+                       <span class="p">)</span>
+                   <span class="p">)</span>
+               <span class="p">),</span>
+               <span class="s1">&#39;rename&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                   <span class="s1">&#39;new_column&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                       <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;gender&#39;</span><span class="p">,</span>
+                       <span class="s1">&#39;definition&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                           <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+                           <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+                           <span class="s1">&#39;default&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;M&#39;</span>
+                       <span class="p">)</span>
+                   <span class="p">)</span>
+               <span class="p">)</span>
+           <span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">alterTable</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="nv">$alter</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how we renamed the table to <tt class="docutils literal"><span class="pre">event</span></tt>, lets rename
+it back to <tt class="docutils literal"><span class="pre">events</span></tt>. We only renamed it to demonstrate the
+functionality and we will need the table to be named <tt class="docutils literal"><span class="pre">events</span></tt> for
+the next examples.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$alter</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;events&#39;</span>
+<span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">alterTable</span><span class="p">(</span><span class="s1">&#39;event&#39;</span><span class="p">,</span> <span class="nv">$alter</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="creating-indexes">
+<h3>Creating Indexes<a class="headerlink" href="#creating-indexes" title="Permalink to this headline">¶</a></h3>
+<p>To create an index, the method <tt class="docutils literal"><span class="pre">createIndex()</span></tt> is used, which has
+similar signature as <tt class="docutils literal"><span class="pre">createConstraint()</span></tt>, so it takes table name,
+index name and a definition array. The definition array has one key
+named <tt class="docutils literal"><span class="pre">fields</span></tt> with a value which is another associative array
+containing fields that will be a part of the index. The fields are
+defined as arrays with possible keys: sorting, with values ascending and
+descending length, integer value</p>
+<p>Not all RDBMS will support index sorting or length, in these cases the
+drivers will ignore them. In the test events database, we can assume
+that our application will show events occuring in a specific timeframe,
+so the selects will use the datetime field in <tt class="docutils literal"><span class="pre">WHERE</span></tt> conditions. It
+will help if there is an index on this field.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;datetime&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">()</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createIndex</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="s1">&#39;datetime&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="deleting-database-elements">
+<h3>Deleting database elements<a class="headerlink" href="#deleting-database-elements" title="Permalink to this headline">¶</a></h3>
+<p>For every <tt class="docutils literal"><span class="pre">create*()</span></tt> method as shown above, there is a corresponding
+<tt class="docutils literal"><span class="pre">drop*()</span></tt> method to delete a database, a table, field, index or
+constraint. The <tt class="docutils literal"><span class="pre">drop*()</span></tt> methods do not check if the item to be
+deleted exists, so it&#8217;s developer&#8217;s responsibility to check for
+exceptions using a try catch block:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">try</span> <span class="p">{</span>
+    <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">dropSequence</span><span class="p">(</span><span class="s1">&#39;nonexisting&#39;</span><span class="p">);</span>
+<span class="p">}</span> <span class="k">catch</span><span class="p">(</span><span class="nx">Doctrine_Exception</span> <span class="nv">$e</span><span class="p">)</span> <span class="p">{</span>
+
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can easily drop a constraint with the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">dropConstraint</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="s1">&#39;PRIMARY&#39;</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The third parameter gives a hint that this is a primary key
+constraint.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ... $conn-&gt;export-&gt;dropConstraint(&#39;event_participants&#39;, &#39;event_id&#39;);</span>
+</pre></div>
+</div>
+<p>You can easily drop an index with the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">dropIndex</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">,</span> <span class="s1">&#39;event_timestamp&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">It is recommended to not actually execute the next two
+examples. In the next section we will need the <tt class="docutils literal"><span class="pre">events_db</span></tt> to be
+intact for our examples to work.</p>
+</div>
+<p>Drop a table from the database with the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">dropTable</span><span class="p">(</span><span class="s1">&#39;events&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>We can drop the database with the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">dropDatabase</span><span class="p">(</span><span class="s1">&#39;events_db&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="import">
+<span id="database-abstraction-layer-import"></span><h2>Import<a class="headerlink" href="#import" title="Permalink to this headline">¶</a></h2>
+<p>The import module allows you to inspect a the contents of a database
+connection and learn about the databases and schemas in each database.</p>
+<div class="section" id="id3">
+<h3>Introduction<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<p>To see what&#8217;s in the database, you can use the <tt class="docutils literal"><span class="pre">list*()</span></tt> family of
+functions in the Import module.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="28%" />
+<col width="72%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Name</th>
+<th class="head">Description</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listDatabases()</span></tt></td>
+<td>List the databases</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">listFunctions()</span></tt></td>
+<td>List the available functions.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listSequences($dbName)</span></tt></td>
+<td>List the available sequences. Takes optional database name as a parameter. If not supplied,
+the currently selected database is assumed.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">listTableConstraints($tableName)</span></tt></td>
+<td>Lists the available tables. takes a table name</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listTableColumns($tableName)</span></tt></td>
+<td>List the columns available in a table.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">listTableIndexes($tableName)</span></tt></td>
+<td>List the indexes defined in a table.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listTables($dbName)</span></tt></td>
+<td>List the tables in a database.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">listTableTriggers($tableName)</span></tt></td>
+<td>List the triggers in a table.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listTableViews($tableName)</span></tt></td>
+<td>List the views available in a table.</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">listUsers()</span></tt></td>
+<td>List the users for the database.</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">listViews($dbName)</span></tt></td>
+<td>List the views available for a database.</td>
+</tr>
+</tbody>
+</table>
+<p>Below you will find examples on how to use the above listed functions:</p>
+</div>
+<div class="section" id="listing-databases">
+<h3>Listing Databases<a class="headerlink" href="#listing-databases" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$databases</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">import</span><span class="o">-&gt;</span><span class="na">listDatabases</span><span class="p">();</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$databases</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-sequences">
+<h3>Listing Sequences<a class="headerlink" href="#listing-sequences" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ... $sequences = $conn-&gt;import-&gt;listSequences(&#39;events_db&#39;);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$sequences</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-constraints">
+<h3>Listing Constraints<a class="headerlink" href="#listing-constraints" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$constraints</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">import</span><span class="o">-&gt;</span><span class="na">listTableConstraints</span><span class="p">(</span><span class="s1">&#39;event_participants&#39;</span><span class="p">);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$constraints</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-table-columns">
+<h3>Listing Table Columns<a class="headerlink" href="#listing-table-columns" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ... $columns = $conn-&gt;import-&gt;listTableColumns(&#39;events&#39;);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$columns</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-table-indexes">
+<h3>Listing Table Indexes<a class="headerlink" href="#listing-table-indexes" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ... $indexes = $conn-&gt;import-&gt;listTableIndexes(&#39;events&#39;);</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$indexes</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-tables">
+<h3>Listing Tables<a class="headerlink" href="#listing-tables" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$tables</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">import</span><span class="o">-&gt;</span><span class="na">listTables</span><span class="p">();</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$tables</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="listing-views">
+<h3>Listing Views<a class="headerlink" href="#listing-views" title="Permalink to this headline">¶</a></h3>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Currently there is no method to create views, so let&#8217;s do it manually.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$sql</span> <span class="o">=</span> <span class="s2">&quot;CREATE VIEW names_only AS SELECT name FROM people&quot;</span><span class="p">;</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">exec</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
+
+<span class="nv">$sql</span> <span class="o">=</span> <span class="s2">&quot;CREATE VIEW last_ten_events AS SELECT * FROM events ORDER BY id DESC LIMIT 0,10&quot;</span><span class="p">;</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">exec</span><span class="p">(</span><span class="nv">$sql</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Now we can list the views we just created:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$views</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">import</span><span class="o">-&gt;</span><span class="na">listViews</span><span class="p">();</span>
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$views</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="datadict">
+<span id="database-abstraction-layer-datadict"></span><h2>DataDict<a class="headerlink" href="#datadict" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id4">
+<h3>Introduction<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<p>Doctrine uses the <tt class="docutils literal"><span class="pre">DataDict</span></tt> module internally to convert native RDBMS
+types to Doctrine types and the reverse. <tt class="docutils literal"><span class="pre">DataDict</span></tt> module uses two
+methods for the conversions:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">getPortableDeclaration()</span></tt>, which is used for converting native
+RDBMS type declaration to portable Doctrine declaration</li>
+<li><tt class="docutils literal"><span class="pre">getNativeDeclaration()</span></tt>, which is used for converting portable
+Doctrine declaration to driver specific type declaration</li>
+</ul>
+</div>
+<div class="section" id="getting-portable-declaration">
+<h3>Getting portable declaration<a class="headerlink" href="#getting-portable-declaration" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$declaration</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">dataDict</span><span class="o">-&gt;</span><span class="na">getPortableDeclaration</span><span class="p">(</span><span class="s1">&#39;VARCHAR(255)&#39;</span><span class="p">);</span>
+
+<span class="nb">print_r</span><span class="p">(</span><span class="nv">$declaration</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The above example would output the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+Array
+<span class="o">(</span>
+    <span class="o">[</span><span class="nb">type</span><span class="o">]</span> <span class="o">=</span>&gt; Array
+        <span class="o">(</span>
+            <span class="o">[</span>0<span class="o">]</span> <span class="o">=</span>&gt; string
+        <span class="o">)</span>
+    <span class="o">[</span>length<span class="o">]</span> <span class="o">=</span>&gt; 255
+    <span class="o">[</span>unsigned<span class="o">]</span> <span class="o">=</span>&gt;
+    <span class="o">[</span>fixed<span class="o">]</span> <span class="o">=</span>&gt;
+<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="getting-native-declaration">
+<h3>Getting Native Declaration<a class="headerlink" href="#getting-native-declaration" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$portableDeclaration</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s1">&#39;fixed&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+<span class="p">);</span>
+
+<span class="nv">$nativeDeclaration</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">dataDict</span><span class="o">-&gt;</span><span class="na">getNativeDeclaration</span><span class="p">(</span><span class="nv">$portableDeclaration</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$nativeDeclaration</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The above example would output the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php test.php
+CHAR<span class="o">(</span>20<span class="o">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="drivers">
+<h2>Drivers<a class="headerlink" href="#drivers" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="mysql">
+<h3>Mysql<a class="headerlink" href="#mysql" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="setting-table-type">
+<h4>Setting table type<a class="headerlink" href="#setting-table-type" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$fields</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;autoincrement&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;name&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;fixed&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+        <span class="s1">&#39;length&#39;</span> <span class="o">=&gt;</span> <span class="mi">8</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The following option is mysql specific and skipped by other
+drivers.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;INNODB&#39;</span><span class="p">);</span>
+
+<span class="nv">$sql</span> <span class="o">=</span> <span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">export</span><span class="o">-&gt;</span><span class="na">createTableSql</span><span class="p">(</span><span class="s1">&#39;test_table&#39;</span><span class="p">,</span> <span class="nv">$fields</span><span class="p">);</span>
+<span class="k">echo</span> <span class="nv">$sql</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</pre></div>
+</div>
+<p>The above will output the following SQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">CREATE</span> <span class="nx">TABLE</span> <span class="nx">test_table</span> <span class="p">(</span><span class="nx">id</span> <span class="nx">INT</span> <span class="nx">AUTO_INCREMENT</span><span class="p">,</span>
+<span class="nx">name</span> <span class="nx">CHAR</span><span class="p">(</span><span class="mi">8</span><span class="p">))</span> <span class="nx">ENGINE</span> <span class="o">=</span> <span class="nx">INNODB</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>This chapter is indeed a nice one. The Doctrine DBAL is a great tool all
+by itself. It is probably one of the most fully featured and easy to use
+PHP database abstraction layers available today.</p>
+<p>Now we are ready to move on and learn about how to use <a class="reference internal" href="transactions.html"><em>Transactions</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Database Abstraction Layer</a><ul>
+<li><a class="reference internal" href="#export">Export</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#creating-databases">Creating Databases</a></li>
+<li><a class="reference internal" href="#creating-tables">Creating Tables</a></li>
+<li><a class="reference internal" href="#creating-foreign-keys">Creating Foreign Keys</a></li>
+<li><a class="reference internal" href="#altering-table">Altering table</a></li>
+<li><a class="reference internal" href="#creating-indexes">Creating Indexes</a></li>
+<li><a class="reference internal" href="#deleting-database-elements">Deleting database elements</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#import">Import</a><ul>
+<li><a class="reference internal" href="#id3">Introduction</a></li>
+<li><a class="reference internal" href="#listing-databases">Listing Databases</a></li>
+<li><a class="reference internal" href="#listing-sequences">Listing Sequences</a></li>
+<li><a class="reference internal" href="#listing-constraints">Listing Constraints</a></li>
+<li><a class="reference internal" href="#listing-table-columns">Listing Table Columns</a></li>
+<li><a class="reference internal" href="#listing-table-indexes">Listing Table Indexes</a></li>
+<li><a class="reference internal" href="#listing-tables">Listing Tables</a></li>
+<li><a class="reference internal" href="#listing-views">Listing Views</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#datadict">DataDict</a><ul>
+<li><a class="reference internal" href="#id4">Introduction</a></li>
+<li><a class="reference internal" href="#getting-portable-declaration">Getting portable declaration</a></li>
+<li><a class="reference internal" href="#getting-native-declaration">Getting Native Declaration</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#drivers">Drivers</a><ul>
+<li><a class="reference internal" href="#mysql">Mysql</a><ul>
+<li><a class="reference internal" href="#setting-table-type">Setting table type</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="data-fixtures.html"
+                        title="previous chapter">Data Fixtures</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="transactions.html"
+                        title="next chapter">Transactions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/database-abstraction-layer.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="transactions.html" title="Transactions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="data-fixtures.html" title="Data Fixtures"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

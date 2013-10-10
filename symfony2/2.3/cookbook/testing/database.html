@@ -1,0 +1,260 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to test code that interacts with the Database &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Testing" href="index.html" />
+    <link rel="next" title="How to test Doctrine Repositories" href="doctrine.html" />
+    <link rel="prev" title="How to use the Profiler in a Functional Test" href="profiling.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="doctrine.html" title="How to test Doctrine Repositories"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="profiling.html" title="How to use the Profiler in a Functional Test"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Testing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-test-code-that-interacts-with-the-database">
+<span id="index-0"></span><h1>How to test code that interacts with the Database<a class="headerlink" href="#how-to-test-code-that-interacts-with-the-database" title="Permalink to this headline">¶</a></h1>
+<p>If your code interacts with the database, e.g. reads data from or stores data
+into it, you need to adjust your tests to take this into account. There are
+many ways how to deal with this. In a unit test, you can create a mock for
+a <tt class="docutils literal"><span class="pre">Repository</span></tt> and use it to return expected objects. In a functional test,
+you may need to prepare a test database with predefined values to ensure that
+your test always has the same data to work with.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you want to test your queries directly, see <a class="reference internal" href="doctrine.html"><em>How to test Doctrine Repositories</em></a>.</p>
+</div>
+<div class="section" id="mocking-the-repository-in-a-unit-test">
+<h2>Mocking the <tt class="docutils literal"><span class="pre">Repository</span></tt> in a Unit Test<a class="headerlink" href="#mocking-the-repository-in-a-unit-test" title="Permalink to this headline">¶</a></h2>
+<p>If you want to test code which depends on a doctrine <tt class="docutils literal"><span class="pre">Repository</span></tt> in isolation,
+you need to mock the <tt class="docutils literal"><span class="pre">Repository</span></tt>. Normally you inject the <tt class="docutils literal"><span class="pre">EntityManager</span></tt>
+into your class and use it to get the repository. This makes things a little
+more difficult as you need to mock both the <tt class="docutils literal"><span class="pre">EntityManager</span></tt> and your repository
+class.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">It is possible (and a good idea) to inject your repository directly by
+registering your repository as a <a class="reference internal" href="../../components/dependency_injection/factories.html"><em>factory service</em></a>
+This is a little bit more work to setup, but makes testing easier as you
+only need to mock the repository.</p>
+</div>
+<p>Suppose the class you want to test looks like this:</p>
+<div class="highlight-python"><pre>namespace Acme\DemoBundle\Salary;
+
+use Doctrine\Common\Persistence\ObjectManager;
+
+class SalaryCalculator
+{
+    private $entityManager;
+
+    public function __construct(ObjectManager $entityManager)
+    {
+        $this-&gt;entityManager = $entityManager;
+    }
+
+    public function calculateTotalSalary($id)
+    {
+        $employeeRepository = $this-&gt;entityManager-&gt;getRepository('AcmeDemoBundle::Employee');
+        $employee = $userRepository-&gt;find($id);
+
+        return $employee-&gt;getSalary() + $employee-&gt;getBonus();
+    }
+}</pre>
+</div>
+<p>Since the <tt class="docutils literal"><span class="pre">ObjectManager</span></tt> gets injected into the class through the constructor,
+it&#8217;s easy to pass a mock object within a test:</p>
+<div class="highlight-python"><pre>use Acme\DemoBundle\Salary\SalaryCalculator;
+
+class SalaryCalculatorTest extends \PHPUnit_Framework_TestCase
+{
+
+    public function testCalculateTotalSalary()
+    {
+        // First, mock the object to be used in the test
+        $employee = $this-&gt;getMock('\Acme\DemoBundle\Entity\Employee');
+        $employee-&gt;expects($this-&gt;once())
+            -&gt;method('getSalary')
+            -&gt;will($this-&gt;returnValue(1000));
+        $employee-&gt;expects($this-&gt;once())
+            -&gt;method('getBonus')
+            -&gt;will($this-&gt;returnValue(1100));
+
+        // Now, mock the repository so it returns the mock of the employee
+        $employeeRepository = $this-&gt;getMockBuilder('\Doctrine\ORM\EntityRepository')
+            -&gt;disableOriginalConstructor()
+            -&gt;getMock();
+        $employeeRepository-&gt;expects($this-&gt;once())
+            -&gt;method('find')
+            -&gt;will($this-&gt;returnValue($employee));
+
+        // Last, mock the EntityManager to return the mock of the repository
+        $entityManager = $this-&gt;getMockBuilder('\Doctrine\Common\Persistence\ObjectManager')
+            -&gt;disableOriginalConstructor()
+            -&gt;getMock();
+        $entityManager-&gt;expects($this-&gt;once())
+            -&gt;method('getRepository')
+            -&gt;will($this-&gt;returnValue($employeeRepository));
+
+        $salaryCalculator = new SalaryCalculator($entityManager);
+        $this-&gt;assertEquals(2100, $salaryCalculator-&gt;calculateTotalSalary(1));
+    }
+}</pre>
+</div>
+<p>In this example, you are building the mocks from the inside out, first creating
+the employee which gets returned by the <tt class="docutils literal"><span class="pre">Repository</span></tt>, which itself gets
+returned by the <tt class="docutils literal"><span class="pre">EntityManager</span></tt>. This way, no real class is involved in
+testing.</p>
+</div>
+<div class="section" id="changing-database-settings-for-functional-tests">
+<h2>Changing database Settings for functional Tests<a class="headerlink" href="#changing-database-settings-for-functional-tests" title="Permalink to this headline">¶</a></h2>
+<p>If you have functional tests, you want them to interact with a real database.
+Most of the time you want to use a dedicated database connection to make sure
+not to overwrite data you entered when developing the application and also
+to be able to clear the database before every test.</p>
+<p>To do this, you can specify a database configuration which overwrites the default
+configuration:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config_test.yml</span>
+<span class="l-Scalar-Plain">doctrine</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">dbal</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+        <span class="l-Scalar-Plain">dbname</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">testdb</span>
+        <span class="l-Scalar-Plain">user</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">testdb</span>
+        <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">testdb</span>
+</pre></div>
+</div>
+<div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config_test.xml --&gt;</span>
+<span class="nt">&lt;doctrine:config&gt;</span>
+    <span class="nt">&lt;doctrine:dbal</span>
+        <span class="na">host=</span><span class="s">&quot;localhost&quot;</span>
+        <span class="na">dbname=</span><span class="s">&quot;testdb&quot;</span>
+        <span class="na">user=</span><span class="s">&quot;testdb&quot;</span>
+        <span class="na">password=</span><span class="s">&quot;testdb&quot;</span>
+    <span class="nt">&gt;</span>
+<span class="nt">&lt;/doctrine:config&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config_test.php</span>
+<span class="nv">$configuration</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;doctrine&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;dbal&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;host&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;localhost&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;dbname&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;testdb&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;user&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;testdb&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;password&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;testdb&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+<p>Make sure that your database runs on localhost and has the defined database and
+user credentials set up.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to test code that interacts with the Database</a><ul>
+<li><a class="reference internal" href="#mocking-the-repository-in-a-unit-test">Mocking the <tt class="docutils literal"><span class="pre">Repository</span></tt> in a Unit Test</a></li>
+<li><a class="reference internal" href="#changing-database-settings-for-functional-tests">Changing database Settings for functional Tests</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="profiling.html"
+                        title="previous chapter">How to use the Profiler in a Functional Test</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="doctrine.html"
+                        title="next chapter">How to test Doctrine Repositories</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/testing/database.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="doctrine.html" title="How to test Doctrine Repositories"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="profiling.html" title="How to use the Profiler in a Functional Test"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Testing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

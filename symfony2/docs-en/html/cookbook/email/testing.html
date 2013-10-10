@@ -1,0 +1,171 @@
+
+<!DOCTYPE html>
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to test that an Email is sent in a functional Test &mdash; Symfony2Docs 2.2 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/basic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/bootstrap-2.3.1/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootswatch/2.3.1/spacelab/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/bootstrap-sphinx.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/bootstrap-2.3.1/css/bootstrap-responsive.min.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.2',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/js/jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="../../_static/js/jquery-fix.js"></script>
+    <script type="text/javascript" src="../../_static/bootstrap-2.3.1/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="../../_static/bootstrap-sphinx.js"></script>
+    <link rel="top" title="Symfony2Docs 2.2 documentation" href="../../index.html" />
+<meta charset='utf-8'>
+<meta http-equiv='X-UA-Compatible' content='IE=edge,chrome=1'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1'>
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+  </head>
+  <body>
+<div class="container">
+  
+  <div id="navbar" class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-inner">
+      <!-- .btn-navbar is used as the toggle for collapsed navbar content -->
+      <button class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+
+      <a class="brand" href="../../index.html">Symfony</a>
+      <span class="navbar-text pull-left"><b>2.2</b></span>
+
+      <div class="nav-collapse">
+        <ul class="nav">
+          <li class="divider-vertical"></li>
+          
+            <li class="dropdown globaltoc-container">
+  <a href="../../index.html"
+     class="dropdown-toggle"
+     data-toggle="dropdown">Site <b class="caret"></b></a>
+  <ul class="dropdown-menu globaltoc"
+    ><ul class="simple">
+</ul>
+</ul>
+</li>
+            <li class="dropdown">
+  <a href="#" class="dropdown-toggle" data-toggle="dropdown">Page <b class="caret"></b></a>
+  <ul class="dropdown-menu localtoc"><ul>
+<li><a class="reference internal" href="#">How to test that an Email is sent in a functional Test</a></li>
+</ul>
+</ul>
+</li>
+          
+          
+            
+          
+          
+            <li>
+  <a href="../../_sources/cookbook/email/testing.txt"
+     rel="nofollow">Source</a></li>
+          
+        </ul>
+
+        
+          
+<form class="navbar-search pull-right" style="margin-bottom:-3px;" action="../../search.html" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <input type="hidden" name="check_keywords" value="yes" />
+  <input type="hidden" name="area" value="default" />
+</form>
+        
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="section" id="how-to-test-that-an-email-is-sent-in-a-functional-test">
+<span id="index-0"></span><h1>How to test that an Email is sent in a functional Test<a class="headerlink" href="#how-to-test-that-an-email-is-sent-in-a-functional-test" title="Permalink to this headline">¶</a></h1>
+<p>Sending e-mails with Symfony2 is pretty straightforward thanks to the
+<tt class="docutils literal"><span class="pre">SwiftmailerBundle</span></tt>, which leverages the power of the <a class="reference external" href="http://swiftmailer.org/">Swiftmailer</a> library.</p>
+<p>To functionally test that an email was sent, and even assert the email subject,
+content or any other headers, you can use <a class="reference internal" href="../../book/internals.html#internals-profiler"><em>the Symfony2 Profiler</em></a>.</p>
+<p>Start with an easy controller action that sends an e-mail:</p>
+<div class="highlight-python"><pre>public function sendEmailAction($name)
+{
+    $message = \Swift_Message::newInstance()
+        -&gt;setSubject('Hello Email')
+        -&gt;setFrom('send@example.com')
+        -&gt;setTo('recipient@example.com')
+        -&gt;setBody('You should see me from the profiler!')
+    ;
+
+    $this-&gt;get('mailer')-&gt;send($message);
+
+    return $this-&gt;render(...);
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Don&#8217;t forget to enable the profiler as explained in <a class="reference internal" href="../testing/profiling.html"><em>How to use the Profiler in a Functional Test</em></a>.</p>
+</div>
+<p>In your functional test, use the <tt class="docutils literal"><span class="pre">swiftmailer</span></tt> collector on the profiler
+to get information about the messages send on the previous request:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Tests/Controller/MailControllerTest.php
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+
+class MailControllerTest extends WebTestCase
+{
+    public function testMailIsSentAndContentIsOk()
+    {
+        $client = static::createClient();
+        $crawler = $client-&gt;request('POST', '/path/to/above/action');
+
+        $mailCollector = $client-&gt;getProfile()-&gt;getCollector('swiftmailer');
+
+        // Check that an e-mail was sent
+        $this-&gt;assertEquals(1, $mailCollector-&gt;getMessageCount());
+
+        $collectedMessages = $mailCollector-&gt;getMessages();
+        $message = $collectedMessages[0];
+
+        // Asserting e-mail data
+        $this-&gt;assertInstanceOf('Swift_Message', $message);
+        $this-&gt;assertEquals('Hello Email', $message-&gt;getSubject());
+        $this-&gt;assertEquals('send@example.com', key($message-&gt;getFrom()));
+        $this-&gt;assertEquals('recipient@example.com', key($message-&gt;getTo()));
+        $this-&gt;assertEquals('You should see me from the profiler!', $message-&gt;getBody());
+    }
+}</pre>
+</div>
+</div>
+
+
+</div>
+<footer class="footer">
+  <div class="container">
+    <p class="pull-right">
+      <a href="#">Back to top</a>
+      
+    </p>
+    <p>
+        &copy; Copyright 2013, Symfony Team.<br/>
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.<br/>
+    </p>
+  </div>
+</footer>
+  </body>
+</html>

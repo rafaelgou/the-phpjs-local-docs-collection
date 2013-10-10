@@ -1,0 +1,627 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>はじめに &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="caching.html" />
+    <link rel="prev" title="はじめに" href="transactions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="transactions.html" title="はじめに"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="id1">
+<h1>はじめに<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineは柔軟なイベントリスナーアーキテクチャを提供します。このアークテクチャは異なるイベントのリスニングだけでなくリスニングされるメソッドの実行を変更することも可能にします。</p>
+<p>様々なDoctrineコンポーネント用の異なるリスナーとフックがあります。リスナーは個別のクラスであるのに対してフックはリスニングされるクラスの範囲内の空のテンプレートメソッドです。</p>
+<p>フックはイベントリスナーよりもシンプルですがこれらは異なるアスペクトの分離が欠けています。<a href="#id2"><span class="problematic" id="id3">``</span></a>Doctrine_Record``フックを使用する例は次の通りです:</p>
+<blockquote>
+<div>// models/BlogPost.php</div></blockquote>
+<p>class BlogPost extends Doctrine_Record { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span><span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$invoker</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span>
+
+    <span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<blockquote>
+<div><strong>NOTE</strong>
+これまでたくさんのモデルを定義してきたので、<a href="#id4"><span class="problematic" id="id5">``</span></a>BlogModel``に対して独自の``setTableDefinition()``を定義できます。もしくは独自のカスタムモデルを作りましょう！</div></blockquote>
+<p>次のコードで上記のモデルを使うことができます。<tt class="docutils literal"><span class="pre">title</span></tt>、<a href="#id6"><span class="problematic" id="id7">``</span></a>body``と``created``カラムをモデルに追加することを前提とします:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $blog = new BlogPost(); $blog-&gt;title = &#8216;New title&#8217;; $blog-&gt;body =
+&#8216;Some content&#8217;; $blog-&gt;save();</p>
+<p>echo $blog-&gt;created;</p>
+<p>上記の例はPHPが理解する現在の日付を出力します。</p>
+<p>それぞれのリスナーとフックメソッドは
+<a href="#id8"><span class="problematic" id="id9">``</span></a>Doctrine_Event``オブジェクトを1つのパラメータとして受け取ります。<a href="#id10"><span class="problematic" id="id11">``</span></a>Doctrine_Event``オブジェクトは問題のイベントの情報を格納しリスニングされるメソッドの実行を変更できます。</p>
+<p>ドキュメントの目的のために多くのメソッドテーブルは``params``という名前のカラムで提供されます。このカラムはパラメータの名前は与えられたイベント上でイベントオブジェクトが保有するパラメータの名前を示します。例えば``preCreateSavepoint``イベントは作成された``savepoint``の名前を持つ1つのパラメータを持ちます。</p>
+</div>
+<div class="section" id="id12">
+<h1>接続リスナー<a class="headerlink" href="#id12" title="Permalink to this headline">¶</a></h1>
+<p>接続リスナーは``Doctrine_Connection``とそのモジュール(<a href="#id13"><span class="problematic" id="id14">``</span></a>Doctrine_Transaction``など)のメソッドをリスニングするために使われます。すべてのリスナーメソッドはリスニングされるイベントの情報を格納する``Doctrine_Event``オブジェクトを1つの引数として受け取ります。</p>
+<div class="section" id="id15">
+<h2>新しいリスナーを作成する<a class="headerlink" href="#id15" title="Permalink to this headline">¶</a></h2>
+<p>リスナーを定義する方法は3つあります。最初に``Doctrine_EventListener``を継承するクラスを作成することでリスナーを作成できます:</p>
+<blockquote>
+<div>class MyListener extends Doctrine_EventListener { public function</div></blockquote>
+<p>preExec(Doctrine_Event $event) {</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p><a href="#id16"><span class="problematic" id="id17">``</span></a>Doctrine_EventListener``を継承するクラスを定義することで``Doctrine_EventListener_Interface``の範囲内ですべてのメソッドを定義する必要はありません。これは``Doctrine_EventListener``が既にこれらすべてのメソッド用の空のスケルトンを持つからです。</p>
+<p>ときに``Doctrine_EventListener``を継承するリスナーを定義できないことがあります(他の基底クラスを継承するリスナーを用意できます)。この場合``Doctrine_EventListener_Interface``を実装させることができます。</p>
+<blockquote>
+<div>class MyListener implements Doctrine_EventListener_Interface { public</div></blockquote>
+<p>function preTransactionCommit(Doctrine_Event $event) {} public function
+postTransactionCommit(Doctrine_Event $event) {}</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionRollback</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postTransactionRollback</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionBegin</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postTransactionBegin</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postConnect</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preConnect</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preQuery</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postQuery</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">prePrepare</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postPrepare</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postExec</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preError</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postError</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preFetch</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postFetch</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preFetchAll</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postFetchAll</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preStmtExecute</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postStmtExecute</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span> <span class="p">{}</span>
+</pre></div>
+</div>
+<p>}</p>
+<blockquote>
+<div><strong>CAUTION</strong>
+すべてのリスナーメソッドはここで定義しなければなりません。さもないとPHPは致命的エラーを投げます。</div></blockquote>
+<p>リスナーを作成する3番目の方法はとても優雅です。<a href="#id18"><span class="problematic" id="id19">``</span></a>Doctrine_Overloadable``を実装するクラスを作成します。インターフェイスは1つのメソッド:
+<a href="#id20"><span class="problematic" id="id21">``</span></a>__call()``のみを持ちます。このメソッドは*すべての*イベントと補足するために使われます。</p>
+<blockquote>
+<div>class MyDebugger implements Doctrine_Overloadable { public function</div></blockquote>
+<p>__call($methodName, $args) { echo $methodName . &#8216; called !&#8217;; } }</p>
+</div>
+<div class="section" id="id22">
+<h2>リスナーを追加する<a class="headerlink" href="#id22" title="Permalink to this headline">¶</a></h2>
+<p>setListener()でリスナーを接続に追加できます。</p>
+<blockquote>
+<div>$conn-&gt;setListener(new MyDebugger());</div></blockquote>
+<p>複数のリスナーが必要な場合はaddListener()を使います。</p>
+<blockquote>
+<div>$conn-&gt;addListener(new MyDebugger()); $conn-&gt;addListener(new</div></blockquote>
+<p>MyLogger());</p>
+</div>
+<div class="section" id="id23">
+<h2>プレ接続とポスト接続<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h2>
+<p>下記のリスナーのすべては``Doctrine_Connection``クラスに含まれます。これらすべては``Doctrine_Event``のインスタンスです。</p>
+<p>||~ メソッド ||~ リスニング ||~ パラメータ || ||
+<tt class="docutils literal"><span class="pre">preConnect(Doctrine_Event</span> <span class="pre">$event)</span></tt> ||
+Doctrine_Connection::connection() || || ||
+<tt class="docutils literal"><span class="pre">postConnect(Doctrine_Event</span> <span class="pre">$event)</span></tt> ||
+Doctrine_Connection::connection() || ||</p>
+</div>
+<div class="section" id="id24">
+<h2>トランザクションリスナー<a class="headerlink" href="#id24" title="Permalink to this headline">¶</a></h2>
+<p>下記のリスナーのすべては``Doctrine_Transaction``クラスに含まれます。これらすべてに``Doctrine_Event``のインスタンスが渡されます。</p>
+<p>||~ メソッド ||~ リスニング ||~ パラメータ || ||
+<tt class="docutils literal"><span class="pre">preTransactionBegin()</span></tt> || <tt class="docutils literal"><span class="pre">beginTransaction()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">postTransactionBegin()</span></tt> || <tt class="docutils literal"><span class="pre">beginTransaction()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">preTransactionRollback()</span></tt> || <tt class="docutils literal"><span class="pre">rollback()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">postTransactionRollback()</span></tt> || <tt class="docutils literal"><span class="pre">rollback()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">preTransactionCommit()</span></tt> || <tt class="docutils literal"><span class="pre">commit()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">postTransactionCommit()</span></tt> || <tt class="docutils literal"><span class="pre">commit()</span></tt> || || ||
+<tt class="docutils literal"><span class="pre">preCreateSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">createSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">savepoint</span></tt>
+|| || <tt class="docutils literal"><span class="pre">postCreateSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">createSavepoint()</span></tt> ||
+<tt class="docutils literal"><span class="pre">savepoint</span></tt> || || <tt class="docutils literal"><span class="pre">preRollbackSavepoint()</span></tt> ||
+<tt class="docutils literal"><span class="pre">rollbackSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">savepoint</span></tt> || ||
+<tt class="docutils literal"><span class="pre">postRollbackSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">rollbackSavepoint()</span></tt> ||
+<tt class="docutils literal"><span class="pre">savepoint</span></tt> || || <tt class="docutils literal"><span class="pre">preReleaseSavepoint()</span></tt> ||
+<tt class="docutils literal"><span class="pre">releaseSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">savepoint</span></tt> || ||
+<tt class="docutils literal"><span class="pre">postReleaseSavepoint()</span></tt> || <tt class="docutils literal"><span class="pre">releaseSavepoint()</span></tt> ||
+<tt class="docutils literal"><span class="pre">savepoint</span></tt> ||</p>
+<blockquote>
+<div>class MyTransactionListener extends Doctrine_EventListener { public</div></blockquote>
+<p>function preTransactionBegin(Doctrine_Event $event) { echo &#8216;beginning
+transaction... &#8216;; }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionRollback</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;rolling back transaction... &#39;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="id25">
+<h2>クエリ実行リスナー<a class="headerlink" href="#id25" title="Permalink to this headline">¶</a></h2>
+<p>下記のリスナーのすべては``Doctrine_Connection``と``Doctrine_Connection_Statement``クラスに含まれます。そしてこれらすべては``Doctrine_Event``のインスタンスです。</p>
+<p>||~ メソッド ||~ リスニング ||~ パラメータ || ||
+<tt class="docutils literal"><span class="pre">prePrepare()</span></tt> || <tt class="docutils literal"><span class="pre">prepare()</span></tt> || <tt class="docutils literal"><span class="pre">query</span></tt> || ||
+<tt class="docutils literal"><span class="pre">postPrepare()</span></tt> || <tt class="docutils literal"><span class="pre">prepare()</span></tt> || <tt class="docutils literal"><span class="pre">query</span></tt> || ||
+<tt class="docutils literal"><span class="pre">preExec()</span></tt> || <tt class="docutils literal"><span class="pre">exec()</span></tt> || <tt class="docutils literal"><span class="pre">query</span></tt> || || <tt class="docutils literal"><span class="pre">postExec()</span></tt>
+|| <tt class="docutils literal"><span class="pre">exec()</span></tt> || <tt class="docutils literal"><span class="pre">query,</span> <span class="pre">rows</span></tt> || || <tt class="docutils literal"><span class="pre">preStmtExecute()</span></tt> ||
+<tt class="docutils literal"><span class="pre">execute()</span></tt> || <tt class="docutils literal"><span class="pre">query</span></tt> || || <tt class="docutils literal"><span class="pre">postStmtExecute()</span></tt> ||
+<tt class="docutils literal"><span class="pre">execute()</span></tt> || <tt class="docutils literal"><span class="pre">query</span></tt> || || <tt class="docutils literal"><span class="pre">preExecute()</span></tt> ||
+<tt class="docutils literal"><span class="pre">execute()</span></tt> * || <tt class="docutils literal"><span class="pre">query</span></tt> || || <tt class="docutils literal"><span class="pre">postExecute()</span></tt> ||
+<tt class="docutils literal"><span class="pre">execute()</span></tt> * || <tt class="docutils literal"><span class="pre">query</span></tt> || || <tt class="docutils literal"><span class="pre">preFetch()</span></tt> ||
+<tt class="docutils literal"><span class="pre">fetch()</span></tt> || <tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt> || || <tt class="docutils literal"><span class="pre">postFetch()</span></tt> ||
+<tt class="docutils literal"><span class="pre">fetch()</span></tt> || <tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt> || || <tt class="docutils literal"><span class="pre">preFetchAll()</span></tt> ||
+<tt class="docutils literal"><span class="pre">fetchAll()</span></tt> || <tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt> || || <tt class="docutils literal"><span class="pre">postFetchAll()</span></tt> ||
+<tt class="docutils literal"><span class="pre">fetchAll()</span></tt> || <tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt> ||</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<tt class="docutils literal"><span class="pre">Doctrine\_Connection::execute()``がプリペアードステートメントパラメータで呼び出されるときにのみ``preExecute()``と``postExecute()``は起動します。そうではない場合``Doctrine_Connection::execute()``は``prePrepare()</span></tt>、<tt class="docutils literal"><span class="pre">postPrepare()</span></tt>、<a href="#id26"><span class="problematic" id="id27">``</span></a>preStmtExecute()``と``postStmtExecute()``を起動します。</div></blockquote>
+</div>
+</div>
+<div class="section" id="id28">
+<h1>ハイドレーションリスナー<a class="headerlink" href="#id28" title="Permalink to this headline">¶</a></h1>
+<p>ハイドレーションリスナーは結果セットのハイドレーション処理をリスニングするために使われます。ハイドレーション処理をリスニングするために2つのメソッド:
+<a href="#id29"><span class="problematic" id="id30">``</span></a>preHydrate()``と``postHydrate()``が存在します。</p>
+<p>ハイドレーションリスナーを接続レベルで設定する場合、<a href="#id31"><span class="problematic" id="id32">``</span></a>preHydrate()``と``postHydrate()``ブロックの範囲内のコードは複数のコンポーネントの結果セットの範囲内ですべてのコンポーネントによって実行されます。テーブルレベルで同様のリスナーを追加する場合、テーブルのデータがハイドレイトされているときのみ起動します。</p>
+<p>フィールド:
+<tt class="docutils literal"><span class="pre">first\_name</span></tt>、<a href="#id33"><span class="problematic" id="id34">``</span></a>last_name``と``age``を持つ``User``クラスを考えてみましょう。次の例では``first_name``と``last_name``フィールドに基づいて``full__name``と呼ばれる生成フィールドを常にビルドするリスナーを作成します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... class HydrationListener extends Doctrine_Record_Listener {
+public function preHydrate(Doctrine_Event $event) { $data =
+$event-&gt;data;</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;full_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;first_name&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39; &#39;</span> <span class="o">.</span> <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;last_name&#39;</span><span class="p">];</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">data</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>行う必要があるのは``User``レコードにこのリスナーを追加して複数のユーザーを取得することです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);
+$userTable-&gt;addRecordListener(new HydrationListener());</p>
+<p>$q = Doctrine_Query::create() -&gt;from(&#8216;User&#8217;);</p>
+<p>$users = $q-&gt;execute();</p>
+<p>foreach ($users as $user) { echo $user-&gt;full_name; }</p>
+</div>
+<div class="section" id="id35">
+<h1>レコードリスナー<a class="headerlink" href="#id35" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id36"><span class="problematic" id="id37">``</span></a>Doctrine_Record``は``Doctrine_Connection``とよく似たリスナーを提供します。グローバル、接続、テーブルレベルでリスナーを設定できます。</p>
+<p>利用可能なすべてのリスナーメソッドの一覧は次の通りです:
+下記のリスナーすべてが``Doctrine_Record``と``Doctrine_Validator``クラスに含まれます。そしてこれらすべてに``Doctrine_Event``のインスタンスが渡されます。</p>
+<p>||~ メソッド ||~ リスニング || || <tt class="docutils literal"><span class="pre">preSave()</span></tt> || <tt class="docutils literal"><span class="pre">save()</span></tt>
+|| || <tt class="docutils literal"><span class="pre">postSave()</span></tt> || <tt class="docutils literal"><span class="pre">save()</span></tt> || || <tt class="docutils literal"><span class="pre">preUpdate()</span></tt> ||
+レコードが``DIRTY``のとき``save()`` || || <tt class="docutils literal"><span class="pre">postUpdate()</span></tt> ||
+レコードが``DIRTY``のとき``save()`` || || <tt class="docutils literal"><span class="pre">preInsert()</span></tt> ||
+レコードが``DIRTY``のとき``save()`` || || <tt class="docutils literal"><span class="pre">postInsert()</span></tt> ||
+レコードが``DIRTY``のとき``save()`` || || <tt class="docutils literal"><span class="pre">preDelete()</span></tt> ||
+<tt class="docutils literal"><span class="pre">delete()</span></tt> || || <tt class="docutils literal"><span class="pre">postDelete()</span></tt> || <tt class="docutils literal"><span class="pre">delete()</span></tt> || ||
+<tt class="docutils literal"><span class="pre">preValidate()</span></tt> || <tt class="docutils literal"><span class="pre">validate()</span></tt> || || <tt class="docutils literal"><span class="pre">postValidate()</span></tt> ||
+<tt class="docutils literal"><span class="pre">validate()</span></tt> ||</p>
+<p>接続リスナーと同じようにレコードリスナーを定義する方法は3つあります:
+<a href="#id38"><span class="problematic" id="id39">``</span></a>Doctrine_Record_Listener``を継承する、<a href="#id40"><span class="problematic" id="id41">``</span></a>Doctrine_Record_Listener_Interface``を実装するもしくは``Doctrine_Overloadable``を実装するです。</p>
+<p>次の例では``Doctrine_Overloadable``を実装することでグローバルレベルのリスナーを作成します:</p>
+<blockquote>
+<div>class Logger implements Doctrine_Overloadable { public function</div></blockquote>
+<p>__call($m, $a) { echo &#8216;caught event &#8216; . $m;</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="c1">// do some logging here...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>マネージャーにリスナーを追加するのは簡単です:</p>
+<blockquote>
+<div>$manager-&gt;addRecordListener(new Logger());</div></blockquote>
+<p>マネージャーレベルのリスナーを追加することでこれらの接続の範囲内ですべてのテーブル/レコードに影響を及ぼします。次の例では接続レベルのリスナーを作成します:</p>
+<blockquote>
+<div>class Debugger extends Doctrine_Record_Listener { public function</div></blockquote>
+<p>preInsert(Doctrine_Event $event) { echo &#8216;inserting a record ...&#8217;; }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;updating a record...&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>接続にリスナーを追加するのも簡単です:</p>
+<blockquote>
+<div>$conn-&gt;addRecordListener(new Debugger());</div></blockquote>
+<p>リスナーが特定のテーブルのみにアクションを適用するようにリスナーをテーブル固有のものにしたい場合がよくあります。</p>
+<p>例は次の通りです:</p>
+<blockquote>
+<div>class Debugger extends Doctrine_Record_Listener { public function</div></blockquote>
+<p>postDelete(Doctrine_Event $event) { echo &#8216;deleted &#8216; .
+$event-&gt;getInvoker()-&gt;id; } }</p>
+<p>このリスナーを任意のテーブルに追加するのは次のようにできます:</p>
+<blockquote>
+<div>class MyRecord extends Doctrine_Record { // ...</div></blockquote>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span><span class="k">new</span> <span class="nx">Debugger</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="id42">
+<h1>レコードフック<a class="headerlink" href="#id42" title="Permalink to this headline">¶</a></h1>
+<p>||~ メソッド ||~ リスニング || || <tt class="docutils literal"><span class="pre">preSave()</span></tt> || <tt class="docutils literal"><span class="pre">save()</span></tt>
+|| || <tt class="docutils literal"><span class="pre">postSave()</span></tt> || <tt class="docutils literal"><span class="pre">save()</span></tt> || || <tt class="docutils literal"><span class="pre">preUpdate()</span></tt> ||
+レコード状態が``DIRTY``であるとき``save()`` || || <tt class="docutils literal"><span class="pre">postUpdate()</span></tt>
+|| レコード状態が``DIRTY``であるとき``save()`` || ||
+<tt class="docutils literal"><span class="pre">preInsert()</span></tt> || レコード状態が``DIRTY``であるとき``save()`` ||
+|| <tt class="docutils literal"><span class="pre">postInsert()</span></tt> || レコード状態が``DIRTY``であるとき``save()``
+|| || <tt class="docutils literal"><span class="pre">preDelete()</span></tt> || <tt class="docutils literal"><span class="pre">delete()</span></tt> || || <tt class="docutils literal"><span class="pre">postDelete()</span></tt>
+|| <tt class="docutils literal"><span class="pre">delete()</span></tt> || || <tt class="docutils literal"><span class="pre">preValidate()</span></tt> || <tt class="docutils literal"><span class="pre">validate()</span></tt> ||
+|| <tt class="docutils literal"><span class="pre">postValidate()</span></tt> || <tt class="docutils literal"><span class="pre">validate()</span></tt> ||</p>
+<p><a href="#id43"><span class="problematic" id="id44">``</span></a>preInsert()``と``preUpdate()``メソッドを利用するシンプルな例は次の通りです:</p>
+<blockquote>
+<div>class BlogPost extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 200);
+$this-&gt;hasColumn(&#8216;content&#8217;, &#8216;string&#8217;); $this-&gt;hasColumn(&#8216;created&#8217;,
+&#8216;date&#8217;); $this-&gt;hasColumn(&#8216;updated&#8217;, &#8216;date&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span><span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span><span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">updated</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="dql">
+<h1>DQLフック<a class="headerlink" href="#dql" title="Permalink to this headline">¶</a></h1>
+<p>レコードリスナーをグローバル、それぞれの接続で、もしくは特定のレコードインスタンスで追加することができます。<a href="#id45"><span class="problematic" id="id46">``</span></a>Doctrine_Query``は``preDql*()``フックを実装します。これはクエリが実行されるときに、追加されたレコードリスナーもしくはモデルインスタンス自身でチェックされます。フックを起動したクエリを変更できるフックのためにクエリはクエリの``from``部分に関連するすべてのモデルをチェックします。</p>
+<p>DQLで使うことができるフックのリストは次の通りです:</p>
+<p>||~ メソッド ||~ リスニング || || <tt class="docutils literal"><span class="pre">preDqlSelect()</span></tt> ||
+<tt class="docutils literal"><span class="pre">from()</span></tt> || || <tt class="docutils literal"><span class="pre">preDqlUpdate()</span></tt> || <tt class="docutils literal"><span class="pre">update()</span></tt> || ||
+<tt class="docutils literal"><span class="pre">preDqlDelete()</span></tt> || <tt class="docutils literal"><span class="pre">delete()</span></tt> ||</p>
+<p>下記のコードは``User``モデル用の``SoftDelete``機能を実装するモデルにレコードリスナーを直接追加する例です。</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<blockquote>
+<div>SoftDeleteの機能はDoctrineのビヘイビアとして含まれます。このコードは実行されるクエリを修正するためにDQLリスナーをselect、delete、updateする方法を実演しています。Doctrine_Record::setUp()の定義で$this-&gt;actAs(&#8216;SoftDelete&#8217;)を指定することでSoftDeleteビヘイビアを使うことができます。</div></blockquote>
+<p class="last">class UserListener extends Doctrine_EventListener { /** * Skip the</p>
+</div>
+<p>normal delete options so we can override it with our own * * &#64;param
+Doctrine_Event $event * &#64;return void */ public function
+preDelete(Doctrine_Event $event) { $event-&gt;skipOperation(); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="sd">/**</span>
+<span class="sd"> * Implement postDelete() hook and set the deleted flag to true</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param Doctrine_Event $event</span>
+<span class="sd"> * @return void</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">postDelete</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$name</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">];</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="nv">$name</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Implement preDqlDelete() hook and modify a dql delete query so it updates the deleted flag</span>
+<span class="sd"> * instead of deleting the record</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param Doctrine_Event $event</span>
+<span class="sd"> * @return void</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlDelete</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$params</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getParams</span><span class="p">();</span>
+    <span class="nv">$field</span> <span class="o">=</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39;.deleted&#39;</span><span class="p">;</span>
+    <span class="nv">$q</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getQuery</span><span class="p">();</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="o">!</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span><span class="nv">$field</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">update</span><span class="p">(</span><span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;component&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39; &#39;</span> <span class="o">.</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]);</span>
+        <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">set</span><span class="p">(</span><span class="nv">$field</span><span class="p">,</span> <span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">false</span><span class="p">));</span>
+        <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span><span class="nv">$field</span> <span class="o">.</span> <span class="s1">&#39; = ?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">true</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Implement preDqlDelete() hook and add the deleted flag to all queries for which this model</span>
+<span class="sd"> * is being used in.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param Doctrine_Event $event</span>
+<span class="sd"> * @return void</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlSelect</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$params</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getParams</span><span class="p">();</span>
+    <span class="nv">$field</span> <span class="o">=</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39;.deleted&#39;</span><span class="p">;</span>
+    <span class="nv">$q</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getQuery</span><span class="p">();</span>
+    <span class="k">if</span> <span class="p">(</span> <span class="o">!</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span><span class="nv">$field</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span><span class="nv">$field</span> <span class="o">.</span> <span class="s1">&#39; = ?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">false</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>オプションとして上記のリスナーのメソッドは下記のユーザークラスに設置できます。Doctrineはそこでフックを同じようにチェックします:</p>
+<blockquote>
+<div>class User extends Doctrine_Record { // ...</div></blockquote>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlSelect</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlUpdate</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlDelete</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>これらのDQLコールバックがチェックされるようにするには、これらを明示的に有効にしなければなりません。これはそれぞれのクエリに対して少量のオーバーヘッドを追加するので、デフォルトでは無効です。以前の章で既にこの属性を有効にしました。</p>
+<p>思い出すためにコードを再掲載します:</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $manager-&gt;setAttribute(Doctrine::ATTR_USE_DQL_CALLBACKS,
+true);</p>
+<p>Userモデルとやりとりをするとき削除フラグが考慮されます:</p>
+<p>レコードインスタンスを通してユーザーを削除します:</p>
+<blockquote>
+<div>$user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =</div></blockquote>
+<p>&#8216;changeme&#8217;; $user-&gt;save(); $user-&gt;delete();</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+<a href="#id47"><span class="problematic" id="id48">``</span></a>$user-&gt;delete()``を呼び出しても実際にはレコードは削除されず代わりに削除フラグがtrueに設定されます。</div></blockquote>
+<p>$q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;);</p>
+</div></blockquote>
+<p>echo $q-&gt;getSql();</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, u.password AS</div></blockquote>
+<p>u**password, u.deleted AS u**deleted FROM user u WHERE u.deleted = ?</p>
+<blockquote>
+<div><strong>NOTE</strong> <a href="#id49"><span class="problematic" id="id50">``</span></a>&#8220;u.deleted =
+?&#8221;<a href="#id51"><span class="problematic" id="id52">``</span></a>が//true//のパラメータの値でwhere条件に自動的に追加されたことに注目してください。</div></blockquote>
+</div>
+<div class="section" id="id53">
+<h1>複数のリスナーを連結する<a class="headerlink" href="#id53" title="Permalink to this headline">¶</a></h1>
+<p>異なるイベントリスナーを連結することができます。このことは同じイベントをリスニングするために複数のリスナーを追加できることを意味します。次の例では与えられた接続用に2つのリスナーを追加します:</p>
+<p>この例では``Debugger``と``Logger``は両方とも``Doctrine_EventListener``を継承します:</p>
+<blockquote>
+<div>$conn-&gt;addListener(new Debugger()); $conn-&gt;addListener(new Logger());</div></blockquote>
+</div>
+<div class="section" id="id54">
+<h1>イベントオブジェクト<a class="headerlink" href="#id54" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id55">
+<h2>インボーカーを取得する<a class="headerlink" href="#id55" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id56"><span class="problematic" id="id57">``</span></a>getInvoker()``を呼び出すことでイベントを起動したオブジェクトを取得できます:</p>
+<blockquote>
+<div>class MyListener extends Doctrine_EventListener { public function</div></blockquote>
+<p>preExec(Doctrine_Event $event) { $event-&gt;getInvoker(); //
+Doctrine_Connection } }</p>
+</div>
+<div class="section" id="id58">
+<h2>イベントコード<a class="headerlink" href="#id58" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id59"><span class="problematic" id="id60">``</span></a>Doctrine_Event``は定数をイベントコードとして使用します。利用可能なイベントの定数の一覧は下記の通りです:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::CONN_QUERY</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::CONN_EXEC</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::CONN_PREPARE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::CONN_CONNECT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::STMT_EXECUTE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::STMT_FETCH</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::STMT_FETCHALL</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::TX_BEGIN</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::TX_COMMIT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::TX_ROLLBACK</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::SAVEPOINT_CREATE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::SAVEPOINT_ROLLBACK</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::SAVEPOINT_COMMIT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_DELETE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_SAVE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_UPDATE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_INSERT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_SERIALIZE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD_UNSERIALIZE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD\_DQL_SELECT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD\_DQL_DELETE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine\_Event::RECORD\_DQL_UPDATE</span></tt></li>
+</ul>
+<p>フックの使い方と返されるコードの例は次の通りです:</p>
+<blockquote>
+<div>class MyListener extends Doctrine_EventListener { public function</div></blockquote>
+<p>preExec(Doctrine_Event $event) { $event-&gt;getCode(); //
+Doctrine_Event::CONN_EXEC } }</p>
+<p>class MyRecord extends Doctrine_Record { public function
+preUpdate(Doctrine_Event $event) { $event-&gt;getCode(); //
+Doctrine_Event::RECORD_UPDATE } }</p>
+</div>
+<div class="section" id="id61">
+<h2>インボーカーを取得する<a class="headerlink" href="#id61" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id62"><span class="problematic" id="id63">``</span></a>getInvoker()``メソッドは与えられたイベントを起動したオブジェクトを返します。例えばイベント用の``Doctrine_Event::CONN_QUERY``インボーカーは``Doctrine_Connection``オブジェクトです。</p>
+<p><a href="#id64"><span class="problematic" id="id65">``</span></a>Doctrine_Record``インスタンスが保存されupdateがデータベースに発行されるときに起動する``preUpdate()``という名前のレコードフックの使い方の例は次の通りです:</p>
+<blockquote>
+<div>class MyRecord extends Doctrine_Record { public function</div></blockquote>
+<p>preUpdate(Doctrine_Event $event) { $event-&gt;getInvoker(); //
+Object(MyRecord) } }</p>
+</div>
+<div class="section" id="id66">
+<h2>次のオペレーションをスキップする<a class="headerlink" href="#id66" title="Permalink to this headline">¶</a></h2>
+<p>リスナーチェーンのビヘイビアの変更と同様にリスニングされているメソッドの実行の変更のために``Doctrine_Event``は多くのメソッドを提供します。</p>
+<p>多くの理由からリスニングされているメソッドの実行をスキップしたいことがあります。これは次のように実現できます(<a href="#id67"><span class="problematic" id="id68">``</span></a>preExec()``は任意のリスナーメソッドにできることに注意してください):</p>
+<blockquote>
+<div>class MyListener extends Doctrine_EventListener { public function</div></blockquote>
+<p>preExec(Doctrine_Event $event) { // some business logic, then:</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">skipOperation</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="id69">
+<h2>次のリスナーをスキップする<a class="headerlink" href="#id69" title="Permalink to this headline">¶</a></h2>
+<p>リスナーのチェーンを使うとき次のリスナーの実行をスキップしたいことがあります。これは次のように実現できます:</p>
+<blockquote>
+<div>class MyListener extends Doctrine_EventListener { public function</div></blockquote>
+<p>preExec(Doctrine_Event $event) { // some business logic, then:</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">skipNextListener</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+</div>
+<div class="section" id="id70">
+<h1>まとめ<a class="headerlink" href="#id70" title="Permalink to this headline">¶</a></h1>
+<p>イベントリスナーはDoctrineの素晴らしい機能で[doc behaviors
+:name]に結びつけられます。これらは最小量のコードで非常に複雑な機能を提供します。</p>
+<p>これでパフォーマンスを改善するためのベストな機能である[doc caching
+:name]を検討する準備ができました。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">はじめに</a></li>
+<li><a class="reference internal" href="#id12">接続リスナー</a><ul>
+<li><a class="reference internal" href="#id15">新しいリスナーを作成する</a></li>
+<li><a class="reference internal" href="#id22">リスナーを追加する</a></li>
+<li><a class="reference internal" href="#id23">プレ接続とポスト接続</a></li>
+<li><a class="reference internal" href="#id24">トランザクションリスナー</a></li>
+<li><a class="reference internal" href="#id25">クエリ実行リスナー</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id28">ハイドレーションリスナー</a></li>
+<li><a class="reference internal" href="#id35">レコードリスナー</a></li>
+<li><a class="reference internal" href="#id42">レコードフック</a></li>
+<li><a class="reference internal" href="#dql">DQLフック</a></li>
+<li><a class="reference internal" href="#id53">複数のリスナーを連結する</a></li>
+<li><a class="reference internal" href="#id54">イベントオブジェクト</a><ul>
+<li><a class="reference internal" href="#id55">インボーカーを取得する</a></li>
+<li><a class="reference internal" href="#id58">イベントコード</a></li>
+<li><a class="reference internal" href="#id61">インボーカーを取得する</a></li>
+<li><a class="reference internal" href="#id66">次のオペレーションをスキップする</a></li>
+<li><a class="reference internal" href="#id69">次のリスナーをスキップする</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id70">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="transactions.html"
+                        title="previous chapter">はじめに</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="caching.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/event-listeners.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="transactions.html" title="はじめに"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

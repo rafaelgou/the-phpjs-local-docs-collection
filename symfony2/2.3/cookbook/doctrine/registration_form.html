@@ -1,0 +1,454 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to implement a simple Registration Form &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine" href="index.html" />
+    <link rel="next" title="Form" href="../form/index.html" />
+    <link rel="prev" title="How to provide model classes for several Doctrine implementations" href="mapping_model_classes.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../form/index.html" title="Form"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="mapping_model_classes.html" title="How to provide model classes for several Doctrine implementations"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-implement-a-simple-registration-form">
+<span id="index-0"></span><h1>How to implement a simple Registration Form<a class="headerlink" href="#how-to-implement-a-simple-registration-form" title="Permalink to this headline">¶</a></h1>
+<p>Some forms have extra fields whose values don&#8217;t need to be stored in the
+database. For example, you may want to create a registration form with some
+extra fields (like a &#8220;terms accepted&#8221; checkbox field) and embed the form
+that actually stores the account information.</p>
+<div class="section" id="the-simple-user-model">
+<h2>The simple User model<a class="headerlink" href="#the-simple-user-model" title="Permalink to this headline">¶</a></h2>
+<p>You have a simple <tt class="docutils literal"><span class="pre">User</span></tt> entity mapped to the database:</p>
+<div class="highlight-python"><pre>// src/Acme/AccountBundle/Entity/User.php
+namespace Acme\AccountBundle\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+
+/**
+ * @ORM\Entity
+ * @UniqueEntity(fields="email", message="Email already taken")
+ */
+class User
+{
+    /**
+     * @ORM\Id
+     * @ORM\Column(type="integer")
+     * @ORM\GeneratedValue(strategy="AUTO")
+     */
+    protected $id;
+
+    /**
+     * @ORM\Column(type="string", length=255)
+     * @Assert\NotBlank()
+     * @Assert\Email()
+     */
+    protected $email;
+
+    /**
+     * @ORM\Column(type="string", length=255)
+     * @Assert\NotBlank()
+     */
+    protected $plainPassword;
+
+    public function getId()
+    {
+        return $this-&gt;id;
+    }
+
+    public function getEmail()
+    {
+        return $this-&gt;email;
+    }
+
+    public function setEmail($email)
+    {
+        $this-&gt;email = $email;
+    }
+
+    public function getPlainPassword()
+    {
+        return $this-&gt;plainPassword;
+    }
+
+    public function setPlainPassword($password)
+    {
+        $this-&gt;plainPassword = $password;
+    }
+}</pre>
+</div>
+<p>This <tt class="docutils literal"><span class="pre">User</span></tt> entity contains three fields and two of them (<tt class="docutils literal"><span class="pre">email</span></tt> and
+<tt class="docutils literal"><span class="pre">plainPassword</span></tt>) should display on the form. The email property must be unique
+in the database, this is enforced by adding this validation at the top of
+the class.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you want to integrate this User within the security system, you need
+to implement the <a class="reference internal" href="../../book/security.html#book-security-user-entity"><em>UserInterface</em></a> of the
+security component.</p>
+</div>
+</div>
+<div class="section" id="create-a-form-for-the-model">
+<h2>Create a Form for the Model<a class="headerlink" href="#create-a-form-for-the-model" title="Permalink to this headline">¶</a></h2>
+<p>Next, create the form for the <tt class="docutils literal"><span class="pre">User</span></tt> model:</p>
+<div class="highlight-python"><pre>// src/Acme/AccountBundle/Form/Type/UserType.php
+namespace Acme\AccountBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class UserType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add('email', 'email');
+        $builder-&gt;add('plainPassword', 'repeated', array(
+           'first_name'  =&gt; 'password',
+           'second_name' =&gt; 'confirm',
+           'type'        =&gt; 'password',
+        ));
+    }
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            'data_class' =&gt; 'Acme\AccountBundle\Entity\User'
+        ));
+    }
+
+    public function getName()
+    {
+        return 'user';
+    }
+}</pre>
+</div>
+<p>There are just two fields: <tt class="docutils literal"><span class="pre">email</span></tt> and <tt class="docutils literal"><span class="pre">plainPassword</span></tt> (repeated to confirm
+the entered password). The <tt class="docutils literal"><span class="pre">data_class</span></tt> option tells the form the name of
+data class (i.e. your <tt class="docutils literal"><span class="pre">User</span></tt> entity).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">To explore more things about the form component, read <a class="reference internal" href="../../book/forms.html"><em>Forms</em></a>.</p>
+</div>
+</div>
+<div class="section" id="embedding-the-user-form-into-a-registration-form">
+<h2>Embedding the User form into a Registration Form<a class="headerlink" href="#embedding-the-user-form-into-a-registration-form" title="Permalink to this headline">¶</a></h2>
+<p>The form that you&#8217;ll use for the registration page is not the same as the
+form used to simply modify the <tt class="docutils literal"><span class="pre">User</span></tt> (i.e. <tt class="docutils literal"><span class="pre">UserType</span></tt>). The registration
+form will contain further fields like &#8220;accept the terms&#8221;, whose value won&#8217;t
+be stored in the database.</p>
+<p>Start by creating a simple class which represents the &#8220;registration&#8221;:</p>
+<div class="highlight-python"><pre>// src/Acme/AccountBundle/Form/Model/Registration.php
+namespace Acme\AccountBundle\Form\Model;
+
+use Symfony\Component\Validator\Constraints as Assert;
+
+use Acme\AccountBundle\Entity\User;
+
+class Registration
+{
+    /**
+     * @Assert\Type(type="Acme\AccountBundle\Entity\User")
+     * @Assert\Valid()
+     */
+    protected $user;
+
+    /**
+     * @Assert\NotBlank()
+     * @Assert\True()
+     */
+    protected $termsAccepted;
+
+    public function setUser(User $user)
+    {
+        $this-&gt;user = $user;
+    }
+
+    public function getUser()
+    {
+        return $this-&gt;user;
+    }
+
+    public function getTermsAccepted()
+    {
+        return $this-&gt;termsAccepted;
+    }
+
+    public function setTermsAccepted($termsAccepted)
+    {
+        $this-&gt;termsAccepted = (Boolean) $termsAccepted;
+    }
+}</pre>
+</div>
+<p>Next, create the form for this <tt class="docutils literal"><span class="pre">Registration</span></tt> model:</p>
+<div class="highlight-python"><pre>// src/Acme/AccountBundle/Form/Type/RegistrationType.php
+namespace Acme\AccountBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class RegistrationType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add('user', new UserType());
+        $builder-&gt;add(
+            'terms',
+            'checkbox',
+            array('property_path' =&gt; 'termsAccepted')
+        );
+    }
+
+    public function getName()
+    {
+        return 'registration';
+    }
+}</pre>
+</div>
+<p>You don&#8217;t need to use special method for embedding the <tt class="docutils literal"><span class="pre">UserType</span></tt> form.
+A form is a field, too - so you can add this like any other field, with the
+expectation that the <tt class="docutils literal"><span class="pre">Registration.user</span></tt> property will hold an instance
+of the <tt class="docutils literal"><span class="pre">User</span></tt> class.</p>
+</div>
+<div class="section" id="handling-the-form-submission">
+<h2>Handling the Form Submission<a class="headerlink" href="#handling-the-form-submission" title="Permalink to this headline">¶</a></h2>
+<p>Next, you need a controller to handle the form. Start by creating a simple
+controller for displaying the registration form:</p>
+<div class="highlight-python"><pre>// src/Acme/AccountBundle/Controller/AccountController.php
+namespace Acme\AccountBundle\Controller;
+
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\HttpFoundation\Response;
+
+use Acme\AccountBundle\Form\Type\RegistrationType;
+use Acme\AccountBundle\Form\Model\Registration;
+
+class AccountController extends Controller
+{
+    public function registerAction()
+    {
+        $registration = new Registration();
+        $form = $this-&gt;createForm(new RegistrationType(), $registration, array(
+            'action' =&gt; $this-&gt;generateUrl('account_create'),
+        ));
+
+        return $this-&gt;render(
+            'AcmeAccountBundle:Account:register.html.twig',
+            array('form' =&gt; $form-&gt;createView())
+        );
+    }
+}</pre>
+</div>
+<p>and its template:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="c">{# src/Acme/AccountBundle/Resources/views/Account/register.html.twig #}</span>
+<span class="cp">{{</span> <span class="nv">form</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span>
+</pre></div>
+</div>
+<p>Next, create the controller which handles the form submission.  This performs
+the validation and saves the data into the database:</p>
+<div class="highlight-python"><pre>public function createAction(Request $request)
+{
+    $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+
+    $form = $this-&gt;createForm(new RegistrationType(), new Registration());
+
+    $form-&gt;handleRequest($request);
+
+    if ($form-&gt;isValid()) {
+        $registration = $form-&gt;getData();
+
+        $em-&gt;persist($registration-&gt;getUser());
+        $em-&gt;flush();
+
+        return $this-&gt;redirect(...);
+    }
+
+    return $this-&gt;render(
+        'AcmeAccountBundle:Account:register.html.twig',
+        array('form' =&gt; $form-&gt;createView())
+    );
+}</pre>
+</div>
+</div>
+<div class="section" id="add-new-routes">
+<h2>Add New Routes<a class="headerlink" href="#add-new-routes" title="Permalink to this headline">¶</a></h2>
+<p>Next, update your routes. If you&#8217;re placing your routes inside your bundle
+(as shown here), don&#8217;t forget to make sure that the routing file is being
+<a class="reference internal" href="../../book/routing.html#routing-include-external-resources"><em>imported</em></a>.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/AccountBundle/Resources/config/routing.yml</span>
+<span class="l-Scalar-Plain">account_register</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">/register</span>
+   <span class="l-Scalar-Plain">defaults</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">_controller</span><span class="p-Indicator">:</span> <span class="nv">AcmeAccountBundle</span><span class="p-Indicator">:</span><span class="nv">Account</span><span class="p-Indicator">:</span><span class="nv">register</span> <span class="p-Indicator">}</span>
+
+<span class="l-Scalar-Plain">account_create</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">/register/create</span>
+   <span class="l-Scalar-Plain">defaults</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">_controller</span><span class="p-Indicator">:</span> <span class="nv">AcmeAccountBundle</span><span class="p-Indicator">:</span><span class="nv">Account</span><span class="p-Indicator">:</span><span class="nv">create</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/AccountBundle/Resources/config/routing.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;routes</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/routing&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/routing http://symfony.com/schema/routing/routing-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;route</span> <span class="na">id=</span><span class="s">&quot;account_register&quot;</span> <span class="na">path=</span><span class="s">&quot;/register&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;default</span> <span class="na">key=</span><span class="s">&quot;_controller&quot;</span><span class="nt">&gt;</span>AcmeAccountBundle:Account:register<span class="nt">&lt;/default&gt;</span>
+    <span class="nt">&lt;/route&gt;</span>
+
+    <span class="nt">&lt;route</span> <span class="na">id=</span><span class="s">&quot;account_create&quot;</span> <span class="na">path=</span><span class="s">&quot;/register/create&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;default</span> <span class="na">key=</span><span class="s">&quot;_controller&quot;</span><span class="nt">&gt;</span>AcmeAccountBundle:Account:create<span class="nt">&lt;/default&gt;</span>
+    <span class="nt">&lt;/route&gt;</span>
+<span class="nt">&lt;/routes&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/AccountBundle/Resources/config/routing.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\RouteCollection</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\Route</span><span class="p">;</span>
+
+<span class="nv">$collection</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">RouteCollection</span><span class="p">();</span>
+<span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">add</span><span class="p">(</span><span class="s1">&#39;account_register&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Route</span><span class="p">(</span><span class="s1">&#39;/register&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;_controller&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;AcmeAccountBundle:Account:register&#39;</span><span class="p">,</span>
+<span class="p">)));</span>
+<span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">add</span><span class="p">(</span><span class="s1">&#39;account_create&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Route</span><span class="p">(</span><span class="s1">&#39;/register/create&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;_controller&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;AcmeAccountBundle:Account:create&#39;</span><span class="p">,</span>
+<span class="p">)));</span>
+
+<span class="k">return</span> <span class="nv">$collection</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="update-your-database-schema">
+<h2>Update your Database Schema<a class="headerlink" href="#update-your-database-schema" title="Permalink to this headline">¶</a></h2>
+<p>Of course, since you&#8217;ve added a <tt class="docutils literal"><span class="pre">User</span></tt> entity during this tutorial, make
+sure that your database schema has been updated properly:</p>
+<blockquote>
+<div>$ php app/console doctrine:schema:update &#8211;force</div></blockquote>
+<p>That&#8217;s it! Your form now validates, and allows you to save the <tt class="docutils literal"><span class="pre">User</span></tt>
+object to the database. The extra <tt class="docutils literal"><span class="pre">terms</span></tt> checkbox on the <tt class="docutils literal"><span class="pre">Registration</span></tt>
+model class is used during validation, but not actually used afterwards when
+saving the User to the database.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to implement a simple Registration Form</a><ul>
+<li><a class="reference internal" href="#the-simple-user-model">The simple User model</a></li>
+<li><a class="reference internal" href="#create-a-form-for-the-model">Create a Form for the Model</a></li>
+<li><a class="reference internal" href="#embedding-the-user-form-into-a-registration-form">Embedding the User form into a Registration Form</a></li>
+<li><a class="reference internal" href="#handling-the-form-submission">Handling the Form Submission</a></li>
+<li><a class="reference internal" href="#add-new-routes">Add New Routes</a></li>
+<li><a class="reference internal" href="#update-your-database-schema">Update your Database Schema</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="mapping_model_classes.html"
+                        title="previous chapter">How to provide model classes for several Doctrine implementations</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../form/index.html"
+                        title="next chapter">Form</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/doctrine/registration_form.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../form/index.html" title="Form"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="mapping_model_classes.html" title="How to provide model classes for several Doctrine implementations"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,860 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Monitoring for MongoDB &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/administration/monitoring.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/administration/monitoring" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Administration" href="../administration.html" />
+<link rel="next" title="Analyze Performance of Database Operations" href="../tutorial/manage-the-database-profiler.html" />
+<link rel="prev" title="Rotate Log Files" href="../tutorial/rotate-log-files.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../administration.html">Administration</a><span class="bcpoint"> > </span></li>
+          <li>Monitoring for MongoDB</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="monitoring-for-mongodb">
+<h1>Monitoring for MongoDB<a class="headerlink" href="#monitoring-for-mongodb" title="Permalink to this headline">¶</a></h1>
+<p>Monitoring is a critical component of all database administration. A
+firm grasp of MongoDB&#8217;s reporting will allow you to assess the state
+of your database and maintain your deployment without crisis.
+Additionally, a sense of MongoDB&#8217;s normal operational parameters will
+allow you to diagnose issues as you encounter them, rather than
+waiting for a crisis or failure.</p>
+<p>This document provides an overview of the available tools and data
+provided by MongoDB as well as an introduction to diagnostic strategies,
+and suggestions for monitoring instances in MongoDB&#8217;s replica sets and
+sharded clusters.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><a class="reference external" href="http://10gen.com/">10gen</a> provides a hosted monitoring service
+which collects and aggregates these data to provide insight into
+the performance and operation of MongoDB deployments. See the
+<a class="reference external" href="http://mms.10gen.com/">MongoDB Monitoring Service (MMS)</a> and the
+<a class="reference external" href="http://mms.10gen.com/help/">MMS documentation</a> for more
+information.</p>
+</div>
+<div class="section" id="monitoring-tools">
+<h2>Monitoring Tools<a class="headerlink" href="#monitoring-tools" title="Permalink to this headline">¶</a></h2>
+<p>There are two primary methods for collecting data regarding the state
+of a running MongoDB instance. First, there are a set of tools
+distributed with MongoDB that provide real-time reporting of activity
+on the database. Second, several <a class="reference internal" href="../reference/command.html"><em>database commands</em></a> return statistics regarding the current
+database state with greater fidelity. Both methods allow you to
+collect data that answers a different set of questions, and are useful
+in different contexts.</p>
+<p>This section provides an overview of these utilities and statistics,
+along with an example of the kinds of questions that each method is
+most suited to help you address.</p>
+<div class="section" id="utilities">
+<h3>Utilities<a class="headerlink" href="#utilities" title="Permalink to this headline">¶</a></h3>
+<p>The MongoDB distribution includes a number of utilities that return
+statistics about instances&#8217; performance and activity quickly. These
+are typically most useful for diagnosing issues and assessing normal
+operation.</p>
+<div class="section" id="mongotop">
+<h4><tt class="docutils literal"><span class="pre">mongotop</span></tt><a class="headerlink" href="#mongotop" title="Permalink to this headline">¶</a></h4>
+<p><a class="reference internal" href="../reference/program/mongotop.html#bin.mongotop" title="mongotop"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongotop</span></tt></a> tracks and reports the current read and write
+activity of a MongoDB instance. <a class="reference internal" href="../reference/program/mongotop.html#bin.mongotop" title="mongotop"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongotop</span></tt></a> provides
+per-collection visibility into use. Use <a class="reference internal" href="../reference/program/mongotop.html#bin.mongotop" title="mongotop"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongotop</span></tt></a> to verify
+that activity and use match expectations. See the <a class="reference internal" href="../reference/program/mongotop.html"><em>mongotop
+manual</em></a> for details.</p>
+</div>
+<div class="section" id="mongostat">
+<h4><tt class="docutils literal"><span class="pre">mongostat</span></tt><a class="headerlink" href="#mongostat" title="Permalink to this headline">¶</a></h4>
+<p><a class="reference internal" href="../reference/program/mongostat.html#bin.mongostat" title="mongostat"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongostat</span></tt></a> captures and returns counters of database
+operations. <a class="reference internal" href="../reference/program/mongostat.html#bin.mongostat" title="mongostat"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongostat</span></tt></a> reports operations on a per-type
+(e.g. insert, query, update, delete, etc.) basis. This format makes it
+easy to understand the distribution of load on the server. Use
+<a class="reference internal" href="../reference/program/mongostat.html#bin.mongostat" title="mongostat"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongostat</span></tt></a> to understand the distribution of operation types
+and to inform capacity planning. See the <a class="reference internal" href="../reference/program/mongostat.html"><em>mongostat manual</em></a> for details.</p>
+</div>
+<div class="section" id="rest-interface">
+<span id="id1"></span><h4>REST Interface<a class="headerlink" href="#rest-interface" title="Permalink to this headline">¶</a></h4>
+<p>MongoDB provides a <a class="reference internal" href="../reference/glossary.html#term-rest"><em class="xref std std-term">REST</em></a> interface that exposes a diagnostic
+and monitoring information in a simple web page. Enable this by
+setting <a class="reference internal" href="../reference/configuration-options.html#rest" title="rest"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">rest</span></tt></a> to <tt class="docutils literal"><span class="pre">true</span></tt>, and access this page via the
+local host interface using the port numbered 1000 more than that the
+database port. In default configurations the REST interface is
+accessible on <tt class="docutils literal"><span class="pre">28017</span></tt>. For example, to access the REST interface on a
+locally running mongod instance: <a class="reference external" href="http://localhost:28017">http://localhost:28017</a></p>
+</div>
+</div>
+<div class="section" id="statistics">
+<h3>Statistics<a class="headerlink" href="#statistics" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB provides a number of commands that return
+statistics about the state of the MongoDB instance. These data may
+provide finer granularity regarding the state of the MongoDB instance
+than the tools above. Consider using their output in scripts and
+programs to develop custom alerts, or to modify the behavior of your
+application in response to the activity of your instance.</p>
+<div class="section" id="serverstatus">
+<h4><tt class="docutils literal"><span class="pre">serverStatus</span></tt><a class="headerlink" href="#serverstatus" title="Permalink to this headline">¶</a></h4>
+<p>Access <a class="reference internal" href="../reference/command/serverStatus.html"><em>serverStatus data</em></a> by way of
+the <a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> command. This <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a>
+contains a general overview of the state of the database, including
+disk usage, memory use, connection, journaling, index accesses. The
+command returns quickly and does not impact MongoDB performance.</p>
+<p>While this output contains a (nearly) complete account of the state of
+a MongoDB instance, in most cases you will not run this command
+directly. Nevertheless, all administrators should be familiar with the
+data provided by <a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a>.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../reference/method/db.serverStatus.html#db.serverStatus" title="db.serverStatus()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.serverStatus()</span></tt></a> and <a class="reference internal" href="../reference/command/serverStatus.html"><em>serverStatus data</em></a>.</p>
+</div>
+</div>
+<div class="section" id="replsetgetstatus">
+<h4><tt class="docutils literal"><span class="pre">replSetGetStatus</span></tt><a class="headerlink" href="#replsetgetstatus" title="Permalink to this headline">¶</a></h4>
+<p>View the <a class="reference internal" href="../reference/command/replSetGetStatus.html"><em>replSetGetStatus data</em></a> with
+the <a class="reference internal" href="../reference/command/replSetGetStatus.html#dbcmd.replSetGetStatus" title="replSetGetStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetGetStatus</span></tt></a> command (<a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a> from the
+shell). The document returned by
+this command reflects the state and configuration of the replica
+set. Use this data to ensure that replication is properly configured,
+and to check the connections between the current host and the members
+of the replica set.</p>
+</div>
+<div class="section" id="dbstats">
+<h4><tt class="docutils literal"><span class="pre">dbStats</span></tt><a class="headerlink" href="#dbstats" title="Permalink to this headline">¶</a></h4>
+<p>The <a class="reference internal" href="../reference/command/dbStats.html"><em>dbStats data</em></a> is accessible
+by way of the <a class="reference internal" href="../reference/command/dbStats.html#dbcmd.dbStats" title="dbStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">dbStats</span></tt></a> command (<a class="reference internal" href="../reference/method/db.stats.html#db.stats" title="db.stats()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.stats()</span></tt></a> from
+the shell). This command returns a
+document that contains data that reflects the amount of storage used
+and data contained in the database, as well as object, collection, and
+index counters. Use this data to check and track the state and storage
+of a specific database. This output also allows you to compare
+utilization between databases and to determine average
+<a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a> size in a database.</p>
+</div>
+<div class="section" id="collstats">
+<h4><tt class="docutils literal"><span class="pre">collStats</span></tt><a class="headerlink" href="#collstats" title="Permalink to this headline">¶</a></h4>
+<p>The <a class="reference internal" href="../reference/command/collStats.html"><em>collStats data</em></a> is
+accessible using the <a class="reference internal" href="../reference/command/collStats.html#dbcmd.collStats" title="collStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">collStats</span></tt></a> command
+(<a class="reference internal" href="../reference/method/db.printCollectionStats.html#db.printCollectionStats" title="db.printCollectionStats()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.printCollectionStats()</span></tt></a> from the shell). It provides
+statistics that resemble <a class="reference internal" href="../reference/command/dbStats.html#dbcmd.dbStats" title="dbStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">dbStats</span></tt></a> on the collection level:
+this includes a count of the objects in the collection, the size of
+the collection, the amount of disk space used by the collection, and
+information about the indexes.</p>
+</div>
+</div>
+<div class="section" id="introspection-tools">
+<h3>Introspection Tools<a class="headerlink" href="#introspection-tools" title="Permalink to this headline">¶</a></h3>
+<p>In addition to status reporting, MongoDB provides a number of
+introspection tools that you can use to diagnose and analyze
+performance and operational conditions. Consider the following
+documentation:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/command/diagLogging.html#dbcmd.diagLogging" title="diagLogging"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">diagLogging</span></tt></a></li>
+<li><a class="reference internal" href="../tutorial/manage-the-database-profiler.html"><em>Analyze Performance of Database Operations</em></a></li>
+<li><a class="reference internal" href="../reference/database-profiler.html"><em>Database Profiler Output</em></a></li>
+<li><a class="reference internal" href="../reference/method/db.currentOp.html"><em>db.currentOp()</em></a></li>
+</ul>
+</div>
+<div class="section" id="third-party-tools">
+<h3>Third Party Tools<a class="headerlink" href="#third-party-tools" title="Permalink to this headline">¶</a></h3>
+<p>A number of third party monitoring tools have support for MongoDB,
+either directly, or through their own plugins.</p>
+<div class="section" id="self-hosted-monitoring-tools">
+<h4>Self Hosted Monitoring Tools<a class="headerlink" href="#self-hosted-monitoring-tools" title="Permalink to this headline">¶</a></h4>
+<p>These are monitoring tools that you must install, configure and maintain
+on your own servers, usually open source.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head"><strong>Tool</strong></th>
+<th class="head"><strong>Plugin</strong></th>
+<th class="head"><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><a class="reference external" href="http://sourceforge.net/apps/trac/ganglia/wiki">Ganglia</a></td>
+<td><a class="reference external" href="https://github.com/quiiver/mongodb-ganglia">mongodb-ganglia</a></td>
+<td>Python script to report operations per second, memory usage,
+btree statistics, master/slave status and current connections.</td>
+</tr>
+<tr class="row-odd"><td>Ganglia</td>
+<td><a class="reference external" href="https://github.com/ganglia/gmond_python_modules">gmond_python_modules</a></td>
+<td>Parses output from the <a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> and
+<a class="reference internal" href="../reference/command/replSetGetStatus.html#dbcmd.replSetGetStatus" title="replSetGetStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetGetStatus</span></tt></a> commands.</td>
+</tr>
+<tr class="row-even"><td><a class="reference external" href="https://github.com/tart/motop">Motop</a></td>
+<td><em>None</em></td>
+<td>Realtime monitoring tool for several MongoDB servers. Shows
+current operations ordered by durations every second.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference external" href="https://github.com/beaufour/mtop">mtop</a></td>
+<td><em>None</em></td>
+<td>A top like tool.</td>
+</tr>
+<tr class="row-even"><td><a class="reference external" href="http://munin-monitoring.org/">Munin</a></td>
+<td><a class="reference external" href="https://github.com/erh/mongo-munin">mongo-munin</a></td>
+<td>Retrieves server statistics.</td>
+</tr>
+<tr class="row-odd"><td>Munin</td>
+<td><a class="reference external" href="https://github.com/pcdummy/mongomon">mongomon</a></td>
+<td>Retrieves collection statistics (sizes, index sizes, and each
+(configured) collection count for one DB).</td>
+</tr>
+<tr class="row-even"><td>Munin</td>
+<td><a class="reference external" href="https://launchpad.net/~chris-lea/+archive/munin-plugins">munin-plugins Ubuntu PPA</a></td>
+<td>Some additional munin plugins not in the main distribution.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference external" href="http://www.nagios.org/">Nagios</a></td>
+<td><a class="reference external" href="https://github.com/mzupan/nagios-plugin-mongodb">nagios-plugin-mongodb</a></td>
+<td>A simple Nagios check script, written in Python.</td>
+</tr>
+<tr class="row-even"><td><a class="reference external" href="http://www.zabbix.com/">Zabbix</a></td>
+<td><a class="reference external" href="https://code.google.com/p/mikoomi/wiki/03">mikoomi-mongodb</a></td>
+<td>Monitors availability, resource utilization, health,
+performance and other important metrics.</td>
+</tr>
+</tbody>
+</table>
+<p>Also consider <a class="reference external" href="https://github.com/mongolab/dex">dex</a>, an index and
+query analyzing tool for MongoDB that compares MongoDB log files and
+indexes to make indexing recommendations.</p>
+</div>
+<div class="section" id="hosted-saas-monitoring-tools">
+<h4>Hosted (SaaS) Monitoring Tools<a class="headerlink" href="#hosted-saas-monitoring-tools" title="Permalink to this headline">¶</a></h4>
+<p>These are monitoring tools provided as a hosted service, usually on a
+subscription billing basis.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="50%" />
+<col width="50%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head"><strong>Name</strong></th>
+<th class="head"><strong>Notes</strong></th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><a class="reference external" href="http://scoutapp.com">Scout</a></td>
+<td>Several plugins including: <a class="reference external" href="https://scoutapp.com/plugin_urls/391-mongodb-monitoring">MongoDB Monitoring</a>,
+<a class="reference external" href="http://scoutapp.com/plugin_urls/291-mongodb-slow-queries">MongoDB Slow Queries</a>
+and <a class="reference external" href="http://scoutapp.com/plugin_urls/2251-mongodb-replica-set-monitoring">MongoDB Replica Set Monitoring</a>.</td>
+</tr>
+<tr class="row-odd"><td><a class="reference external" href="http://www.serverdensity.com">Server Density</a></td>
+<td><a class="reference external" href="http://www.serverdensity.com/mongodb-monitoring/">Dashboard for MongoDB</a>, MongoDB
+specific alerts, replication failover timeline and iPhone, iPad
+and Android mobile apps.</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="section" id="process-logging">
+<span id="monitoring-standard-loggging"></span><span id="standard-output"></span><span id="stdout"></span><h2>Process Logging<a class="headerlink" href="#process-logging" title="Permalink to this headline">¶</a></h2>
+<p>During normal operation, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instances report information that reflect current operation to
+standard output, or a log file. The following runtime settings
+control these options.</p>
+<ul>
+<li><p class="first"><a class="reference internal" href="../reference/configuration-options.html#quiet" title="quiet"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">quiet</span></tt></a>. Limits the amount of information written to the
+log or output.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/configuration-options.html#verbose" title="verbose"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">verbose</span></tt></a>. Increases the amount of information written to
+the log or output.</p>
+<p>You can also specify this as <tt class="docutils literal"><span class="pre">v</span></tt> (as in <tt class="docutils literal"><span class="pre">-v</span></tt>.) Set multiple
+<tt class="docutils literal"><span class="pre">v</span></tt>, as in <tt class="docutils literal"><span class="pre">vvvv</span> <span class="pre">=</span> <span class="pre">True</span></tt> for higher levels of verbosity. You can
+also change the verbosity of a running <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> or
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance with the <a class="reference internal" href="../reference/command/setParameter.html#dbcmd.setParameter" title="setParameter"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">setParameter</span></tt></a>
+command.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/configuration-options.html#logpath" title="logpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">logpath</span></tt></a>. Enables logging to a file, rather than standard
+output. Specify the full path to the log file to this setting.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/configuration-options.html#logappend" title="logappend"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">logappend</span></tt></a>. Adds information to a log
+file instead of overwriting the file.</p>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You can specify these configuration operations as the command line
+arguments to <a class="reference internal" href="../reference/program/mongod.html"><em>mongod</em></a> or <a class="reference internal" href="../reference/program/mongos.html"><em>mongos</em></a></p>
+</div>
+<p>Additionally, the following <a class="reference internal" href="../reference/glossary.html#term-database-command"><em class="xref std std-term">database commands</em></a>
+affect logging:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/command/getLog.html#dbcmd.getLog" title="getLog"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">getLog</span></tt></a>. Displays recent messages from the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> process log.</li>
+<li><a class="reference internal" href="../reference/command/logRotate.html#dbcmd.logRotate" title="logRotate"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">logRotate</span></tt></a>. Rotates the log files for <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+processes only. See <a class="reference internal" href="../tutorial/rotate-log-files.html"><em>Rotate Log Files</em></a>.</li>
+</ul>
+</div>
+<div class="section" id="diagnosing-performance-issues">
+<h2>Diagnosing Performance Issues<a class="headerlink" href="#diagnosing-performance-issues" title="Permalink to this headline">¶</a></h2>
+<p>Degraded performance in MongoDB can be the result of an array of
+causes, and is typically a function of the relationship among the
+quantity of data stored in the database, the amount of system RAM, the
+number of connections to the database, and the amount of time the
+database spends in a lock state.</p>
+<p>In some cases performance issues may be transient and related to
+traffic load, data access patterns, or the availability of hardware on
+the host system for virtualized environments. Some users also
+experience performance limitations as a result of inadequate or
+inappropriate indexing strategies, or as a consequence of poor schema
+design patterns. In other situations, performance issues may indicate
+that the database may be operating at capacity and that it is time to
+add additional capacity to the database.</p>
+<div class="section" id="locks">
+<h3>Locks<a class="headerlink" href="#locks" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB uses a locking system to ensure consistency. However, if
+certain operations are long-running, or a queue forms, performance
+slows as requests and operations wait for the lock. Because lock
+related slow downs can be intermittent, look to the data in the
+<a class="reference internal" href="../reference/command/serverStatus.html#globallock"><em>globalLock</em></a> section of the <a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> response to
+assess if the lock has been a challenge to your performance. If
+<a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.globalLock.currentQueue.total" title="serverStatus.globalLock.currentQueue.total"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">globalLock.currentQueue.total</span></tt></a> is consistently high,
+then there is a chance that a large number of requests are waiting for
+a lock. This indicates a possible concurrency issue that might affect
+performance.</p>
+<p>If <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.globalLock.totalTime" title="serverStatus.globalLock.totalTime"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">globalLock.totalTime</span></tt></a> is
+high in context of <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.uptime" title="serverStatus.uptime"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">uptime</span></tt></a> then the database has
+existed in a lock state for a significant amount of time. If
+<a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.globalLock.ratio" title="serverStatus.globalLock.ratio"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">globalLock.ratio</span></tt></a> is also high,
+MongoDB has likely been processing a large number of long running
+queries. Long queries are often the result of a number of factors:
+ineffective use of indexes, non-optimal schema design, poor query
+structure, system architecture issues, or insufficient RAM resulting
+in <a class="reference internal" href="#administration-monitoring-page-faults"><em>page faults</em></a> and disk
+reads.</p>
+</div>
+<div class="section" id="memory-usage">
+<h3>Memory Usage<a class="headerlink" href="#memory-usage" title="Permalink to this headline">¶</a></h3>
+<p>Because MongoDB uses memory mapped files to store data, given a data
+set of sufficient size, the MongoDB process will allocate all memory
+available on the system for its use. Because of the way operating
+systems function, the amount of allocated RAM is not a useful reflection
+of MongoDB&#8217;s state.</p>
+<p>While this is part of the design, and affords MongoDB superior
+performance, the memory mapped files make it difficult to determine if
+the amount of RAM is sufficient for the data set. Consider
+<a class="reference internal" href="../reference/command/serverStatus.html#memory-status"><em>memory usage statuses</em></a> to better understand
+MongoDB&#8217;s memory utilization. Check the resident memory use
+(i.e. <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.mem.resident" title="serverStatus.mem.resident"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">mem.resident</span></tt></a>:) if this
+exceeds the amount of system memory <em>and</em> there&#8217;s a significant amount
+of data on disk that isn&#8217;t in RAM, you may have exceeded the capacity
+of your system.</p>
+<p>Also check the amount of mapped memory (i.e. <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.mem.mapped" title="serverStatus.mem.mapped"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">mem.mapped</span></tt></a>.) If this value is greater than the amount
+of system memory, some operations will require disk access <a class="reference internal" href="../reference/glossary.html#term-page-fault"><em class="xref std std-term">page
+faults</em></a> to read data from virtual memory with deleterious
+effects on performance.</p>
+</div>
+<div class="section" id="page-faults">
+<span id="administration-monitoring-page-faults"></span><h3>Page Faults<a class="headerlink" href="#page-faults" title="Permalink to this headline">¶</a></h3>
+<p>Page faults represent the number of times that MongoDB requires data
+not located in physical memory, and must read from virtual memory. To
+check for page faults, see the <a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.extra_info.page_faults" title="serverStatus.extra_info.page_faults"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">extra_info.page_faults</span></tt></a> value in the
+<a class="reference internal" href="../reference/command/serverStatus.html#dbcmd.serverStatus" title="serverStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">serverStatus</span></tt></a> command. This data is only available on
+Linux systems.</p>
+<p>Alone, page faults are minor and complete quickly; however, in
+aggregate, large numbers of page fault typically indicate that MongoDB
+is reading too much data from disk and can indicate a number of
+underlying causes and recommendations. In many situations, MongoDB&#8217;s
+read locks will &#8220;yield&#8221; after a page fault to allow other processes to
+read and avoid blocking while waiting for the next page to read into
+memory. This approach improves concurrency, and in high volume systems
+this also improves overall throughput.</p>
+<p>If possible, increasing the amount of RAM accessible to MongoDB may
+help reduce the number of page faults. If this is not possible, you
+may want to consider deploying a <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> and/or
+adding one or more <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a> to your deployment to
+distribute load among <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances.</p>
+</div>
+<div class="section" id="number-of-connections">
+<h3>Number of Connections<a class="headerlink" href="#number-of-connections" title="Permalink to this headline">¶</a></h3>
+<p>In some cases, the number of connections between the application layer
+(i.e. clients) and the database can overwhelm the ability of the
+server to handle requests which can produce performance
+irregularities. Check the following fields in the <a class="reference internal" href="../reference/command/serverStatus.html"><em>serverStatus</em></a> document:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.globalLock.activeClients" title="serverStatus.globalLock.activeClients"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">globalLock.activeClients</span></tt></a> contains a counter of the
+total number of clients with active operations in progress or
+queued.</li>
+<li><a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.connections" title="serverStatus.connections"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">connections</span></tt></a> is a container for the following
+two fields:<ul>
+<li><a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.connections.current" title="serverStatus.connections.current"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">current</span></tt></a> the total number of
+current clients that connect to the database instance.</li>
+<li><a class="reference internal" href="../reference/command/serverStatus.html#serverStatus.connections.available" title="serverStatus.connections.available"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">available</span></tt></a> the total number of
+unused collections available for new clients.</li>
+</ul>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Unless limited by system-wide limits MongoDB has a hard connection
+limit of 20 thousand connections. You can modify system limits
+using the <tt class="docutils literal"><span class="pre">ulimit</span></tt> command, or by editing your system&#8217;s
+<tt class="docutils literal"><span class="pre">/etc/sysctl</span></tt> file.</p>
+</div>
+<p>If requests are high because there are many concurrent application
+requests, the database may have trouble keeping up with demand. If
+this is the case, then you will need to increase the capacity of your
+deployment. For read-heavy applications increase the size of your
+<a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> and distribute read operations to
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members. For write heavy applications, deploy
+<a class="reference internal" href="../reference/glossary.html#term-sharding"><em class="xref std std-term">sharding</em></a> and add one or more <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a> to a
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> to distribute load among <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances.</p>
+<p>Spikes in the number of connections can also be the result of
+application or driver errors. All of the MongoDB drivers supported by
+10gen implement connection pooling, which allows clients to use and
+reuse connections more efficiently. Extremely high numbers of
+connections, particularly without corresponding workload is often
+indicative of a driver or other configuration error.</p>
+</div>
+<div class="section" id="database-profiling">
+<span id="id2"></span><h3>Database Profiling<a class="headerlink" href="#database-profiling" title="Permalink to this headline">¶</a></h3>
+<p>MongoDB contains a database profiling system that can help identify
+inefficient queries and operations. Enable the profiler by setting the
+<a class="reference internal" href="../reference/command/profile.html#dbcmd.profile" title="profile"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">profile</span></tt></a> value using the following command in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">setProfilingLevel</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition-see admonition seealso">
+<p class="first admonition-title">See</p>
+<p class="last">The documentation of <a class="reference internal" href="../reference/method/db.setProfilingLevel.html#db.setProfilingLevel" title="db.setProfilingLevel()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.setProfilingLevel()</span></tt></a> for more
+information about this command.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Because the database profiler can have an impact on the
+performance, only enable profiling for strategic intervals and as
+minimally as possible on production systems.</p>
+<p class="last">You may enable profiling on a per-<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> basis. This
+setting will not propagate across a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> or
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a>.</p>
+</div>
+<p>The following profiling levels are available:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="22%" />
+<col width="78%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><strong>Level</strong></td>
+<td><strong>Setting</strong></td>
+</tr>
+<tr class="row-even"><td>0</td>
+<td>Off. No profiling.</td>
+</tr>
+<tr class="row-odd"><td>1</td>
+<td>On. Only includes slow operations.</td>
+</tr>
+<tr class="row-even"><td>2</td>
+<td>On. Includes all operations.</td>
+</tr>
+</tbody>
+</table>
+<p>See the output of the profiler in the <tt class="docutils literal"><span class="pre">system.profile</span></tt> collection of
+your database. You can specify the <a class="reference internal" href="../reference/configuration-options.html#slowms" title="slowms"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">slowms</span></tt></a> setting to set a
+threshold above which the profiler considers operations &#8220;slow&#8221; and
+thus included in the level <tt class="docutils literal"><span class="pre">1</span></tt> profiling data. You may configure
+<a class="reference internal" href="../reference/configuration-options.html#slowms" title="slowms"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">slowms</span></tt></a> at runtime, as an argument to the
+<a class="reference internal" href="../reference/method/db.setProfilingLevel.html#db.setProfilingLevel" title="db.setProfilingLevel()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.setProfilingLevel()</span></tt></a> operation.</p>
+<p>Additionally, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> records all &#8220;slow&#8221; queries to its
+<a class="reference internal" href="../reference/configuration-options.html#logpath" title="logpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">log</span></tt></a>, as defined by <a class="reference internal" href="../reference/configuration-options.html#slowms" title="slowms"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">slowms</span></tt></a>. The data in
+<tt class="docutils literal"><span class="pre">system.profile</span></tt> does not persist between <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+restarts.</p>
+<p>You can view the profiler&#8217;s output by issuing the <tt class="docutils literal"><span class="pre">show</span> <span class="pre">profile</span></tt>
+command in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell, with the following operation.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">system</span><span class="p">.</span><span class="nx">profile</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">millis</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$gt</span> <span class="o">:</span> <span class="mi">100</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>This returns all operations that lasted longer than 100 milliseconds.
+Ensure that the value specified here (i.e. <tt class="docutils literal"><span class="pre">100</span></tt>) is above the
+<a class="reference internal" href="../reference/configuration-options.html#slowms" title="slowms"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">slowms</span></tt></a> threshold.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../applications/optimization.html"><em>Optimization Strategies for MongoDB</em></a> addresses strategies
+that may improve the performance of your database queries and
+operations.</p>
+</div>
+</div>
+</div>
+<div class="section" id="replication-and-monitoring">
+<span id="replica-set-monitoring"></span><h2>Replication and Monitoring<a class="headerlink" href="#replication-and-monitoring" title="Permalink to this headline">¶</a></h2>
+<p>The primary administrative concern that requires monitoring with
+replica sets, beyond the requirements for any MongoDB instance, is
+&#8220;replication lag.&#8221; This refers to the amount of time that it takes a
+write operation on the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> to replicate to a
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a>. Some very small delay period may be acceptable;
+however, as replication lag grows, two significant problems emerge:</p>
+<ul class="simple">
+<li>First, operations that have occurred in the period of lag are not
+replicated to one or more secondaries. If you&#8217;re using replication
+to ensure data persistence, exceptionally long delays may impact the
+integrity of your data set.</li>
+<li>Second, if the replication lag exceeds the length of the operation
+log (<a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a>) then MongoDB will have to perform an initial
+sync on the secondary, copying all data from the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> and
+rebuilding all indexes. In normal circumstances this is uncommon
+given the typical size of the oplog, but it&#8217;s an issue to be aware
+of.</li>
+</ul>
+<p>For causes of replication lag, see <a class="reference internal" href="../tutorial/troubleshoot-replica-sets.html#replica-set-replication-lag"><em>Replication Lag</em></a>.</p>
+<p>Replication issues are most often the result of network connectivity
+issues between members or the result of a <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> that does not
+have the resources to support application and replication traffic. To
+check the status of a replica, use the <a class="reference internal" href="../reference/command/replSetGetStatus.html#dbcmd.replSetGetStatus" title="replSetGetStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetGetStatus</span></tt></a> or
+the following helper in the shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">rs</span><span class="p">.</span><span class="nx">status</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>See the <a class="reference internal" href="../reference/command/replSetGetStatus.html"><em>replSetGetStatus</em></a> document for a more in depth
+overview view of this output. In general watch the value of
+<a class="reference internal" href="../reference/command/replSetGetStatus.html#replSetGetStatus.members.optimeDate" title="replSetGetStatus.members.optimeDate"><tt class="xref mongodb mongodb-data docutils literal"><span class="pre">optimeDate</span></tt></a>. Pay particular attention
+to the difference in time between the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> and the
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members.</p>
+<p>The size of the operation log is only configurable during the first
+run using the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--oplogSize"><em class="xref std std-option">--oplogSize</em></a> argument to
+the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> command, or preferably the <a class="reference internal" href="../reference/configuration-options.html#oplogSize" title="oplogSize"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">oplogSize</span></tt></a>
+in the MongoDB configuration file. If you do not specify this on the
+command line before running with the <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--replSet"><em class="xref std std-option">--replSet</em></a>
+option, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> will create a default sized oplog.</p>
+<p>By default the oplog is 5% of total available disk space on 64-bit
+systems.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../tutorial/change-oplog-size.html"><em>Change the Size of the Oplog</em></a></p>
+</div>
+</div>
+<div class="section" id="sharding-and-monitoring">
+<h2>Sharding and Monitoring<a class="headerlink" href="#sharding-and-monitoring" title="Permalink to this headline">¶</a></h2>
+<p>In most cases the components of <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded clusters</em></a>
+benefit from the same monitoring and analysis as all other MongoDB
+instances. Additionally, clusters require monitoring to ensure
+that data is effectively distributed among nodes and that sharding
+operations are functioning appropriately.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">See the <a class="reference internal" href="../sharding.html"><em>Sharding</em></a> page for more
+information.</p>
+</div>
+<div class="section" id="config-servers">
+<h3>Config Servers<a class="headerlink" href="#config-servers" title="Permalink to this headline">¶</a></h3>
+<p>The <a class="reference internal" href="../reference/glossary.html#term-config-database"><em class="xref std std-term">config database</em></a> provides a map of documents to shards. The
+cluster updates this map as <a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> move between
+shards. When a configuration server becomes inaccessible, some
+sharding operations like moving chunks and starting <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+instances become unavailable. However, clusters remain
+accessible from already-running <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances.</p>
+<p>Because inaccessible configuration servers can have a serious impact
+on the availability of a sharded cluster, you should monitor the
+configuration servers to ensure that the cluster remains well
+balanced and that <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances can restart.</p>
+</div>
+<div class="section" id="balancing-and-chunk-distribution">
+<h3>Balancing and Chunk Distribution<a class="headerlink" href="#balancing-and-chunk-distribution" title="Permalink to this headline">¶</a></h3>
+<p>The most effective <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> deployments require that
+<a class="reference internal" href="../reference/glossary.html#term-chunk"><em class="xref std std-term">chunks</em></a> are evenly balanced among the shards. MongoDB
+has a background <a class="reference internal" href="../reference/glossary.html#term-balancer"><em class="xref std std-term">balancer</em></a> process that distributes data such that
+chunks are always optimally distributed among the <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shards</em></a>.
+Issue the <a class="reference internal" href="../reference/method/db.printShardingStatus.html#db.printShardingStatus" title="db.printShardingStatus()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.printShardingStatus()</span></tt></a> or <a class="reference internal" href="../reference/method/sh.status.html#sh.status" title="sh.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">sh.status()</span></tt></a>
+command to the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> by way of the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell. This returns an overview of the entire cluster including the
+database name, and a list of the chunks.</p>
+</div>
+<div class="section" id="stale-locks">
+<h3>Stale Locks<a class="headerlink" href="#stale-locks" title="Permalink to this headline">¶</a></h3>
+<p>In nearly every case, all locks used by the balancer are automatically
+released when they become stale. However, because any long lasting
+lock can block future balancing, it&#8217;s important to insure that all
+locks are legitimate. To check the lock status of the database,
+connect to a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance using the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell. Issue the following command sequence to switch to the
+<tt class="docutils literal"><span class="pre">config</span></tt> database and display all outstanding locks on the shard database:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">use</span> <span class="nx">config</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">locks</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>For active deployments, the above query might return a useful result
+set. The balancing process, which originates on a randomly selected
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>, takes a special &#8220;balancer&#8221; lock that prevents other
+balancing activity from transpiring. Use the following command, also
+to the <tt class="docutils literal"><span class="pre">config</span></tt> database, to check the status of the &#8220;balancer&#8221;
+lock.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">locks</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span> <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;balancer&quot;</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>If this lock exists, make sure that the balancer process is actively
+using this lock.</p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../tutorial/rotate-log-files.html" title="Previous Section: Rotate Log Files">&lt; &nbsp; Rotate Log Files</a></li>
+              <li id="btnvup"><a href="../administration.html" title="Parent Section: Administration" >&#47;&#92;&nbsp; Administration</a></li>
+              <li id="btnvnx"><a href="../tutorial/manage-the-database-profiler.html" title="Next Section: Analyze Performance of Database Operations">Analyze Performance of Database Operations &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../administration.html">Administration</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="configuration.html">Run-time Database Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backups.html">Backup and Recovery Operations for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../data-center-awareness.html">Data Center Awareness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/journaling.html">Journaling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/configure-ssl.html">Connect to MongoDB with SSL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/monitor-with-snmp.html">Monitor MongoDB with SNMP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/manage-mongodb-processes.html">Manage <tt class="docutils literal"><span class="pre">mongod</span></tt> Processes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/rotate-log-files.html">Rotate Log Files</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Monitoring for MongoDB</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/manage-the-database-profiler.html">Analyze Performance of Database Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/import-export.html">Import and Export MongoDB Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ulimit.html">Linux <tt class="docutils literal"><span class="pre">ulimit</span></tt> Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="production-notes.html">Production Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial/use-database-commands.html">Use Database Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">MongoDB Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/administration/monitoring.txt" target="_blank" title="Edit administration/monitoring.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22administration/monitoring%2Etxt%22" target="_blank" title="Report a problem with administration/monitoring.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/administration/monitoring.txt"'},
+		environment: {'repo': 'docs','source': 'administration/monitoring'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'administration/monitoring'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

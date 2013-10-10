@@ -1,0 +1,1508 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>はじめに &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="マネージャー" href="component-overview.html" />
+    <link rel="prev" title="テストスキーマを定義する" href="working-with-models.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="component-overview.html" title="マネージャー"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="working-with-models.html" title="テストスキーマを定義する"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="id1">
+<h1>はじめに<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>Doctrine Query Language
+(DQL)は複雑なオブジェクト読み取りを手助けするためのObject Query
+Languageです。リレーショナルデータを効率的に読み取るときに(例えばユーザーと電話番号を取得するとき)DQL(もしくは生のSQL)を使うことを常に考えるべきです。</p>
+<p>この章ではDoctrine Query
+Languageの使い方の例をたくさん実演します。これらすべての例では[doc
+defining-models
+:name]の章で定義したスキーマを使うことを想定します。またテスト用に1つの追加モデルを定義します。</p>
+<blockquote>
+<div>// models/Account.php</div></blockquote>
+<p>class Account extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;amount&#8217;, &#8216;decimal&#8217;); } }</p>
+<p>YAMLフォーマットでの同じ例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>Account: columns: name: string(255) amount: decimal</p>
+<p>生のSQLを使う場合と比較すると、DQLは次の恩恵があります:</p>
+<ul class="simple">
+<li>始めから結果セットの列ではなくレコード(オブジェクト)の読み取りのために設計されている</li>
+<li>DQLはリレーションを理解するのでSQLのjoinとjoinの条件を手動で入力する必要がない</li>
+<li>DQLは異なるデータベースでポータブルである</li>
+<li>DQLはレコード制限などとても複雑なアルゴリズムが組み込まれておりこれは開発者がオブジェクトを効率的に読み取るのを手助けする</li>
+<li>条件付きの取得で一対多、多対多のリレーショナルデータを扱うときに時間を節約できる機能をサポートする</li>
+</ul>
+<p>DQLの力が十分でなければ、オブジェクト投入に対して[doc native-sql RawSql
+API]を使うことを考えるべきです。</p>
+<p>既に次の構文に慣れている方もいらっしゃるでしょうx:</p>
+<blockquote>
+<div><blockquote>
+<div><strong>CAUTION</strong> <strong>次のコードは決して使わないでください。</strong>
+これはオブジェクト投入用に多くのSQLクエリを使います。</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $users = Doctrine_Core::getTable(&#8216;User&#8217;)-&gt;findAll();</p>
+<p>foreach($users as $user) { echo $user-&gt;username . &#8221; has phonenumbers: &#8221;;</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">foreach</span><span class="p">(</span><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">Phonenumbers</span> <span class="k">as</span> <span class="nv">$phonenumber</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$phonenumber</span><span class="o">-&gt;</span><span class="na">phonenumber</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<blockquote>
+<div>上記と同じ内容ですがオブジェクト投入のために1つのSQLクエリのみを使うより効率的な実装です。</div></blockquote>
+<p class="last">// test.php</p>
+</div>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記のクエリによって生成されるSQLを見てみましょう:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.is_active AS u**is_active, u.is_super_admin</div></blockquote>
+<p>AS u**is_super_admin, u.first_name AS u**first_name, u.last_name AS
+u**last_name, u.username AS u**username, u.password AS u**password,
+u.type AS u**type, u.created_at AS u**created_at, u.updated_at AS
+u**updated_at, p.id AS p**id, p.user_id AS p**user_id, p.phonenumber
+AS p__phonenumber FROM user u LEFT JOIN phonenumber p ON u.id =
+p.user_id</p>
+<p>クエリを実行してデータで遊んでみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $q-&gt;execute();</p>
+<p>foreach($users as $user) { echo $user-&gt;username . &#8221; has phonenumbers: &#8221;;</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">foreach</span><span class="p">(</span><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">Phonenumbers</span> <span class="k">as</span> <span class="nv">$phonenumber</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$phonenumber</span><span class="o">-&gt;</span><span class="na">phonenumber</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<blockquote>
+<div><strong>CAUTION</strong>
+DQLの文字列で二重引用符(&#8221;)を使うのは非推奨です。これはMySQLの標準では使えますがDQLにおいて識別子と混同される可能性があります。代わりに値に対してプリペアードステートメントを使うことが推奨されます。これによって適切にエスケープされます。</div></blockquote>
+</div>
+<div class="section" id="select">
+<h1>SELECTクエリ<a class="headerlink" href="#select" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id2"><span class="problematic" id="id3">``</span></a>SELECT``文の構文:</p>
+<blockquote>
+<div>SELECT [ALL | DISTINCT] , ... [FROM [WHERE ] [GROUP BY [ASC | DESC],</div></blockquote>
+<p>... ] [HAVING ] [ORDER BY [ASC | DESC], ...] [LIMIT OFFSET }]</p>
+<p><a href="#id4"><span class="problematic" id="id5">``</span></a>SELECT``文は1つもしくは複数のコンポーネントからデータを読み取るために使われます。</p>
+<p>それぞれの``select_expr``は読み取りたいカラムもしくは集約関数の値を示します。
+すべての``SELECT``文で少なくとも1つの``select_expr``がなければなりません。</p>
+<p>最初にサンプルの``Account``レコードをinsertします:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $account = new Account(); $account-&gt;name = &#8216;test 1&#8217;;
+$account-&gt;amount = &#8216;100.00&#8217;; $account-&gt;save();</p>
+<p>$account = new Account(); $account-&gt;name = &#8216;test 2&#8217;; $account-&gt;amount =
+&#8216;200.00&#8217;; $account-&gt;save();</p>
+<p><a href="#id6"><span class="problematic" id="id7">``</span></a>test.php``を実行します:</p>
+<blockquote>
+<div>$ php test.php</div></blockquote>
+<p>次のサンプルクエリでデータのselectをテストできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.name&#8217;) -&gt;from(&#8216;Account
+a&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記のクエリによって生成されたSQLを見てみましょう:</p>
+<blockquote>
+<div><p>SELECT a.id AS a**id, a.name AS a**name FROM account a</p>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $accounts = <tt class="code docutils literal"><span class="pre">q-&gt;execute();</span> <span class="pre">print_r(</span></tt>accounts-&gt;toArray());</p>
+<p>上記の例では次の出力が生み出されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [id] =&gt; 1 [name] =&gt; test 1</div></blockquote>
+<p>[amount] =&gt; )</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">Array</span>
+    <span class="p">(</span>
+        <span class="p">[</span><span class="nx">id</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="mi">2</span>
+        <span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="nx">test</span> <span class="mi">2</span>
+        <span class="p">[</span><span class="nx">amount</span><span class="p">]</span> <span class="o">=&gt;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>)</p>
+<p>アスタリスクは任意のコンポーネントからすべてのカラムをselectするために使われます。アスタリスクを使うときでも実行されるSQLクエリは実際にはそれを使いません(Doctrineはアスタリスクを適切なカラムの名前に変換することで、データベースでのパフォーマンスの向上につながります)。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.*&#8217;) -&gt;from(&#8216;Account
+a&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>最後のクエリの例から生成されたSQLとすぐ前に生成されたクエリで生成されたSQLを比較します:</p>
+<blockquote>
+<div>SELECT a.id AS a**id, a.name AS a**name, a.amount AS a__amount FROM</div></blockquote>
+<p>account a</p>
+<blockquote>
+<div><strong>NOTE</strong>
+アスタリスクは``Account``モデルに存在する実際のすべてのカラム名に置き換えられることに留意してください。</div></blockquote>
+<p>クエリを実行して結果を検査してみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $accounts = <tt class="code docutils literal"><span class="pre">q-&gt;execute();</span> <span class="pre">print_r(</span></tt>accounts-&gt;toArray());</p>
+<p>上記の例は次の出力を生み出します:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; Array ( [id] =&gt; 1 [name] =&gt; test 1</div></blockquote>
+<p>[amount] =&gt; 100.00 )</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="k">Array</span>
+    <span class="p">(</span>
+        <span class="p">[</span><span class="nx">id</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="mi">2</span>
+        <span class="p">[</span><span class="nx">name</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="nx">test</span> <span class="mi">2</span>
+        <span class="p">[</span><span class="nx">amount</span><span class="p">]</span> <span class="o">=&gt;</span> <span class="mf">200.00</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>)</p>
+<p><a href="#id8"><span class="problematic" id="id9">``</span></a>FROM``句はレコードから読み取るコンポーネントを示します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username, p.*&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;)</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id10"><span class="problematic" id="id11">``</span></a>getSql()``への上記の呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, p.id AS p**id,</div></blockquote>
+<p>p.user_id AS p**user_id, p.phonenumber AS p__phonenumber FROM user u
+LEFT JOIN phonenumber p ON u.id = p.user_id</p>
+<p><a href="#id12"><span class="problematic" id="id13">``</span></a>WHERE``句は、選択されるためにレコードが満たさなければならない条件を示します。<a href="#id14"><span class="problematic" id="id15">``</span></a>where_condition``は選択されるそれぞれの列に対してtrueに表示する式です。<a href="#id16"><span class="problematic" id="id17">``</span></a>WHERE``句が存在しない場合ステートメントはすべての列を選択します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.name&#8217;) -&gt;from(&#8216;Account
+a&#8217;) -&gt;where(&#8216;a.amount &gt; 2000&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id18"><span class="problematic" id="id19">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT a.id AS a**id, a.name AS a**name FROM account a WHERE a.amount &gt;</div></blockquote>
+<p>2000</p>
+<p><a href="#id20"><span class="problematic" id="id21">``</span></a>WHERE``句において、集約(要約)関数を除いて、DQLがサポートする任意の関数と演算子を使うことができます。<a href="#id22"><span class="problematic" id="id23">``</span></a>HAVING``句は集約関数で結果を絞るために使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;having(&#8216;COUNT(p.id) &gt;
+3&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id24"><span class="problematic" id="id25">``</span></a>getSql()``を呼び出すと次のSQLクエリが出力されます:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u LEFT JOIN</div></blockquote>
+<p>phonenumber p ON u.id = p.user_id HAVING COUNT(p.id) &gt; 3</p>
+<p><a href="#id26"><span class="problematic" id="id27">``</span></a>ORDER BY``句は結果のソートに使われます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;orderBy(&#8216;u.username&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記の``getSql()``を呼び出すと次のSQLクエリが出力されます:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u ORDER BY</div></blockquote>
+<p>u.username</p>
+<p><a href="#id28"><span class="problematic" id="id29">``</span></a>LIMIT``と``OFFSET``句はレコードの数を``row_count``に効率的に制限するために使われます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;limit(20);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p>上記の``getSql()``を呼び出すと次のSQLクエリが出力されます:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u LIMIT 20</div></blockquote>
+<div class="section" id="distinct">
+<h2>DISTINCTキーワード<a class="headerlink" href="#distinct" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="id30">
+<h2>集約値<a class="headerlink" href="#id30" title="Permalink to this headline">¶</a></h2>
+<p>集約値用の``SELECT``構文:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, COUNT(t.id) AS
+num_threads&#8217;) -&gt;from(&#8216;User u, u.Threads t&#8217;) -&gt;where(&#8216;u.id = ?&#8217;, 1)
+-&gt;groupBy(&#8216;u.id&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id31"><span class="problematic" id="id32">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, COUNT(f.id) AS f**0 FROM user u LEFT JOIN</div></blockquote>
+<p>forum__thread f ON u.id = f.user_id WHERE u.id = ? GROUP BY u.id</p>
+<p>クエリを実行して結果をインスペクトします:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $q-&gt;execute();</p>
+<p>次のコードで``num_threads``のデータに簡単にアクセスできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $users-&gt;num_threads . &#8216; threads found&#8217;;</p>
+</div>
+</div>
+<div class="section" id="update">
+<h1>UPDATEクエリ<a class="headerlink" href="#update" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id33"><span class="problematic" id="id34">``</span></a>UPDATE``文の構文:</p>
+<blockquote>
+<div>UPDATE SET = , = WHERE ORDER BY LIMIT</div></blockquote>
+<ul class="simple">
+<li><a href="#id35"><span class="problematic" id="id36">``</span></a>UPDATE``文は``component_name``の既存のレコードのカラムを新しい値で更新し影響を受けたレコードの数を返します。</li>
+<li><a href="#id37"><span class="problematic" id="id38">``</span></a>SET``句は修正するカラムとそれらに渡される値を示します。</li>
+<li>オプションの``WHERE``句は更新するレコードを特定する条件を指定します。<a href="#id39"><span class="problematic" id="id40">``</span></a>WHERE``句がなければ、すべてのレコードが更新されます。</li>
+<li>オプションの``ORDER BY``句はレコードが更新される順序を指定します。</li>
+<li><a href="#id41"><span class="problematic" id="id42">``</span></a>LIMIT``句は更新できるレコードの数に制限をおきます。<a href="#id43"><span class="problematic" id="id44">``</span></a>UPDATE``の範囲を制限するために``LIMIT
+row_count``を使うことができます。<a href="#id45"><span class="problematic" id="id46">``</span></a>LIMIT``句は列を変更する制限ではなく**列にマッチする制限**です。実際に変更されたのかに関わらず``WHERE``句を満たす``record_count``の列が見つかるとステートメントはすぐに停止します。</li>
+</ul>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;update(&#8216;Account&#8217;)
+-&gt;set(&#8216;amount&#8217;, &#8216;amount + 200&#8217;) -&gt;where(&#8216;id &gt; 200&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id47"><span class="problematic" id="id48">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>UPDATE account SET amount = amount + 200 WHERE id &gt; 200</div></blockquote>
+<p>更新の実行はシンプルです。次のクエリを実行するだけです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $rows = $q-&gt;execute();</p>
+<p>echo $rows;</p>
+</div>
+<div class="section" id="delete">
+<h1>DELETEクエリ<a class="headerlink" href="#delete" title="Permalink to this headline">¶</a></h1>
+<blockquote>
+<div>DELETE FROM WHERE ORDER BY LIMIT</div></blockquote>
+<ul class="simple">
+<li><a href="#id49"><span class="problematic" id="id50">``</span></a>DELETE``文は``component_name``からレコードを削除し削除されるレコードの数を返します。</li>
+<li>オプションの``WHERE``句は削除するレコードを特定する条件を指定します。<a href="#id51"><span class="problematic" id="id52">``</span></a>WHERE``句なしでは、すべてのレコードが削除されます。</li>
+<li><a href="#id53"><span class="problematic" id="id54">``</span></a>ORDER
+BY``句が指定されると、指定された順序でレコードが削除されます。</li>
+<li><a href="#id55"><span class="problematic" id="id56">``</span></a>LIMIT``句は削除される列の数に制限を置きます。<a href="#id57"><span class="problematic" id="id58">``</span></a>record_count``の数のレコードが削除されると同時にステートメントは停止します。</li>
+</ul>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;delete(&#8216;Account a&#8217;)
+-&gt;where(&#8216;a.id &gt; 3&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id59"><span class="problematic" id="id60">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>DELETE FROM account WHERE id &gt; 3</div></blockquote>
+<p><a href="#id61"><span class="problematic" id="id62">``</span></a>DELETE``クエリの実行は次の通りです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $rows = $q-&gt;execute();</p>
+<p>echo $rows;</p>
+<blockquote>
+<div><strong>NOTE</strong>
+DQLのUPDATEとDELETEクエリを実行すると影響を受けた列の数が返されます。</div></blockquote>
+</div>
+<div class="section" id="from">
+<h1>FROM句<a class="headerlink" href="#from" title="Permalink to this headline">¶</a></h1>
+<p>構文:</p>
+<blockquote>
+<div>FROM [[LEFT | INNER] JOIN ] ...</div></blockquote>
+<p><a href="#id63"><span class="problematic" id="id64">``</span></a>FROM``句はレコードを読み取るコンポーネントを示します。複数のコンポーネントを名付けると、joinを実行することになります。指定されたそれぞれのテーブルに対して、オプションとしてエイリアスを指定できます。</p>
+<p>次のDQLクエリを考えます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id65"><span class="problematic" id="id66">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u</div></blockquote>
+<p><a href="#id67"><span class="problematic" id="id68">``</span></a>User``はクラス(コンポーネント)の名前で``u``はエイリアスです。常に短いエイリアスを使うべきです。大抵の場合これらによってクエリははるかに短くなるのと例えばキャッシュを利用するときに短いエイリアスが使われていればクエリのキャッシュされたフォームの取るスペースが少なくなるからです。</p>
+</div>
+<div class="section" id="join">
+<h1>JOINの構文<a class="headerlink" href="#join" title="Permalink to this headline">¶</a></h1>
+<p>DQL JOINの構文:</p>
+<blockquote>
+<div>[[LEFT | INNER] JOIN ] [ON | WITH] [INDEXBY] , [[LEFT | INNER] JOIN</div></blockquote>
+<p>] [ON | WITH] [INDEXBY] , ... [[LEFT | INNER] JOIN ] [ON | WITH]
+[INDEXBY]</p>
+<p>DQLはINNER JOINとLEFT
+JOINをサポートします。それぞれのjoinされたコンポーネントに対して、オプションとしてエイリアスを指定できます。</p>
+<p>デフォルトのjoinの形式は``LEFT JOIN``です。このjoinは``LEFT
+JOIN``句もしくはシンプルな&#8217;<tt class="docutils literal"><span class="pre">,</span></tt>&#8216;のどちらかを使うことで示せます。なので次のクエリは等しいです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, p.id&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;);</p>
+<p>$q = Doctrine_Query::create() -&gt;select(&#8216;u.id, p.id&#8217;) -&gt;from(&#8216;User u,
+u.Phonenumbers p&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">推奨される形式は前者です。より冗長で読みやすく何が行われているのか理解しやすいからです。</p>
+</div>
+<p><a href="#id69"><span class="problematic" id="id70">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, p.id AS p**id FROM user u LEFT JOIN phonenumber p</div></blockquote>
+<p>ON u.id = p.user_id</p>
+<blockquote>
+<div><strong>NOTE</strong>
+JOINの条件が自動的に追加されることに注意してください。Doctrineは``User``と``Phonenumber``は関連していることを知っているのであなたに代わって追加できるからです。</div></blockquote>
+<p><a href="#id71"><span class="problematic" id="id72">``</span></a>INNER
+JOIN``は共通集合を生み出します(すなわち、最初のコンポーネントのありとあらゆるレコードが2番目のコンポーネントのありとあらゆるレコードにjoinされます)。ですので例えば電話番号を1つかそれ以上持つすべてのユーザーを効率的に取得したい場合、基本的に``INNER
+JOIN``が使われます。</p>
+<p>デフォルトではDQLは主キーのjoin条件を自動追加します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, p.id&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id73"><span class="problematic" id="id74">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, p.id AS p**id FROM User u LEFT JOIN Phonenumbers</div></blockquote>
+<p>p ON u.id = p.user_id</p>
+<div class="section" id="on">
+<h2>ONキーワード<a class="headerlink" href="#on" title="Permalink to this headline">¶</a></h2>
+<p>このビヘイビアをオーバーライドして独自のカスタムjoin条件を追加したい場合``ON``キーワードで実現できます。次のDQLクエリを考えてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, p.id&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p ON u.id = 2&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id75"><span class="problematic" id="id76">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, p.id AS p**id FROM User u LEFT JOIN Phonenumbers</div></blockquote>
+<p>p ON u.id = 2</p>
+<blockquote>
+<div><strong>NOTE</strong>
+通常追加される``ON``条件が現れず代わりにユーザーが指定した条件が使われていることに注目してください。</div></blockquote>
+</div>
+<div class="section" id="with">
+<h2>WITHキーワード<a class="headerlink" href="#with" title="Permalink to this headline">¶</a></h2>
+<p>大体の場合最初のjoin条件をオーバーライドする必要はありません。むしろカスタム条件を追加したいことがあります。これは``WITH``キーワードで実現できます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, p.id&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p WITH u.id = 2&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id77"><span class="problematic" id="id78">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, p.id AS p**id FROM User u LEFT JOIN Phonenumbers</div></blockquote>
+<p>p ON u.id = p.user_id AND u.id = 2</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id79"><span class="problematic" id="id80">``</span></a>ON``条件が完全には置き換えられていないことに注意してください。代わりに指定する条件が自動条件に追加されます。</div></blockquote>
+<p>Doctrine_Query
+APIはJOINを追加するための2つのコンビニエンスメソッドを提供します。これらは``innerJoin()``と``leftJoin()``と呼ばれ、これらの使い方は次のようにとても直感的です:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Groups g&#8217;) -&gt;innerJoin(&#8216;u.Phonenumbers p WITH u.id &gt; 3&#8217;)
+-&gt;leftJoin(&#8216;u.Email e&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id81"><span class="problematic" id="id82">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u LEFT JOIN user_group u2 ON u.id =</div></blockquote>
+<p>u2.user_id LEFT JOIN groups g ON g.id = u2.group_id INNER JOIN
+phonenumber p ON u.id = p.user_id AND u.id &gt; 3 LEFT JOIN email e ON
+u.id = e.user_id</p>
+</div>
+</div>
+<div class="section" id="indexby">
+<h1>INDEXBYキーワード<a class="headerlink" href="#indexby" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id83"><span class="problematic" id="id84">``</span></a>INDEXBY``キーワードはコレクション/配列のキーなどの特定のカラムをマッピングする方法を提供します。デフォルトではDoctrineは数値のインデックス付きの配列/コレクションに複数の要素のインデックスを作成します。マッピングはゼロから始まります。このビヘイビアをオーバーライドするには下記で示されるように``INDEXBY``キーワードを使う必要があります:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u INDEXBY
+u.username&#8217;);</p>
+<p>$users = $q-&gt;execute();</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id85"><span class="problematic" id="id86">``</span></a>INDEXBY``キーワードは生成されるSQLを変えません。コレクションのそれぞれのレコードのキーとして指定されたカラムでデータをハイドレイトするために``Doctrine_Query``によって内部で使われます。</div></blockquote>
+<p>これで``$users``コレクションのユーザーは自身の名前を通してアクセスできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user[&#8216;jack daniels&#8217;]-&gt;id;</p>
+<p><a href="#id87"><span class="problematic" id="id88">``</span></a>INDEXBY``キーワードは任意のJOINに適用できます。これは任意のコンポーネントがそれぞれ独自のインデックス作成のビヘイビアを持つことができることを意味します。次のコードにおいて``Users``と``Groups``の両方に対して異なるインデックス作成機能を使用しています。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u INDEXBY
+u.username&#8217;) -&gt;innerJoin(&#8216;u.Groups g INDEXBY g.name&#8217;);</p>
+<p>$users = $q-&gt;execute();</p>
+<p>drinkers clubの作成日を出力してみましょう。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $users[&#8216;jack daniels&#8217;]-&gt;Groups[&#8216;drinkers club&#8217;]-&gt;createdAt;</p>
+</div>
+<div class="section" id="where">
+<h1>WHERE句<a class="headerlink" href="#where" title="Permalink to this headline">¶</a></h1>
+<p>構文:</p>
+<blockquote>
+<div>WHERE</div></blockquote>
+<ul class="simple">
+<li><a href="#id89"><span class="problematic" id="id90">``</span></a>WHERE``句は、与えられた場合、選択されるためにレコードが満たさなければならない条件を示します。</li>
+<li><a href="#id91"><span class="problematic" id="id92">``</span></a>where_condition``は選択されるそれぞれの列に対してtrueに評価される式です。</li>
+<li><a href="#id93"><span class="problematic" id="id94">``</span></a>WHERE``句が存在しない場合ステートメントはすべての列を選択します。</li>
+<li>集約関数の値で結果を絞るとき``WHERE``句の代わりに``HAVING``句が使われます。</li>
+</ul>
+<p><tt class="docutils literal"><span class="pre">Doctrine_Query``オブジェクトを使用する複雑なwhere条件を構築するために``addWhere()</span></tt>、<tt class="docutils literal"><span class="pre">andWhere()</span></tt>、<tt class="docutils literal"><span class="pre">orWhere()</span></tt>、<tt class="docutils literal"><span class="pre">whereIn()</span></tt>、<tt class="docutils literal"><span class="pre">andWhereIn()</span></tt>、<tt class="docutils literal"><span class="pre">orWhereIn()</span></tt>、<tt class="docutils literal"><span class="pre">whereNotIn()</span></tt>,
+<tt class="docutils literal"><span class="pre">andWhereNotIn()</span></tt>、<a href="#id95"><span class="problematic" id="id96">``</span></a>orWhereNotIn()``メソッドを使うことができます。</p>
+<p>すべてのアクティブな登録ユーザーもしくは管理者を読み取る例は次の通りです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.type = ?&#8217;, &#8216;registered&#8217;) -&gt;andWhere(&#8216;u.is_active = ?&#8217;, 1)
+-&gt;orWhere(&#8216;u.is_super_admin = ?&#8217;, 1);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id97"><span class="problematic" id="id98">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.type = ? AND u.is_active =</div></blockquote>
+<p>? OR u.is_super_admin = ?</p>
+</div>
+<div class="section" id="id99">
+<h1>条件式<a class="headerlink" href="#id99" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id100">
+<h2>リテラル<a class="headerlink" href="#id100" title="Permalink to this headline">¶</a></h2>
+<p><strong>文字列</strong></p>
+<p>文字列リテラルはシングルクォートで囲まれます; 例:
+&#8216;literal&#8217;。シングルクォートを含む文字列リテラルは2つのシングルクォートで表現されます;
+例: &#8216;literal&#8217;&#8217;s&#8217;。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;where(&#8216;u.username = ?&#8217;, &#8216;Vincent&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id101"><span class="problematic" id="id102">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u WHERE</div></blockquote>
+<p>u.username = ?</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id103"><span class="problematic" id="id104">``</span></a>where()``メソッドに``username``の値をパラメータとして渡したので生成SQLに含まれません。クエリを実行するときにPDOが置き換え処理をします。<a href="#id105"><span class="problematic" id="id106">``</span></a>Doctrine_Query``インスタンス上でパラメータをチェックするには``getParams()``メソッドを使うことができます。</div></blockquote>
+<p><strong>整数</strong></p>
+<p>整数リテラルはPHPの整数リテラル構文の使用をサポートします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.id = 4&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id107"><span class="problematic" id="id108">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.id = 4</div></blockquote>
+<p><strong>浮動小数</strong></p>
+<p>浮動小数はPHPの浮動小数リテラルの構文の使用をサポートします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;Account
+a&#8217;) -&gt;where(&#8216;a.amount = 432.123&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id109"><span class="problematic" id="id110">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT a.id AS a__id FROM account a WHERE a.amount = 432.123</div></blockquote>
+<p><strong>論理値</strong></p>
+<p>論理値リテラルはtrueとfalseです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.is_super_admin = true&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id111"><span class="problematic" id="id112">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.is_super_admin = 1</div></blockquote>
+<p><strong>列挙値</strong></p>
+<p>列挙値は文字リテラルと同じ方法で動作します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8220;u.type = &#8216;admin&#8217;&#8221;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id113"><span class="problematic" id="id114">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.type = &#8216;admin&#8217;</div></blockquote>
+<p>予め定義され予約済みのリテラルは大文字と小文字を区別しますが、これらを大文字で書くのが良い標準です。</p>
+</div>
+<div class="section" id="id115">
+<h2>入力パラメータ<a class="headerlink" href="#id115" title="Permalink to this headline">¶</a></h2>
+<p>位置パラメータの使用の例は次の通りです:</p>
+<p><strong>単独の位置パラメータ:</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.username = ?&#8217;, array(&#8216;Arnold&#8217;));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<blockquote>
+<div><strong>NOTE</strong>
+位置パラメータ用に渡されたパラメータが1つの値しか格納しないとき1つの値を含む配列の代わりに単独のスカラー値を渡すことができます。</div></blockquote>
+<p><a href="#id116"><span class="problematic" id="id117">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.username = ?</div></blockquote>
+<p><strong>複数の位置パラメータ:</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;) -&gt;where(&#8216;u.id &gt; ?
+AND u.username LIKE ?&#8217;, array(50, &#8216;A%&#8217;));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id118"><span class="problematic" id="id119">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE (u.id &gt; ? AND u.username LIKE</div></blockquote>
+<p>?)</p>
+<p>名前付きパラメータの使い方の例は次の通りです:</p>
+<p><strong>単独の名前付きパラメータ:</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.username = :name&#8217;, array(&#8216;:name&#8217; =&gt; &#8216;Arnold&#8217;));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id120"><span class="problematic" id="id121">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.username = :name</div></blockquote>
+<p><strong>LIKEステートメントを伴う名前付きパラメータ:</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.id &gt; :id&#8217;, array(&#8216;:id&#8217; =&gt; 50)) -&gt;andWhere(&#8216;u.username LIKE
+:name&#8217;, array(&#8216;:name&#8217; =&gt; &#8216;A%&#8217;));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id122"><span class="problematic" id="id123">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.id &gt; :id AND u.username LIKE</div></blockquote>
+<p>:name</p>
+</div>
+<div class="section" id="id124">
+<h2>演算子と優先順位<a class="headerlink" href="#id124" title="Permalink to this headline">¶</a></h2>
+<p>演算子の一覧は優先順位が低い順です。</p>
+<p>||~ 演算子 ||~ 説明 || || . || ナビゲーション演算子|| ||
+|| //算術演算子: // || || +, - || 単項式 || || *, / ||
+乗法と除法 || || +, - || 加法と減法 || || =, &gt;, &gt;=, &lt;, &lt;=, &lt;&gt;
+(not equal), || 比較演算子 || || [NOT] LIKE, [NOT] IN, IS [NOT]
+NULL, IS [NOT] EMPTY || || || || //論理演算子: // || || NOT
+|| || || AND || || || OR || ||</p>
+</div>
+<div class="section" id="in">
+<h2>IN式<a class="headerlink" href="#in" title="Permalink to this headline">¶</a></h2>
+<p>構文:</p>
+<blockquote>
+<div>IN (|)</div></blockquote>
+<p>//サブクエリ//の結果から//オペランド//が見つかるもしくは指定しされたカンマで区切られた//値リスト//にある場合``IN``の条件式はtrueを返します。サブクエリの結果が空の場合``IN``の式は常にfalseです。</p>
+<p>//値リスト//が使われているときそのリストには少なくとも1つの要素がなければなりません。</p>
+<p><a href="#id125"><span class="problematic" id="id126">``</span></a>IN``に対してサブクエリを使う例は次の通りです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;) -&gt;where(&#8216;u.id IN
+(SELECT u.id FROM User u INNER JOIN u.Groups g WHERE g.id = ?)&#8217;, 1);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id127"><span class="problematic" id="id128">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id FROM user u WHERE u.id IN (SELECT u2.id AS u2**id</div></blockquote>
+<p>FROM user u2 INNER JOIN user_group u3 ON u2.id = u3.user_id INNER JOIN
+groups g ON g.id = u3.group_id WHERE g.id = ?)</p>
+<p>整数のリストを使うだけの例は次の通りです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;whereIn(&#8216;u.id&#8217;, array(1, 3, 4, 5));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id129"><span class="problematic" id="id130">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.id IN (?, ?, ?, ?)</div></blockquote>
+</div>
+<div class="section" id="like">
+<h2>LIKE式<a class="headerlink" href="#like" title="Permalink to this headline">¶</a></h2>
+<p>構文:</p>
+<blockquote>
+<div>string_expression [NOT] LIKE pattern_value [ESCAPE escape_character]</div></blockquote>
+<p>string_expressionは文字列の値でなければなりません。pattern_valueは文字列リテラルもしくは文字列の値を持つ入力パラメータです。アンダースコア(<tt class="docutils literal"><span class="pre">\_</span></tt>)は任意の単独の文字を表し、パーセント(<tt class="docutils literal"><span class="pre">%</span></tt>)の文字は文字のシーケンス(空のシーケンスを含む)を表し、そして他のすべての文字はそれら自身を表します。オプションのescape_characterは単独文字の文字列リテラルもしくは文字の値を持つ入力パラメータ(すなわちcharもしくはCharacter)で``pattern_value``で特別な意味を持つアンダースコアとパーセントの文字をエスケープします。</p>
+<p>例:</p>
+<ul class="simple">
+<li>address.phone LIKE
+&#8216;12%3&#8217;は&#8216;123&#8217;、&#8216;12993&#8217;に対してtrueで&#8216;1234&#8217;に対してfalseです。</li>
+<li>asentence.word LIKE
+&#8216;l_se&#8217;は&#8217;lose&#8217;に対してtrueで&#8217;loose&#8217;に対してfalseです。</li>
+<li>aword.underscored LIKE &#8216;_%&#8217; ESCAPE
+&#8216;&#8217;は&#8217;_foo&#8217;に対してtrueで&#8217;bar&#8217;に対してfalseです。</li>
+<li>address.phone NOT LIKE
+&#8216;12%3&#8217;は&#8216;123&#8217;と&#8216;12993&#8217;に対してfalseで&#8216;1234&#8217;に対してtrueです。</li>
+</ul>
+<p>string_expressionもしくはpattern_valueの値はNULLもしくはunknownで、LIKE式の値はunknownです。escape_characterが指定されNULLである場合、LIKE式の値はunknownです。</p>
+<p><a class="reference external" href="mailto:'&#37;&#52;&#48;gmail&#46;com">'<span>&#64;</span>gmail<span>&#46;</span>com</a>&#8216;で終わるEメールを持つユーザーを見つける:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Email e&#8217;) -&gt;where(&#8216;e.address LIKE ?&#8217;, <a class="reference external" href="mailto:'%&#37;&#52;&#48;gmail&#46;com">'%<span>&#64;</span>gmail<span>&#46;</span>com</a>&#8216;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id131"><span class="problematic" id="id132">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u LEFT JOIN email e ON u.id =</div></blockquote>
+<p>e.user_id WHERE e.address LIKE ?</p>
+<p>&#8216;A&#8217;で始まる名前を持つすべてのユーザーを見つける:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.username LIKE ?&#8217;, &#8216;A%&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id133"><span class="problematic" id="id134">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u__id FROM user u WHERE u.username LIKE ?</div></blockquote>
+</div>
+<div class="section" id="exists">
+<h2>EXISTS式<a class="headerlink" href="#exists" title="Permalink to this headline">¶</a></h2>
+<p>構文:</p>
+<blockquote>
+<div>[NOT ]EXISTS ()</div></blockquote>
+<p><a href="#id135"><span class="problematic" id="id136">``</span></a>EXISTS``演算子はサブクエリが1つもしくは複数の列を返す場合は``TRUE``を返しそうでなければ``FALSE``を返します。</p>
+<p><a href="#id137"><span class="problematic" id="id138">``</span></a>NOT
+EXISTS``演算子はサブクエリが0を返す場合``TRUE``を返しそうでなければ``FALSE``を返します。</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong> 次の例では``ReaderLog``モデルを追加する必要があります。</div></blockquote>
+<p>// models/ReaderLog.php</p>
+</div></blockquote>
+<p>class ReaderLog extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;article_id&#8217;, &#8216;integer&#8217;, null,
+array( &#8216;primary&#8217; =&gt; true ) );</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;user_id&#39;</span><span class="p">,</span> <span class="s1">&#39;integer&#39;</span><span class="p">,</span> <span class="k">null</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>} YAMLフォーマットでの同じは次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>ReaderLog: columns: article_id: type: integer primary: true user_id:
+type: integer primary: true</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+<a href="#id139"><span class="problematic" id="id140">``</span></a>ReaderLog``モデルを追加した後で``generate.php``スクリプトを実行することをお忘れなく！</div></blockquote>
+<p>$ php generate.php</p>
+</div></blockquote>
+<p>これでテストを実行できます！最初に、読者を持つすべての記事を見つけます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;Article
+a&#8217;) -&gt;where(&#8216;EXISTS (SELECT r.id FROM ReaderLog r WHERE r.article_id =
+a.id)&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id141"><span class="problematic" id="id142">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT a.id AS a**id FROM article a WHERE EXISTS (SELECT r.id AS r**id</div></blockquote>
+<p>FROM reader_log r WHERE r.article_id = a.id)</p>
+<p>読者を持たないすべての記事を見つけます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;a.id&#8217;) -&gt;from(&#8216;Article
+a&#8217;) -&gt;where(&#8216;NOT EXISTS (SELECT r.id FROM ReaderLog r WHERE
+r.article_id = a.id));</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id143"><span class="problematic" id="id144">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT a.id AS a**id FROM article a WHERE NOT EXISTS (SELECT r.id AS</div></blockquote>
+<p>r**id FROM reader_log r WHERE r.article_id = a.id)</p>
+</div>
+<div class="section" id="allany">
+<h2>AllとAnyの式<a class="headerlink" href="#allany" title="Permalink to this headline">¶</a></h2>
+<p>構文:</p>
+<blockquote>
+<div>operand comparison_operator ANY (subquery) operand</div></blockquote>
+<p>comparison_operator SOME (subquery) operand comparison_operator ALL
+(subquery)</p>
+<p>サブクエリの結果のすべての値に対して比較演算子がtrueである場合もしくはサブクエリの結果が空の場合、ALLの条件式はtrueを返します。すべての条件式のALLは少なくとも1つの列に対して比較の結果がfalseである場合はfalseで、trueもしくはfalseのどちらでもない場合はunknownです。</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;from(&#8216;C&#8217;) -&gt;where(&#8216;C.col1 &lt; ALL (FROM</div></blockquote>
+<p>C2(col1))&#8217;);</p>
+<p>サブクエリの結果の値に対して比較演算子がtrueの場合条件式のANYはtrueを返します。サブクエリの結果が空の場合もしくはサブクエリの結果のすべての値に対して比較式がfalseの場合、ANY条件式はfalseで、trueでもfalseでもなければunknownです。</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;from(&#8216;C&#8217;) -&gt;where(&#8216;C.col1 &gt; ANY (FROM</div></blockquote>
+<p>C2(col1))&#8217;);</p>
+<p>SOMEキーワードはANY用のエイリアスです。</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;from(&#8216;C&#8217;) -&gt;where(&#8216;C.col1 &gt; SOME (FROM</div></blockquote>
+<p>C2(col1))&#8217;);</p>
+<p>ALLもしくはANY条件式で使うことができる比較演算子は=、&lt;、&lt;=、&gt;、&gt;=、&lt;&gt;です。サブクエリの結果は条件式で同じ型を持たなければなりません。</p>
+<p>NOT INは&lt;&gt; ALL用のエイリアスです。これら2つのステートメントは等しいです:</p>
+<blockquote>
+<div>FROM C WHERE C.col1 &lt;&gt; ALL (FROM C2(col1)); FROM C WHERE C.col1 NOT IN</div></blockquote>
+<p>(FROM C2(col1));</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;from(&#8216;C&#8217;) -&gt;where(&#8216;C.col1 &lt;&gt; ALL (FROM</div></blockquote>
+<p>C2(col1))&#8217;);</p>
+<p>$q = Doctrine_Query::create() -&gt;from(&#8216;C&#8217;) -&gt;where(&#8216;C.col1 NOT IN (FROM
+C2(col1))&#8217;);</p>
+</div>
+<div class="section" id="id145">
+<h2>サブクエリ<a class="headerlink" href="#id145" title="Permalink to this headline">¶</a></h2>
+<p>サブクエリは通常のSELECTクエリが含むことができる任意のキーワードもしくは句を含むことができます。</p>
+<p>サブクエリの利点です:</p>
+<ul class="simple">
+<li>これらはクエリを構造化するのでそれぞれの部分のステートメントを分離することが可能です。</li>
+<li>これらは複雑なjoinとunionを必要とするオペレーションを実行する代替方法を提供します。</li>
+<li>多くの人の意見によればこれらは読みやすいです。本当に、人々に初期のSQL
+&#8220;Structured Query
+Language.&#8221;と呼ばれるオリジナルのアイディアを与えたサブクエリのイノベーションでした。</li>
+</ul>
+<p>idが1であるグループに所属しないすべてのユーザーを見つける例は次の通りです:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.id NOT IN (SELECT u2.id FROM User u2 INNER JOIN u2.Groups g
+WHERE g.id = ?)&#8217;, 1);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id146"><span class="problematic" id="id147">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id FROM user u WHERE u.id NOT IN (SELECT u2.id AS</div></blockquote>
+<p>u2**id FROM user u2 INNER JOIN user_group u3 ON u2.id = u3.user_id
+INNER JOIN groups g ON g.id = u3.group_id WHERE g.id = ?)</p>
+<p>グループに所属していないすべてのユーザーを見つける例は次の通りです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.id NOT IN (SELECT u2.id FROM User u2 INNER JOIN u2.Groups
+g)&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id148"><span class="problematic" id="id149">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id FROM user u WHERE u.id NOT IN (SELECT u2.id AS</div></blockquote>
+<p>u2**id FROM user u2 INNER JOIN user_group u3 ON u2.id = u3.user_id
+INNER JOIN groups g ON g.id = u3.group_id)</p>
+</div>
+</div>
+<div class="section" id="id150">
+<h1>関数式<a class="headerlink" href="#id150" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id151">
+<h2>文字列関数<a class="headerlink" href="#id151" title="Permalink to this headline">¶</a></h2>
+<p>//CONCAT//関数は引数を連結した文字列を返します。上記の例においてユーザーの``first_name``と``last_name``を連結して``name``という値にマッピングします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;CONCAT(u.first_name,
+u.last_name) AS name&#8217;) -&gt;from(&#8216;User u&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id152"><span class="problematic" id="id153">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, CONCAT(u.first_name, u.last_name) AS u**0 FROM</div></blockquote>
+<p>user u</p>
+<p>これでクエリを実行してマッピングされた関数値を取得できます:</p>
+<blockquote>
+<div>$users = $q-&gt;execute();</div></blockquote>
+<p>foreach($users as <tt class="code docutils literal"><span class="pre">user)</span> <span class="pre">{</span> <span class="pre">//</span> <span class="pre">'name'は</span></tt>userのプロパティではなく、
+// マッピングされた関数値である echo $user-&gt;name; }</p>
+<p>//SUBSTRING//関数の2番目と3番目の引数は開始位置と返される部分文字列の長さを表します。これらの引数は整数です。文字列の最初の位置は1によって表されます。//SUBSTRING//関数は文字列を返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;where(&#8220;SUBSTRING(u.username, 0, 1) = &#8216;z&#8217;&#8221;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id154"><span class="problematic" id="id155">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u WHERE</div></blockquote>
+<p>SUBSTRING(u.username FROM 0 FOR 1) = &#8216;z&#8217;</p>
+<blockquote>
+<div><strong>NOTE</strong>
+SQLは使用しているDBMSに対して適切な``SUBSTRING``構文で生成されることに注目してください！</div></blockquote>
+<p>//TRIM//関数は文字列から指定された文字をトリムします。トリムされる文字が指定されていない場合、スペース(もしくは空白)が想定されます。オプションのtrim_characterは単独文字の文字列リテラルもしくは文字の値を持つ入力パラメータです(すなわちcharもしくはCharacter)[30]。トリムの仕様が提供されていない場合、BOTHが想定されます。//TRIM//関数はトリムされた文字列を返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;where(&#8216;TRIM(u.username) = ?&#8217;, &#8216;Someone&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id156"><span class="problematic" id="id157">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u WHERE</div></blockquote>
+<p>TRIM(u.username) = ?</p>
+<p>//LOWER//と//UPPER//関数はそれぞれ文字列を小文字と大文字に変換します。これらは文字列を返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create(); -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;where(&#8220;LOWER(u.username) = &#8216;jon wage&#8217;&#8221;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id158"><span class="problematic" id="id159">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u WHERE</div></blockquote>
+<p>LOWER(u.username) = &#8216;someone&#8217;</p>
+<p>//LOCATE//関数は文字列の範囲内で任意の文字列の位置を返します。検索は指定された位置で始められます。文字列が整数として見つかった位置で、これは最初の位置を返します。最初の引数は検索される文字列です;
+2番目の引数は検索文字列です;
+3番目のオプション引数は検索が始まる文字列の位置を表す整数です(デフォルトでは、検索文字列の始め)。文字列の最初の位置は1によって表現されます。文字列が見つからない場合、0が返されます。</p>
+<p>//LENGTH//関数は文字の文字列の長さを整数として返します。</p>
+</div>
+<div class="section" id="id160">
+<h2>算術関数<a class="headerlink" href="#id160" title="Permalink to this headline">¶</a></h2>
+<p>利用可能なDQLの算術関数です:</p>
+<blockquote>
+<div>ABS(simple_arithmetic_expression)</div></blockquote>
+<p>SQRT(simple_arithmetic_expression) MOD(simple_arithmetic_expression,
+simple_arithmetic_expression)</p>
+<ul class="simple">
+<li>//ABS//関数は与えられた数の絶対値を返します。</li>
+<li>//SQRT//関数は与えられた数の平方根を返します。</li>
+<li>//MOD//関数は2番目の引数で最初の引数を割ったときの余りを返します。</li>
+</ul>
+</div>
+</div>
+<div class="section" id="id161">
+<h1>サブクエリ<a class="headerlink" href="#id161" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id162">
+<h2>はじめに<a class="headerlink" href="#id162" title="Permalink to this headline">¶</a></h2>
+<p>DoctrineではFROM、SELECTとWHERE文でDQLのサブクエリを使うことができます。下記のコードではDoctrineが提供する異なる型のすべてのサブクエリの例が見つかります。</p>
+</div>
+<div class="section" id="id163">
+<h2>サブクエリを利用する比較<a class="headerlink" href="#id163" title="Permalink to this headline">¶</a></h2>
+<p>指定されたグループに所属しないすべてのユーザーを見つける。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;where(&#8216;u.id NOT IN (SELECT u.id FROM User u INNER JOIN u.Groups g
+WHERE g.id = ?)&#8217;, 1);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id164"><span class="problematic" id="id165">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id FROM user u WHERE u.id NOT IN (SELECT u2.id AS</div></blockquote>
+<p>u2**id FROM user u2 INNER JOIN user_group u3 ON u2.id = u3.user_id
+INNER JOIN groups g ON g.id = u3.group_id WHERE g.id = ?)</p>
+<p>サブクエリでユーザーの電話番号を読み取りユーザー情報の結果セットに格納します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;)
+-&gt;addSelect(&#8216;(SELECT p.phonenumber FROM Phonenumber p WHERE p.user_id =
+u.id LIMIT 1) as phonenumber&#8217;) -&gt;from(&#8216;User u&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id166"><span class="problematic" id="id167">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, (SELECT p.phonenumber AS p**phonenumber FROM</div></blockquote>
+<p>phonenumber p WHERE p.user_id = u.id LIMIT 1) AS u__0 FROM user u</p>
+</div>
+</div>
+<div class="section" id="group-byhaving">
+<h1>GROUP BY、HAVING句<a class="headerlink" href="#group-byhaving" title="Permalink to this headline">¶</a></h1>
+<p>DQLのGROUP BY構文:</p>
+<blockquote>
+<div>GROUP BY groupby_item {, groupby_item}*</div></blockquote>
+<p>DQL HAVINGの構文:</p>
+<blockquote>
+<div>HAVING conditional_expression</div></blockquote>
+<p><tt class="docutils literal"><span class="pre">GROUP</span>
+<span class="pre">BY``と``HAVING``句は集約関数を扱うために使われます。次の集約関数がDQLで利用可能です:</span>
+<span class="pre">``COUNT</span></tt>、<tt class="docutils literal"><span class="pre">MAX</span></tt>、<tt class="docutils literal"><span class="pre">MIN</span></tt>、<tt class="docutils literal"><span class="pre">AVG</span></tt>、<tt class="docutils literal"><span class="pre">SUM</span></tt></p>
+<p>アルファベット順で最初のユーザーを名前で選択する。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;MIN(a.amount)&#8217;)
+-&gt;from(&#8216;Account a&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id168"><span class="problematic" id="id169">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT MIN(a.amount) AS a__0 FROM account a</div></blockquote>
+<p>すべてのアカウントの合計数を選択する。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;SUM(a.amount)&#8217;)
+-&gt;from(&#8216;Account a&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id170"><span class="problematic" id="id171">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT SUM(a.amount) AS a__0 FROM account a</div></blockquote>
+<p>GROUP
+BY句を含まないステートメントで集約関数を使うと、すべての列でグルーピングすることになります。下記の例ではすべてのユーザーと彼らが持つ電話番号の合計数を取得します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;addSelect(&#8216;COUNT(p.id) as num_phonenumbers&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;groupBy(&#8216;u.id&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id172"><span class="problematic" id="id173">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, COUNT(p.id) AS p__0</div></blockquote>
+<p>FROM user u LEFT JOIN phonenumber p ON u.id = p.user_id GROUP BY u.id</p>
+<p><a href="#id174"><span class="problematic" id="id175">``</span></a>HAVING``句は集約値を使用する結果を狭めるために使われます。次の例では少なくとも2つの電話番号を持つすべてのユーザーを取得します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;addSelect(&#8216;COUNT(p.id) as num_phonenumbers&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;groupBy(&#8216;u.id&#8217;)
+-&gt;having(&#8216;num_phonenumbers &gt;= 2&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id176"><span class="problematic" id="id177">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, COUNT(p.id) AS p**0</div></blockquote>
+<p>FROM user u LEFT JOIN phonenumber p ON u.id = p.user_id GROUP BY u.id
+HAVING p**0 &gt;= 2</p>
+<p>次のコードで電話番号の数にアクセスできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $q-&gt;execute();</p>
+<p>foreach($users as $user) { echo $user-&gt;name . &#8216; has &#8216; .
+$user-&gt;num_phonenumbers . &#8216; phonenumbers&#8217;; }</p>
+</div>
+<div class="section" id="order-by">
+<h1>ORDER BY句<a class="headerlink" href="#order-by" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id178">
+<h2>はじめに<a class="headerlink" href="#id178" title="Permalink to this headline">¶</a></h2>
+<p>レコードのコレクションはORDER
+BY句を使用してデータベースレベルで効率的にソートできます。</p>
+<p>構文:</p>
+<blockquote>
+<div>[ORDER BY {ComponentAlias.columnName} [ASC | DESC], ...]</div></blockquote>
+<p>例:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;orderBy(&#8216;u.username,
+p.phonenumber&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id179"><span class="problematic" id="id180">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u LEFT JOIN</div></blockquote>
+<p>phonenumber p ON u.id = p.user_id ORDER BY u.username, p.phonenumber</p>
+<p>逆順でソートするためにソートするORDER
+BY句のカラム名にDESC(降順)キーワードを追加できます。デフォルトは昇順です;
+これはASCキーワードを使用して明示的に指定できます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Email e&#8217;) -&gt;orderBy(&#8216;e.address DESC, u.id
+ASC&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id181"><span class="problematic" id="id182">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u LEFT JOIN</div></blockquote>
+<p>email e ON u.id = e.user_id ORDER BY e.address DESC, u.id ASC</p>
+</div>
+<div class="section" id="id183">
+<h2>集約値でソートする<a class="headerlink" href="#id183" title="Permalink to this headline">¶</a></h2>
+<p>次の例ではすべてのユーザーを取得しユーザーが持つ電話番号の数でユーザーをソートします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username, COUNT(p.id)
+count&#8217;) -&gt;from(&#8216;User u&#8217;) -&gt;innerJoin(&#8216;u.Phonenumbers p&#8217;)
+-&gt;orderby(&#8216;count&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id184"><span class="problematic" id="id185">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, COUNT(p.id) AS p**0</div></blockquote>
+<p>FROM user u INNER JOIN phonenumber p ON u.id = p.user_id ORDER BY p**0</p>
+</div>
+<div class="section" id="id186">
+<h2>ランダム順を使う<a class="headerlink" href="#id186" title="Permalink to this headline">¶</a></h2>
+<p>次の例ではランダムな投稿を取得するために``ORDER
+BY``句でランダム機能を使います。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;t.id, RANDOM() AS rand&#8217;)
+-&gt;from(&#8216;Forum_Thread t&#8217;) -&gt;orderby(&#8216;rand&#8217;) -&gt;limit(1);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id187"><span class="problematic" id="id188">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT f.id AS f**id, RAND() AS f**0 FROM forum**thread f ORDER BY f**0</div></blockquote>
+<p>LIMIT 1</p>
+</div>
+</div>
+<div class="section" id="limitoffset">
+<h1>LIMITとOFFSET句<a class="headerlink" href="#limitoffset" title="Permalink to this headline">¶</a></h1>
+<p>おそらく最も複雑機能であるDQLパーサーは``LIMIT``句パーサーです。DQL
+LIMIT句パーサーは``LIMIT``データベースポータビリティを考慮するだけでなく複雑なクエリ分析とサブクエリを使用することで列の代わりにレコードの数を制限できる機能を持ちます。</p>
+<p>最初の20ユーザーと関連する電話番号を読み取ります:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.username,
+p.phonenumber&#8217;) -&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;)
+-&gt;limit(20);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last"><a href="#id189"><span class="problematic" id="id190">``</span></a>Doctrine_Query``オブジェクトの``offset()``メソッドは実行SQLクエリで望みどおりの``LIMIT``と``OFFSET``を生み出すために``limit()``メソッドと組み合わせて使うことmできます。</p>
+</div>
+<p><a href="#id191"><span class="problematic" id="id192">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, p.id AS p**id,</div></blockquote>
+<p>p.phonenumber AS p**phonenumber FROM user u LEFT JOIN phonenumber p ON
+u.id = p.user_id</p>
+<div class="section" id="id193">
+<h2>ドライバーのポータビリティ<a class="headerlink" href="#id193" title="Permalink to this headline">¶</a></h2>
+<p>DQLの``LIMIT``句はサポートされるすべてのデータベース上でポータブルです。次の事実に対して特別な注意を払う必要があります:</p>
+<ul class="simple">
+<li>Mysql、PgsqlとSqliteのみがLIMIT / OFFSET句をネイティブに実装します。</li>
+<li>Oracle / Mssql / FirebirdではLIMIT /
+OFFSET句はドライバー専用の方法でシミュレートされる必要があります</li>
+<li>limit-subquery-algorithmはmysqlで個別にサブクエリを実行する必要があります。まだmysqlがサブクエリでLIMIT句をサポートしていないからです。</li>
+<li>PgsqlはSELECT句で保存するフィールドごとの順序を必要とします。limit-subquery-algorithmがpgsqlドライバーが使われるときに考慮される必要があるからです。</li>
+<li>Oracleは&lt; 30個未満のオブジェクト識別子のみを許可します(=
+テーブル/カラム
+名前/エイリアス)、limitサブクエリは可能な限りショートエイリアスを使いメインクエリでエイリアスの衝突を回避しなければなりません。</li>
+</ul>
+</div>
+<div class="section" id="limit-subquery-algorithm">
+<h2>limit-subquery-algorithm<a class="headerlink" href="#limit-subquery-algorithm" title="Permalink to this headline">¶</a></h2>
+<p>limit-subquery-algorithmはDQLパーサーが内部で使用するアルゴリズムです。1対多/多対多のリレーショナルデータは同時に取得されているときに内部で使用されます。SQLの結果セットの列の代わりにレコードの数を制限するためにこの種の特別なアルゴリズムはLIMIT句に必要です。</p>
+<p>このビヘイビアは設定システムを使用してオーバーライドできます(グローバル、接続もしくはテーブルレベル):</p>
+<blockquote>
+<div>$table-&gt;setAttribute(Doctrine_Core::ATTR_QUERY_LIMIT,</div></blockquote>
+<p>Doctrine_Core::LIMIT_ROWS);
+$table-&gt;setAttribute(Doctrine_Core::ATTR_QUERY_LIMIT,
+Doctrine_Core::LIMIT_RECORDS); // リバート</p>
+<p>次の例ではユーザーと電話番号がありこれらのリレーションは1対多です。最初の20ユーザーを取得しすべての関連する電話番号を取得することを考えてみましょう。</p>
+<p>クエリの最後でシンプルなドライバ固有のLIMIT
+20を追加すれば正しい結果が返されるとお考えの方がいらっしゃるかもしれません。これは間違っています。1から20までの任意のユーザーを20の電話番号を持つ最初のユーザーとして取得しレコードセットが20の列で構成されることがあるからです。</p>
+<p>DQLはサブクエリと複雑だが効率的なサブクエリの解析でこの問題に打ち勝ちます。次の例では最初の20人のユーザーとそのすべての電話番号を効果的な1つのクエリで取得しようとしています。DQLパーサーがサブクエリでもカラム集約継承を使うほど賢くまたエイリアスの衝突を回避するサブクエリのテーブルに異なるテーブルを使うほど賢いことに注目してください。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, u.username, p.*&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;limit(20);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id194"><span class="problematic" id="id195">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, p.id AS p**id,</div></blockquote>
+<p>p.user_id AS p**user_id, p.phonenumber AS p__phonenumber FROM user u
+LEFT JOIN phonenumber p ON u.id = p.user_id</p>
+<p>次の例では最初の20人のユーザーとすべての電話番号かつ実際に電話番号を持つユーザーのみを1つの効率的なクエリで取得します。これは``INNER
+JOIN``を使います。サブクエリで``INNER
+JOIN``を使うほどDQLパーサーが賢いことに注目してください:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id, u.username, p.*&#8217;)
+-&gt;from(&#8216;User u&#8217;) -&gt;innerJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;limit(20);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id196"><span class="problematic" id="id197">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username, p.id AS p**id,</div></blockquote>
+<p>p.user_id AS p**user_id, p.phonenumber AS p__phonenumber FROM user u
+INNER JOIN phonenumber p ON u.id = p.user_id</p>
+</div>
+</div>
+<div class="section" id="id198">
+<h1>名前付きクエリ<a class="headerlink" href="#id198" title="Permalink to this headline">¶</a></h1>
+<p>変化する可能性があるモデルを扱うが、クエリを簡単に更新できるようにする必要があるとき、クエリを定義する簡単な方法を見つける必要があります。例えば1つのフィールドを変更して何も壊れていないことを確認するためにアプリケーションのすべてのクエリを追跡する必要がある状況を想像してください。</p>
+<p>名前付きクエリはこの状況を解決する素晴らしく効率的な方法です。これによって``Doctrine_Queries``を作成しこれらを書き直すこと無く再利用できるようになります。</p>
+<p>名前付きクエリのサポートは``Doctrine_Query_Registry``のサポートの上で構築されます。<a href="#id199"><span class="problematic" id="id200">``</span></a>Doctrine_Query_Registry``はクエリを登録して名前をつけるためのクラスです。これはアプリケーションクエリの編成を手助けしこれに沿ってとても便利な機能を提供します。</p>
+<p>レジストリオブジェクトの``add()``メソッドを使用してこのクエリは追加されます。これは2つのパラメータ、クエリの名前と実際のDQLクエリを受け取ります。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $r = Doctrine_Manager::getInstance()-&gt;getQueryRegistry();</p>
+<p>$r-&gt;add(&#8216;User/all&#8217;, &#8216;FROM User u&#8217;);</p>
+<p>$userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>// すべてのユーザーを見つける $users = $userTable-&gt;find(&#8216;all&#8217;);</p>
+<p>このサポートを簡略化するために、<a href="#id201"><span class="problematic" id="id202">``</span></a>Doctrine_Table``は``Doctrine_Query_Registry``へのアクセサをサポートします。</p>
+<div class="section" id="id203">
+<h2>名前付きクエリを作成する<a class="headerlink" href="#id203" title="Permalink to this headline">¶</a></h2>
+<p>trueとして定義された``generateTableClasses``オプションでモデルをビルドするとき、それぞれのレコードクラスは``Doctrine_Table``を継承する``*Table``クラスも生成します。</p>
+<p>それから、名前付きクエリを含めるために``construct()``メソッドを実装できます:</p>
+<blockquote>
+<div>class UserTable extends Doctrine_Table { public function construct() {</div></blockquote>
+<p>// DQL文字列を使用して定義されたNamed Query
+$this-&gt;addNamedQuery(&#8216;get.by.id&#8217;, &#8216;SELECT u.username FROM User u WHERE
+u.id = ?&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="c1">// Doctrine_Queryオブジェクトを使用して定義された名前付きのクエリ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addNamedQuery</span><span class="p">(</span>
+        <span class="s1">&#39;get.by.similar.usernames&#39;</span><span class="p">,</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span><span class="s1">&#39;u.id, u.username&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User u&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">where</span><span class="p">(</span><span class="s1">&#39;LOWER(u.username) LIKE LOWER(?)&#39;</span><span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="id204">
+<h2>名前付きクエリにアクセスする<a class="headerlink" href="#id204" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id205"><span class="problematic" id="id206">``</span></a>Doctrine_Table``のサブクラスである``MyFooTable``クラスにリーチするには、次のようにできます:</p>
+<blockquote>
+<div>$userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</div></blockquote>
+<p>名前付きクエリにアクセスするには(常に``Doctrine_Query``インスタンスを返す):</p>
+<blockquote>
+<div>$q = $userTable-&gt;createNamedQuery(&#8216;get.by.id&#8217;);</div></blockquote>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id207"><span class="problematic" id="id208">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT u.id AS u**id, u.username AS u**username FROM user u WHERE u.id</div></blockquote>
+<p>= ?</p>
+</div>
+<div class="section" id="id209">
+<h2>名前付きクエリを実行する<a class="headerlink" href="#id209" title="Permalink to this headline">¶</a></h2>
+<p>名前付きクエリを実行するには2つの方法があります。1つめの方法は通常のインスタンスとして``Doctrine_Query``を読み取り通常通りに実行します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = Doctrine_Core::getTable(&#8216;User&#8217;)
+-&gt;createNamedQuery(&#8216;get.by.similar.usernames&#8217;)
+-&gt;execute(array(&#8216;%jon%wage%&#8217;));</p>
+<p>次のようにも実行を簡略化できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = Doctrine_Core::getTable(&#8216;User&#8217;)
+-&gt;find(&#8216;get.by.similar.usernames&#8217;, array(&#8216;%jon%wage%&#8217;));</p>
+<p><a href="#id210"><span class="problematic" id="id211">``</span></a>find()``メソッドはハイドレーションモード用の3番目の引数を受け取ります。</p>
+</div>
+<div class="section" id="id212">
+<h2>名前付きクエリにクロスアクセスする<a class="headerlink" href="#id212" title="Permalink to this headline">¶</a></h2>
+<p>それで十分でなければ、Doctrineは``Doctrine_Query_Registry``を利用しオブジェクト間の名前付きクエリにクロスアクセスできるようにする名前空間クエリを使います。<tt class="docutils literal"><span class="pre">Article``レコードの</span></tt>*Table``クラスのインスタンスがあることを想定します。<a href="#id213"><span class="problematic" id="id214">``</span></a>User``レコードの&#8221;get.by.id&#8221;
+名前付きクエリを呼び出したいとします。名前付きクエリにアクセスするには、次のように行わなければなりません:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $articleTable = Doctrine_Core::getTable(&#8216;Article&#8217;);</p>
+<p>$users = $articleTable-&gt;find(&#8216;User/get.by.id&#8217;, array(1, 2, 3));</p>
+</div>
+</div>
+<div class="section" id="bnf">
+<h1>BNF<a class="headerlink" href="#bnf" title="Permalink to this headline">¶</a></h1>
+<blockquote>
+<div>QL_statement ::= select_statement | update_statement |</div></blockquote>
+<p>delete_statement select_statement ::= select_clause from_clause
+[where_clause] [groupby_clause] [having_clause] [orderby_clause]
+update_statement ::= update_clause [where_clause] delete_statement
+::= delete_clause [where_clause] from_clause ::= FROM
+identification_variable_declaration {,
+{identification_variable_declaration |
+collection_member_declaration``*
+identification_variable_declaration ::= range_variable_declaration {
+join | fetch_join }* range_variable_declaration ::=
+abstract_schema_name [AS ] identification_variable join ::=
+join_spec join_association_path_expression [AS ]
+identification_variable fetch_join ::= join_specFETCH
+join_association_path_expression association_path_expression ::=
+collection_valued_path_expression |
+single_valued_association_path_expression join_spec::= [LEFT [OUTER
+] |INNER ]JOIN join_association_path_expression ::=
+join_collection_valued_path_expression |
+join_single_valued_association_path_expression
+join_collection_valued_path_expression::=
+identification_variable.collection_valued_association_field
+join_single_valued_association_path_expression::=
+identification_variable.single_valued_association_field
+collection_member_declaration ::= IN (
+collection_valued_path_expression) [AS ] identification_variable
+single_valued_path_expression ::= state_field_path_expression |
+single_valued_association_path_expression
+state_field_path_expression ::= {identification_variable |
+single_valued_association_path_expression}.state_field
+single_valued_association_path_expression ::=
+identification_variable.{single_valued_association_field.}*
+single_valued_association_field collection_valued_path_expression
+::=
+identification_variable.{single_valued_association_field.}*collection_valued_association_field
+state_field ::= {embedded_class_state_field.}*simple_state_field
+update_clause ::=UPDATE abstract_schema_name [[AS ]
+identification_variable] SET update_item {, update_item}*
+update_item ::= [identification_variable.]{state_field |
+single_valued_association_field} = new_value new_value ::=
+simple_arithmetic_expression | string_primary | datetime_primary
+|</p>
+<p>boolean_primary | enum_primary simple_entity_expression | NULL
+delete_clause ::=DELETE FROM abstract_schema_name [[AS ]
+identification_variable] select_clause ::=SELECT [DISTINCT ]
+select_expression {, select_expression}* select_expression ::=
+single_valued_path_expression | aggregate_expression |
+identification_variable | OBJECT( identification_variable) |
+constructor_expression constructor_expression ::= NEW
+constructor_name( constructor_item {, constructor_item}*)
+constructor_item ::= single_valued_path_expression |
+aggregate_expression aggregate_expression ::= {AVG |MAX |MIN |SUM
+}( [DISTINCT ] state_field_path_expression) | COUNT ( [DISTINCT ]
+identification_variable | state_field_path_expression |
+single_valued_association_path_expression) where_clause ::=WHERE
+conditional_expression groupby_clause ::=GROUP BY groupby_item {,
+groupby_item}* groupby_item ::= single_valued_path_expression |
+identification_variable having_clause ::=HAVING
+conditional_expression orderby_clause ::=ORDER BY orderby_item {,
+orderby_item}* orderby_item ::= state_field_path_expression [ASC
+|DESC ] subquery ::= simple_select_clause subquery_from_clause
+[where_clause] [groupby_clause] [having_clause]
+subquery_from_clause ::= FROM
+subselect_identification_variable_declaration {,
+subselect_identification_variable_declaration}*
+subselect_identification_variable_declaration ::=
+identification_variable_declaration | association_path_expression
+[AS ] identification_variable | collection_member_declaration
+simple_select_clause ::=SELECT [DISTINCT ] simple_select_expression
+simple_select_expression::= single_valued_path_expression |
+aggregate_expression | identification_variable
+conditional_expression ::= conditional_term |
+conditional_expressionOR conditional_term conditional_term ::=
+conditional_factor | conditional_termAND conditional_factor
+conditional_factor ::= [NOT ] conditional_primary conditional_primary
+::= simple_cond_expression |( conditional_expression)
+simple_cond_expression ::= comparison_expression |
+between_expression | like_expression | in_expression |
+null_comparison_expression |
+empty_collection_comparison_expression |</p>
+<p>collection_member_expression | exists_expression between_expression
+::= arithmetic_expression [NOT ]BETWEEN arithmetic_expressionAND
+arithmetic_expression | string_expression [NOT ]BETWEEN
+string_expressionAND string_expression | datetime_expression [NOT
+]BETWEEN datetime_expressionAND datetime_expression in_expression ::=
+state_field_path_expression [NOT ]IN ( in_item {, in_item}* |
+subquery) in_item ::= literal | input_parameter like_expression ::=
+string_expression [NOT ]LIKE pattern_value [ESCAPE escape_character]
+null_comparison_expression ::= {single_valued_path_expression |
+input_parameter}IS [NOT ] NULL
+empty_collection_comparison_expression ::=
+collection_valued_path_expressionIS [NOT] EMPTY
+collection_member_expression ::= entity_expression [NOT ]MEMBER [OF ]
+collection_valued_path_expression exists_expression::= [NOT ]EXISTS
+(subquery) all_or_any_expression ::= {ALL |ANY |SOME } (subquery)
+comparison_expression ::= string_expression comparison_operator
+{string_expression | all_or_any_expression} | boolean_expression
+{= |&lt;&gt; } {boolean_expression | all_or_any_expression} |
+enum_expression {= |&lt;&gt; } {enum_expression |
+all_or_any_expression} | datetime_expression comparison_operator
+{datetime_expression | all_or_any_expression} | entity_expression
+{= |&lt;&gt; } {entity_expression | all_or_any_expression} |
+arithmetic_expression comparison_operator {arithmetic_expression |
+all_or_any_expression} comparison_operator ::== |&gt; |&gt;= |&lt; |&lt;=
+|&lt;&gt; arithmetic_expression ::= simple_arithmetic_expression |
+(subquery) simple_arithmetic_expression ::= arithmetic_term |
+simple_arithmetic_expression {+ |- } arithmetic_term
+arithmetic_term ::= arithmetic_factor | arithmetic_term {* |/ }
+arithmetic_factor arithmetic_factor ::= [{+ |- }] arithmetic_primary
+arithmetic_primary ::= state_field_path_expression |
+numeric_literal | (simple_arithmetic_expression) | input_parameter
+| functions_returning_numerics | aggregate_expression
+string_expression ::= string_primary | (subquery) string_primary ::=
+state_field_path_expression | string_literal | input_parameter |
+functions_returning_strings | aggregate_expression</p>
+<p>datetime_expression ::= datetime_primary | (subquery)
+datetime_primary ::= state_field_path_expression | input_parameter
+| functions_returning_datetime | aggregate_expression
+boolean_expression ::= boolean_primary | (subquery) boolean_primary
+::= state_field_path_expression | boolean_literal |
+input_parameter | enum_expression ::= enum_primary | (subquery)
+enum_primary ::= state_field_path_expression | enum_literal |
+input_parameter | entity_expression ::=
+single_valued_association_path_expression |
+simple_entity_expression simple_entity_expression ::=
+identification_variable | input_parameter
+functions_returning_numerics::= LENGTH( string_primary) | LOCATE(
+string_primary, string_primary[, simple_arithmetic_expression]) |
+ABS( simple_arithmetic_expression) | SQRT(
+simple_arithmetic_expression) | MOD( simple_arithmetic_expression,
+simple_arithmetic_expression) | SIZE(
+collection_valued_path_expression) functions_returning_datetime ::=
+CURRENT_DATE | CURRENT_TIME | CURRENT_TIMESTAMP
+functions_returning_strings ::= CONCAT( string_primary,
+string_primary) | SUBSTRING( string_primary,
+simple_arithmetic_expression, simple_arithmetic_expression)| TRIM(
+[[trim_specification] [trim_character]FROM ] string_primary) |
+LOWER( string_primary) | UPPER( string_primary) trim_specification
+::=LEADING | TRAILING | BOTH</p>
+</div>
+<div class="section" id="id215">
+<h1>マジックファインダー<a class="headerlink" href="#id215" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineはモデルに存在する任意のカラムでレコードを見つけることを可能にするDoctrineモデル用のマジックファインダー(magic
+finder)を提供します。ユーザーの名前でユーザーを見つけたり、グループの名前でグループを見つけるために役立ちます。通常これは``Doctrine_Query``インスタンスを書き再利用できるようにこれをどこかに保存することが必要です。このようなシンプルな状況にはもはや必要ありません。</p>
+<p>ファインダーメソッドの基本パターンは次の通りです:
+<a href="#id216"><span class="problematic" id="id217">``</span></a>findBy%s(<tt class="code docutils literal"><span class="pre">value)``もしくは``findOneBy%s(</span></tt>value)``です。<a href="#id218"><span class="problematic" id="id219">``</span></a>%s``はカラム名もしくはリレーションのエイリアスです。カラムの名前の場合探す値を提供しなければなりません。リレーションのエイリアスを指定する場合、見つけるリレーションクラスのインスタンスを渡すか、実際の主キーの値を渡すことができます。</p>
+<p>最初に扱う``UserTable``インスタンスを読み取りましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p><a href="#id220"><span class="problematic" id="id221">``</span></a>find()``メソッドを利用して主キーで``User``レコードを簡単に見つけられます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = $userTable-&gt;find(1);</p>
+<p>ユーザー名で1人のユーザーを見つけたい場合は次のようにマジックファインダーを使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = $userTable-&gt;findOneByUsername(&#8216;jonwage&#8217;);</p>
+<p>レコード間のリレーションを利用してレコードでユーザーを見つけることができます。<a href="#id222"><span class="problematic" id="id223">``</span></a>User``は複数の``Phonenumbers``を持つので``findBy**()``メソッドに``User``インスタンスを渡すことでこれらの``Phonenumber``を見つけることができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $phonenumberTable = Doctrine::getTable(&#8216;Phonenumber&#8217;);</p>
+<p>$phonenumbers = <tt class="code docutils literal"><span class="pre">phonenumberTable-&gt;findByUser(</span></tt>user);</p>
+<p>マジックファインダーはもう少し複雑な検索を可能にします。複数のプロパティによってレコードを検索するためにメソッド名で``And``と``Or``キーワードを使うことができます。</p>
+<blockquote>
+<div>$user = $userTable-&gt;findOneByUsernameAndPassword(&#8216;jonwage&#8217;,</div></blockquote>
+<p>md5(&#8216;changeme&#8217;));</p>
+<p>条件を混ぜることもできます。</p>
+<blockquote>
+<div>$users = $userTable-&gt;findByIsAdminAndIsModeratorOrIsSuperAdmin(true,</div></blockquote>
+<p>true, true);</p>
+<blockquote>
+<div><p><strong>CAUTION</strong>
+これらは語句限られたマジックメソッドの用例で、つねに手書きのDQLクエリで展開することをおすすめします。これらのメソッドはリレーションシップなしの単独のレコードに素早くアクセスするための手段であり、素早くプロトタイプを書くのにもよいものです。</p>
+<p><strong>NOTE</strong> 上記のマジックファインダーはPHPの``[<a class="reference external" href="http://php.net/__call">http://php.net/__call</a>
+<a href="#id224"><span class="problematic" id="id225">**</span></a>call()]``のオーバーロード機能を使うことで作成されます。内在する関数は``Doctrine_Query``オブジェクトがビルドされる``Doctrine_Table::<a href="#id226"><span class="problematic" id="id227">**</span></a>call()``に転送され、実行されてユーザーに返されます。</p>
+</div></blockquote>
+</div>
+<div class="section" id="id228">
+<h1>クエリをデバッグする<a class="headerlink" href="#id228" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id229"><span class="problematic" id="id230">``</span></a>Doctrine_Query``オブジェクトはクエリの問題をデバッグするための手助けになる機能を少々提供します:</p>
+<p>ときに``Doctrine_Query``オブジェクトに対して完全なSQL文字列を見たいことがあります:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;select(&#8216;u.id&#8217;) -&gt;from(&#8216;User u&#8217;)
+-&gt;orderBy(&#8216;u.username&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id231"><span class="problematic" id="id232">``</span></a>getSql()``への呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div><p>SELECT u.id AS u__id FROM user u ORDER BY u.username</p>
+<blockquote>
+<div><strong>NOTE</strong>
+上記の``Doctrine_Query::getSql()``メソッドによって返されるSQLはトークンをパラメータに置き換えません。これはPDOのジョブでクエリを実行するとき置き換えが実行されるPDOにパラメータを渡します。<a href="#id233"><span class="problematic" id="id234">``</span></a>Doctrine_Query::getParams()``メソッドでパラメータの配列を読み取ることができます。</div></blockquote>
+</div></blockquote>
+<p><a href="#id235"><span class="problematic" id="id236">``</span></a>Doctrine_Query``インスタンス用のパラメータの配列を取得します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... print_r($q-&gt;getParams());</p>
+</div>
+<div class="section" id="id237">
+<h1>まとめ<a class="headerlink" href="#id237" title="Permalink to this headline">¶</a></h1>
+<p>Doctrine Query
+Languageはこれまでのところ最も高度で役に立つDoctrineの機能です。これによってRDBMSのリレーションからとても複雑なデータを簡単にかつ効率的に選択できます！</p>
+<p>これでDoctrineの主要なコンポーネントの使い方を見たので[doc
+component-overview :name]の章に移りすべてを鳥の目で見ることにします。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">はじめに</a></li>
+<li><a class="reference internal" href="#select">SELECTクエリ</a><ul>
+<li><a class="reference internal" href="#distinct">DISTINCTキーワード</a></li>
+<li><a class="reference internal" href="#id30">集約値</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#update">UPDATEクエリ</a></li>
+<li><a class="reference internal" href="#delete">DELETEクエリ</a></li>
+<li><a class="reference internal" href="#from">FROM句</a></li>
+<li><a class="reference internal" href="#join">JOINの構文</a><ul>
+<li><a class="reference internal" href="#on">ONキーワード</a></li>
+<li><a class="reference internal" href="#with">WITHキーワード</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#indexby">INDEXBYキーワード</a></li>
+<li><a class="reference internal" href="#where">WHERE句</a></li>
+<li><a class="reference internal" href="#id99">条件式</a><ul>
+<li><a class="reference internal" href="#id100">リテラル</a></li>
+<li><a class="reference internal" href="#id115">入力パラメータ</a></li>
+<li><a class="reference internal" href="#id124">演算子と優先順位</a></li>
+<li><a class="reference internal" href="#in">IN式</a></li>
+<li><a class="reference internal" href="#like">LIKE式</a></li>
+<li><a class="reference internal" href="#exists">EXISTS式</a></li>
+<li><a class="reference internal" href="#allany">AllとAnyの式</a></li>
+<li><a class="reference internal" href="#id145">サブクエリ</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id150">関数式</a><ul>
+<li><a class="reference internal" href="#id151">文字列関数</a></li>
+<li><a class="reference internal" href="#id160">算術関数</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id161">サブクエリ</a><ul>
+<li><a class="reference internal" href="#id162">はじめに</a></li>
+<li><a class="reference internal" href="#id163">サブクエリを利用する比較</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#group-byhaving">GROUP BY、HAVING句</a></li>
+<li><a class="reference internal" href="#order-by">ORDER BY句</a><ul>
+<li><a class="reference internal" href="#id178">はじめに</a></li>
+<li><a class="reference internal" href="#id183">集約値でソートする</a></li>
+<li><a class="reference internal" href="#id186">ランダム順を使う</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#limitoffset">LIMITとOFFSET句</a><ul>
+<li><a class="reference internal" href="#id193">ドライバーのポータビリティ</a></li>
+<li><a class="reference internal" href="#limit-subquery-algorithm">limit-subquery-algorithm</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id198">名前付きクエリ</a><ul>
+<li><a class="reference internal" href="#id203">名前付きクエリを作成する</a></li>
+<li><a class="reference internal" href="#id204">名前付きクエリにアクセスする</a></li>
+<li><a class="reference internal" href="#id209">名前付きクエリを実行する</a></li>
+<li><a class="reference internal" href="#id212">名前付きクエリにクロスアクセスする</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#bnf">BNF</a></li>
+<li><a class="reference internal" href="#id215">マジックファインダー</a></li>
+<li><a class="reference internal" href="#id228">クエリをデバッグする</a></li>
+<li><a class="reference internal" href="#id237">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="working-with-models.html"
+                        title="previous chapter">テストスキーマを定義する</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="component-overview.html"
+                        title="next chapter">マネージャー</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/dql-doctrine-query-language.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="component-overview.html" title="マネージャー"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="working-with-models.html" title="テストスキーマを定義する"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

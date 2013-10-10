@@ -1,0 +1,1036 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Event Listeners &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Caching" href="caching.html" />
+    <link rel="prev" title="Transactions" href="transactions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="Caching"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="transactions.html" title="Transactions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="event-listeners">
+<h1>Event Listeners<a class="headerlink" href="#event-listeners" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine provides flexible event listener architecture that not only
+allows listening for different events but also for altering the
+execution of the listened methods.</p>
+<p>There are several different listeners and hooks for various Doctrine
+components. Listeners are separate classes whereas hooks are empty
+template methods within the listened class.</p>
+<p>Hooks are simpler than event listeners but they lack the separation of
+different aspects. An example of using <a href="#id1"><span class="problematic" id="id2">:php:class:`Doctrine_Record`</span></a> hooks:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// models/BlogPost.php</span>
+
+<span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span><span class="nv">$event</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$invoker</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span>
+
+        <span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">By now we have defined lots of models so you should be able
+to define your own <tt class="docutils literal"><span class="pre">setTableDefinition()</span></tt> for the <tt class="docutils literal"><span class="pre">BlogPost</span></tt>
+model or even create your own custom model!</p>
+</div>
+<p>Now you can use the above model with the following code assuming we
+added a <tt class="docutils literal"><span class="pre">title</span></tt>, <tt class="docutils literal"><span class="pre">body</span></tt> and <tt class="docutils literal"><span class="pre">created</span></tt> column to the model:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$blog</span>        <span class="o">=</span> <span class="k">new</span> <span class="nx">BlogPost</span><span class="p">();</span>
+<span class="nv">$blog</span><span class="o">-&gt;</span><span class="na">title</span> <span class="o">=</span> <span class="s1">&#39;New title&#39;</span><span class="p">;</span>
+<span class="nv">$blog</span><span class="o">-&gt;</span><span class="na">body</span>  <span class="o">=</span> <span class="s1">&#39;Some content&#39;</span><span class="p">;</span>
+<span class="nv">$blog</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+<span class="k">echo</span> <span class="nv">$blog</span><span class="o">-&gt;</span><span class="na">created</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The above example will output the current date as PHP knows it.</p>
+<p>Each listener and hook method takes one parameter <a href="#id3"><span class="problematic" id="id4">:php:class:`Doctrine_Event`</span></a>
+object. <a href="#id5"><span class="problematic" id="id6">:php:class:`Doctrine_Event`</span></a> object holds information about the event in
+question and can alter the execution of the listened method.</p>
+<p>For the purposes of this documentation many method tables are provided
+with column named <tt class="docutils literal"><span class="pre">params</span></tt> indicating names of the parameters that an
+event object holds on given event. For example the
+<tt class="docutils literal"><span class="pre">preCreateSavepoint</span></tt> event has one parameter with the name of the
+created <tt class="docutils literal"><span class="pre">savepoint</span></tt>, which is quite intuitively named as
+<tt class="docutils literal"><span class="pre">savepoint</span></tt>.</p>
+</div>
+<div class="section" id="connection-listeners">
+<h2>Connection Listeners<a class="headerlink" href="#connection-listeners" title="Permalink to this headline">¶</a></h2>
+<p>Connection listeners are used for listening the methods of
+<a href="#id7"><span class="problematic" id="id8">:php:class:`Doctrine_Connection`</span></a> and its modules (such as
+<a href="#id9"><span class="problematic" id="id10">:php:class:`Doctrine_Transaction`</span></a>). All listener methods take one argument
+<a href="#id11"><span class="problematic" id="id12">:php:class:`Doctrine_Event`</span></a> which holds information about the listened event.</p>
+<div class="section" id="creating-a-new-listener">
+<h3>Creating a New Listener<a class="headerlink" href="#creating-a-new-listener" title="Permalink to this headline">¶</a></h3>
+<p>There are three different ways of defining a listener. First you can
+create a listener by making a class that inherits <a href="#id13"><span class="problematic" id="id14">:php:class:`Doctrine_EventListener`</span></a>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Note that by declaring a class that extends <a href="#id15"><span class="problematic" id="id16">:php:class:`Doctrine_EventListener`</span></a>
+you don&#8217;t have to define all the methods within the
+<a href="#id17"><span class="problematic" id="id18">:php:class:`Doctrine_EventListener_Interface`</span></a>. This is due to a fact that
+<a href="#id19"><span class="problematic" id="id20">:php:class:`Doctrine_EventListener`</span></a> already has empty skeletons for all these
+methods.</p>
+<p>Sometimes it may not be possible to define a listener that extends
+<a href="#id21"><span class="problematic" id="id22">:php:class:`Doctrine_EventListener`</span></a> (you might have a listener that inherits
+some other base class). In this case you can make it implement
+<a href="#id23"><span class="problematic" id="id24">:php:class:`Doctrine_EventListener_Interface`</span></a>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">implements</span> <span class="nx">Doctrine_EventListener_Interface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionCommit</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postTransactionCommit</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionRollback</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postTransactionRollback</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionBegin</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postTransactionBegin</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postConnect</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preConnect</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preQuery</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postQuery</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">prePrepare</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postPrepare</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preError</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postError</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preFetch</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postFetch</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preFetchAll</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postFetchAll</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preStmtExecute</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postStmtExecute</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">All listener methods must be defined here otherwise PHP throws fatal error.</p>
+</div>
+<p>The third way of creating a listener is a very elegant one. You can make
+a class that implements <a href="#id25"><span class="problematic" id="id26">:php:class:`Doctrine_Overloadable`</span></a>. This interface has
+only one method: <tt class="docutils literal"><span class="pre">__call()</span></tt>, which can be used for catching <em>all</em>
+the events.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyDebugger</span> <span class="k">implements</span> <span class="nx">Doctrine_Overloadable</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__call</span><span class="p">(</span> <span class="nv">$methodName</span><span class="p">,</span> <span class="nv">$args</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="nv">$methodName</span> <span class="o">.</span> <span class="s1">&#39; called !&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="attaching-listeners">
+<h3>Attaching listeners<a class="headerlink" href="#attaching-listeners" title="Permalink to this headline">¶</a></h3>
+<p>You can attach the listeners to a connection with <tt class="docutils literal"><span class="pre">setListener()</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">setListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">MyDebugger</span><span class="p">()</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>If you need to use multiple listeners you can use <tt class="docutils literal"><span class="pre">addListener()</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">MyDebugger</span><span class="p">()</span> <span class="p">);</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">MyLogger</span><span class="p">()</span> <span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="pre-and-post-connect">
+<h3>Pre and Post Connect<a class="headerlink" href="#pre-and-post-connect" title="Permalink to this headline">¶</a></h3>
+<p>All of the below listeners are invoked in the <a href="#id27"><span class="problematic" id="id28">:php:class:`Doctrine_Connection`</span></a>
+class. And they are all passed an instance of <a href="#id29"><span class="problematic" id="id30">:php:class:`Doctrine_Event`</span></a>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="36%" />
+<col width="34%" />
+<col width="30%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+<th class="head">Params</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preConnect()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">connection()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postConnect()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">connection()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="transaction-listeners">
+<h3>Transaction Listeners<a class="headerlink" href="#transaction-listeners" title="Permalink to this headline">¶</a></h3>
+<p>All of the below listeners are invoked in the <a href="#id31"><span class="problematic" id="id32">:php:class:`Doctrine_Transaction`</span></a>
+class. And they are all passed an instance of <a href="#id33"><span class="problematic" id="id34">:php:class:`Doctrine_Event`</span></a>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="45%" />
+<col width="35%" />
+<col width="20%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+<th class="head">Params</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preTransactionBegin()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">beginTransaction()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postTransactionBegin()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">beginTransaction()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preTransactionRollback()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">rollback()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postTransactionRollback()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">rollback()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preTransactionCommit()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">commit()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postTransactionCommit()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">commit()</span></tt></td>
+<td>&nbsp;</td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preCreateSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">createSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postCreateSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">createSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preRollbackSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">rollbackSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postRollbackSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">rollbackSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preReleaseSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">releaseSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postReleaseSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">releaseSavepoint()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">savepoint</span></tt></td>
+</tr>
+</tbody>
+</table>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyTransactionListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionBegin</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;beginning transaction... &#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preTransactionRollback</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;rolling back transaction... &#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="query-execution-listeners">
+<h3>Query Execution Listeners<a class="headerlink" href="#query-execution-listeners" title="Permalink to this headline">¶</a></h3>
+<p>All of the below listeners are invoked in the <a href="#id35"><span class="problematic" id="id36">:php:class:`Doctrine_Connection`</span></a>
+and <a href="#id37"><span class="problematic" id="id38">:php:class:`Doctrine_Connection_Statement`</span></a> classes. And they are all passed
+an instance of <a href="#id39"><span class="problematic" id="id40">:php:class:`Doctrine_Event`</span></a>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="38%" />
+<col width="35%" />
+<col width="27%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+<th class="head">Params</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">prePrepare()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">prepare()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postPrepare()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">prepare()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preExec()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">exec()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postExec()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">exec()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query,rows</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preStmtExecute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">execute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postStmtExecute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">execute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preExecute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">execute()</span></tt> <strong>*</strong></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postExecute()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">execute()</span></tt> <strong>*</strong></td>
+<td><tt class="docutils literal"><span class="pre">query</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preFetch()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">fetch()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postFetch()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">fetch()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preFetchAll()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">fetchAll()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postFetchAll()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">fetchAll()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">query,</span> <span class="pre">data</span></tt></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><tt class="docutils literal"><span class="pre">preExecute()</span></tt> and <tt class="docutils literal"><span class="pre">postExecute()</span></tt> only get invoked
+when <tt class="docutils literal"><span class="pre">Doctrine_Connection::execute()</span></tt> is being called without
+prepared statement parameters. Otherwise
+<tt class="docutils literal"><span class="pre">Doctrine_Connection::execute()</span></tt> invokes <tt class="docutils literal"><span class="pre">prePrepare()</span></tt>,
+<tt class="docutils literal"><span class="pre">postPrepare()</span></tt>, <tt class="docutils literal"><span class="pre">preStmtExecute()</span></tt> and <tt class="docutils literal"><span class="pre">postStmtExecute()</span></tt>.</p>
+</div>
+</div>
+</div>
+<div class="section" id="hydration-listeners">
+<h2>Hydration Listeners<a class="headerlink" href="#hydration-listeners" title="Permalink to this headline">¶</a></h2>
+<p>The hydration listeners can be used for listening to resultset hydration
+procedures. Two methods exist for listening to the hydration procedure:
+<tt class="docutils literal"><span class="pre">preHydrate()</span></tt> and <tt class="docutils literal"><span class="pre">postHydrate()</span></tt>.</p>
+<p>If you set the hydration listener on connection level the code within
+the <tt class="docutils literal"><span class="pre">preHydrate()</span></tt> and <tt class="docutils literal"><span class="pre">postHydrate()</span></tt> blocks will be invoked by all
+components within a multi-component resultset. However if you add a
+similar listener on table level it only gets invoked when the data of
+that table is being hydrated.</p>
+<p>Consider we have a class called <tt class="docutils literal"><span class="pre">User</span></tt> with the following fields:
+<tt class="docutils literal"><span class="pre">first_name</span></tt>, <tt class="docutils literal"><span class="pre">last_name</span></tt> and <tt class="docutils literal"><span class="pre">age</span></tt>. In the following example we
+create a listener that always builds a generated field called
+<tt class="docutils literal"><span class="pre">full_name</span></tt> based on <tt class="docutils literal"><span class="pre">first_name</span></tt> and <tt class="docutils literal"><span class="pre">last_name</span></tt> fields.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">class</span> <span class="nc">HydrationListener</span> <span class="k">extends</span> <span class="nx">Doctrine_Record_Listener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preHydrate</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$data</span>              <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">data</span><span class="p">;</span>
+        <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;full_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;first_name&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39; &#39;</span> <span class="o">.</span> <span class="nv">$data</span><span class="p">[</span><span class="s1">&#39;last_name&#39;</span><span class="p">];</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">data</span>       <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now all we need to do is attach this listener to the <tt class="docutils literal"><span class="pre">User</span></tt> record and
+fetch some users:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// test.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$userTable</span> <span class="o">=</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">getTable</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">);</span>
+<span class="nv">$userTable</span><span class="o">-&gt;</span><span class="na">addRecordListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">HydrationListener</span><span class="p">()</span> <span class="p">);</span>
+
+<span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">);</span>
+
+<span class="nv">$users</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+
+<span class="k">foreach</span> <span class="p">(</span> <span class="nv">$users</span> <span class="k">as</span> <span class="nv">$user</span> <span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">full_name</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="record-listeners">
+<h2>Record Listeners<a class="headerlink" href="#record-listeners" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id41"><span class="problematic" id="id42">:php:class:`Doctrine_Record`</span></a> provides listeners very similar to
+<a href="#id43"><span class="problematic" id="id44">:php:class:`Doctrine_Connection`</span></a>. You can set the listeners at global,
+connection and table level.</p>
+<p>Here is a list of all available listener methods:</p>
+<p>All of the below listeners are invoked in the <a href="#id45"><span class="problematic" id="id46">:php:class:`Doctrine_Record`</span></a> and
+<a href="#id47"><span class="problematic" id="id48">:php:class:`Doctrine_Validator`</span></a> classes. And they are all passed an instance of
+<a href="#id49"><span class="problematic" id="id50">:php:class:`Doctrine_Event`</span></a>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="26%" />
+<col width="74%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preSave()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postSave()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preUpdate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">DIRTY</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postUpdate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">DIRTY</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preInsert()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">TDIRTY</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postInsert()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">TDIRTY</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preDelete()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">delete()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postDelete()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">delete()</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preValidate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">validate()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postValidate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">validate()</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>Just like with connection listeners there are three ways of defining a
+record listener: by extending <a href="#id51"><span class="problematic" id="id52">:php:class:`Doctrine_Record_Listener`</span></a>, by
+implementing <a href="#id53"><span class="problematic" id="id54">:php:class:`Doctrine_Record_Listener_Interface`</span></a> or by
+implementing <a href="#id55"><span class="problematic" id="id56">:php:class:`Doctrine_Overloadable`</span></a>.</p>
+<p>In the following we&#8217;ll create a global level listener by implementing
+<a href="#id57"><span class="problematic" id="id58">:php:class:`Doctrine_Overloadable`</span></a>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Logger</span> <span class="k">implements</span> <span class="nx">Doctrine_Overloadable</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__call</span><span class="p">(</span> <span class="nv">$m</span><span class="p">,</span> <span class="nv">$a</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;caught event &#39;</span> <span class="o">.</span> <span class="nv">$m</span><span class="p">;</span>
+
+        <span class="c1">// do some logging here...</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Attaching the listener to manager is easy:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$manager</span><span class="o">-&gt;</span><span class="na">addRecordListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">Logger</span><span class="p">()</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Note that by adding a manager level listener it affects on all
+connections and all tables / records within these connections. In the
+following we create a connection level listener:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Debugger</span> <span class="k">extends</span> <span class="nx">Doctrine_Record_Listener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;inserting a record ...&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;updating a record...&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Attaching the listener to a connection is as easy as:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">addRecordListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">Debugger</span><span class="p">()</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Many times you want the listeners to be table specific so that they only
+apply on the actions on that given table.</p>
+<p>Here is an example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Debugger</span> <span class="k">extends</span> <span class="nx">Doctrine_Record_Listener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postDelete</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">echo</span> <span class="s1">&#39;deleted &#39;</span> <span class="o">.</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">id</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Attaching this listener to given table can be done as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyRecord</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">Debugger</span><span class="p">()</span> <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="record-hooks">
+<h2>Record Hooks<a class="headerlink" href="#record-hooks" title="Permalink to this headline">¶</a></h2>
+<p>All of the below listeners are invoked in the <a href="#id59"><span class="problematic" id="id60">:php:class:`Doctrine_Record`</span></a> and
+<a href="#id61"><span class="problematic" id="id62">:php:class:`Doctrine_Validator`</span></a> classes. And they are all passed an instance of
+<a href="#id63"><span class="problematic" id="id64">:php:class:`Doctrine_Event`</span></a>.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="26%" />
+<col width="74%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preSave()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postSave()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preUpdate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">DIRTY</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postUpdate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">DIRTY</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preInsert()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">TDIRTY</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postInsert()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">save()</span></tt> <strong>when the record state is</strong> <tt class="docutils literal"><span class="pre">TDIRTY</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preDelete()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">delete()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postDelete()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">delete()</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preValidate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">validate()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">postValidate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">validate()</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>Here is a simple example where we make use of the <tt class="docutils literal"><span class="pre">preInsert()</span></tt> and
+<tt class="docutils literal"><span class="pre">preUpdate()</span></tt> methods:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">BlogPost</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span> <span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">200</span> <span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span> <span class="s1">&#39;content&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span> <span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span> <span class="s1">&#39;created&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span> <span class="s1">&#39;updated&#39;</span><span class="p">,</span> <span class="s1">&#39;date&#39;</span> <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preInsert</span><span class="p">(</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">created</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span> <span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">updated</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span> <span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">()</span> <span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="dql-hooks">
+<h2>DQL Hooks<a class="headerlink" href="#dql-hooks" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine allows you to attach record listeners globally, on each
+connection, or on specific record instances. <a href="#id65"><span class="problematic" id="id66">:php:class:`Doctrine_Query`</span></a>
+implements <tt class="docutils literal"><span class="pre">preDql*()</span></tt> hooks which are checked for on any attached
+record listeners and checked for on the model instance itself whenever a
+query is executed. The query will check all models involved in the
+<tt class="docutils literal"><span class="pre">from</span></tt> part of the query for any hooks which can alter the query that
+invoked the hook.</p>
+<p>Here is a list of the hooks you can use with DQL:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="53%" />
+<col width="47%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Methods</th>
+<th class="head">Listens</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preDqlSelect()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">from()</span></tt></td>
+</tr>
+<tr class="row-odd"><td><tt class="docutils literal"><span class="pre">preDqlUpdate()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">update()</span></tt></td>
+</tr>
+<tr class="row-even"><td><tt class="docutils literal"><span class="pre">preDqlDelete()</span></tt></td>
+<td><tt class="docutils literal"><span class="pre">delete()</span></tt></td>
+</tr>
+</tbody>
+</table>
+<p>Below is an example record listener attached directly to the model which
+will implement the <tt class="docutils literal"><span class="pre">SoftDelete</span></tt> functionality for the <tt class="docutils literal"><span class="pre">User</span></tt> model.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The SoftDelete functionality is included in Doctrine as a
+behavior. This code is used to demonstrate how to use the select,
+delete, and update DQL listeners to modify executed queries. You can
+use the SoftDelete behavior by specifying
+<tt class="docutils literal"><span class="pre">$this-&gt;actAs('SoftDelete')</span></tt> in your <tt class="docutils literal"><span class="pre">Doctrine_Record::setUp()</span></tt>
+definition.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">UserListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="sd">/**</span>
+<span class="sd">     * Skip the normal delete options so we can override it with our own</span>
+<span class="sd">     *</span>
+<span class="sd">     * @param Doctrine_Event $event</span>
+<span class="sd">     * @return void</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDelete</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">skipOperation</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * Implement postDelete() hook and set the deleted flag to true</span>
+<span class="sd">     *</span>
+<span class="sd">     * @param Doctrine_Event $event</span>
+<span class="sd">     * @return void</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">postDelete</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$name</span>                       <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">];</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="nv">$name</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * Implement preDqlDelete() hook and modify a dql delete query so it updates the deleted flag</span>
+<span class="sd">     * instead of deleting the record</span>
+<span class="sd">     *</span>
+<span class="sd">     * @param Doctrine_Event $event</span>
+<span class="sd">     * @return void</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlDelete</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$params</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getParams</span><span class="p">();</span>
+        <span class="nv">$field</span>  <span class="o">=</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39;.deleted&#39;</span><span class="p">;</span>
+        <span class="nv">$q</span>      <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getQuery</span><span class="p">();</span>
+
+        <span class="k">if</span> <span class="p">(</span> <span class="o">!</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span> <span class="nv">$field</span> <span class="p">)</span> <span class="p">)</span>
+        <span class="p">{</span>
+            <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">update</span><span class="p">(</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;component&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39; &#39;</span> <span class="o">.</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]</span> <span class="p">);</span>
+            <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">set</span><span class="p">(</span> <span class="nv">$field</span><span class="p">,</span> <span class="s1">&#39;?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">false</span><span class="p">)</span> <span class="p">);</span>
+            <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span> <span class="nv">$field</span> <span class="o">.</span> <span class="s1">&#39; = ?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">true</span><span class="p">)</span> <span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * Implement preDqlDelete() hook and add the deleted flag to all queries for which this model</span>
+<span class="sd">     * is being used in.</span>
+<span class="sd">     *</span>
+<span class="sd">     * @param Doctrine_Event $event</span>
+<span class="sd">     * @return void</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlSelect</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$params</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getParams</span><span class="p">();</span>
+        <span class="nv">$field</span>  <span class="o">=</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">]</span> <span class="o">.</span> <span class="s1">&#39;.deleted&#39;</span><span class="p">;</span>
+        <span class="nv">$q</span>      <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getQuery</span><span class="p">();</span>
+
+        <span class="k">if</span> <span class="p">(</span> <span class="o">!</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span> <span class="nv">$field</span> <span class="p">)</span> <span class="p">)</span>
+        <span class="p">{</span>
+            <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span> <span class="nv">$field</span> <span class="o">.</span> <span class="s1">&#39; = ?&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="k">false</span><span class="p">)</span> <span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>All of the above methods in the listener could optionally be placed in
+the user class below. Doctrine will check there for the hooks as well:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">User</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlSelect</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlUpdate</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlDelete</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In order for these dql callbacks to be checked, you must explicitly turn
+them on. Because this adds a small amount of overhead for each query, we
+have it off by default. We already enabled this attribute in an earlier
+chapter.</p>
+<p>Here it is again to refresh your memory:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// bootstrap.php</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$manager</span><span class="o">-&gt;</span><span class="na">setAttribute</span><span class="p">(</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">ATTR_USE_DQL_CALLBACKS</span><span class="p">,</span> <span class="k">true</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Now when you interact with the User model it will take in to account the
+deleted flag:</p>
+<p>Delete user through record instance:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$user</span>           <span class="o">=</span> <span class="k">new</span> <span class="nx">User</span><span class="p">();</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">=</span> <span class="s1">&#39;jwage&#39;</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">=</span> <span class="s1">&#39;changeme&#39;</span><span class="p">;</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">delete</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above call to <tt class="docutils literal"><span class="pre">$user-&gt;delete()</span></tt> does not actually
+delete the record instead it sets the deleted flag to true.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User u&#39;</span><span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getSqlQuery</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="nx">SELECT</span>
+<span class="nx">u</span><span class="o">.</span><span class="nx">id</span> <span class="k">AS</span> <span class="nx">u</span><span class="o">**</span><span class="nx">id</span><span class="p">,</span>
+<span class="nx">u</span><span class="o">.</span><span class="nx">username</span> <span class="k">AS</span> <span class="nx">u</span><span class="o">**</span><span class="nx">username</span><span class="p">,</span>
+<span class="nx">u</span><span class="o">.</span><span class="nx">password</span> <span class="k">AS</span> <span class="nx">u</span><span class="o">**</span><span class="nx">password</span><span class="p">,</span>
+<span class="nx">u</span><span class="o">.</span><span class="nx">deleted</span> <span class="k">AS</span> <span class="nx">u</span><span class="o">**</span><span class="nx">deleted</span>
+<span class="nx">FROM</span> <span class="nx">user</span> <span class="nx">u</span>
+<span class="nx">WHERE</span> <span class="nx">u</span><span class="o">.</span><span class="nx">deleted</span> <span class="o">=</span> <span class="o">?</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Notice how the <tt class="docutils literal"><span class="pre">&quot;u.deleted</span> <span class="pre">=</span> <span class="pre">?&quot;</span></tt> was automatically added
+to the where condition with a parameter value of <strong>true</strong>.</p>
+</div>
+</div>
+<div class="section" id="chaining-listeners">
+<h2>Chaining Listeners<a class="headerlink" href="#chaining-listeners" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine allows chaining of different event listeners. This means that
+more than one listener can be attached for listening the same events.
+The following example attaches two listeners for given connection:</p>
+<p>In this example <tt class="docutils literal"><span class="pre">Debugger</span></tt> and <tt class="docutils literal"><span class="pre">Logger</span></tt> both inherit
+<a href="#id67"><span class="problematic" id="id68">:php:class:`Doctrine_EventListener`</span></a>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">Debugger</span><span class="p">()</span> <span class="p">);</span>
+<span class="nv">$conn</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span> <span class="k">new</span> <span class="nx">Logger</span><span class="p">()</span> <span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="the-event-object">
+<h2>The Event object<a class="headerlink" href="#the-event-object" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="getting-the-invoker">
+<h3>Getting the Invoker<a class="headerlink" href="#getting-the-invoker" title="Permalink to this headline">¶</a></h3>
+<p>You can get the object that invoked the event by calling
+<tt class="docutils literal"><span class="pre">getInvoker()</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span> <span class="c1">// Doctrine_Connection</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="event-codes">
+<h3>Event Codes<a class="headerlink" href="#event-codes" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id69"><span class="problematic" id="id70">:php:class:`Doctrine_Event`</span></a> uses constants as event codes. Below is the list of
+all available event constants:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::CONN_QUERY</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::CONN_EXEC</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::CONN_PREPARE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::CONN_CONNECT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::STMT_EXECUTE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::STMT_FETCH</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::STMT_FETCHALL</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::TX_BEGIN</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::TX_COMMIT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::TX_ROLLBACK</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::SAVEPOINT_CREATE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::SAVEPOINT_ROLLBACK</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::SAVEPOINT_COMMIT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_DELETE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_SAVE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_UPDATE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_INSERT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_SERIALIZE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_UNSERIALIZE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_DQL_SELECT</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_DQL_DELETE</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">Doctrine_Event::RECORD_DQL_UPDATE</span></tt></li>
+</ul>
+<p>Here are some examples of hooks being used and the code that is
+returned:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getCode</span><span class="p">();</span> <span class="c1">// Doctrine_Event::CONN_EXEC</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">class</span> <span class="nc">MyRecord</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getCode</span><span class="p">();</span> <span class="c1">// Doctrine_Event::RECORD_UPDATE</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id71">
+<h3>Getting the Invoker<a class="headerlink" href="#id71" title="Permalink to this headline">¶</a></h3>
+<p>The method <tt class="docutils literal"><span class="pre">getInvoker()</span></tt> returns the object that invoked the given
+event. For example for event <tt class="docutils literal"><span class="pre">Doctrine_Event::CONN_QUERY</span></tt> the
+invoker is a <a href="#id72"><span class="problematic" id="id73">:php:class:`Doctrine_Connection`</span></a> object.</p>
+<p>Here is an example of using the record hook named <tt class="docutils literal"><span class="pre">preUpdate()</span></tt> that
+is invoked when a <a href="#id74"><span class="problematic" id="id75">:php:class:`Doctrine_Record`</span></a> instance is saved and an update
+is issued to the database:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyRecord</span> <span class="k">extends</span> <span class="nx">Doctrine_Record</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span> <span class="c1">// Object(MyRecord)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="skip-next-operation">
+<h3>Skip Next Operation<a class="headerlink" href="#skip-next-operation" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id76"><span class="problematic" id="id77">:php:class:`Doctrine_Event`</span></a> provides many methods for altering the execution of
+the listened method as well as for altering the behavior of the listener
+chain.</p>
+<p>For some reason you may want to skip the execution of the listened
+method. It can be done as follows (note that <tt class="docutils literal"><span class="pre">preExec()</span></tt> could be any
+listener method):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// some business logic, then:</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">skipOperation</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>When using a chain of listeners you might want to skip the execution of
+the next listener. It can be achieved as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">MyListener</span> <span class="k">extends</span> <span class="nx">Doctrine_EventListener</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">preExec</span><span class="p">(</span> <span class="nx">Doctrine_Event</span> <span class="nv">$event</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// some business logic, then:</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">skipNextListener</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Event listeners are a great feature in Doctrine and combined with <a class="reference internal" href="behaviors.html"><em>Behaviors</em></a> they can provide some very complex functionality with a
+minimal amount of code.</p>
+<p>Now we are ready to move on to discuss the best feature in Doctrine for
+improving performance, <a class="reference internal" href="caching.html"><em>Caching</em></a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Event Listeners</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#connection-listeners">Connection Listeners</a><ul>
+<li><a class="reference internal" href="#creating-a-new-listener">Creating a New Listener</a></li>
+<li><a class="reference internal" href="#attaching-listeners">Attaching listeners</a></li>
+<li><a class="reference internal" href="#pre-and-post-connect">Pre and Post Connect</a></li>
+<li><a class="reference internal" href="#transaction-listeners">Transaction Listeners</a></li>
+<li><a class="reference internal" href="#query-execution-listeners">Query Execution Listeners</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hydration-listeners">Hydration Listeners</a></li>
+<li><a class="reference internal" href="#record-listeners">Record Listeners</a></li>
+<li><a class="reference internal" href="#record-hooks">Record Hooks</a></li>
+<li><a class="reference internal" href="#dql-hooks">DQL Hooks</a></li>
+<li><a class="reference internal" href="#chaining-listeners">Chaining Listeners</a></li>
+<li><a class="reference internal" href="#the-event-object">The Event object</a><ul>
+<li><a class="reference internal" href="#getting-the-invoker">Getting the Invoker</a></li>
+<li><a class="reference internal" href="#event-codes">Event Codes</a></li>
+<li><a class="reference internal" href="#id71">Getting the Invoker</a></li>
+<li><a class="reference internal" href="#skip-next-operation">Skip Next Operation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="transactions.html"
+                        title="previous chapter">Transactions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="caching.html"
+                        title="next chapter">Caching</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/event-listeners.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="caching.html" title="Caching"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="transactions.html" title="Transactions"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

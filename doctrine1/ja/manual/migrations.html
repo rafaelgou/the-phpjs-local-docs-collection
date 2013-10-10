@@ -1,0 +1,502 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>マイグレーションを実行する &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="Extensions" href="extensions.html" />
+    <link rel="prev" title="はじめに" href="caching.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="extensions.html" title="Extensions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="caching.html" title="はじめに"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <p>Doctrineのマイグレーションパッケージのプログラミングインターフェイスを通して本番のデータベースを簡単に更新できます。データベースがバージョン管理されバージョンを通して差し戻しできるように変更が行われます。</p>
+<div class="section" id="id1">
+<h1>マイグレーションを実行する<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>マイグレーションクラスの作り方を学んだので次のセクションでDoctrinenのテスト環境でマイグレーションを実装できるようにマイグレーションの実行の仕方を見てみましょう。</p>
+<p>最初に``Doctrine_Migration``の新しいインスタンスを作りこれにマイグレーションクラスへのパスを渡しましょう:</p>
+<blockquote>
+<div>$migration = new Doctrine_Migration(&#8216;/path/to/migration_classes&#8217;,</div></blockquote>
+<p>$conn);</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id2"><span class="problematic" id="id3">``</span></a>Doctrine_Migration``コンストラクタの2番目の引数に注目してください。オプションの``Doctrine_Connection``インスタンスを渡すことができます。使うマイグレーションクラスの接続を渡さなければ、現在の接続が取り込まれます。</div></blockquote>
+<p><a href="#id4"><span class="problematic" id="id5">``</span></a>migrate()``メソッドを呼び出すことで最新バージョンに移行できます:</p>
+<blockquote>
+<div>$migration-&gt;migrate();</div></blockquote>
+<p>特定のバージョンにマイグレートするには``migrate()``に引数を渡します。例えばバージョン0から3にマイグレートできます:</p>
+<blockquote>
+<div>$migration-&gt;migrate(3);</div></blockquote>
+<p>バージョン3から0に戻すことができます:</p>
+<blockquote>
+<div>$migration-&gt;migrate(0);</div></blockquote>
+<p>データベースの現在のバージョンを取得するには``getCurrentVersion()``メソッドを使います:</p>
+<blockquote>
+<div><p>echo $migration-&gt;getCurrentVersion();</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p><a href="#id6"><span class="problematic" id="id7">``</span></a>migrate()``メソッドのバージョン番号の引数を省略するとDoctrineは内部でディレクトリで見つかるクラスの最新バージョン番号にマイグレートしようとします。</p>
+<p class="last"><strong>NOTE</strong> <strong>マイグレーションのトランザクション</strong>
+内部ではDoctrineはトランザクションのマイグレーションバージョンをラップしません。マイグレーションクラスで例外とトランザクションを処理するのは開発者しだいです。トランザクションDDLをサポートするデータベースはごくわずかであることを覚えておいてください。大抵のデータベースでは、トランザクションでマイグレーションをラップする場合でも、create、alter、drop、renameなどのステートメントは効果があります。</p>
+</div>
+</div></blockquote>
+</div>
+<div class="section" id="id8">
+<h1>実装<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h1>
+<p>マイグレーションの実施方法を理解したので``migrate.php``という名前でテスト環境のスクリプトを実装してみましょう。</p>
+<p>最初にマイグレーションクラスを保存する場所が必要なので``migrations``という名前のディレクトリを作りましょう:</p>
+<blockquote>
+<div>$ mkdir migrations</div></blockquote>
+<p><a href="#id9"><span class="problematic" id="id10">``</span></a>migrate.php``スクリプトを作り次のコードを記入します:</p>
+<blockquote>
+<div>// migrate.php</div></blockquote>
+<p>require_once(&#8216;bootstrap.php&#8217;);</p>
+<p>$migration = new Doctrine_Migration(&#8216;migrations&#8217;);
+$migration-&gt;migrate();</p>
+</div>
+<div class="section" id="id11">
+<h1>マイグレーションクラスを書く<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h1>
+<p>マイグレーションクラスは``Doctrine_Migration``を継承するシンプルなクラスで構成されます。<a href="#id12"><span class="problematic" id="id13">``</span></a>up()``と``down()``メソッドを定義します。これらのメソッドはそれぞれ指定されたマイグレーションバージョンでのデータベースの変更とその取り消しを意味します。</p>
+<blockquote>
+<div><strong>NOTE</strong>
+クラスの名前がなんであれ、正しい順序でマイグレーションをロードするために使われる数字が含まれる接頭辞をクラスが含まれるファイルの名前につけなければなりません。</div></blockquote>
+<p>バージョン1から始まるデータベースをビルドするために使うマイグレーションクラスの例です。</p>
+<p>最初のバージョンとして``migration_test``という名前の新しいテーブルを作りましょう:</p>
+<blockquote>
+<div>// migrations/1_add_table.php</div></blockquote>
+<p>class AddTable extends Doctrine_Migration_Base { public function up()
+{ $this-&gt;createTable(&#8216;migration_test&#8217;, array(&#8216;field1&#8217; =&gt; array(&#8216;type&#8217;
+=&gt; &#8216;string&#8217;))); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">down</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">dropTable</span><span class="p">(</span><span class="s1">&#39;migration_test&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>前のバージョンで追加したテーブルに新しいカラムを追加した2番目のバージョンを作りましょう:</p>
+<blockquote>
+<div>// migrations/2_add_column.php</div></blockquote>
+<p>class AddColumn extends Doctrine_Migration_Base { public function up()
+{ $this-&gt;addColumn(&#8216;migration_test&#8217;, &#8216;field2&#8217;, &#8216;string&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">down</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">removeColumn</span><span class="p">(</span><span class="s1">&#39;migration_test&#39;</span><span class="p">,</span> <span class="s1">&#39;field2&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>最後に、<a href="#id14"><span class="problematic" id="id15">``</span></a>field1``カラムの型を変更してみましょう:</p>
+<blockquote>
+<div>// migrations/3_change_column.php</div></blockquote>
+<p>class ChangeColumn extends Doctrine_Migration_Base { public function
+up() { $this-&gt;changeColumn(&#8216;migration_test&#8217;, &#8216;field2&#8217;, &#8216;integer&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">down</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">changeColumn</span><span class="p">(</span><span class="s1">&#39;migration_test&#39;</span><span class="p">,</span> <span class="s1">&#39;field2&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>3つのマイグレーションクラスを作成したので以前実装した``migrate.php``スクリプトを実行できます:</p>
+<blockquote>
+<div>$ php migrate.php</div></blockquote>
+<p>データベースを見ると``migrate_test``という名前のテーブルが存在し``migration_version``のバージョン番号が3に設定されることが確認できます。</p>
+<p>最初の状態に差し戻したい場合``migrate.php``スクリプトで``migrate()``メソッドにバージョン番号を渡します:</p>
+<blockquote>
+<div>// migrate.php</div></blockquote>
+<p>// ... $migration = new Doctrine_Migration(&#8216;migrations&#8217;);
+$migration-&gt;migrate(0);</p>
+<p>そして``migrate.php``スクリプトを実行します:</p>
+<blockquote>
+<div>$ php migrate.php</div></blockquote>
+<p>データベースを見ると、<a href="#id16"><span class="problematic" id="id17">``</span></a>up()``メソッドで行ったすべての内容が``down()``メソッドの内容によって差し戻されます。</p>
+<div class="section" id="id18">
+<h2>利用可能なオペレーション<a class="headerlink" href="#id18" title="Permalink to this headline">¶</a></h2>
+<p>マイグレーションクラスでデータベースを変えるために利用できるメソッドの一覧は次の通りです。</p>
+<div class="section" id="id19">
+<h3>テーブルを作成する<a class="headerlink" href="#id19" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $columns = array( &#8216;id&#8217; =&gt; array( &#8216;type&#8217;</div></blockquote>
+<p>=&gt; &#8216;integer&#8217;, &#8216;unsigned&#8217; =&gt; 1, &#8216;notnull&#8217; =&gt; 1, &#8216;default&#8217; =&gt; 0 ), &#8216;name&#8217;
+=&gt; array( &#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt; 12 ), &#8216;password&#8217; =&gt; array(
+&#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt; 12 ) );</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;type&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;INNODB&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;charset&#39;</span>  <span class="o">=&gt;</span> <span class="s1">&#39;utf8&#39;</span>
+    <span class="p">);</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">createTable</span><span class="p">(</span><span class="s1">&#39;table_name&#39;</span><span class="p">,</span> <span class="nv">$columns</span><span class="p">,</span> <span class="nv">$options</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>// ...</p>
+<blockquote>
+<div><strong>NOTE</strong>
+スキーマを操作するために使われるデータ構造とデータベース抽象化レイヤーで使われるデータ構造が同じであることにお気づきかもしれません。これはマイグレーションクラスで指定されているオペレーションを実行するために内部でマイグレーションパッケージがデータベース抽象化レイヤーを使用しているからです。</div></blockquote>
+</div>
+<div class="section" id="id20">
+<h3>テーブルを削除する<a class="headerlink" href="#id20" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function down() { $this-&gt;dropTable(&#8216;table_name&#8217;); } //</div></blockquote>
+<p>...</p>
+</div>
+<div class="section" id="id21">
+<h3>テーブルをリネームする<a class="headerlink" href="#id21" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $this-&gt;renameTable(&#8216;old_table_name&#8217;,</div></blockquote>
+<p>&#8216;new_table_name&#8217;); } // ...</p>
+</div>
+<div class="section" id="id22">
+<h3>制約を作成する<a class="headerlink" href="#id22" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $definition = array( &#8216;fields&#8217; =&gt; array(</div></blockquote>
+<p>&#8216;username&#8217; =&gt; array() ), &#8216;unique&#8217; =&gt; true );</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">createConstraint</span><span class="p">(</span><span class="s1">&#39;table_name&#39;</span><span class="p">,</span> <span class="s1">&#39;constraint_name&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>// ...</p>
+</div>
+<div class="section" id="id23">
+<h3>制約を削除する<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h3>
+<p><strong>Now the opposite ``down()`` would look like the following:</strong></p>
+<blockquote>
+<div>// ... public function down() { $this-&gt;dropConstraint(&#8216;table_name&#8217;,</div></blockquote>
+<p>&#8216;constraint_name&#8217;); } // ...</p>
+</div>
+<div class="section" id="id24">
+<h3>外部キーを削除する<a class="headerlink" href="#id24" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $definition = array( &#8216;local&#8217; =&gt;</div></blockquote>
+<p>&#8216;email_id&#8217;, &#8216;foreign&#8217; =&gt; &#8216;id&#8217;, &#8216;foreignTable&#8217; =&gt; &#8216;email&#8217;, &#8216;onDelete&#8217; =&gt;
+&#8216;CASCADE&#8217; );</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">createForeignKey</span><span class="p">(</span><span class="s1">&#39;table_name&#39;</span><span class="p">,</span> <span class="s1">&#39;email_foreign_key&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>// ...</p>
+<p><a href="#id25"><span class="problematic" id="id26">``</span></a>$definition``用の有効なオプションは次の通りです:</p>
+<p>||~ 名前 ||~ 説明 || || <tt class="docutils literal"><span class="pre">name</span></tt> || オプションの制約名 ||
+|| <tt class="docutils literal"><span class="pre">local</span></tt> || ローカルフィールド || || <tt class="docutils literal"><span class="pre">foreign</span></tt> ||
+外部参照フィールド || || <tt class="docutils literal"><span class="pre">foreignTable</span></tt> || 外部テーブルの名前
+|| || <tt class="docutils literal"><span class="pre">onDelete</span></tt> || 参照の削除アクション || || <tt class="docutils literal"><span class="pre">onUpdate</span></tt>
+|| 参照の更新アクション || || <tt class="docutils literal"><span class="pre">deferred</span></tt> ||
+延期された制約チェック ||</p>
+</div>
+<div class="section" id="id27">
+<h3>外部キーを削除する<a class="headerlink" href="#id27" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function down() { $this-&gt;dropForeignKey(&#8216;table_name&#8217;,</div></blockquote>
+<p>&#8216;email_foreign_key&#8217;); } // ...</p>
+</div>
+<div class="section" id="id28">
+<h3>カラムを追加する<a class="headerlink" href="#id28" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $this-&gt;addColumn(&#8216;table_name&#8217;,</div></blockquote>
+<p>&#8216;column_name&#8217;, &#8216;string&#8217;, $length, $options); } // ...</p>
+</div>
+<div class="section" id="id29">
+<h3>カラムをリネームする<a class="headerlink" href="#id29" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+sqliteのような一部のDBMSはカラムのリネームオペレーションを実装していません。sqlite接続を使用している場合カラムをリネームしようとすると例外が投げられます。</div></blockquote>
+<p>// ... public function up() { $this-&gt;renameColumn(&#8216;table_name&#8217;,</p>
+</div></blockquote>
+<p>&#8216;old_column_name&#8217;, &#8216;new_column_name&#8217;); } // ...</p>
+</div>
+<div class="section" id="id30">
+<h3>カラムを変更する<a class="headerlink" href="#id30" title="Permalink to this headline">¶</a></h3>
+<p><strong>既存のカラムのアスペクトを変更する:</strong></p>
+<blockquote>
+<div>// ... public function up() { $options = array(&#8216;length&#8217; =&gt; 1);</div></blockquote>
+<p>$this-&gt;changeColumn(&#8216;table_name&#8217;, &#8216;column_name&#8217;, &#8216;tinyint&#8217;, $options);
+} // ...</p>
+</div>
+<div class="section" id="id31">
+<h3>カラムを削除する<a class="headerlink" href="#id31" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $this-&gt;removeColumn(&#8216;table_name&#8217;,</div></blockquote>
+<p>&#8216;column_name&#8217;); } // ...</p>
+</div>
+<div class="section" id="id32">
+<h3>不可逆なマイグレーション<a class="headerlink" href="#id32" title="Permalink to this headline">¶</a></h3>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<blockquote>
+<div>リバースできない``up()``メソッドでオペレーションを実行することがあります。例えばテーブルからカラムを削除する場合です。この場合新しい``Doctrine_Migration_IrreversibleMigrationException``例外を投げる必要があります。</div></blockquote>
+<p class="last">// ... public function down() { throw new</p>
+</div>
+<p>Doctrine_Migration_IrreversibleMigrationException( &#8216;The remove column
+operation cannot be undone!&#8217; ); } // ...</p>
+</div>
+<div class="section" id="id33">
+<h3>インデックスを追加する<a class="headerlink" href="#id33" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function up() { $options = array(&#8216;fields&#8217; =&gt; array(</div></blockquote>
+<p>&#8216;username&#8217; =&gt; array( &#8216;sorting&#8217; =&gt; &#8216;ascending&#8217; ), &#8216;last_login&#8217; =&gt;
+array()));</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addIndex</span><span class="p">(</span><span class="s1">&#39;table_name&#39;</span><span class="p">,</span> <span class="s1">&#39;index_name&#39;</span><span class="p">,</span> <span class="nv">$options</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>// ...</p>
+</div>
+<div class="section" id="id34">
+<h3>インデックスを削除する<a class="headerlink" href="#id34" title="Permalink to this headline">¶</a></h3>
+<blockquote>
+<div>// ... public function down() { $this-&gt;removeIndex(&#8216;table_name&#8217;,</div></blockquote>
+<p>&#8216;index_name&#8217;); } // ...</p>
+</div>
+</div>
+<div class="section" id="id35">
+<h2>プレフックとポストフック<a class="headerlink" href="#id35" title="Permalink to this headline">¶</a></h2>
+<p>モデルでデータベースのデータを変えることが必要な場合があります。テーブルを作成もしくは変更するので``up()``もしくは``down()``メソッドが処理された後でデータを変更しなければなりません。<tt class="docutils literal"><span class="pre">preUp()</span></tt>、<tt class="docutils literal"><span class="pre">postUp()</span></tt>、<tt class="docutils literal"><span class="pre">preDown()</span></tt>、と``postDown()``という名前でフックを用意します。定義すればこれらのメソッドは実行されます:</p>
+<blockquote>
+<div>// migrations/1_add_table.php</div></blockquote>
+<p>class AddTable extends Doctrine_Migration_Base { public function up()
+{ $this-&gt;createTable(&#8216;migration_test&#8217;, array(&#8216;field1&#8217; =&gt; array(&#8216;type&#8217;
+=&gt; &#8216;string&#8217;))); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">postUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$migrationTest</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MigrationTest</span><span class="p">();</span>
+    <span class="nv">$migrationTest</span><span class="o">-&gt;</span><span class="na">field1</span> <span class="o">=</span> <span class="s1">&#39;Initial record created by migrations&#39;</span><span class="p">;</span>
+    <span class="nv">$migrationTest</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">down</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">dropTable</span><span class="p">(</span><span class="s1">&#39;migration_test&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+上記の例は``MigrationTest``モデルを作成し利用可能にしたことを前提とします。<a href="#id36"><span class="problematic" id="id37">``</span></a>up()``メソッドが実行されると``migration_test``テーブルが作成されるので``MigrationTest``モデルが使われます。このモデルの定義は下記の通りです。</div></blockquote>
+<p>// models/MigrationTest.php</p>
+</div></blockquote>
+<p>class MigrationTest extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;field1&#8217;, &#8216;string&#8217;); } }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を学びます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>MigrationTest: columns: field1: string</p>
+</div>
+<div class="section" id="up-down">
+<h2>Up/Downの自動化<a class="headerlink" href="#up-down" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineのマイグレーション機能では大抵の場合マイグレーションメソッドの反対側を自動化することが可能です。例えばマイグレーションのupで新しいカラムを作成する場合、downを簡単に自動化するのは可能で必要なのは作成されたカラムを削除することです。これは``up``と``down``の両方に対して``migrate()``メソッドを使用して実現可能です。</p>
+<p><tt class="docutils literal"><span class="pre">migrate()``メソッドは$directionの引数を受け取り``up``もしくは``down``の値を持つようになります。この値は``column</span></tt>、<tt class="docutils literal"><span class="pre">table</span></tt>、のようなメソッドの最初の引数に渡されます。</p>
+<p>カラムの追加と削除を自動化する例は次の通りです。</p>
+<blockquote>
+<div>class MigrationTest extends Doctrine_Migration_Base { public function</div></blockquote>
+<p>migrate($direction) { <tt class="code docutils literal"><span class="pre">this-&gt;column(</span></tt>direction, &#8216;table_name&#8217;,
+&#8216;column_name&#8217;, &#8216;string&#8217;, &#8216;255&#8217;); } }</p>
+<p>上記のマイグレーションでupを実行するときカラムが追加され、downが実行されるときカラムが削除されます。</p>
+<p>自動化できるマイグレーションメソッドのリストは次の通りです:</p>
+<p>||~ 自動メソッド名 ||~ 自動化 || || <tt class="docutils literal"><span class="pre">table()</span></tt> ||
+createTable()/dropTable() || || <tt class="docutils literal"><span class="pre">constraint()</span></tt> ||
+createConstraint()/dropConstraint() || || <tt class="docutils literal"><span class="pre">foreignKey()</span></tt> ||
+createForeignKey()/dropForeignKey() || || <tt class="docutils literal"><span class="pre">column()</span></tt> ||
+addColumn()/removeColumn() || || <tt class="docutils literal"><span class="pre">index()</span></tt> ||
+addInex()/removeIndex() ||</p>
+</div>
+<div class="section" id="id38">
+<h2>マイグレーションを生成する<a class="headerlink" href="#id38" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineはいくつかの異なる方法でマイグレーションクラスを生成する機能を提供します。既存のデータベースを再現するマイグレーションのセットを生成する、もしくは既存のモデルのセット用にデータベースを作成するマイグレーションクラスを生成します。2つのスキーマ情報の2つのセットの間の違いからマイグレーションを生成することもできます。</p>
+<div class="section" id="id39">
+<h3>データベースから<a class="headerlink" href="#id39" title="Permalink to this headline">¶</a></h3>
+<p>既存のデータベース接続からマイグレーションのセットを生成するには、<a href="#id40"><span class="problematic" id="id41">``</span></a>Doctrine_Core::generateMigrationsFromDb()``を使います。</p>
+<blockquote>
+<div>Doctrine_Core::generateMigrationsFromDb(&#8216;/path/to/migration/classes&#8217;);</div></blockquote>
+</div>
+<div class="section" id="id42">
+<h3>既存のモデルから<a class="headerlink" href="#id42" title="Permalink to this headline">¶</a></h3>
+<p>既存のモデルのセットからマイグレーションのセットを生成するには、<a href="#id43"><span class="problematic" id="id44">``</span></a>Doctrine_Core::generateMigrationsFromModels()``を使うだけです。</p>
+<p>Doctrine_Core::generateMigrationsFromModels(&#8216;/path/to/migration/classes&#8217;,
+&#8216;/path/to/models&#8217;);</p>
+</div>
+<div class="section" id="id45">
+<h3>差分ツール<a class="headerlink" href="#id45" title="Permalink to this headline">¶</a></h3>
+<p>ときにはモデルを変更して変更に対するマイグレーション処理を自動化できるようにしたいことがあります。以前は変更に対してマイグレーションクラスを書かなければなりませんでした。しかし差分ツールによって変更を行い変更用のマイグレーションクラスを生成できます。</p>
+<p>差分ツールはシンプルで使いやすいです。これは&#8221;from&#8221;と&#8221;to&#8221;を受け取り、これらは次のうちのどれかになります:</p>
+<ul class="simple">
+<li>YAMLスキーマファイルへのパス</li>
+<li>既存のデータベース接続の名前</li>
+<li>モデルの既存のセットへのパス</li>
+</ul>
+<p>2つのYAMLスキーマファイルを作るシンプルな例を考えます。1つは``schema1.yml``でもう1つは``schema2.yml``という名前です。</p>
+<p><a href="#id46"><span class="problematic" id="id47">``</span></a>schema1.yml``はシンプルな``User``モデルを含みます:</p>
+<blockquote>
+<div># schema1.yml</div></blockquote>
+<p>User: columns: username: string(255) password: string(255)</p>
+<p>スキーマを修正して``email_address``カラムを追加する場合を考えてみましょう:</p>
+<blockquote>
+<div># schema1.yml</div></blockquote>
+<p>User: columns: username: string(255) password: string(255)
+email_address: string(255)</p>
+<p>これでデータベースに新しいカラムを追加できるマイグレーションクラスを簡単に作ることができます:</p>
+<p>Doctrine_Core::generateMigrationsFromDiff(&#8216;/path/to/migration/classes&#8217;,
+&#8216;/path/to/schema1.yml&#8217;, &#8216;/path/to/schema2.yml&#8217;);</p>
+<p>これによって``/path/to/migration/classes/1236199329_version1.php``のパスでファイルが生み出されます。</p>
+<blockquote>
+<div>class Version1 extends Doctrine_Migration_Base { public function up()</div></blockquote>
+<p>{ $this-&gt;addColumn(&#8216;user&#8217;, &#8216;email_address&#8217;, &#8216;string&#8217;, &#8216;255&#8217;, array ());
+}</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">down</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">removeColumn</span><span class="p">(</span><span class="s1">&#39;user&#39;</span><span class="p">,</span> <span class="s1">&#39;email_address&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>データベースを簡単にマイグレートして新しいカラムを追加できます！</p>
+</div>
+</div>
+</div>
+<div class="section" id="id48">
+<h1>まとめ<a class="headerlink" href="#id48" title="Permalink to this headline">¶</a></h1>
+<p>安全かつ簡単にスキーマを変更できるので本番のデータベーススキーマを変更するためにマイグレーション機能は大いに推奨されます。</p>
+<p>マイグレーションはこの本で検討する最後の機能です。最後の章では日常業務で手助けになる他のトピックを検討します。最初に他の[doc
+utilities :name]を検討しましょう。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">マイグレーションを実行する</a></li>
+<li><a class="reference internal" href="#id8">実装</a></li>
+<li><a class="reference internal" href="#id11">マイグレーションクラスを書く</a><ul>
+<li><a class="reference internal" href="#id18">利用可能なオペレーション</a><ul>
+<li><a class="reference internal" href="#id19">テーブルを作成する</a></li>
+<li><a class="reference internal" href="#id20">テーブルを削除する</a></li>
+<li><a class="reference internal" href="#id21">テーブルをリネームする</a></li>
+<li><a class="reference internal" href="#id22">制約を作成する</a></li>
+<li><a class="reference internal" href="#id23">制約を削除する</a></li>
+<li><a class="reference internal" href="#id24">外部キーを削除する</a></li>
+<li><a class="reference internal" href="#id27">外部キーを削除する</a></li>
+<li><a class="reference internal" href="#id28">カラムを追加する</a></li>
+<li><a class="reference internal" href="#id29">カラムをリネームする</a></li>
+<li><a class="reference internal" href="#id30">カラムを変更する</a></li>
+<li><a class="reference internal" href="#id31">カラムを削除する</a></li>
+<li><a class="reference internal" href="#id32">不可逆なマイグレーション</a></li>
+<li><a class="reference internal" href="#id33">インデックスを追加する</a></li>
+<li><a class="reference internal" href="#id34">インデックスを削除する</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id35">プレフックとポストフック</a></li>
+<li><a class="reference internal" href="#up-down">Up/Downの自動化</a></li>
+<li><a class="reference internal" href="#id38">マイグレーションを生成する</a><ul>
+<li><a class="reference internal" href="#id39">データベースから</a></li>
+<li><a class="reference internal" href="#id42">既存のモデルから</a></li>
+<li><a class="reference internal" href="#id45">差分ツール</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id48">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="caching.html"
+                        title="previous chapter">はじめに</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="extensions.html"
+                        title="next chapter">Extensions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/migrations.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="extensions.html" title="Extensions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="caching.html" title="はじめに"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

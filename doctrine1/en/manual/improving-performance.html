@@ -1,0 +1,432 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Improving Performance &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine 1.2 ORM Manual" href="index.html" />
+    <link rel="next" title="Technology" href="technology.html" />
+    <link rel="prev" title="Unit Testing" href="unit-testing.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="technology.html" title="Technology"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="unit-testing.html" title="Unit Testing"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="improving-performance">
+<h1>Improving Performance<a class="headerlink" href="#improving-performance" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Performance is a very important aspect of all medium to large sized
+applications. Doctrine is a large abstraction library that provides a database
+abstraction layer as well as object-relational mapping. While this provides a
+lot of benefits like portability and ease of development it&#8217;s inevitable that
+this leads to drawbacks in terms of performance.  This chapter tries to help
+you to get the best performance out of Doctrine.</p>
+</div>
+<div class="section" id="compile">
+<span id="improving-performance-compile"></span><h2>Compile<a class="headerlink" href="#compile" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine is quite big framework and usually dozens of files are being included
+on each request. This brings a lot of overhead. In fact these file operations
+are as time consuming as sending multiple queries to database server. The clean
+separation of class per file works well in developing environment, however when
+project goes commercial distribution the speed overcomes the clean separation
+of class per file convention.</p>
+<p>Doctrine offers method called <a href="#id1"><span class="problematic" id="id2">:php:meth:`compile`</span></a> to solve this issue. The
+compile method makes a single file of most used Doctrine components which can
+then be included on top of your script. By default the file is created into
+Doctrine root by the name <tt class="file docutils literal"><span class="pre">Doctrine.compiled.php</span></tt>.</p>
+<p>Compiling is a method for making a single file of most used doctrine runtime
+components including the compiled file instead of multiple files (in worst
+cases dozens of files) can improve performance by an order of magnitude. In
+cases where this might fail, a <a href="#id3"><span class="problematic" id="id4">:php:class:`Doctrine_Exception`</span></a> is throw detailing the
+error.</p>
+<p>Lets create a compile script named <tt class="file docutils literal"><span class="pre">compile.php</span></tt> to handle the
+compiling of DoctrineL:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// compile.php</span>
+
+<span class="k">require_once</span><span class="p">(</span> <span class="s1">&#39;/path/to/doctrine/lib/Doctrine.php&#39;</span> <span class="p">);</span>
+<span class="nb">spl_autoload_register</span><span class="p">(</span> <span class="k">array</span><span class="p">(</span> <span class="s1">&#39;Doctrine&#39;</span><span class="p">,</span> <span class="s1">&#39;autoload&#39;</span> <span class="p">)</span> <span class="p">);</span>
+
+<span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">compile</span><span class="p">(</span> <span class="s1">&#39;Doctrine.compiled.php&#39;</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Now we can execute <tt class="file docutils literal"><span class="pre">compile.php</span></tt> and a file named
+<tt class="file docutils literal"><span class="pre">Doctrine.compiled.php</span></tt> will be generated in the root of your
+<tt class="docutils literal"><span class="pre">doctrine_test</span></tt> folder:</p>
+<div class="highlight-sh"><div class="highlight"><pre><span class="nv">$ </span>php compile.php
+</pre></div>
+</div>
+<p>If you wish to only compile in the database drivers you are using you
+can pass an array of drivers as the second argument to <a href="#id5"><span class="problematic" id="id6">:php:meth:`compile`</span></a>.
+For this example we are only using MySQL so lets tell Doctrine to only
+compile the <tt class="docutils literal"><span class="pre">mysql</span></tt> driver:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// compile.php</span>
+
+<span class="c1">// ...</span>
+<span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">compile</span><span class="p">(</span> <span class="s1">&#39;Doctrine.compiled.php&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span> <span class="s1">&#39;mysql&#39;</span> <span class="p">)</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Now you can change your <tt class="file docutils literal"><span class="pre">bootstrap.php</span></tt> script to include the compiled
+Doctrine:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// bootstrap.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">require_once</span><span class="p">(</span> <span class="s1">&#39;Doctrine.compiled.php&#39;</span> <span class="p">);</span>
+<span class="c1">// ...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="conservative-fetching">
+<h2>Conservative Fetching<a class="headerlink" href="#conservative-fetching" title="Permalink to this headline">¶</a></h2>
+<p>Maybe the most important rule is to be conservative and only fetch the data you
+actually need. This may sound trivial but laziness or lack of knowledge about
+the possibilities that are available often lead to a lot of unnecessary
+overhead.</p>
+<p>Take a look at this example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$record</span> <span class="o">=</span> <span class="nv">$table</span><span class="o">-&gt;</span><span class="na">find</span><span class="p">(</span> <span class="nv">$id</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>How often do you find yourself writing code like that? It&#8217;s convenient but it&#8217;s
+very often not what you need. The example above will pull all columns of the
+record out of the database and populate the newly created object with that
+data. This not only means unnecessary network traffic but also means that
+Doctrine has to populate data into objects that is never used.</p>
+<p>I&#8217;m sure you all know why a query like the following is not ideal:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span>
+<span class="o">*</span>
+<span class="k">FROM</span> <span class="n">my_table</span>
+</pre></div>
+</div>
+<p>The above is bad in any application and this is also true when using Doctrine.
+In fact it&#8217;s even worse when using Doctrine because populating objects with
+data that is not needed is a waste of time.</p>
+<p>Another important rule that belongs in this category is: <strong>Only fetch objects
+when you really need them</strong>. Doctrine has the ability to fetch &#8220;array graphs&#8221;
+instead of object graphs. At first glance this may sound strange because why
+use an object-relational mapper in the first place then? Take a second to think
+about it. PHP is by nature a precedural language that has been enhanced with a
+lot of features for decent OOP.  Arrays are still the most efficient data
+structures you can use in PHP.  Objects have the most value when they&#8217;re used
+to accomplish complex business logic. It&#8217;s a waste of resources when data gets
+wrapped in costly object structures when you have no benefit of that. Take a
+look at the following code that fetches all comments with some related data for
+an article, passing them to the view for display afterwards:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span> <span class="s1">&#39;b.title, b.author, b.created_at&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addSelect</span><span class="p">(</span> <span class="s1">&#39;COUNT(t.id) as num_comments&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span> <span class="s1">&#39;BlogPost b&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span> <span class="s1">&#39;b.Comments c&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">where</span><span class="p">(</span> <span class="s1">&#39;b.id = ?&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">orderBy</span><span class="p">(</span> <span class="s1">&#39;b.created_at DESC&#39;</span> <span class="p">);</span>
+
+<span class="nv">$blogPosts</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">(</span> <span class="k">array</span><span class="p">(</span> <span class="mi">1</span> <span class="p">)</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>Now imagine you have a view or template that renders the most recent
+blog posts:</p>
+<div class="highlight-html+php"><div class="highlight"><pre><span class="cp">&lt;?php</span> <span class="k">foreach</span> <span class="p">(</span> <span class="nv">$blogPosts</span> <span class="k">as</span> <span class="nv">$blogPost</span> <span class="p">)</span><span class="o">:</span> <span class="cp">?&gt;</span>
+    <span class="nt">&lt;li&gt;</span>
+        <span class="nt">&lt;strong&gt;</span>
+            <span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$blogPost</span><span class="p">[</span><span class="s1">&#39;title&#39;</span><span class="p">]</span> <span class="cp">?&gt;</span>
+        <span class="nt">&lt;/strong&gt;</span>
+
+        - Posted on <span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$blogPost</span><span class="p">[</span><span class="s1">&#39;created_at&#39;</span><span class="p">]</span> <span class="cp">?&gt;</span>
+        by <span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$blogPost</span><span class="p">[</span><span class="s1">&#39;author&#39;</span><span class="p">]</span> <span class="cp">?&gt;</span>.
+
+        <span class="nt">&lt;small&gt;</span>
+            (<span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$blogPost</span><span class="p">[</span><span class="s1">&#39;num_comments&#39;</span><span class="p">]</span> <span class="cp">?&gt;</span>)
+        <span class="nt">&lt;/small&gt;</span>
+    <span class="nt">&lt;/li&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">endforeach</span><span class="p">;</span> <span class="cp">?&gt;</span>
+</pre></div>
+</div>
+<p>Can you think of any benefit of having objects in the view instead of
+arrays? You&#8217;re not going to execute business logic in the view, are you?
+One parameter can save you a lot of unnecessary processing:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$blogPosts</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">(</span> <span class="k">array</span><span class="p">(</span> <span class="mi">1</span> <span class="p">),</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">HYDRATE_ARRAY</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>If you prefer you can also use the <a href="#id7"><span class="problematic" id="id8">:php:meth:`setHydrationMethod`</span></a> method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$q</span><span class="o">-&gt;</span><span class="na">setHydrationMode</span><span class="p">(</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">HYDRATE_ARRAY</span> <span class="p">);</span>
+<span class="nv">$blogPosts</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">(</span> <span class="k">array</span><span class="p">(</span> <span class="mi">1</span> <span class="p">)</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>The above code will hydrate the data into arrays instead of objects
+which is much less expensive.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">One great thing about array hydration is that if you use the
+<a href="#id9"><span class="problematic" id="id10">:php:class:`ArrayAccess`</span></a> on your objects you can easily switch your queries to use
+array hydration and your code will work exactly the same. For example the
+above code we wrote to render the list of the most recent blog posts would
+work when we switch the query behind it to array hydration.</p>
+</div>
+<p>Sometimes, you may want the direct output from PDO instead of an object or an
+array. To do this, set the hydration mode to
+<a href="#id11"><span class="problematic" id="id12">:php:const:`Doctrine_Core::HYDRATE_NONE`</span></a>. Here&#8217;s an example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span> <span class="s1">&#39;SUM(d.amount)&#39;</span> <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span> <span class="s1">&#39;Donation d&#39;</span> <span class="p">);</span>
+
+<span class="nv">$results</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">execute</span><span class="p">(</span> <span class="k">array</span><span class="p">(),</span> <span class="nx">Doctrine_Core</span><span class="o">::</span><span class="na">HYDRATE_NONE</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>You will need to print the results and find the value in the array
+depending on your DQL query:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nb">print_r</span><span class="p">(</span> <span class="nv">$results</span> <span class="p">);</span>
+</pre></div>
+</div>
+<p>In this example the result would be accessible with the following code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$total</span> <span class="o">=</span> <span class="nv">$results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">];</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">There are two important differences between <tt class="docutils literal"><span class="pre">HYDRATE_ARRAY</span></tt> and
+<tt class="docutils literal"><span class="pre">HYDRATE_NONE</span></tt> which you should consider before choosing which to use.
+<tt class="docutils literal"><span class="pre">HYDRATE_NONE</span></tt> is the fastest but the result is an array with numeric
+keys and so results would be referenced as <tt class="docutils literal"><span class="pre">$result[0][0]</span></tt> instead of
+<tt class="docutils literal"><span class="pre">$result[0]['my_field']</span></tt> with <tt class="docutils literal"><span class="pre">HYDRATE_ARRAY</span></tt>. Best practice would to
+use <tt class="docutils literal"><span class="pre">HYDRATE_NONE</span></tt> when retrieving large record sets or when doing many
+similar queries. Otherwise, <tt class="docutils literal"><span class="pre">HYDRATE_ARRAY</span></tt> is more comfortable and
+should be preferred.</p>
+</div>
+</div>
+<div class="section" id="bundle-your-class-files">
+<h2>Bundle your Class Files<a class="headerlink" href="#bundle-your-class-files" title="Permalink to this headline">¶</a></h2>
+<p>When using Doctrine or any other large OO library or framework the number of
+files that need to be included on a regular HTTP request rises significantly.
+50-100 includes per request are not uncommon. This has a significant
+performance impact because it results in a lot of disk operations. While this
+is generally no issue in a dev environment, it&#8217;s not suited for production. The
+recommended way to handle this problem is to bundle the most-used classes of
+your libraries into a single file for production, stripping out any unnecessary
+whitespaces, linebreaks and comments. This way you get a significant
+performance improvement even without a bytecode cache (see next section). The
+best way to create such a bundle is probably as part of an automated build
+process i.e. with Phing.</p>
+</div>
+<div class="section" id="use-a-bytecode-cache">
+<h2>Use a Bytecode Cache<a class="headerlink" href="#use-a-bytecode-cache" title="Permalink to this headline">¶</a></h2>
+<p>A bytecode cache like APC will cache the bytecode that is generated by php
+prior to executing it. That means that the parsing of a file and the creation
+of the bytecode happens only once and not on every request.  This is especially
+useful when using large libraries and/or frameworks.  Together with file
+bundling for production this should give you a significant performance
+improvement. To get the most out of a bytecode cache you should contact the
+manual pages since most of these caches have a lot of configuration options
+which you can tweak to optimize the cache to your needs.</p>
+</div>
+<div class="section" id="free-objects">
+<h2>Free Objects<a class="headerlink" href="#free-objects" title="Permalink to this headline">¶</a></h2>
+<p>As of version 5.2.5, PHP is not able to garbage collect object graphs that have
+circular references, e.g. Parent has a reference to Child which has a reference
+to Parent. Since many doctrine model objects have such relations, PHP will not
+free their memory even when the objects go out of scope.</p>
+<p>For most PHP applications, this problem is of little consequence, since PHP
+scripts tend to be short-lived. Longer-lived scripts, e.g. bulk data importers
+and exporters, can run out of memory unless you manually break the circular
+reference chains. Doctrine provides a <a href="#id13"><span class="problematic" id="id14">:php:meth:`free`</span></a> function on
+<a href="#id15"><span class="problematic" id="id16">:php:class:`Doctrine_Record`</span></a>, <a href="#id17"><span class="problematic" id="id18">:php:class:`Doctrine_Collection`</span></a>, and
+<a href="#id19"><span class="problematic" id="id20">:php:class:`Doctrine_Query`</span></a> which eliminates the circular references on those
+objects, freeing them up for garbage collection. Usage might look like:</p>
+<p>Free objects when mass inserting records:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">for</span> <span class="p">(</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nv">$i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="nv">$i</span><span class="o">++</span> <span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$object</span> <span class="o">=</span> <span class="nx">createBigObject</span><span class="p">();</span>
+    <span class="nv">$object</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+    <span class="nv">$object</span><span class="o">-&gt;</span><span class="na">free</span><span class="p">(</span> <span class="k">true</span> <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>You can also free query objects in the same way:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">for</span> <span class="p">(</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nv">$i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="nv">$i</span><span class="o">++</span> <span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span> <span class="s1">&#39;User u&#39;</span> <span class="p">);</span>
+
+    <span class="nv">$results</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">fetchArray</span><span class="p">();</span>
+    <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">free</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Or even better if you can reuse the same query object for each query in
+the loop that would be ideal:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$q</span> <span class="o">=</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User u&#39;</span><span class="p">);</span>
+
+<span class="k">for</span> <span class="p">(</span> <span class="nv">$i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="nv">$i</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="nv">$i</span><span class="o">++</span> <span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$results</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">fetchArray</span><span class="p">();</span>
+    <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">free</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="other-tips">
+<h2>Other Tips<a class="headerlink" href="#other-tips" title="Permalink to this headline">¶</a></h2>
+<ul>
+<li><p class="first">Helping the DQL parser</p>
+<blockquote>
+<div><p>There are two possible ways when it comes to using DQL. The first one is
+writing the plain DQL queries and passing them to
+<tt class="docutils literal"><span class="pre">Doctrine_Connection::query(</span> <span class="pre">$dql</span> <span class="pre">)</span></tt>. The second one is to use a
+<a href="#id21"><span class="problematic" id="id22">:php:class:`Doctrine_Query`</span></a> object and its fluent interface. The latter should
+be preferred for all but very simple queries. The reason is that using the
+<a href="#id23"><span class="problematic" id="id24">:php:class:`Doctrine_Query`</span></a> object and it&#8217;s methods makes the life of the DQL
+parser a little bit easier. It reduces the amount of query parsing that needs
+to be done and is therefore faster.</p>
+</div></blockquote>
+</li>
+<li><p class="first">Efficient relation handling</p>
+<blockquote>
+<div><p>When you want to add a relation between two components you should not do something like the following:</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The following example assumes a many-many between <tt class="docutils literal"><span class="pre">Role</span></tt> and <tt class="docutils literal"><span class="pre">User</span></tt>.</p>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$role</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Role</span><span class="p">();</span>
+<span class="nv">$role</span><span class="o">-&gt;</span><span class="na">name</span> <span class="o">=</span> <span class="s1">&#39;New Role Name&#39;</span><span class="p">;</span>
+
+<span class="nv">$user</span><span class="o">-&gt;</span><span class="na">Roles</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$newRole</span><span class="p">;</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The above code will load all roles of the user from the
+database if they&#8217;re not yet loaded! Just to add one new link!</p>
+</div>
+<p>The following is the recommended way instead:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$userRole</span>          <span class="o">=</span> <span class="k">new</span> <span class="nx">UserRole</span><span class="p">();</span>
+<span class="nv">$userRole</span><span class="o">-&gt;</span><span class="na">role_id</span> <span class="o">=</span> <span class="nv">$role_id</span><span class="p">;</span>
+<span class="nv">$userRole</span><span class="o">-&gt;</span><span class="na">user_id</span> <span class="o">=</span> <span class="nv">$user_id</span><span class="p">;</span>
+<span class="nv">$userRole</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+</pre></div>
+</div>
+</div></blockquote>
+</li>
+</ul>
+</div>
+<div class="section" id="conclusion">
+<h2>Conclusion<a class="headerlink" href="#conclusion" title="Permalink to this headline">¶</a></h2>
+<p>Lots of methods exist for improving performance in Doctrine. It is highly
+recommended that you consider some of the methods described above.</p>
+<p>Now lets move on to learn about some of the <a class="reference internal" href="technology.html"><em>Technology</em></a>
+used in Doctrine.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Improving Performance</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#compile">Compile</a></li>
+<li><a class="reference internal" href="#conservative-fetching">Conservative Fetching</a></li>
+<li><a class="reference internal" href="#bundle-your-class-files">Bundle your Class Files</a></li>
+<li><a class="reference internal" href="#use-a-bytecode-cache">Use a Bytecode Cache</a></li>
+<li><a class="reference internal" href="#free-objects">Free Objects</a></li>
+<li><a class="reference internal" href="#other-tips">Other Tips</a></li>
+<li><a class="reference internal" href="#conclusion">Conclusion</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="unit-testing.html"
+                        title="previous chapter">Unit Testing</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="technology.html"
+                        title="next chapter">Technology</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/manual/improving-performance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="technology.html" title="Technology"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="unit-testing.html" title="Unit Testing"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine 1.2 ORM Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

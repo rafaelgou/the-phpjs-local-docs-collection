@@ -1,0 +1,185 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Master and Slave Connections &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Writing a Unit of Work in PHP Doctrine" href="creating-a-unit-of-work-using-doctrine.html" />
+    <link rel="prev" title="Taking Advantage of Column Aggregation Inheritance" href="taking-advantage-of-column-aggregation-inheritance.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="creating-a-unit-of-work-using-doctrine.html" title="Writing a Unit of Work in PHP Doctrine"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="taking-advantage-of-column-aggregation-inheritance.html" title="Taking Advantage of Column Aggregation Inheritance"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="master-and-slave-connections">
+<h1>Master and Slave Connections<a class="headerlink" href="#master-and-slave-connections" title="Permalink to this headline">¶</a></h1>
+<p>In this tutorial we explain how you can setup Doctrine connections as
+master and slaves for both reading and writing data. This strategy is
+common when balancing load across database servers.</p>
+<p>So, the first thing we need to do is configure all the available
+connections for Doctrine.</p>
+<blockquote>
+<div>$connections = array( &#8216;master&#8217; =&gt; &#8216;mysql://root:&#64;master/dbname&#8217;,</div></blockquote>
+<p>&#8216;slave_1&#8217; =&gt; &#8216;mysql://root:&#64;slave1/dbname&#8217;, &#8216;slave_2&#8217; =&gt;
+&#8216;mysql://root:&#64;slave2/dbname&#8217;, &#8216;slave_3&#8217; =&gt;
+&#8216;mysql://root:&#64;slave3/dbname&#8217;, &#8216;slave_4&#8217; =&gt;
+&#8216;mysql://root:&#64;slave4/dbname&#8217; );</p>
+<p>foreach ($connections as $name =&gt;
+<tt class="code docutils literal"><span class="pre">dsn)</span> <span class="pre">{</span> <span class="pre">Doctrine_Manager::connection(</span></tt>dsn, $name); }</p>
+<p>Now that we have one master connection and four slaves setup we can
+override the <a href="#id1"><span class="problematic" id="id2">:php:class:`Doctrine_Record`</span></a> and Doctrine_Query classes to add our
+logic for switching between the connections for read and write
+functionality. All writes will go to the master connection and all reads
+will be randomly distributed across the available slaves.</p>
+<p>Lets start by adding our logic to Doctrine_Query by extending it with
+our own MyQuery class and switching the connection in the preQuery()
+hook.</p>
+<blockquote>
+<div>class MyQuery extends Doctrine_Query { // Since php doesn&#8217;t support</div></blockquote>
+<p>late static binding in 5.2 we need to override // this method to
+instantiate a new MyQuery instead of Doctrine_Query public static
+function create(<tt class="code docutils literal"><span class="pre">conn</span> <span class="pre">=</span> <span class="pre">null)</span> <span class="pre">{</span> <span class="pre">return</span> <span class="pre">new</span> <span class="pre">MyQuery(</span></tt>conn); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preQuery</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// If this is a select query then set connection to one of the slaves</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getType</span><span class="p">()</span> <span class="o">==</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">SELECT</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_conn</span> <span class="o">=</span> <span class="nx">Doctrine_Manager</span><span class="o">::</span><span class="na">getInstance</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getConnection</span><span class="p">(</span><span class="s1">&#39;slave_&#39;</span> <span class="o">.</span> <span class="nx">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">));</span>
+    <span class="c1">// All other queries are writes so they need to go to the master</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_conn</span> <span class="o">=</span> <span class="nx">Doctrine_Manager</span><span class="o">::</span><span class="na">getInstance</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">getConnection</span><span class="p">(</span><span class="s1">&#39;master&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>Now we have queries taken care of, but what about when saving records?
+We can force the connection for writes to the master by overriding
+Doctrine_Record and using it as the base for all of our models.</p>
+<blockquote>
+<div>abstract class MyRecord extends Doctrine_Record { public function</div></blockquote>
+<p>save(Doctrine_Connection
+<tt class="code docutils literal"><span class="pre">conn</span> <span class="pre">=</span> <span class="pre">null)</span> <span class="pre">{</span> <span class="pre">//</span> <span class="pre">If</span> <span class="pre">specific</span> <span class="pre">connection</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">provided</span> <span class="pre">then</span> <span class="pre">lets</span> <span class="pre">force</span> <span class="pre">the</span> <span class="pre">connection</span> <span class="pre">//</span> <span class="pre">to</span> <span class="pre">be</span> <span class="pre">the</span> <span class="pre">master</span> <span class="pre">if</span> <span class="pre">(</span></tt>conn
+=== null) {
+<tt class="code docutils literal"><span class="pre">conn</span> <span class="pre">=</span> <span class="pre">Doctrine_Manager::getInstance()-&gt;getConnection('master');</span> <span class="pre">}</span> <span class="pre">parent::save(</span></tt>conn);
+} }</p>
+<p>All done! Now reads will be distributed to the slaves and writes are
+given to the master connection. Below are some examples of what happens
+now when querying and saving records.</p>
+<p>First we need to setup a model to test with.</p>
+<blockquote>
+<div>class User extends MyRecord { public function setTableDefinition() {</div></blockquote>
+<p>$this-&gt;setTableName(&#8216;user&#8217;); $this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 255,
+array(&#8216;type&#8217; =&gt; &#8216;string&#8217;, &#8216;length&#8217; =&gt; &#8216;255&#8217;));
+$this-&gt;hasColumn(&#8216;password&#8217;, &#8216;string&#8217;, 255, array(&#8216;type&#8217; =&gt; &#8216;string&#8217;,
+&#8216;length&#8217; =&gt; &#8216;255&#8217;)); } }</p>
+<blockquote>
+<div>// The save() method will happen on the master connection because it is</div></blockquote>
+<p>a write $user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =
+&#8216;changeme&#8217;; $user-&gt;save();</p>
+<p>// This query goes to one of the slaves because it is a read $q = new
+MyQuery(); $q-&gt;from(&#8216;User u&#8217;); $users = $q-&gt;execute();</p>
+<p>print_r($users-&gt;toArray(true));</p>
+<p>// This query goes to the master connection because it is a write $q =
+new MyQuery(); $q-&gt;delete(&#8216;User&#8217;) -&gt;from(&#8216;User u&#8217;) -&gt;execute();</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="taking-advantage-of-column-aggregation-inheritance.html"
+                        title="previous chapter">Taking Advantage of Column Aggregation Inheritance</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="creating-a-unit-of-work-using-doctrine.html"
+                        title="next chapter">Writing a Unit of Work in PHP Doctrine</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/cookbook/master-and-slave-connections.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="creating-a-unit-of-work-using-doctrine.html" title="Writing a Unit of Work in PHP Doctrine"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="taking-advantage-of-column-aggregation-inheritance.html" title="Taking Advantage of Column Aggregation Inheritance"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

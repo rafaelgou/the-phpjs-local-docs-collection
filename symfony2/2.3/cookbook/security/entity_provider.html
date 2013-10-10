@@ -1,0 +1,821 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to load Security Users from the Database (the Entity Provider) &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Security" href="index.html" />
+    <link rel="next" title="How to add “Remember Me” Login Functionality" href="remember_me.html" />
+    <link rel="prev" title="Security" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="remember_me.html" title="How to add “Remember Me” Login Functionality"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Security"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Security</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-load-security-users-from-the-database-the-entity-provider">
+<span id="index-0"></span><h1>How to load Security Users from the Database (the Entity Provider)<a class="headerlink" href="#how-to-load-security-users-from-the-database-the-entity-provider" title="Permalink to this headline">¶</a></h1>
+<p>The security layer is one of the smartest tools of Symfony. It handles two
+things: the authentication and the authorization processes. Although it may
+seem difficult to understand how it works internally, the security system
+is very flexible and allows you to integrate your application with any authentication
+backend, like Active Directory, an OAuth server or a database.</p>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This article focuses on how to authenticate users against a database table
+managed by a Doctrine entity class. The content of this cookbook entry is split
+in three parts. The first part is about designing a Doctrine <tt class="docutils literal"><span class="pre">User</span></tt> entity
+class and making it usable in the security layer of Symfony. The second part
+describes how to easily authenticate a user with the Doctrine
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bridge/Doctrine/Security/User/EntityUserProvider.html" title="Symfony\Bridge\Doctrine\Security\User\EntityUserProvider"><span class="pre">EntityUserProvider</span></a></tt> object
+bundled with the framework and some configuration.
+Finally, the tutorial will demonstrate how to create a custom
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bridge/Doctrine/Security/User/EntityUserProvider.html" title="Symfony\Bridge\Doctrine\Security\User\EntityUserProvider"><span class="pre">EntityUserProvider</span></a></tt> object to
+retrieve users from a database with custom conditions.</p>
+<p>This tutorial assumes there is a bootstrapped and loaded
+<tt class="docutils literal"><span class="pre">Acme\UserBundle</span></tt> bundle in the application kernel.</p>
+</div>
+<div class="section" id="the-data-model">
+<h2>The Data Model<a class="headerlink" href="#the-data-model" title="Permalink to this headline">¶</a></h2>
+<p>For the purpose of this cookbook, the <tt class="docutils literal"><span class="pre">AcmeUserBundle</span></tt> bundle contains a
+<tt class="docutils literal"><span class="pre">User</span></tt> entity class with the following fields: <tt class="docutils literal"><span class="pre">id</span></tt>, <tt class="docutils literal"><span class="pre">username</span></tt>, <tt class="docutils literal"><span class="pre">salt</span></tt>,
+<tt class="docutils literal"><span class="pre">password</span></tt>, <tt class="docutils literal"><span class="pre">email</span></tt> and <tt class="docutils literal"><span class="pre">isActive</span></tt>. The <tt class="docutils literal"><span class="pre">isActive</span></tt> field tells whether
+or not the user account is active.</p>
+<p>To make it shorter, the getter and setter methods for each have been removed to
+focus on the most important methods that come from the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p>You can <a class="reference internal" href="../../book/doctrine.html#book-doctrine-generating-getters-and-setters"><em>generate the missing getter and setters</em></a>
+by running:</p>
+<div class="last highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console doctrine:generate:entities Acme/UserBundle/Entity/User
+</pre></div>
+</div>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/UserBundle/Entity/User.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\UserBundle\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping</span> <span class="k">as</span> <span class="nx">ORM</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserInterface</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Acme\UserBundle\Entity\User</span>
+<span class="sd"> *</span>
+<span class="sd"> * @ORM\Table(name=&quot;acme_users&quot;)</span>
+<span class="sd"> * @ORM\Entity(repositoryClass=&quot;Acme\UserBundle\Entity\UserRepository&quot;)</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">User</span> <span class="k">implements</span> <span class="nx">UserInterface</span><span class="p">,</span> <span class="nx">\Serializable</span>
+<span class="p">{</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(type=&quot;integer&quot;)</span>
+<span class="sd">     * @ORM\Id</span>
+<span class="sd">     * @ORM\GeneratedValue(strategy=&quot;AUTO&quot;)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$id</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(type=&quot;string&quot;, length=25, unique=true)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$username</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(type=&quot;string&quot;, length=32)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$salt</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(type=&quot;string&quot;, length=40)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$password</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(type=&quot;string&quot;, length=60, unique=true)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$email</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\Column(name=&quot;is_active&quot;, type=&quot;boolean&quot;)</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$isActive</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">isActive</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">salt</span> <span class="o">=</span> <span class="nb">md5</span><span class="p">(</span><span class="nb">uniqid</span><span class="p">(</span><span class="k">null</span><span class="p">,</span> <span class="k">true</span><span class="p">));</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @inheritDoc</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getUsername</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">username</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @inheritDoc</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getSalt</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">salt</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @inheritDoc</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getPassword</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">password</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @inheritDoc</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getRoles</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ROLE_USER&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @inheritDoc</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">eraseCredentials</span><span class="p">()</span>
+    <span class="p">{</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @see \Serializable::serialize()</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">serialize</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">serialize</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">id</span><span class="p">,</span>
+        <span class="p">));</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @see \Serializable::unserialize()</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">unserialize</span><span class="p">(</span><span class="nv">$serialized</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">list</span> <span class="p">(</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">id</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">=</span> <span class="nb">unserialize</span><span class="p">(</span><span class="nv">$serialized</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p><a class="reference internal" href="../../book/doctrine.html#book-doctrine-creating-the-database-tables-schema"><em>Generate the database table</em></a>
+for your <tt class="docutils literal"><span class="pre">User</span></tt> entity by running:</p>
+<div class="last highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console doctrine:schema:update --force
+</pre></div>
+</div>
+</div>
+<p>In order to use an instance of the <tt class="docutils literal"><span class="pre">AcmeUserBundle:User</span></tt> class in the Symfony
+security layer, the entity class must implement the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>. This
+interface forces the class to implement the five following methods:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">getRoles()</span></tt>,</li>
+<li><tt class="docutils literal"><span class="pre">getPassword()</span></tt>,</li>
+<li><tt class="docutils literal"><span class="pre">getSalt()</span></tt>,</li>
+<li><tt class="docutils literal"><span class="pre">getUsername()</span></tt>,</li>
+<li><tt class="docutils literal"><span class="pre">eraseCredentials()</span></tt></li>
+</ul>
+<p>For more details on each of these, see <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/UserBundle/Entity/User.php</span>
+
+<span class="k">namespace</span> <span class="nx">Acme\UserBundle\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\EquatableInterface</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">isEqualTo</span><span class="p">(</span><span class="nx">UserInterface</span> <span class="nv">$user</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">id</span> <span class="o">===</span> <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getId</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><a class="reference external" href="http://php.net/manual/en/class.serializable.php" title="Serializable"><span class="pre">Serializable</span></a></tt> interface and its <tt class="docutils literal"><span class="pre">serialize</span></tt> and <tt class="docutils literal"><span class="pre">unserialize</span></tt>
+methods have been added to allow the <tt class="docutils literal"><span class="pre">User</span></tt> class to be serialized
+to the session. This may or may not be needed depending on your setup,
+but it&#8217;s probably a good idea. Only the <tt class="docutils literal"><span class="pre">id</span></tt> needs to be serialized,
+because the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bridge/Doctrine/Security/User/EntityUserProvider.html#method_refreshUser" title="Symfony\Bridge\Doctrine\Security\User\EntityUserProvider::refreshUser()"><span class="pre">refreshUser()</span></a></tt>
+method reloads the user on each request by using the <tt class="docutils literal"><span class="pre">id</span></tt>.</p>
+</div>
+<p>Below is an export of the <tt class="docutils literal"><span class="pre">User</span></tt> table from MySQL with user <tt class="docutils literal"><span class="pre">admin</span></tt> and
+password <tt class="docutils literal"><span class="pre">admin</span></tt> (which has been encoded). For details on how to create
+user records and encode their password, see <a class="reference internal" href="../../book/security.html#book-security-encoding-user-password"><em>Encoding the User&#8217;s Password</em></a>.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>mysql&gt; <span class="k">select</span> * from acme_users;
++----+----------+------+------------------------------------------+--------------------+-----------+
+| id | username | salt | password                                 | email              | is_active |
++----+----------+------+------------------------------------------+--------------------+-----------+
+|  1 | admin    |      | d033e22ae348aeb5660fc2140aec35850c4da997 | admin@example.com  |         1 |
++----+----------+------+------------------------------------------+--------------------+-----------+
+</pre></div>
+</div>
+<p>The next part will focus on how to authenticate one of these users
+thanks to the Doctrine entity user provider and a couple of lines of
+configuration.</p>
+</div>
+<div class="section" id="authenticating-someone-against-a-database">
+<h2>Authenticating Someone against a Database<a class="headerlink" href="#authenticating-someone-against-a-database" title="Permalink to this headline">¶</a></h2>
+<p>Authenticating a Doctrine user against the database with the Symfony security
+layer is a piece of cake. Everything resides in the configuration of the
+<a class="reference internal" href="../../reference/configuration/security.html"><em>SecurityBundle</em></a> stored in the
+<tt class="docutils literal"><span class="pre">app/config/security.yml</span></tt> file.</p>
+<p>Below is an example of configuration where the user will enter his/her
+username and password via HTTP basic authentication. That information will
+then be checked against your User entity records in the database:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Acme\UserBundle\Entity\User</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">algorithm</span><span class="p-Indicator">:</span>        <span class="l-Scalar-Plain">sha1</span>
+            <span class="l-Scalar-Plain">encode_as_base64</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+            <span class="l-Scalar-Plain">iterations</span><span class="p-Indicator">:</span>       <span class="l-Scalar-Plain">1</span>
+
+    <span class="l-Scalar-Plain">role_hierarchy</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">ROLE_ADMIN</span><span class="p-Indicator">:</span>       <span class="l-Scalar-Plain">ROLE_USER</span>
+        <span class="l-Scalar-Plain">ROLE_SUPER_ADMIN</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span> <span class="nv">ROLE_USER</span><span class="p-Indicator">,</span> <span class="nv">ROLE_ADMIN</span><span class="p-Indicator">,</span> <span class="nv">ROLE_ALLOWED_TO_SWITCH</span> <span class="p-Indicator">]</span>
+
+    <span class="l-Scalar-Plain">providers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">administrators</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">entity</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">class</span><span class="p-Indicator">:</span> <span class="nv">AcmeUserBundle</span><span class="p-Indicator">:</span><span class="nv">User</span><span class="p-Indicator">,</span> <span class="nv">property</span><span class="p-Indicator">:</span> <span class="nv">username</span> <span class="p-Indicator">}</span>
+
+    <span class="l-Scalar-Plain">firewalls</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">admin_area</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>    <span class="l-Scalar-Plain">^/admin</span>
+            <span class="l-Scalar-Plain">http_basic</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
+
+    <span class="l-Scalar-Plain">access_control</span><span class="p-Indicator">:</span>
+        <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">path</span><span class="p-Indicator">:</span> <span class="nv">^/admin</span><span class="p-Indicator">,</span> <span class="nv">roles</span><span class="p-Indicator">:</span> <span class="nv">ROLE_ADMIN</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;encoder</span> <span class="na">class=</span><span class="s">&quot;Acme\UserBundle\Entity\User&quot;</span>
+        <span class="na">algorithm=</span><span class="s">&quot;sha1&quot;</span>
+        <span class="na">encode-as-base64=</span><span class="s">&quot;false&quot;</span>
+        <span class="na">iterations=</span><span class="s">&quot;1&quot;</span>
+    <span class="nt">/&gt;</span>
+
+    <span class="nt">&lt;role</span> <span class="na">id=</span><span class="s">&quot;ROLE_ADMIN&quot;</span><span class="nt">&gt;</span>ROLE_USER<span class="nt">&lt;/role&gt;</span>
+    <span class="nt">&lt;role</span> <span class="na">id=</span><span class="s">&quot;ROLE_SUPER_ADMIN&quot;</span><span class="nt">&gt;</span>ROLE_USER, ROLE_ADMIN, ROLE_ALLOWED_TO_SWITCH<span class="nt">&lt;/role&gt;</span>
+
+    <span class="nt">&lt;provider</span> <span class="na">name=</span><span class="s">&quot;administrators&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;entity</span> <span class="na">class=</span><span class="s">&quot;AcmeUserBundle:User&quot;</span> <span class="na">property=</span><span class="s">&quot;username&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/provider&gt;</span>
+
+    <span class="nt">&lt;firewall</span> <span class="na">name=</span><span class="s">&quot;admin_area&quot;</span> <span class="na">pattern=</span><span class="s">&quot;^/admin&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;http-basic</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/firewall&gt;</span>
+
+    <span class="nt">&lt;rule</span> <span class="na">path=</span><span class="s">&quot;^/admin&quot;</span> <span class="na">role=</span><span class="s">&quot;ROLE_ADMIN&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;encoders&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\UserBundle\Entity\User&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;algorithm&#39;</span>         <span class="o">=&gt;</span> <span class="s1">&#39;sha1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;encode_as_base64&#39;</span>  <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+            <span class="s1">&#39;iterations&#39;</span>        <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;role_hierarchy&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;ROLE_ADMIN&#39;</span>       <span class="o">=&gt;</span> <span class="s1">&#39;ROLE_USER&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;ROLE_SUPER_ADMIN&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ROLE_USER&#39;</span><span class="p">,</span> <span class="s1">&#39;ROLE_ADMIN&#39;</span><span class="p">,</span> <span class="s1">&#39;ROLE_ALLOWED_TO_SWITCH&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;providers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;administrator&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;entity&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;class&#39;</span>    <span class="o">=&gt;</span> <span class="s1">&#39;AcmeUserBundle:User&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;property&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;username&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;firewalls&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;admin_area&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;pattern&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;^/admin&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;http_basic&#39;</span> <span class="o">=&gt;</span> <span class="k">null</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="s1">&#39;access_control&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">array</span><span class="p">(</span><span class="s1">&#39;path&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;^/admin&#39;</span><span class="p">,</span> <span class="s1">&#39;role&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;ROLE_ADMIN&#39;</span><span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">encoders</span></tt> section associates the <tt class="docutils literal"><span class="pre">sha1</span></tt> password encoder to the entity
+class. This means that Symfony will expect the password that&#8217;s stored in
+the database to be encoded using this algorithm. For details on how to create
+a new User object with a properly encoded password, see the
+<a class="reference internal" href="../../book/security.html#book-security-encoding-user-password"><em>Encoding the User&#8217;s Password</em></a> section of the security chapter.</p>
+<p>The <tt class="docutils literal"><span class="pre">providers</span></tt> section defines an <tt class="docutils literal"><span class="pre">administrators</span></tt> user provider. A
+user provider is a &#8220;source&#8221; of where users are loaded during authentication.
+In this case, the <tt class="docutils literal"><span class="pre">entity</span></tt> keyword means that Symfony will use the Doctrine
+entity user provider to load User entity objects from the database by using
+the <tt class="docutils literal"><span class="pre">username</span></tt> unique field. In other words, this tells Symfony how to
+fetch the user from the database before checking the password validity.</p>
+</div>
+<div class="section" id="forbid-inactive-users">
+<h2>Forbid Inactive Users<a class="headerlink" href="#forbid-inactive-users" title="Permalink to this headline">¶</a></h2>
+<p>If a User&#8217;s <tt class="docutils literal"><span class="pre">isActive</span></tt> property is set to <tt class="docutils literal"><span class="pre">false</span></tt> (i.e. <tt class="docutils literal"><span class="pre">is_active</span></tt>
+is 0 in the database), the user will still be able to login access the site
+normally. To prevent &#8220;inactive&#8221; users from logging in, you&#8217;ll need to do a
+little more work.</p>
+<p>The easiest way to exclude inactive users is to implement the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/AdvancedUserInterface.html" title="Symfony\Component\Security\Core\User\AdvancedUserInterface"><span class="pre">AdvancedUserInterface</span></a></tt>
+interface that takes care of checking the user&#8217;s account status.
+The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/AdvancedUserInterface.html" title="Symfony\Component\Security\Core\User\AdvancedUserInterface"><span class="pre">AdvancedUserInterface</span></a></tt>
+extends the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>
+interface, so you just need to switch to the new interface in the <tt class="docutils literal"><span class="pre">AcmeUserBundle:User</span></tt>
+entity class to benefit from simple and advanced authentication behaviors.</p>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/AdvancedUserInterface.html" title="Symfony\Component\Security\Core\User\AdvancedUserInterface"><span class="pre">AdvancedUserInterface</span></a></tt>
+interface adds four extra methods to validate the account status:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">isAccountNonExpired()</span></tt> checks whether the user&#8217;s account has expired,</li>
+<li><tt class="docutils literal"><span class="pre">isAccountNonLocked()</span></tt> checks whether the user is locked,</li>
+<li><tt class="docutils literal"><span class="pre">isCredentialsNonExpired()</span></tt> checks whether the user&#8217;s credentials (password)
+has expired,</li>
+<li><tt class="docutils literal"><span class="pre">isEnabled()</span></tt> checks whether the user is enabled.</li>
+</ul>
+<p>For this example, the first three methods will return <tt class="docutils literal"><span class="pre">true</span></tt> whereas the
+<tt class="docutils literal"><span class="pre">isEnabled()</span></tt> method will return the boolean value in the <tt class="docutils literal"><span class="pre">isActive</span></tt> field.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/UserBundle/Entity/User.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\UserBundle\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping</span> <span class="k">as</span> <span class="nx">ORM</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\AdvancedUserInterface</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">User</span> <span class="k">implements</span> <span class="nx">AdvancedUserInterface</span><span class="p">,</span> <span class="nx">\Serializable</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isAccountNonExpired</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isAccountNonLocked</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isCredentialsNonExpired</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isEnabled</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">isActive</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Now, if you try to authenticate as a user who&#8217;s <tt class="docutils literal"><span class="pre">is_active</span></tt> database field
+is set to 0, you won&#8217;t be allowed.</p>
+<p>The next session will focus on how to write a custom entity provider
+to authenticate a user with his username or his email address.</p>
+</div>
+<div class="section" id="authenticating-someone-with-a-custom-entity-provider">
+<h2>Authenticating Someone with a Custom Entity Provider<a class="headerlink" href="#authenticating-someone-with-a-custom-entity-provider" title="Permalink to this headline">¶</a></h2>
+<p>The next step is to allow a user to authenticate with his username or his email
+address as they are both unique in the database. Unfortunately, the native
+entity provider is only able to handle a single property to fetch the user from
+the database.</p>
+<p>To accomplish this, create a custom entity provider that looks for a user
+whose username <em>or</em> email field matches the submitted login username.
+The good news is that a Doctrine repository object can act as an entity user
+provider if it implements the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>. This
+interface comes with three methods to implement: <tt class="docutils literal"><span class="pre">loadUserByUsername($username)</span></tt>,
+<tt class="docutils literal"><span class="pre">refreshUser(UserInterface</span> <span class="pre">$user)</span></tt>, and <tt class="docutils literal"><span class="pre">supportsClass($class)</span></tt>. For
+more details, see <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>.</p>
+<p>The code below shows the implementation of the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt> in the
+<tt class="docutils literal"><span class="pre">UserRepository</span></tt> class:</p>
+<div class="highlight-python"><pre>// src/Acme/UserBundle/Entity/UserRepository.php
+namespace Acme\UserBundle\Entity;
+
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
+use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
+use Doctrine\ORM\EntityRepository;
+use Doctrine\ORM\NoResultException;
+
+class UserRepository extends EntityRepository implements UserProviderInterface
+{
+    public function loadUserByUsername($username)
+    {
+        $q = $this
+            -&gt;createQueryBuilder('u')
+            -&gt;where('u.username = :username OR u.email = :email')
+            -&gt;setParameter('username', $username)
+            -&gt;setParameter('email', $username)
+            -&gt;getQuery();
+
+        try {
+            // The Query::getSingleResult() method throws an exception
+            // if there is no record matching the criteria.
+            $user = $q-&gt;getSingleResult();
+        } catch (NoResultException $e) {
+            $message = sprintf(
+                'Unable to find an active admin AcmeUserBundle:User object identified by "%s".',
+                $username
+            );
+            throw new UsernameNotFoundException($message, 0, $e);
+        }
+
+        return $user;
+    }
+
+    public function refreshUser(UserInterface $user)
+    {
+        $class = get_class($user);
+        if (!$this-&gt;supportsClass($class)) {
+            throw new UnsupportedUserException(
+                sprintf(
+                    'Instances of "%s" are not supported.',
+                    $class
+                )
+            );
+        }
+
+        return $this-&gt;find($user-&gt;getId());
+    }
+
+    public function supportsClass($class)
+    {
+        return $this-&gt;getEntityName() === $class
+            || is_subclass_of($class, $this-&gt;getEntityName());
+    }
+}</pre>
+</div>
+<p>To finish the implementation, the configuration of the security layer must be
+changed to tell Symfony to use the new custom entity provider instead of the
+generic Doctrine entity provider. It&#8217;s trivial to achieve by removing the
+<tt class="docutils literal"><span class="pre">property</span></tt> field in the <tt class="docutils literal"><span class="pre">security.providers.administrators.entity</span></tt> section
+of the <tt class="docutils literal"><span class="pre">security.yml</span></tt> file.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">providers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">administrators</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">entity</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">class</span><span class="p-Indicator">:</span> <span class="nv">AcmeUserBundle</span><span class="p-Indicator">:</span><span class="nv">User</span> <span class="p-Indicator">}</span>
+    <span class="c1"># ...</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+
+    <span class="nt">&lt;provider</span> <span class="na">name=</span><span class="s">&quot;administrator&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;entity</span> <span class="na">class=</span><span class="s">&quot;AcmeUserBundle:User&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/provider&gt;</span>
+
+    <span class="c">&lt;!-- ... --&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="s1">&#39;providers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;administrator&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;entity&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;class&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;AcmeUserBundle:User&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+    <span class="o">...</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>By doing this, the security layer will use an instance of <tt class="docutils literal"><span class="pre">UserRepository</span></tt> and
+call its <tt class="docutils literal"><span class="pre">loadUserByUsername()</span></tt> method to fetch a user from the database
+whether he filled in his username or email address.</p>
+</div>
+<div class="section" id="managing-roles-in-the-database">
+<h2>Managing Roles in the Database<a class="headerlink" href="#managing-roles-in-the-database" title="Permalink to this headline">¶</a></h2>
+<p>The end of this tutorial focuses on how to store and retrieve a list of roles
+from the database. As mentioned previously, when your user is loaded, its
+<tt class="docutils literal"><span class="pre">getRoles()</span></tt> method returns the array of security roles that should be
+assigned to the user. You can load this data from anywhere - a hardcoded
+list used for all users (e.g. <tt class="docutils literal"><span class="pre">array('ROLE_USER')</span></tt>), a Doctrine array
+property called <tt class="docutils literal"><span class="pre">roles</span></tt>, or via a Doctrine relationship, as you&#8217;ll learn
+about in this section.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">In a typical setup, you should always return at least 1 role from the <tt class="docutils literal"><span class="pre">getRoles()</span></tt>
+method. By convention, a role called <tt class="docutils literal"><span class="pre">ROLE_USER</span></tt> is usually returned.
+If you fail to return any roles, it may appear as if your user isn&#8217;t
+authenticated at all.</p>
+</div>
+<p>In this example, the <tt class="docutils literal"><span class="pre">AcmeUserBundle:User</span></tt> entity class defines a
+many-to-many relationship with a <tt class="docutils literal"><span class="pre">AcmeUserBundle:Role</span></tt> entity class.
+A user can be related to several roles and a role can be composed of
+one or more users. The previous <tt class="docutils literal"><span class="pre">getRoles()</span></tt> method now returns
+the list of related roles. Notice that <tt class="docutils literal"><span class="pre">__construct()</span></tt> and <tt class="docutils literal"><span class="pre">getRoles()</span></tt>
+methods have changed:</p>
+<div class="highlight-python"><pre>// src/Acme/UserBundle/Entity/User.php
+namespace Acme\UserBundle\Entity;
+
+use Doctrine\Common\Collections\ArrayCollection;
+// ...
+
+class User implements AdvancedUserInterface, \Serializable
+{
+    // ...
+
+    /**
+     * @ORM\ManyToMany(targetEntity="Role", inversedBy="users")
+     *
+     */
+    private $roles;
+
+    public function __construct()
+    {
+        $this-&gt;roles = new ArrayCollection();
+    }
+
+    public function getRoles()
+    {
+        return $this-&gt;roles-&gt;toArray();
+    }
+
+    // ...
+
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">AcmeUserBundle:Role</span></tt> entity class defines three fields (<tt class="docutils literal"><span class="pre">id</span></tt>,
+<tt class="docutils literal"><span class="pre">name</span></tt> and <tt class="docutils literal"><span class="pre">role</span></tt>). The unique <tt class="docutils literal"><span class="pre">role</span></tt> field contains the role name
+(e.g. <tt class="docutils literal"><span class="pre">ROLE_ADMIN</span></tt>) used by the Symfony security layer to secure parts
+of the application:</p>
+<div class="highlight-python"><pre>// src/Acme/Bundle/UserBundle/Entity/Role.php
+namespace Acme\UserBundle\Entity;
+
+use Symfony\Component\Security\Core\Role\RoleInterface;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\ORM\Mapping as ORM;
+
+/**
+ * @ORM\Table(name="acme_roles")
+ * @ORM\Entity()
+ */
+class Role implements RoleInterface
+{
+    /**
+     * @ORM\Column(name="id", type="integer")
+     * @ORM\Id()
+     * @ORM\GeneratedValue(strategy="AUTO")
+     */
+    private $id;
+
+    /**
+     * @ORM\Column(name="name", type="string", length=30)
+     */
+    private $name;
+
+    /**
+     * @ORM\Column(name="role", type="string", length=20, unique=true)
+     */
+    private $role;
+
+    /**
+     * @ORM\ManyToMany(targetEntity="User", mappedBy="roles")
+     */
+    private $users;
+
+    public function __construct()
+    {
+        $this-&gt;users = new ArrayCollection();
+    }
+
+    /**
+     * @see RoleInterface
+     */
+    public function getRole()
+    {
+        return $this-&gt;role;
+    }
+
+    // ... getters and setters for each property
+}</pre>
+</div>
+<p>For brevity, the getter and setter methods are hidden, but you can
+<a class="reference internal" href="../../book/doctrine.html#book-doctrine-generating-getters-and-setters"><em>generate them</em></a>:</p>
+<div class="highlight-bas"><pre>$ php app/console doctrine:generate:entities Acme/UserBundle/Entity/User</pre>
+</div>
+<p>Don&#8217;t forget also to update your database schema:</p>
+<div class="highlight-bash"><div class="highlight"><pre>php app/console doctrine:schema:update --force
+</pre></div>
+</div>
+<p>This will create the <tt class="docutils literal"><span class="pre">acme_role</span></tt> table and a <tt class="docutils literal"><span class="pre">user_role</span></tt> that stores
+the many-to-many relationship between <tt class="docutils literal"><span class="pre">acme_user</span></tt> and <tt class="docutils literal"><span class="pre">acme_role</span></tt>. If
+you had one user linked to one role, your database might look something like
+this:</p>
+<div class="highlight-text"><div class="highlight"><pre>$ mysql&gt; select * from acme_users;
++----+-------+------------+
+| id | name  | role       |
++----+-------+------------+
+|  1 | admin | ROLE_ADMIN |
++----+-------+------------+
+
+mysql&gt; select * from user_role;
++---------+---------+
+| user_id | role_id |
++---------+---------+
+|       1 |       1 |
++---------+---------+
+</pre></div>
+</div>
+<p>And that&#8217;s it! When the user logs in, Symfony security system will call the
+<tt class="docutils literal"><span class="pre">User::getRoles</span></tt> method. This will return an array of <tt class="docutils literal"><span class="pre">Role</span></tt> objects
+that Symfony will use to determine if the user should have access to certain
+parts of the system.</p>
+<div class="sidebar">
+<p class="first sidebar-title">What&#8217;s the purpose of the RoleInterface?</p>
+<p class="last">Notice that the <tt class="docutils literal"><span class="pre">Role</span></tt> class implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Role/RoleInterface.html" title="Symfony\Component\Security\Core\Role\RoleInterface"><span class="pre">RoleInterface</span></a></tt>. This is
+because Symfony&#8217;s security system requires that the <tt class="docutils literal"><span class="pre">User::getRoles</span></tt> method
+returns an array of either role strings or objects that implement this interface.
+If <tt class="docutils literal"><span class="pre">Role</span></tt> didn&#8217;t implement this interface, then <tt class="docutils literal"><span class="pre">User::getRoles</span></tt>
+would need to iterate over all the <tt class="docutils literal"><span class="pre">Role</span></tt> objects, call <tt class="docutils literal"><span class="pre">getRole</span></tt>
+on each, and create an array of strings to return. Both approaches are
+valid and equivalent.</p>
+</div>
+<div class="section" id="improving-performance-with-a-join">
+<span id="cookbook-doctrine-entity-provider-role-db-schema"></span><h3>Improving Performance with a Join<a class="headerlink" href="#improving-performance-with-a-join" title="Permalink to this headline">¶</a></h3>
+<p>To improve performance and avoid lazy loading of roles when retrieving a user
+from the custom entity provider, you can use a Doctrine join to the roles
+relationship in the <tt class="docutils literal"><span class="pre">UserRepository::loadUserByUsername()</span></tt> method. This will
+fetch the user and his associated roles with a single query:</p>
+<div class="highlight-python"><pre>// src/Acme/UserBundle/Entity/UserRepository.php
+namespace Acme\UserBundle\Entity;
+
+// ...
+
+class UserRepository extends EntityRepository implements UserProviderInterface
+{
+    public function loadUserByUsername($username)
+    {
+        $q = $this
+            -&gt;createQueryBuilder('u')
+            -&gt;select('u, r')
+            -&gt;leftJoin('u.roles', 'r')
+            -&gt;where('u.username = :username OR u.email = :email')
+            -&gt;setParameter('username', $username)
+            -&gt;setParameter('email', $username)
+            -&gt;getQuery();
+
+        // ...
+    }
+
+    // ...
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">QueryBuilder::leftJoin()</span></tt> method joins and fetches related roles from
+the <tt class="docutils literal"><span class="pre">AcmeUserBundle:User</span></tt> model class when a user is retrieved with his email
+address or username.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to load Security Users from the Database (the Entity Provider)</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#the-data-model">The Data Model</a></li>
+<li><a class="reference internal" href="#authenticating-someone-against-a-database">Authenticating Someone against a Database</a></li>
+<li><a class="reference internal" href="#forbid-inactive-users">Forbid Inactive Users</a></li>
+<li><a class="reference internal" href="#authenticating-someone-with-a-custom-entity-provider">Authenticating Someone with a Custom Entity Provider</a></li>
+<li><a class="reference internal" href="#managing-roles-in-the-database">Managing Roles in the Database</a><ul>
+<li><a class="reference internal" href="#improving-performance-with-a-join">Improving Performance with a Join</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Security</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="remember_me.html"
+                        title="next chapter">How to add &#8220;Remember Me&#8221; Login Functionality</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/entity_provider.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="remember_me.html" title="How to add “Remember Me” Login Functionality"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Security"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Security</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

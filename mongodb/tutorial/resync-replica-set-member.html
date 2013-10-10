@@ -1,0 +1,385 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Resync a Member of a Replica Set &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/resync-replica-set-member.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/resync-replica-set-member" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Replica Set Administration" href="../administration/replica-sets.html" />
+<link rel="next" title="Deploy a Geographically Distributed Replica Set" href="deploy-geographically-distributed-replica-set.html" />
+<link rel="prev" title="Adjust Priority for Replica Set Member" href="adjust-replica-set-member-priority.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../replication.html">Replication</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/replica-sets.html">Replica Set Administration</a><span class="bcpoint"> > </span></li>
+          <li>Resync a Member of a Replica Set</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="resync-a-member-of-a-replica-set">
+<h1>Resync a Member of a Replica Set<a class="headerlink" href="#resync-a-member-of-a-replica-set" title="Permalink to this headline">¶</a></h1>
+<p>When a secondary&#8217;s replication process falls so far behind that
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> overwrites oplog entries that the secondary has not yet
+replicated, that secondary cannot catch up and becomes &#8220;stale.&#8221; When
+that occurs, you must completely resynchronize the member by removing
+its data and performing an initial sync.</p>
+<p>To do so, use one of the following approaches:</p>
+<ul>
+<li><p class="first">Restart the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> with an empty data directory and let
+MongoDB&#8217;s normal initial syncing feature restore the data. This
+is the more simple option, but may take longer to replace the data.</p>
+<p>See <a class="reference internal" href="#replica-set-auto-resync-stale-member"><em>Automatically Resync a Stale Member</em></a>.</p>
+</li>
+<li><p class="first">Restart the machine with a copy of a recent data directory from
+another member in the <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>. This procedure can replace
+the data more quickly but requires more manual steps.</p>
+<p>See <a class="reference internal" href="#replica-set-resync-by-copying"><em>Resync by Copying All Datafiles from Another Member</em></a>.</p>
+</li>
+</ul>
+<div class="section" id="automatically-resync-a-stale-member">
+<span id="replica-set-auto-resync-stale-member"></span><span id="index-0"></span><h2>Automatically Resync a Stale Member<a class="headerlink" href="#automatically-resync-a-stale-member" title="Permalink to this headline">¶</a></h2>
+<p>This procedure relies on MongoDB&#8217;s regular process for initial
+sync. This will restore the data on the stale member to reflect the
+current state of the set. For an overview of MongoDB initial sync
+process, see the <a class="reference internal" href="../core/replication-internals.html#replica-set-syncing"><em>Syncing</em></a> section.</p>
+<p>To resync the stale member:</p>
+<ol class="arabic">
+<li><p class="first">Stop the stale member&#8217;s <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance. On Linux
+systems you can use <a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--shutdown"><em class="xref std std-option">mongod --shutdown</em></a> Set
+<a class="reference internal" href="../reference/program/mongod.html#cmdoption-mongod--dbpath"><em class="xref std std-option">--dbpath</em></a> to the member&#8217;s data
+directory, as in the following:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --dbpath /data/db/ --shutdown
+</pre></div>
+</div>
+</li>
+<li><p class="first">Delete all data and sub-directories from the member&#8217;s data
+directory.  By removing the data <a class="reference internal" href="../reference/configuration-options.html#dbpath" title="dbpath"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">dbpath</span></tt></a>, MongoDB will
+perform a complete resync. Consider making a backup first.</p>
+</li>
+<li><p class="first">Restart the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance on the member.  For example:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongod --dbpath /data/db/ --replSet rsProduction
+</pre></div>
+</div>
+<p>At this point, the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> will perform an initial
+sync. The length of the initial sync may process depends on the
+size of the database and network connection between members of the
+replica set.</p>
+<p>Initial sync operations can impact the other members of the set and
+create additional traffic to the primary, and can only occur if
+another member of the set is accessible and up to date.</p>
+</li>
+</ol>
+</div>
+<div class="section" id="resync-by-copying-all-datafiles-from-another-member">
+<span id="replica-set-resync-by-copying"></span><span id="index-1"></span><h2>Resync by Copying All Datafiles from Another Member<a class="headerlink" href="#resync-by-copying-all-datafiles-from-another-member" title="Permalink to this headline">¶</a></h2>
+<p>This approach uses a copy of the data files from an existing member of
+the replica set, or a backup of the data files to &#8220;seed&#8221; the stale member.</p>
+<p>The copy or backup of the data files <strong>must</strong> be sufficiently recent
+to allow the new member to catch up with the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a>, otherwise
+the member would need to perform an initial sync.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In most cases you cannot copy data files from a running
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance to another, because the data files will
+change during the file copy operation. Consider the
+<a class="reference internal" href="../core/backups.html"><em>Backup Strategies for MongoDB Systems</em></a> documentation for several methods
+that you can use to capture a consistent snapshot of a running
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance.</p>
+</div>
+<div class="admonition important">
+<p class="first admonition-title">Important</p>
+<p class="last">You must always copy the content of the <tt class="docutils literal"><span class="pre">local</span></tt>
+database when using data files to resync a member of a replica
+set.</p>
+</div>
+<p>After you have copied the data files from the &#8220;seed&#8221; source, start the
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance and allow it to apply all operations from
+the oplog until it reflects the current state of the replica set.</p>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="adjust-replica-set-member-priority.html" title="Previous Section: Adjust Priority for Replica Set Member">&lt; &nbsp; Adjust Priority for Replica Set Member</a></li>
+              <li id="btnvup"><a href="../replication.html" title="Parent Section: Replication" >&#47;&#92;&nbsp; Replication</a></li>
+              <li id="btnvnx"><a href="deploy-geographically-distributed-replica-set.html" title="Next Section: Deploy a Geographically Distributed Replica Set">Deploy a Geographically Distributed Replica Set &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../replication.html">Replication</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/replication.html">Replica Set Fundamental Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replica-set-architectures.html">Replica Set Architectures and Deployment Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/replication.html">Replica Set Considerations and Behaviors for Applications and Development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replication-internals.html">Replica Set Internals and Behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/master-slave.html">Master Slave Replication</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/replica-sets.html">Replica Set Administration</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="deploy-replica-set.html">Deploy a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-standalone-to-replica-set.html">Convert a Standalone to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="expand-replica-set.html">Add Members to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="remove-replica-set-member.html">Remove Members from Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="replace-replica-set-member.html">Replace a Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="adjust-replica-set-member-priority.html">Adjust Priority for Replica Set Member</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Resync a Member of a Replica Set</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deploy-geographically-distributed-replica-set.html">Deploy a Geographically Distributed Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change-oplog-size.html">Change the Size of the Oplog</a></li>
+<li class="toctree-l3"><a class="reference internal" href="force-member-to-be-primary.html">Force a Member to Become Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="manage-chained-replication.html">Manage Chained Replication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change-hostnames-in-a-replica-set.html">Change Hostnames in a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="troubleshoot-replica-sets.html">Troubleshoot Replica Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="add-replica-set-arbiter.html">Add an Arbiter to Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-secondary-into-arbiter.html">Convert a Secondary to an Arbiter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-delayed-replica-set-member.html">Configure a Delayed Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-hidden-replica-set-member.html">Configure a Replica Set Member as Hidden</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-non-voting-replica-set-member.html">Configure a Non-Voting Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-secondary-only-replica-set-member.html">Prevent Replica Set Member from Becoming Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-secondary-sync-target.html">Configure a Secondary&#8217;s Sync Target</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-tag-sets.html">Configure Replica Set Tag Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reconfigure-replica-set-with-unavailable-members.html">Reconfigure a Replica Set with Unavailable Members</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-configuration.html">Replica Set Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-commands.html">Replica Set Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/replica-set-features.html">Replica Set Features and Version Compatibility</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/resync-replica-set-member.txt" target="_blank" title="Edit tutorial/resync-replica-set-member.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/resync-replica-set-member%2Etxt%22" target="_blank" title="Report a problem with tutorial/resync-replica-set-member.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/resync-replica-set-member.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/resync-replica-set-member'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/resync-replica-set-member'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

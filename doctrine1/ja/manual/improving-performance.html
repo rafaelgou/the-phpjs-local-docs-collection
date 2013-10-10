@@ -1,0 +1,263 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>はじめに &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="technology.html" />
+    <link rel="prev" title="テストを実施する" href="unit-testing.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="technology.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="unit-testing.html" title="テストを実施する"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="id1">
+<h1>はじめに<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p>大きなアプリケーションにとってパフォーマンスはとても重要な側面です。Doctrineはオブジェクトリレーショナルマッピングと同様に大きなデータベース抽象化レイヤーを提供する抽象化ライブラリです。これがポータビリティと開発のしやすさを提供する一方でパフォーマンスの観点から欠点になるのは避けられません。この章では読者がDoctrineのベストなパフォーマンスを得られるようにするためのお手伝いを試みます。</p>
+</div>
+<div class="section" id="id2">
+<h1>コンパイル<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineはとても大きなフレームワークなのでそれぞれのリクエストごとにたくさんのファイルがインクルードされます。これは大きなオーバーヘッドをもたらします。実際これらのファイルオペレーションはデータベースに複数のクエリを送信するのと同じくらい時間がかかります。開発環境ではファイルごとにクラスを明確に分離する方法はうまくゆきますが、プロジェクトが商用ディストリビューションになるとき動作速度がファイルごとのクラス分離の原則よりも優先されます。</p>
+<p>Doctrineはこの問題を解決するために``compile()``と呼ばれるメソッドを提供します。compileメソッドは最もよく使われるDoctrineコンポーネントの単独のファイルを作成します。デフォルトではこのファイルは``Doctrine.compiled.php``という名前でDoctrineのrootに作成されます。</p>
+<p>コンパイルは複数のファイル(最悪の場合数十のファイル)の代わりにコンパイルされたファイルを含む最も使われるDoctrineのランタイムコンポーネントの単独ファイルを作成するための手段で桁違いのパフォーマンスを改善できます。失敗ケースでは、<a href="#id3"><span class="problematic" id="id4">``</span></a>Doctrine_Exception``が詳細なエラーを投げます。</p>
+<p>Doctrineのコンパイルを処理する``compile.php``という名前のコンパイルスクリプトを作りましょう:</p>
+<blockquote>
+<div>// compile.php</div></blockquote>
+<p>require_once(&#8216;/path/to/doctrine/lib/Doctrine.php&#8217;);
+spl_autoload_register(array(&#8216;Doctrine&#8217;, &#8216;autoload&#8217;));</p>
+<p>Doctrine_Core::compile(&#8216;Doctrine.compiled.php&#8217;);</p>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a>compile.php``を実行すると``Doctrine.compiled.php``ファイルが``doctrine_test``フォルダのrootに生成されます:</p>
+<blockquote>
+<div>$ php compile.php</div></blockquote>
+<p>使用しているデータベースドライバのみをコンパイルしたいのであれば``compile()``に2番目の引数としてドライバの配列を渡すことができます。この例ではMySQLのみを使用しているのであればDoctrineに``mysql``ドライバのみをコンパイルするように伝えましょう:</p>
+<blockquote>
+<div>// compile.php</div></blockquote>
+<p>// ...</p>
+<p>Doctrine_Core::compile(&#8216;Doctrine.compiled.php&#8217;, array(&#8216;mysql&#8217;));</p>
+<p>コンパイルされたDoctrineを含めるために``bootstrap.php``スクリプトを変更できます:</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ...</p>
+<p>require_once(&#8216;Doctrine.compiled.php&#8217;);</p>
+<p>// ...</p>
+</div>
+<div class="section" id="id7">
+<h1>コンサーバティブな取得<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h1>
+<p>おそらく最も重要なルールはコンサーバティブなモードで実際に必要なデータのみを取得することです。ささいなことに聞こえるかもしれませんができることに対する無精や知識の欠如は必要のないオーバーヘッドにつながることがよくあります。</p>
+<p>例を見てみましょう:</p>
+<blockquote>
+<div>$record = <tt class="code docutils literal"><span class="pre">table-&gt;find(</span></tt>id);</div></blockquote>
+<p>このようにコードを書くのはどのくらいの頻度でしょうか？便利ですが望むものではありません。上記の例はデータベースからレコードのすべてのカラムを引き出し新しく作成されたオブジェクトにこのデータを投入します。これは不必要なネットワークトラフィックだけでなくDoctrineデータを決して使われないオブジェクトに投入しなければならないことも意味します。</p>
+<p>次のようなクエリが理想的ではない理由は読者のみなさんはみんなご存知だと思います:</p>
+<blockquote>
+<div>SELECT * FROM my_table</div></blockquote>
+<p>上記のコードはどのアプリケーションでも悪いものでDoctrineを使う際にも当てはまります。オブジェクトに必要のないデータを投入するのは時間の無駄使いになるのでDoctrineを使うとより悪くなります。</p>
+<p>このカテゴリに所属する別の重要なルールは:
+<a href="#id8"><span class="problematic" id="id9">**</span></a>本当に必要なときだけオブジェクトを取得する**ことです。Doctrineはオブジェクトグラフの代わりに&#8221;配列グラフ&#8221;を取得する機能を持ちます。最初は奇妙なことに聞こえるかもしれません。ではなぜオブジェクトリレーショナルマッパーを使うのかもう一度考えてみましょう。PHPは優れたOOPのために多くの機能で強化された手続き型の言語です。それでも配列はPHPで使うことのできる最も効率的なデータ構造です。複雑なビジネスロジックを実現する際にオブジェクトは最も価値があります。データをオブジェクト構造にラッピングしても恩恵がない場合はリソースの無駄使いです。記事用の関連データを持つすべてのコメントを取得する次のコードを見てみましょう。後で表示するためにこれらをビューに渡します:</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;select(&#8216;b.title, b.author,</div></blockquote>
+<p>b.created_at&#8217;) -&gt;addSelect(&#8216;COUNT(t.id) as num_comments&#8217;)
+-&gt;from(&#8216;BlogPost b&#8217;) -&gt;leftJoin(&#8216;b.Comments c&#8217;) -&gt;where(&#8216;b.id = ?&#8217;)
+-&gt;orderBy(&#8216;b.created_at DESC&#8217;);</p>
+<p>$blogPosts = $q-&gt;execute(array(1));</p>
+<p>最新のblog投稿をレンダリングするビューもしくはテンプレートを想像してください:</p>
+<li><ul>
+<li><p class="first">Posted on by .</p>
+<blockquote>
+<div><p>()</p>
+</div></blockquote>
+</li></li>
+</ul>
+<p>ビューの中で配列の代わりにオブジェクトを使う利点を想像できますか？ビューの中でビジネスロジックを実行しているわけではないですよね？1つのパラメータによってたくさんの不必要な処理をしなくて済みます:</p>
+<blockquote>
+<div>// ...</div></blockquote>
+<p>$blogPosts = $q-&gt;execute(array(1), Doctrine_Core::HYDRATE_ARRAY);</p>
+<p>望むのであれば``setHydrationMethod()``メソッドを使うこともできます:</p>
+<blockquote>
+<div>// ...</div></blockquote>
+<p>$q-&gt;setHydrationMode(Doctrine_Core::HYDRATE_ARRAY);</p>
+<p>$blogPosts = $q-&gt;execute(array(1));</p>
+<p>上記のコードはデータをオブジェクトではなくはるかに負荷が低い配列にハイドレイトします。</p>
+<blockquote>
+<div><strong>NOTE</strong>
+配列のハイドレーションに関して1つの素晴らしいことはオブジェクトで``ArrayAccess``を使用する場合配列のハイドレーションを使用するようにクエリを切り替えばコードはまったく同じように動作します。例えば最新のblog投稿をレンダリングするために書いた上記のコードはその背後のクエリを配列のハイドレーションに切り替えるときに動作します。</div></blockquote>
+<p>ときに、オブジェクトや配列ではなくPDOから直接出力したいことがあります。これを行うには、ハイドレーションモードを
+<a href="#id10"><span class="problematic" id="id11">**</span></a><a href="#id12"><span class="problematic" id="id13">``</span></a>Doctrine_Core::HYDRATE_NONE``**に切り替えます。例は次の通りです:</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;select(&#8216;SUM(d.amount)&#8217;)</div></blockquote>
+<p>-&gt;from(&#8216;Donation d&#8217;);</p>
+<p>$results = $q-&gt;execute(array(), Doctrine_Core::HYDRATE_NONE);</p>
+<p>結果を出力するとDQLクエリに依存する配列形式の値が見つかります:</p>
+<blockquote>
+<div>print_r($results);</div></blockquote>
+<p>この例では結果は次のコードでアクセスできます:</p>
+<blockquote>
+<div>$total = $results[0][1];</div></blockquote>
+</div>
+<div class="section" id="id14">
+<h1>クラスファイルをバンドルする<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineもしくは他の大きなOOライブラリもしくはフレームワークを使うとき通常のHTTPリクエストでインクルードされるファイルの数は秘女に大きくなります。1つのリクエストで50-100のファイルがインクルードされるのも珍しいことではありません。これはたくさんのディスクオペレーションにつながるのでパフォーマンスに大きな影響を及ぼします。これは一般的に開発環境では問題ありませんが、本番環境には適していません。この問題に対処するための推奨方法はもっともよく使われるライブラリのクラスを本番環境用に1つのファイルにまとめ、不要なホワイトスペース、改行とコメントを剥ぎ取ります。この方法によってバイトコードキャッシュ無しでも大きなパフォーマンスの改善ができます(次のセクションをご覧ください。このようなバンドルを作成するベストな方法は自動化ビルド処理、例えばPhingによる方法です。</p>
+</div>
+<div class="section" id="id15">
+<h1>バイトコードキャッシュを使用する<a class="headerlink" href="#id15" title="Permalink to this headline">¶</a></h1>
+<p>APCのようなバイトコードキャッシュは実行に先駆けてPHPによって生成されます。このことはファイルの解析とバイトコードの作成は毎回のリクエストごとではなく一度だけ行われることを意味します。これはとりわけ大きなライブラリ/フレームワークを利用しているときに役立ちます。本番環境用のファイルを利用することで大きなパフォーマンスの改善ができます。キャッシュを最適化するための設定オプションがたくさんあるのでバイトコードを最大限活用するにはマニュアルページを調べる必要があります。</p>
+</div>
+<div class="section" id="id16">
+<h1>オブジェクトを開放する<a class="headerlink" href="#id16" title="Permalink to this headline">¶</a></h1>
+<p>バージョン5.2.5に関して、PHPは循環参照を持つオブジェクトグラフのガーベッジコレクションを行うことができません。例えば親が子への参照を持ち子が親に参照を持つ場合です。多くのDoctrineオブジェクトモデルがこのようなリレーションを持つので、オブジェクトがスコープの外側にゆくときでさえPHPはメモリーを解放しません。</p>
+<p>大抵のPHPアプリケーションに関して、この問題はほとんど関係しません。PHPスクリプトの実行時間が短い傾向にあるからです。長い実行時間のスクリプト、例えば、バルクデータインポーターやエクスポーターなどの実行時間の長いスクリプトは循環参照のチェーンを破棄しない限りメモリを使い果たしてしまうことがあります。Doctrineは``Doctrine_Record``、<tt class="docutils literal"><span class="pre">Doctrine\_Collection</span></tt>、と``Doctrine_Query``で``free()``メソッドを提供します。このメソッドはこれらのオブジェクト上の循環参照を削除します。ガベージコレクション用にこれらを開放します。使い方は次の通りです:</p>
+<p>大量のレコードを挿入するときにオブジェクトを解放します:</p>
+<blockquote>
+<div>for ($i = 0; $i &lt; 1000; $i++) { $object = createBigObject();</div></blockquote>
+<p>$object-&gt;save(); $object-&gt;free(true); }</p>
+<p>同じ方法でクエリオブジェクトを解放することもできます:</p>
+<blockquote>
+<div>for ($i = 0; $i &lt; 1000; $i++) { $q = Doctrine_Query::create()</div></blockquote>
+<p>-&gt;from(&#8216;User u&#8217;);</p>
+<p>$results = $q-&gt;fetchArray(); $q-&gt;free(); }</p>
+<p>もしくはループの中のそれぞれのクエリに対して同じクエリオブジェクトを使う場合よりベターです:</p>
+<blockquote>
+<div>$q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;);</div></blockquote>
+<p>for ($i = 0; $i &lt; 1000; $i++) { $results = $q-&gt;fetchArray(); $q-&gt;free();
+}</p>
+</div>
+<div class="section" id="id17">
+<h1>他のティップス<a class="headerlink" href="#id17" title="Permalink to this headline">¶</a></h1>
+<p><strong>DQLパーサーを手助けする</strong></p>
+<p>DQLを使用する際に可能な方法は2つあります。最初の方法はプレーンなDQLクエリを書きこれらを``Doctrine_Connection::query($dql)``に渡すことです。2番目の方法は``Doctrine_Query``オブジェクトと流れるようなインターフェイスを使うことです。とてもシンプルなクエリ以外は後者の方が望ましいです。これは``Doctrine_Query``オブジェクトとそのメソッドを利用することでDQLパーサーの負担が少し減るからです。これは解析する必要のあるクエリの量を減らすのでそれゆえ速くなります。</p>
+<p><strong>効率的なリレーションのハンドリング</strong></p>
+<p>2つのコンポーネントの間のリレーションを追加したい場合次のようなことを行うべきでは**ありません**:</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+次の例は``Role``と``User``の多対多のリレーションを想定します。</div></blockquote>
+<p>$role = new Role(); $role-&gt;name = &#8216;New Role Name&#8217;;</p>
+</div></blockquote>
+<p>$user-&gt;Roles[] = $newRole;</p>
+<blockquote>
+<div><strong>CAUTION</strong>
+上記のコードはロールがまだロードされていない場合データベースからすべてのロールをロードします！1つの新しいリンクを追加するためだけに！</div></blockquote>
+<p>代わりに次の方法が推奨されます:</p>
+<blockquote>
+<div>$userRole = new UserRole(); $userRole-&gt;role_id = $role_id;</div></blockquote>
+<p>$userRole-&gt;user_id = $user_id; $userRole-&gt;save();</p>
+</div>
+<div class="section" id="id18">
+<h1>まとめ<a class="headerlink" href="#id18" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineのパフォーマンスを改善するメソッドはたくさん存在します。この章で説明されたメソッドを検討することを多いに推奨します。</p>
+<p>Doctrineで使われている[doc technology
+テクノロジー]を学ぶために次の章に移動します。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">はじめに</a></li>
+<li><a class="reference internal" href="#id2">コンパイル</a></li>
+<li><a class="reference internal" href="#id7">コンサーバティブな取得</a></li>
+<li><a class="reference internal" href="#id14">クラスファイルをバンドルする</a></li>
+<li><a class="reference internal" href="#id15">バイトコードキャッシュを使用する</a></li>
+<li><a class="reference internal" href="#id16">オブジェクトを開放する</a></li>
+<li><a class="reference internal" href="#id17">他のティップス</a></li>
+<li><a class="reference internal" href="#id18">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="unit-testing.html"
+                        title="previous chapter">テストを実施する</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="technology.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/improving-performance.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="technology.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="unit-testing.html" title="テストを実施する"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

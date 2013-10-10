@@ -1,0 +1,330 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Authentication &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Security" href="index.html" />
+    <link rel="next" title="Authorization" href="authorization.html" />
+    <link rel="prev" title="The Firewall and Security Context" href="firewall.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="authorization.html" title="Authorization"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="firewall.html" title="The Firewall and Security Context"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Security</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="authentication">
+<span id="index-0"></span><h1>Authentication<a class="headerlink" href="#authentication" title="Permalink to this headline">¶</a></h1>
+<p>When a request points to a secured area, and one of the listeners from the
+firewall map is able to extract the user&#8217;s credentials from the current
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt> object, it should create
+a token, containing these credentials. The next thing the listener should
+do is ask the authentication manager to validate the given token, and return
+an <em>authenticated</em> token if the supplied credentials were found to be valid.
+The listener should then store the authenticated token in the security context:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Http\Firewall\ListenerInterface;
+use Symfony\Component\Security\Core\SecurityContextInterface;
+use Symfony\Component\Security\Core\Authentication\AuthenticationManagerInterface;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+
+class SomeAuthenticationListener implements ListenerInterface
+{
+    /**
+     * @var SecurityContextInterface
+     */
+    private $securityContext;
+
+    /**
+     * @var AuthenticationManagerInterface
+     */
+    private $authenticationManager;
+
+    /**
+     * @var string Uniquely identifies the secured area
+     */
+    private $providerKey;
+
+    // ...
+
+    public function handle(GetResponseEvent $event)
+    {
+        $request = $event-&gt;getRequest();
+
+        $username = ...;
+        $password = ...;
+
+        $unauthenticatedToken = new UsernamePasswordToken(
+            $username,
+            $password,
+            $this-&gt;providerKey
+        );
+
+        $authenticatedToken = $this
+            -&gt;authenticationManager
+            -&gt;authenticate($unauthenticatedToken);
+
+        $this-&gt;securityContext-&gt;setToken($authenticatedToken);
+    }
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A token can be of any class, as long as it implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Token/TokenInterface.html" title="Symfony\Component\Security\Core\Authentication\Token\TokenInterface"><span class="pre">TokenInterface</span></a></tt>.</p>
+</div>
+<div class="section" id="the-authentication-manager">
+<h2>The Authentication Manager<a class="headerlink" href="#the-authentication-manager" title="Permalink to this headline">¶</a></h2>
+<p>The default authentication manager is an instance of
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/AuthenticationProviderManager.html" title="Symfony\Component\Security\Core\Authentication\AuthenticationProviderManager"><span class="pre">AuthenticationProviderManager</span></a></tt>:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Core\Authentication\AuthenticationProviderManager;
+
+// instances of Symfony\Component\Security\Core\Authentication\AuthenticationProviderInterface
+$providers = array(...);
+
+$authenticationManager = new AuthenticationProviderManager($providers);
+
+try {
+    $authenticatedToken = $authenticationManager
+        -&gt;authenticate($unauthenticatedToken);
+} catch (AuthenticationException $failed) {
+    // authentication failed
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">AuthenticationProviderManager</span></tt>, when instantiated, receives several
+authentication providers, each supporting a different type of token.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You may of course write your own authentication manager, it only has
+to implement <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/AuthenticationManagerInterface.html" title="Symfony\Component\Security\Core\Authentication\AuthenticationManagerInterface"><span class="pre">AuthenticationManagerInterface</span></a></tt>.</p>
+</div>
+</div>
+<div class="section" id="authentication-providers">
+<span id="id1"></span><h2>Authentication providers<a class="headerlink" href="#authentication-providers" title="Permalink to this headline">¶</a></h2>
+<p>Each provider (since it implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Provider/AuthenticationProviderInterface.html" title="Symfony\Component\Security\Core\Authentication\Provider\AuthenticationProviderInterface"><span class="pre">AuthenticationProviderInterface</span></a></tt>)
+has a method <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Provider/AuthenticationProviderInterface.html#method_supports" title="Symfony\Component\Security\Core\Authentication\Provider\AuthenticationProviderInterface::supports()"><span class="pre">supports()</span></a></tt>
+by which the <tt class="docutils literal"><span class="pre">AuthenticationProviderManager</span></tt>
+can determine if it supports the given token. If this is the case, the
+manager then calls the provider&#8217;s method <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Provider/AuthenticationProviderInterface::authenticate.html" title="Symfony\Component\Security\Core\Authentication\Provider\AuthenticationProviderInterface::authenticate"><span class="pre">AuthenticationProviderInterface::authenticate</span></a></tt>.
+This method should return an authenticated token or throw an
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Exception/AuthenticationException.html" title="Symfony\Component\Security\Core\Exception\AuthenticationException"><span class="pre">AuthenticationException</span></a></tt>
+(or any other exception extending it).</p>
+<div class="section" id="authenticating-users-by-their-username-and-password">
+<h3>Authenticating Users by their Username and Password<a class="headerlink" href="#authenticating-users-by-their-username-and-password" title="Permalink to this headline">¶</a></h3>
+<p>An authentication provider will attempt to authenticate a user based on
+the credentials he provided. Usually these are a username and a password.
+Most web applications store their user&#8217;s username and a hash of the user&#8217;s
+password combined with a randomly generated salt. This means that the average
+authentication would consist of fetching the salt and the hashed password
+from the user data storage, hash the password the user has just provided
+(e.g. using a login form) with the salt and compare both to determine if
+the given password is valid.</p>
+<p>This functionality is offered by the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Provider/DaoAuthenticationProvider.html" title="Symfony\Component\Security\Core\Authentication\Provider\DaoAuthenticationProvider"><span class="pre">DaoAuthenticationProvider</span></a></tt>.
+It fetches the user&#8217;s data from a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>,
+uses a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Encoder/PasswordEncoderInterface.html" title="Symfony\Component\Security\Core\Encoder\PasswordEncoderInterface"><span class="pre">PasswordEncoderInterface</span></a></tt>
+to create a hash of the password and returns an authenticated token if the
+password was valid:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Core\Authentication\Provider\DaoAuthenticationProvider;
+use Symfony\Component\Security\Core\User\UserChecker;
+use Symfony\Component\Security\Core\User\InMemoryUserProvider;
+use Symfony\Component\Security\Core\Encoder\EncoderFactory;
+
+$userProvider = new InMemoryUserProvider(
+    array(
+        'admin' =&gt; array(
+            // password is "foo"
+            'password' =&gt; '5FZ2Z8QIkA7UTZ4BYkoC+GsReLf569mSKDsfods6LYQ8t+a8EW9oaircfMpmaLbPBh4FOBiiFyLfuZmTSUwzZg==',
+            'roles'    =&gt; array('ROLE_ADMIN'),
+        ),
+    )
+);
+
+// for some extra checks: is account enabled, locked, expired, etc.?
+$userChecker = new UserChecker();
+
+// an array of password encoders (see below)
+$encoderFactory = new EncoderFactory(...);
+
+$provider = new DaoAuthenticationProvider(
+    $userProvider,
+    $userChecker,
+    'secured_area',
+    $encoderFactory
+);
+
+$provider-&gt;authenticate($unauthenticatedToken);</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The example above demonstrates the use of the &#8220;in-memory&#8221; user provider,
+but you may use any user provider, as long as it implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>.
+It is also possible to let multiple user providers try to find the user&#8217;s
+data, using the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/ChainUserProvider.html" title="Symfony\Component\Security\Core\User\ChainUserProvider"><span class="pre">ChainUserProvider</span></a></tt>.</p>
+</div>
+</div>
+<div class="section" id="the-password-encoder-factory">
+<h3>The Password encoder Factory<a class="headerlink" href="#the-password-encoder-factory" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/Provider/DaoAuthenticationProvider.html" title="Symfony\Component\Security\Core\Authentication\Provider\DaoAuthenticationProvider"><span class="pre">DaoAuthenticationProvider</span></a></tt>
+uses an encoder factory to create a password encoder for a given type of
+user. This allows you to use different encoding strategies for different
+types of users. The default <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Encoder/EncoderFactory.html" title="Symfony\Component\Security\Core\Encoder\EncoderFactory"><span class="pre">EncoderFactory</span></a></tt>
+receives an array of encoders:</p>
+<div class="highlight-python"><pre>use Symfony\Component\Security\Core\Encoder\EncoderFactory;
+use Symfony\Component\Security\Core\Encoder\MessageDigestPasswordEncoder;
+
+$defaultEncoder = new MessageDigestPasswordEncoder('sha512', true, 5000);
+$weakEncoder = new MessageDigestPasswordEncoder('md5', true, 1);
+
+$encoders = array(
+    'Symfony\\Component\\Security\\Core\\User\\User' =&gt; $defaultEncoder,
+    'Acme\\Entity\\LegacyUser'                       =&gt; $weakEncoder,
+
+    // ...
+);
+
+$encoderFactory = new EncoderFactory($encoders);</pre>
+</div>
+<p>Each encoder should implement <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Encoder/PasswordEncoderInterface.html" title="Symfony\Component\Security\Core\Encoder\PasswordEncoderInterface"><span class="pre">PasswordEncoderInterface</span></a></tt>
+or be an array with a <tt class="docutils literal"><span class="pre">class</span></tt> and an <tt class="docutils literal"><span class="pre">arguments</span></tt> key, which allows the
+encoder factory to construct the encoder only when it is needed.</p>
+</div>
+<div class="section" id="password-encoders">
+<h3>Password Encoders<a class="headerlink" href="#password-encoders" title="Permalink to this headline">¶</a></h3>
+<p>When the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Encoder/EncoderFactory.html#method_getEncoder" title="Symfony\Component\Security\Core\Encoder\EncoderFactory::getEncoder()"><span class="pre">getEncoder()</span></a></tt>
+method of the password encoder factory is called with the user object as
+its first argument, it will return an encoder of type <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Encoder/PasswordEncoderInterface.html" title="Symfony\Component\Security\Core\Encoder\PasswordEncoderInterface"><span class="pre">PasswordEncoderInterface</span></a></tt>
+which should be used to encode this user&#8217;s password:</p>
+<div class="highlight-python"><pre>// fetch a user of type Acme\Entity\LegacyUser
+$user = ...
+
+$encoder = $encoderFactory-&gt;getEncoder($user);
+
+// will return $weakEncoder (see above)
+
+$encodedPassword = $encoder-&gt;encodePassword($password, $user-&gt;getSalt());
+
+// check if the password is valid:
+
+$validPassword = $encoder-&gt;isPasswordValid(
+    $user-&gt;getPassword(),
+    $password,
+    $user-&gt;getSalt());</pre>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Authentication</a><ul>
+<li><a class="reference internal" href="#the-authentication-manager">The Authentication Manager</a></li>
+<li><a class="reference internal" href="#authentication-providers">Authentication providers</a><ul>
+<li><a class="reference internal" href="#authenticating-users-by-their-username-and-password">Authenticating Users by their Username and Password</a></li>
+<li><a class="reference internal" href="#the-password-encoder-factory">The Password encoder Factory</a></li>
+<li><a class="reference internal" href="#password-encoders">Password Encoders</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="firewall.html"
+                        title="previous chapter">The Firewall and Security Context</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="authorization.html"
+                        title="next chapter">Authorization</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/security/authentication.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="authorization.html" title="Authorization"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="firewall.html" title="The Firewall and Security Context"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Security</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

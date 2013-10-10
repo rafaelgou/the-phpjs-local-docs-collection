@@ -1,0 +1,145 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Assertions</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.back-references.html">Back references</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.onlyonce.html">Once-only subpatterns</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="regexp.reference.assertions" class="section">
+  <h2 class="title">Assertions</h2>
+  <p class="para">
+   An assertion is  a  test  on  the  characters  following  or
+   preceding  the current matching point that does not actually
+   consume any characters. The simple assertions coded  as  \b,
+   \B,  \A,  \Z,  \z, ^ and $ are described above. More complicated
+   assertions are coded as  subpatterns.  There  are  two
+   kinds:  those that <em class="emphasis">look ahead</em> of the current position in the
+   subject string, and those that <em class="emphasis">look behind</em> it.
+  </p>
+  <p class="para">
+   An assertion subpattern is matched in the normal way, except
+   that  it  does not cause the current matching position to be
+   changed. <em class="emphasis">Lookahead</em> assertions start with  (?=  for  positive
+   assertions and (?! for negative assertions. For example,
+   
+   <em>\w+(?=;)</em>
+   
+   matches a word followed by a semicolon, but does not include
+   the semicolon in the match, and
+   
+   <em>foo(?!bar)</em>
+   
+   matches any occurrence of &quot;foo&quot;  that  is  not  followed  by
+   &quot;bar&quot;. Note that the apparently similar pattern
+   
+   <em>(?!foo)bar</em>
+   
+   does not find an occurrence of &quot;bar&quot;  that  is  preceded  by
+   something other than &quot;foo&quot;; it finds any occurrence of &quot;bar&quot;
+   whatsoever, because the assertion  (?!foo)  is  always  <strong><code>TRUE</code></strong>
+   when  the  next  three  characters  are  &quot;bar&quot;. A lookbehind
+   assertion is needed to achieve this effect.
+  </p>
+  <p class="para">
+   <em class="emphasis">Lookbehind</em> assertions start with (?&lt;=  for  positive  assertions
+   and (?&lt;! for negative assertions. For example,
+   
+   <em>(?&lt;!foo)bar</em>
+   
+   does find an occurrence of &quot;bar&quot; that  is  not  preceded  by
+   &quot;foo&quot;. The contents of a lookbehind assertion are restricted
+   such that all the strings  it  matches  must  have  a  fixed
+   length.  However, if there are several alternatives, they do
+   not all have to have the same fixed length. Thus
+   
+   <em>(?&lt;=bullock|donkey)</em>
+   
+   is permitted, but
+   
+   <em>(?&lt;!dogs?|cats?)</em>
+   
+   causes an error at compile time. Branches  that  match  different
+   length strings are permitted only at the top level of
+   a lookbehind assertion. This is an extension  compared  with
+   Perl  5.005,  which  requires all branches to match the same
+   length of string. An assertion such as
+   
+   <em>(?&lt;=ab(c|de))</em>
+   
+   is not permitted, because its single  top-level  branch  can
+   match two different lengths, but it is acceptable if rewritten
+   to use two top-level branches:
+   
+   <em>(?&lt;=abc|abde)</em>
+   
+   The implementation of lookbehind  assertions  is,  for  each
+   alternative,  to  temporarily move the current position back
+   by the fixed width and then  try  to  match.  If  there  are
+   insufficient  characters  before  the  current position, the
+   match is deemed to fail.  Lookbehinds  in  conjunction  with
+   once-only  subpatterns can be particularly useful for matching
+   at the ends of strings; an example is given at  the  end
+   of the section on once-only subpatterns.
+  </p>
+  <p class="para">
+   Several assertions (of any sort) may  occur  in  succession.
+   For example,
+   
+   <em>(?&lt;=\d{3})(?&lt;!999)foo</em>
+   
+   matches &quot;foo&quot; preceded by three digits that are  not  &quot;999&quot;.
+   Notice  that each of the assertions is applied independently
+   at the same point in the subject string. First  there  is  a
+   check  that  the  previous  three characters are all digits,
+   then there is a check that the same three characters are not
+   &quot;999&quot;.   This  pattern  does not match &quot;foo&quot; preceded by six
+   characters, the first of which are digits and the last three
+   of  which  are  not  &quot;999&quot;.  For  example,  it doesn&#039;t match
+   &quot;123abcfoo&quot;. A pattern to do that is
+   
+   <em>(?&lt;=\d{3}...)(?&lt;!999)foo</em>
+  </p>
+  <p class="para">
+   This time the first assertion looks  at  the  preceding  six
+   characters,  checking  that  the first three are digits, and
+   then the second assertion checks that  the  preceding  three
+   characters are not &quot;999&quot;.
+  </p>
+  <p class="para">
+   Assertions can be nested in any combination. For example,
+   
+   <em>(?&lt;=(?&lt;!foo)bar)baz</em>
+   
+   matches an occurrence of &quot;baz&quot; that  is  preceded  by  &quot;bar&quot;
+   which in turn is not preceded by &quot;foo&quot;, while
+   
+   <em>(?&lt;=\d{3}...(?&lt;!999))foo</em>
+   
+   is another pattern which matches  &quot;foo&quot;  preceded  by  three
+   digits and any three characters that are not &quot;999&quot;.
+  </p>
+  <p class="para">
+   Assertion subpatterns are not capturing subpatterns, and may
+   not  be  repeated,  because  it makes no sense to assert the
+   same thing several times. If any kind of assertion  contains
+   capturing  subpatterns  within it, these are counted for the
+   purposes of numbering the capturing subpatterns in the whole
+   pattern.   However,  substring capturing is carried out only
+   for positive assertions, because it does not make sense  for
+   negative assertions.
+  </p>
+  <p class="para">
+   Assertions count towards the maximum  of  200  parenthesized
+   subpatterns.
+  </p>
+ </div><hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.back-references.html">Back references</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.onlyonce.html">Once-only subpatterns</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

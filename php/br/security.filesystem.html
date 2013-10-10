@@ -1,0 +1,123 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Seguran&ccedil;a do Sistema de Arquivos</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="security.apache.html">Instalado como m&oacute;dulo do Apache</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="security.filesystem.nullbytes.html">Problemas relacionados a bytes nulos (Null)</a></div>
+ <div class="up"><a href="security.html">Seguran&ccedil;a</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="security.filesystem" class="chapter">
+   <h1>Segurança do Sistema de Arquivos</h1>
+<h2>Índice</h2><ul class="chunklist chunklist_chapter"><li><a href="security.filesystem.nullbytes.html">Problemas relacionados a bytes nulos (Null)</a></li></ul>
+
+   <p class="simpara">
+    O PHP está sujeito à segurança encontrada na maioria dos sistemas de servidor
+    com respeito à permissões de arquivos e diretórios. Isso permite que
+    você controle quais arquivos no sistema podem ser lidos e por quem. É preciso
+    ter cuidado com quaisquer arquivos que são lidos por todos para assegurar
+    que eles podem ser lidos por todos os usuários que tem acesso ao
+    sistema de arquivos.
+   </p>
+   <p class="simpara">
+    Já que o PHP foi desenhado para permitir acesso em nível de usuário ao sistema
+    de aruqivos, é possível escrever um script PHP que permitirá
+    ler arquivos do sistema com /etc/passwd, modificar suas conexões
+    de ethernet, enviar trabalhos de impressão gigantes, etc. Isso tem
+    algumas implicações óbvias, já que você precisa ter certeza que os arquivos
+    que você lê e escreve são apropriados.
+   </p>
+   <p class="simpara">
+    Considere o seguinte script, onde um usuário indica que ele quer
+    apagar um arquivo no seu diretório home. Isso presume uma situação
+    onde uma interface web PHP é usada regularmente para controle
+    de arquivos, então o usuário do Apache tem permissão de apagar arquivos
+    nos diretórios home dos usuários.
+   </p>
+   <p class="para">
+    <div class="example" id="example-259">
+     <p><strong>Exemplo #1 Checagem fraca de variáveis resulta em....</strong></p>
+     <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br /></span><span style="color: #FF8000">//&nbsp;remove&nbsp;a&nbsp;file&nbsp;from&nbsp;the&nbsp;user's&nbsp;home&nbsp;directory<br /></span><span style="color: #0000BB">$username&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_name'</span><span style="color: #007700">];<br /></span><span style="color: #0000BB">$userfile&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_filename'</span><span style="color: #007700">];<br /></span><span style="color: #0000BB">$homedir&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"/home/</span><span style="color: #0000BB">$username</span><span style="color: #DD0000">"</span><span style="color: #007700">;<br /><br /></span><span style="color: #0000BB">unlink</span><span style="color: #007700">(</span><span style="color: #DD0000">"</span><span style="color: #0000BB">$homedir</span><span style="color: #DD0000">/</span><span style="color: #0000BB">$userfile</span><span style="color: #DD0000">"</span><span style="color: #007700">);<br /><br />echo&nbsp;</span><span style="color: #DD0000">"The&nbsp;file&nbsp;has&nbsp;been&nbsp;deleted!"</span><span style="color: #007700">;<br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+     </div>
+
+    </div>
+   Já que o nome do usuário e do arquivo são enviáveis pelo formulário,
+   um usuário pode enviar um nome de usuário e de arquivo que pertença a outra pessoa,
+   e apagá-lo, mesmo que eles não tenham permissão para fazê-lo.
+   Nesse caso, você desejaria ter alguma outra forma de autenticação.
+   Considere o que poderia acontecer se as variáveis enviadas forem
+   &quot;../etc/&quot; and &quot;passwd&quot;. O código então leria efetivamente:
+    <div class="example" id="example-260">
+     <p><strong>Exemplo #2 ... um ataque ao sistema de arquivos</strong></p>
+     <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br /></span><span style="color: #FF8000">//&nbsp;remove&nbsp;um&nbsp;arquivo&nbsp;de&nbsp;qualquer&nbsp;lugar&nbsp;no&nbsp;disco&nbsp;rígido<br />//&nbsp;que&nbsp;o&nbsp;usuário&nbsp;do&nbsp;PHP&nbsp;tenha&nbsp;acesso.&nbsp;Se&nbsp;o&nbsp;PHP&nbsp;tiver&nbsp;acesso&nbsp;de&nbsp;administrador&nbsp;(root):<br /></span><span style="color: #0000BB">$username&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_name'</span><span style="color: #007700">];&nbsp;</span><span style="color: #FF8000">//&nbsp;"../etc"<br /></span><span style="color: #0000BB">$userfile&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_filename'</span><span style="color: #007700">];&nbsp;</span><span style="color: #FF8000">//&nbsp;"passwd"<br /></span><span style="color: #0000BB">$homedir&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"/home/</span><span style="color: #0000BB">$username</span><span style="color: #DD0000">"</span><span style="color: #007700">;&nbsp;</span><span style="color: #FF8000">//&nbsp;"/home/../etc"<br /><br /></span><span style="color: #0000BB">unlink</span><span style="color: #007700">(</span><span style="color: #DD0000">"</span><span style="color: #0000BB">$homedir</span><span style="color: #DD0000">/</span><span style="color: #0000BB">$userfile</span><span style="color: #DD0000">"</span><span style="color: #007700">);&nbsp;</span><span style="color: #FF8000">//&nbsp;"/home/../etc/passwd"<br /><br /></span><span style="color: #007700">echo&nbsp;</span><span style="color: #DD0000">"The&nbsp;file&nbsp;has&nbsp;been&nbsp;deleted!"</span><span style="color: #007700">;<br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+     </div>
+
+    </div>
+    Existem duas medidas importantes que você deve tomar para previnir
+    esses problemas.
+    <ul class="itemizedlist">
+     <li class="listitem">
+      <span class="simpara">
+       Só dar permissões limitadas ao usuário executando o binário do PHP.
+      </span>
+     </li>
+     <li class="listitem">
+      <span class="simpara">
+       Checar todas as variáveis que são enviadas.
+      </span>
+     </li>
+    </ul>
+    Aqui temos um script melhorado:
+    <div class="example" id="example-261">
+     <p><strong>Exemplo #3 Checagem mais segura do nome do arquivo</strong></p>
+     <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br /></span><span style="color: #FF8000">//&nbsp;remove&nbsp;um&nbsp;arquivo&nbsp;do&nbsp;disco&nbsp;rígido&nbsp;que&nbsp;o<br />//&nbsp;usuário&nbsp;do&nbsp;PHP&nbsp;tenha&nbsp;acesso.<br /></span><span style="color: #0000BB">$username&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_SERVER</span><span style="color: #007700">[</span><span style="color: #DD0000">'REMOTE_USER'</span><span style="color: #007700">];&nbsp;</span><span style="color: #FF8000">//&nbsp;usando&nbsp;um&nbsp;mecanismo&nbsp;de&nbsp;autenticação<br /></span><span style="color: #0000BB">$userfile&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">basename</span><span style="color: #007700">(</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_filename'</span><span style="color: #007700">]);<br /></span><span style="color: #0000BB">$homedir&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"/home/</span><span style="color: #0000BB">$username</span><span style="color: #DD0000">"</span><span style="color: #007700">;<br /><br /></span><span style="color: #0000BB">$filepath&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"</span><span style="color: #0000BB">$homedir</span><span style="color: #DD0000">/</span><span style="color: #0000BB">$userfile</span><span style="color: #DD0000">"</span><span style="color: #007700">;<br /><br />if&nbsp;(</span><span style="color: #0000BB">file_exists</span><span style="color: #007700">(</span><span style="color: #0000BB">$filepath</span><span style="color: #007700">)&nbsp;&amp;&amp;&nbsp;</span><span style="color: #0000BB">unlink</span><span style="color: #007700">(</span><span style="color: #0000BB">$filepath</span><span style="color: #007700">))&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #0000BB">$logstring&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"Deleted&nbsp;</span><span style="color: #0000BB">$filepath</span><span style="color: #DD0000">\n"</span><span style="color: #007700">;<br />}&nbsp;else&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #0000BB">$logstring&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"Failed&nbsp;to&nbsp;delete&nbsp;</span><span style="color: #0000BB">$filepath</span><span style="color: #DD0000">\n"</span><span style="color: #007700">;<br />}<br /></span><span style="color: #0000BB">$fp&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">fopen</span><span style="color: #007700">(</span><span style="color: #DD0000">"/home/logging/filedelete.log"</span><span style="color: #007700">,&nbsp;</span><span style="color: #DD0000">"a"</span><span style="color: #007700">);<br /></span><span style="color: #0000BB">fwrite</span><span style="color: #007700">(</span><span style="color: #0000BB">$fp</span><span style="color: #007700">,&nbsp;</span><span style="color: #0000BB">$logstring</span><span style="color: #007700">);<br /></span><span style="color: #0000BB">fclose</span><span style="color: #007700">(</span><span style="color: #0000BB">$fp</span><span style="color: #007700">);<br /><br />echo&nbsp;</span><span style="color: #0000BB">htmlentities</span><span style="color: #007700">(</span><span style="color: #0000BB">$logstring</span><span style="color: #007700">,&nbsp;</span><span style="color: #0000BB">ENT_QUOTES</span><span style="color: #007700">);<br /><br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+     </div>
+
+    </div>
+    No entanto, ele ainda possui falhas. Se seu sistema de autenticação
+    permitir que os usuários criem seu próprios logins, e um usuário
+    escolher o login &quot;../etc/&quot;, o sistema está novamente exposto. Por
+    essa razão, você pode preferir escrever uma checagem mais específica:
+    <div class="example" id="example-262">
+     <p><strong>Exemplo #4 Checagem mais segura do nome do arquivo</strong></p>
+     <div class="example-contents">
+<div class="phpcode"><code><span style="color: #000000">
+<span style="color: #0000BB">&lt;?php<br />$username&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_SERVER</span><span style="color: #007700">[</span><span style="color: #DD0000">'REMOTE_USER'</span><span style="color: #007700">];&nbsp;</span><span style="color: #FF8000">//&nbsp;usando&nbsp;um&nbsp;mecanismo&nbsp;de&nbsp;autenticação<br /></span><span style="color: #0000BB">$userfile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #0000BB">$_POST</span><span style="color: #007700">[</span><span style="color: #DD0000">'user_submitted_filename'</span><span style="color: #007700">];<br /></span><span style="color: #0000BB">$homedir&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"/home/</span><span style="color: #0000BB">$username</span><span style="color: #DD0000">"</span><span style="color: #007700">;<br /><br /></span><span style="color: #0000BB">$filepath&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color: #007700">=&nbsp;</span><span style="color: #DD0000">"</span><span style="color: #0000BB">$homedir</span><span style="color: #DD0000">/</span><span style="color: #0000BB">$userfile</span><span style="color: #DD0000">"</span><span style="color: #007700">;<br /><br />if&nbsp;(!</span><span style="color: #0000BB">ctype_alnum</span><span style="color: #007700">(</span><span style="color: #0000BB">$username</span><span style="color: #007700">)&nbsp;||&nbsp;!</span><span style="color: #0000BB">preg_match</span><span style="color: #007700">(</span><span style="color: #DD0000">'/^(?:[a-z0-9_-]|\.(?!\.))+$/iD'</span><span style="color: #007700">,&nbsp;</span><span style="color: #0000BB">$userfile</span><span style="color: #007700">))&nbsp;{<br />&nbsp;&nbsp;&nbsp;&nbsp;die(</span><span style="color: #DD0000">"Bad&nbsp;username/filename"</span><span style="color: #007700">);<br />}<br /><br /></span><span style="color: #FF8000">//etc...<br /></span><span style="color: #0000BB">?&gt;</span>
+</span>
+</code></div>
+     </div>
+
+    </div>
+   </p>
+   <p class="para">
+    Dependendo do seu sistema operacional, existe uma variedade enorme de arquivos
+    que você tem que se preocupar, incluindo dispositivos  (/dev/
+    or COM1), arquivos de configuração (arquivos /etc/ e .ini),
+    áres de armazenamento conhecidas (/home/, My Documents), etc. Por essa
+    razão, normalmente é mais fácil criar uma política onde você proibe
+    tudo exceto aquilo que for explicitamente permitido.
+   </p>
+   
+
+  </div>
+<hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="security.apache.html">Instalado como m&oacute;dulo do Apache</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="security.filesystem.nullbytes.html">Problemas relacionados a bytes nulos (Null)</a></div>
+ <div class="up"><a href="security.html">Seguran&ccedil;a</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

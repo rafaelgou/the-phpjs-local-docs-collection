@@ -1,0 +1,289 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Advanced Container Configuration &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Dependency Injection" href="index.html" />
+    <link rel="next" title="Lazy Services" href="lazy_services.html" />
+    <link rel="prev" title="Managing Common Dependencies with Parent Services" href="parentservices.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="lazy_services.html" title="Lazy Services"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="parentservices.html" title="Managing Common Dependencies with Parent Services"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="advanced-container-configuration">
+<span id="index-0"></span><h1>Advanced Container Configuration<a class="headerlink" href="#advanced-container-configuration" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="marking-services-as-public-private">
+<h2>Marking Services as public / private<a class="headerlink" href="#marking-services-as-public-private" title="Permalink to this headline">¶</a></h2>
+<p>When defining services, you&#8217;ll usually want to be able to access these definitions
+within your application code. These services are called <tt class="docutils literal"><span class="pre">public</span></tt>. For example,
+the <tt class="docutils literal"><span class="pre">doctrine</span></tt> service registered with the container when using the DoctrineBundle
+is a public service as you can access it via:</p>
+<div class="highlight-python"><pre>$doctrine = $container-&gt;get('doctrine');</pre>
+</div>
+<p>However, there are use-cases when you don&#8217;t want a service to be public. This
+is common when a service is only defined because it could be used as an
+argument for another service.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you use a private service as an argument to only one other service,
+this will result in an inlined instantiation (e.g. <tt class="docutils literal"><span class="pre">new</span> <span class="pre">PrivateFooBar()</span></tt>)
+inside this other service, making it publicly unavailable at runtime.</p>
+</div>
+<p>Simply said: A service will be private when you do not want to access it
+directly from your code.</p>
+<p>Here is an example:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">foo</span><span class="p-Indicator">:</span>
+     <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Example\Foo</span>
+     <span class="l-Scalar-Plain">public</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;foo&quot;</span> <span class="na">class=</span><span class="s">&quot;Example\Foo&quot;</span> <span class="na">public=</span><span class="s">&quot;false&quot;</span> <span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$definition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Example\Foo&#39;</span><span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">setPublic</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now that the service is private, you <em>cannot</em> call:</p>
+<div class="highlight-python"><pre>$container-&gt;get('foo');</pre>
+</div>
+<p>However, if a service has been marked as private, you can still alias it (see
+below) to access this service (via the alias).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Services are by default public.</p>
+</div>
+</div>
+<div class="section" id="synthetic-services">
+<h2>Synthetic Services<a class="headerlink" href="#synthetic-services" title="Permalink to this headline">¶</a></h2>
+<p>Synthetic services are services that are injected into the container instead
+of being created by the container.</p>
+<p>For example, if you&#8217;re using the <a class="reference internal" href="../http_kernel/introduction.html"><em>HttpKernel</em></a>
+component with the DependencyInjection component, then the the <tt class="docutils literal"><span class="pre">request</span></tt>
+service is injected in the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/DependencyInjection/ContainerAwareHttpKernel.html#method_handle" title="Symfony\Component\HttpKernel\DependencyInjection\ContainerAwareHttpKernel::handle()"><span class="pre">ContainerAwareHttpKernel::handle()</span></a></tt>
+method when entering the request <a class="reference internal" href="../../cookbook/service_container/scopes.html"><em>scope</em></a>.
+The class does not exist when there is no request, so it can&#8217;t be included in
+the container configuration. Also, the service should be different for every
+subrequest in the application.</p>
+<p>To create a synthetic service, set <tt class="docutils literal"><span class="pre">synthetic</span></tt> to <tt class="docutils literal"><span class="pre">true</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">request</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">synthetic</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;request&quot;</span>
+    <span class="na">synthetic=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;request&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">())</span>
+    <span class="o">-&gt;</span><span class="na">setSynthetic</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>As you see, only the <tt class="docutils literal"><span class="pre">synthetic</span></tt> option is set. All other options are only used
+to configure how a service is created by the container. As the service isn&#8217;t
+created by the container, these options are omitted.</p>
+<p>Now, you can inject the class by using
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Container.html#method_set" title="Symfony\Component\DependencyInjection\Container::set()"><span class="pre">Container::set</span></a></tt>:</p>
+<div class="highlight-python"><pre>// ...
+$container-&gt;set('request', new MyRequest(...));</pre>
+</div>
+</div>
+<div class="section" id="aliasing">
+<h2>Aliasing<a class="headerlink" href="#aliasing" title="Permalink to this headline">¶</a></h2>
+<p>You may sometimes want to use shortcuts to access some services. You can
+do so by aliasing them and, furthermore, you can even alias non-public
+services.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">foo</span><span class="p-Indicator">:</span>
+     <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Example\Foo</span>
+   <span class="l-Scalar-Plain">bar</span><span class="p-Indicator">:</span>
+     <span class="l-Scalar-Plain">alias</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">foo</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;foo&quot;</span> <span class="na">class=</span><span class="s">&quot;Example\Foo&quot;</span><span class="nt">/&gt;</span>
+
+<span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;bar&quot;</span> <span class="na">alias=</span><span class="s">&quot;foo&quot;</span> <span class="nt">/&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$definition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Example\Foo&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+
+<span class="nv">$containerBuilder</span><span class="o">-&gt;</span><span class="na">setAlias</span><span class="p">(</span><span class="s1">&#39;bar&#39;</span><span class="p">,</span> <span class="s1">&#39;foo&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>This means that when using the container directly, you can access the <tt class="docutils literal"><span class="pre">foo</span></tt>
+service by asking for the <tt class="docutils literal"><span class="pre">bar</span></tt> service like this:</p>
+<div class="highlight-python"><pre>$container-&gt;get('bar'); // Would return the foo service</pre>
+</div>
+</div>
+<div class="section" id="requiring-files">
+<h2>Requiring files<a class="headerlink" href="#requiring-files" title="Permalink to this headline">¶</a></h2>
+<p>There might be use cases when you need to include another file just before
+the service itself gets loaded. To do so, you can use the <tt class="docutils literal"><span class="pre">file</span></tt> directive.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+   <span class="l-Scalar-Plain">foo</span><span class="p-Indicator">:</span>
+     <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Example\Foo\Bar</span>
+     <span class="l-Scalar-Plain">file</span><span class="p-Indicator">:</span> <span class="s">&quot;%kernel.root_dir%/src/path/to/file/foo.php&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;foo&quot;</span> <span class="na">class=</span><span class="s">&quot;Example\Foo\Bar&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;file&gt;</span>%kernel.root_dir%/src/path/to/file/foo.php<span class="nt">&lt;/file&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$definition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Example\Foo\Bar&#39;</span><span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">setFile</span><span class="p">(</span><span class="s1">&#39;%kernel.root_dir%/src/path/to/file/foo.php&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Notice that Symfony will internally call the PHP function require_once
+which means that your file will be included only once per request.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Advanced Container Configuration</a><ul>
+<li><a class="reference internal" href="#marking-services-as-public-private">Marking Services as public / private</a></li>
+<li><a class="reference internal" href="#synthetic-services">Synthetic Services</a></li>
+<li><a class="reference internal" href="#aliasing">Aliasing</a></li>
+<li><a class="reference internal" href="#requiring-files">Requiring files</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="parentservices.html"
+                        title="previous chapter">Managing Common Dependencies with Parent Services</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="lazy_services.html"
+                        title="next chapter">Lazy Services</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/dependency_injection/advanced.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="lazy_services.html" title="Lazy Services"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="parentservices.html" title="Managing Common Dependencies with Parent Services"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

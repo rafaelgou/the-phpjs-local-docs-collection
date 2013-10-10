@@ -1,0 +1,789 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Aggregation Framework Examples &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/aggregation-examples.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/aggregation-examples" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Aggregation" href="../aggregation.html" />
+<link rel="next" title="Aggregation Framework Reference" href="../reference/aggregation.html" />
+<link rel="prev" title="Aggregation Framework" href="../core/aggregation.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../aggregation.html">Aggregation</a><span class="bcpoint"> > </span></li>
+          <li>Aggregation Framework Examples</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="aggregation-framework-examples">
+<h1>Aggregation Framework Examples<a class="headerlink" href="#aggregation-framework-examples" title="Permalink to this headline">¶</a></h1>
+<p>MongoDB provides flexible data aggregation functionality with the
+<a class="reference internal" href="../reference/command/aggregate.html#dbcmd.aggregate" title="aggregate"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">aggregate</span></tt></a> command. For additional information about
+aggregation consider the following resources:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../core/aggregation.html"><em>Aggregation Framework</em></a></li>
+<li><a class="reference internal" href="../reference/aggregation.html"><em>Aggregation Framework Reference</em></a></li>
+<li><a class="reference internal" href="../reference/sql-aggregation-comparison.html"><em>SQL to Aggregation Framework Mapping Chart</em></a></li>
+</ul>
+<p>This document provides a number of practical examples that display the
+capabilities of the aggregation framework. All examples use a publicly
+available data set of all zipcodes and populations in the United
+States.</p>
+<div class="section" id="requirements">
+<h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
+<p><a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> and <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>, version 2.2 or later.</p>
+</div>
+<div class="section" id="aggregations-using-the-zip-code-data-set">
+<h2>Aggregations using the Zip Code Data Set<a class="headerlink" href="#aggregations-using-the-zip-code-data-set" title="Permalink to this headline">¶</a></h2>
+<p>To run you will need the zipcode data set. These data are available at:
+<a class="reference external" href="http://media.mongodb.org/zips.json">media.mongodb.org/zips.json</a>.
+Use <a class="reference internal" href="../reference/program/mongoimport.html#bin.mongoimport" title="mongoimport"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongoimport</span></tt></a> to load this data set into your
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance.</p>
+<div class="section" id="data-model">
+<h3>Data Model<a class="headerlink" href="#data-model" title="Permalink to this headline">¶</a></h3>
+<p>Each document in this collection has the following form:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span><span class="o">:</span> <span class="s2">&quot;10280&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;city&quot;</span><span class="o">:</span> <span class="s2">&quot;NEW YORK&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;state&quot;</span><span class="o">:</span> <span class="s2">&quot;NY&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;pop&quot;</span><span class="o">:</span> <span class="mi">5574</span><span class="p">,</span>
+  <span class="s2">&quot;loc&quot;</span><span class="o">:</span> <span class="p">[</span>
+    <span class="o">-</span><span class="mf">74.016323</span><span class="p">,</span>
+    <span class="mf">40.710537</span>
+  <span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In these documents:</p>
+<ul class="simple">
+<li>The <tt class="docutils literal"><span class="pre">_id</span></tt> field holds the zipcode as a string.</li>
+<li>The <tt class="docutils literal"><span class="pre">city</span></tt> field holds the city.</li>
+<li>The <tt class="docutils literal"><span class="pre">state</span></tt> field holds the two letter state abbreviation.</li>
+<li>The <tt class="docutils literal"><span class="pre">pop</span></tt> field holds the population.</li>
+<li>The <tt class="docutils literal"><span class="pre">loc</span></tt> field holds the location as a latitude longitude pair.</li>
+</ul>
+<p>All of the following examples use the <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> helper in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell. <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> provides a
+wrapper around the <a class="reference internal" href="../reference/command/aggregate.html#dbcmd.aggregate" title="aggregate"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">aggregate</span></tt></a> database command. See the
+documentation for your <a class="reference internal" href="../applications/drivers.html"><em>driver</em></a> for a
+more idiomatic interface for data aggregation operations.</p>
+</div>
+<div class="section" id="states-with-populations-over-10-million">
+<h3>States with Populations Over 10 Million<a class="headerlink" href="#states-with-populations-over-10-million" title="Permalink to this headline">¶</a></h3>
+<p>To return all states with a population greater than 10 million, use
+the following aggregation operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">zipcodes</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span> <span class="p">{</span> <span class="nx">$group</span> <span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;$state&quot;</span><span class="p">,</span>
+                           <span class="nx">totalPop</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$sum</span> <span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+                       <span class="p">{</span> <span class="nx">$match</span> <span class="o">:</span> <span class="p">{</span><span class="nx">totalPop</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$gte</span> <span class="o">:</span> <span class="mi">10</span><span class="o">*</span><span class="mi">1000</span><span class="o">*</span><span class="mi">1000</span> <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Aggregations operations using the <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> helper, process all documents on the
+<tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection. <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> connects a number of <a class="reference internal" href="../core/aggregation.html#aggregation-pipelines"><em>pipeline</em></a> operators, which define the aggregation
+process.</p>
+<p>In the above example, the pipeline passes all documents in the
+<tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection through the following steps:</p>
+<ul>
+<li><p class="first">the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects all documents and
+creates documents for each state.</p>
+<p>These new per-state documents have one field in addition the
+<tt class="docutils literal"><span class="pre">_id</span></tt> field: <tt class="docutils literal"><span class="pre">totalPop</span></tt> which is a generated field using the
+<a class="reference internal" href="../reference/aggregation/sum.html#grp._S_sum" title="$sum"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$sum</span></tt></a> operation to calculate the total value of all
+<tt class="docutils literal"><span class="pre">pop</span></tt> fields in the source documents.</p>
+<p>After the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operation the documents in the
+pipeline resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;AK&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;totalPop&quot;</span> <span class="o">:</span> <span class="mi">550043</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">the <a class="reference internal" href="../reference/aggregation/match.html#stage._S_match" title="$match"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$match</span></tt></a> operation filters these documents so that
+the only documents that remain are those where the value of
+<tt class="docutils literal"><span class="pre">totalPop</span></tt> is greater than or equal to 10 million.</p>
+<p>The <a class="reference internal" href="../reference/aggregation/match.html#stage._S_match" title="$match"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$match</span></tt></a> operation does not alter the documents,
+which have the same format as the documents output by
+<a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a>.</p>
+</li>
+</ul>
+<p>The equivalent <a class="reference internal" href="../reference/glossary.html#term-sql"><em class="xref std std-term">SQL</em></a> for this operation is:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">SELECT</span> <span class="k">state</span><span class="p">,</span> <span class="k">SUM</span><span class="p">(</span><span class="n">pop</span><span class="p">)</span> <span class="k">AS</span> <span class="n">pop</span>
+       <span class="k">FROM</span> <span class="n">zips</span>
+       <span class="k">GROUP</span> <span class="k">BY</span> <span class="k">state</span>
+       <span class="k">HAVING</span> <span class="n">pop</span> <span class="o">&gt;</span> <span class="p">(</span><span class="mi">10</span><span class="o">*</span><span class="mi">1000</span><span class="o">*</span><span class="mi">1000</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="average-city-population-by-state">
+<h3>Average City Population by State<a class="headerlink" href="#average-city-population-by-state" title="Permalink to this headline">¶</a></h3>
+<p>To return the average populations for cities in each state, use the
+following aggregation operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">zipcodes</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span> <span class="p">{</span> <span class="nx">$group</span> <span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">state</span> <span class="o">:</span> <span class="s2">&quot;$state&quot;</span><span class="p">,</span> <span class="nx">city</span> <span class="o">:</span> <span class="s2">&quot;$city&quot;</span> <span class="p">},</span>
+                           <span class="nx">pop</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$sum</span> <span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+                       <span class="p">{</span> <span class="nx">$group</span> <span class="o">:</span>
+                       <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;$_id.state&quot;</span><span class="p">,</span>
+                         <span class="nx">avgCityPop</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$avg</span> <span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Aggregations operations using the <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> helper, process all documents on the
+<tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection. <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> a number of <a class="reference internal" href="../core/aggregation.html#aggregation-pipelines"><em>pipeline</em></a> operators that define the aggregation
+process.</p>
+<p>In the above example, the pipeline passes all documents in the
+<tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection through the following steps:</p>
+<ul>
+<li><p class="first">the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects all documents and
+creates new documents for every combination of the <tt class="docutils literal"><span class="pre">city</span></tt> and
+<tt class="docutils literal"><span class="pre">state</span></tt> fields in the source document.</p>
+<p>After this stage in the pipeline, the documents resemble the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;CO&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;city&quot;</span> <span class="o">:</span> <span class="s2">&quot;EDGEWATER&quot;</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;pop&quot;</span> <span class="o">:</span> <span class="mi">13154</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">the second <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects documents by the
+<tt class="docutils literal"><span class="pre">state</span></tt> field and use the <a class="reference internal" href="../reference/aggregation/avg.html#grp._S_avg" title="$avg"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$avg</span></tt></a> expression to
+compute a value for the <tt class="docutils literal"><span class="pre">avgCityPop</span></tt> field.</p>
+</li>
+</ul>
+<p>The final output of this aggregation operation is:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;MN&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;avgCityPop&quot;</span> <span class="o">:</span> <span class="mi">5335</span>
+<span class="p">},</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="largest-and-smallest-cities-by-state">
+<h3>Largest and Smallest Cities by State<a class="headerlink" href="#largest-and-smallest-cities-by-state" title="Permalink to this headline">¶</a></h3>
+<p>To return the smallest and largest cities by population for each
+state, use the following aggregation operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">zipcodes</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span> <span class="p">{</span> <span class="nx">$group</span><span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="p">{</span> <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;$state&quot;</span><span class="p">,</span> <span class="nx">city</span><span class="o">:</span> <span class="s2">&quot;$city&quot;</span> <span class="p">},</span>
+                           <span class="nx">pop</span><span class="o">:</span> <span class="p">{</span> <span class="nx">$sum</span><span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+                       <span class="p">{</span> <span class="nx">$sort</span><span class="o">:</span> <span class="p">{</span> <span class="nx">pop</span><span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">},</span>
+                       <span class="p">{</span> <span class="nx">$group</span><span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;$_id.state&quot;</span><span class="p">,</span>
+                           <span class="nx">biggestCity</span><span class="o">:</span>  <span class="p">{</span> <span class="nx">$last</span><span class="o">:</span> <span class="s2">&quot;$_id.city&quot;</span> <span class="p">},</span>
+                           <span class="nx">biggestPop</span><span class="o">:</span>   <span class="p">{</span> <span class="nx">$last</span><span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">},</span>
+                           <span class="nx">smallestCity</span><span class="o">:</span> <span class="p">{</span> <span class="nx">$first</span><span class="o">:</span> <span class="s2">&quot;$_id.city&quot;</span> <span class="p">},</span>
+                           <span class="nx">smallestPop</span><span class="o">:</span>  <span class="p">{</span> <span class="nx">$first</span><span class="o">:</span> <span class="s2">&quot;$pop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+
+                       <span class="c1">// the following $project is optional, and</span>
+                       <span class="c1">// modifies the output format.</span>
+
+                       <span class="p">{</span> <span class="nx">$project</span><span class="o">:</span>
+                         <span class="p">{</span> <span class="nx">_id</span><span class="o">:</span> <span class="mi">0</span><span class="p">,</span>
+                           <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;$_id&quot;</span><span class="p">,</span>
+                           <span class="nx">biggestCity</span><span class="o">:</span>  <span class="p">{</span> <span class="nx">name</span><span class="o">:</span> <span class="s2">&quot;$biggestCity&quot;</span><span class="p">,</span>  <span class="nx">pop</span><span class="o">:</span> <span class="s2">&quot;$biggestPop&quot;</span> <span class="p">},</span>
+                           <span class="nx">smallestCity</span><span class="o">:</span> <span class="p">{</span> <span class="nx">name</span><span class="o">:</span> <span class="s2">&quot;$smallestCity&quot;</span><span class="p">,</span> <span class="nx">pop</span><span class="o">:</span> <span class="s2">&quot;$smallestPop&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">)</span>
+</pre></div>
+</div>
+<p>Aggregations operations using the <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> helper, process all documents on the
+<tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection. <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> a number of <a class="reference internal" href="../core/aggregation.html#aggregation-pipelines"><em>pipeline</em></a> operators that define the aggregation
+process.</p>
+<p>All documents from the <tt class="docutils literal"><span class="pre">zipcodes</span></tt> collection pass into the pipeline,
+which consists of the following steps:</p>
+<ul>
+<li><p class="first">the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects all documents and
+creates new documents for every combination of the <tt class="docutils literal"><span class="pre">city</span></tt> and
+<tt class="docutils literal"><span class="pre">state</span></tt> fields in the source documents.</p>
+<p>By specifying the value of <tt class="docutils literal"><span class="pre">_id</span></tt> as a sub-document that contains
+both fields, the operation preserves the <tt class="docutils literal"><span class="pre">state</span></tt> field for use
+later in the pipeline. The documents produced by this stage of the
+pipeline have a second field, <tt class="docutils literal"><span class="pre">pop</span></tt>, which uses the
+<a class="reference internal" href="../reference/aggregation/sum.html#grp._S_sum" title="$sum"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$sum</span></tt></a> operator to provide the total of the <tt class="docutils literal"><span class="pre">pop</span></tt>
+fields in the source document.</p>
+<p>At this stage in the pipeline, the documents resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;CO&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;city&quot;</span> <span class="o">:</span> <span class="s2">&quot;EDGEWATER&quot;</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;pop&quot;</span> <span class="o">:</span> <span class="mi">13154</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/aggregation/sort.html#stage._S_sort" title="$sort"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$sort</span></tt></a> operator orders the documents in the pipeline
+based on the vale of the <tt class="docutils literal"><span class="pre">pop</span></tt> field from largest to
+smallest. This operation does not alter the documents.</p>
+</li>
+<li><p class="first">the second <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects the documents in
+the pipeline by the <tt class="docutils literal"><span class="pre">state</span></tt> field, which is a field inside the
+nested <tt class="docutils literal"><span class="pre">_id</span></tt> document.</p>
+<p>Within each per-state document this <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator
+specifies four fields: Using the <a class="reference internal" href="../reference/aggregation/last.html#grp._S_last" title="$last"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$last</span></tt></a> expression,
+the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator creates the <tt class="docutils literal"><span class="pre">biggestcity</span></tt> and
+<tt class="docutils literal"><span class="pre">biggestpop</span></tt> fields that store the city with the largest
+population and that population. Using the <a class="reference internal" href="../reference/aggregation/first.html#grp._S_first" title="$first"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$first</span></tt></a>
+expression, the <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator creates the
+<tt class="docutils literal"><span class="pre">smallestcity</span></tt> and <tt class="docutils literal"><span class="pre">smallestpop</span></tt> fields that store the city with
+the smallest population and that population.</p>
+<p>The documents, at this stage in the pipeline resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;WA&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;biggestCity&quot;</span> <span class="o">:</span> <span class="s2">&quot;SEATTLE&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;biggestPop&quot;</span> <span class="o">:</span> <span class="mi">520096</span><span class="p">,</span>
+  <span class="s2">&quot;smallestCity&quot;</span> <span class="o">:</span> <span class="s2">&quot;BENGE&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;smallestPop&quot;</span> <span class="o">:</span> <span class="mi">2</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">The final operation is <a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a>, which renames the
+<tt class="docutils literal"><span class="pre">_id</span></tt> field to <tt class="docutils literal"><span class="pre">state</span></tt> and moves the <tt class="docutils literal"><span class="pre">biggestCity</span></tt>,
+<tt class="docutils literal"><span class="pre">biggestPop</span></tt>, <tt class="docutils literal"><span class="pre">smallestCity</span></tt>, and <tt class="docutils literal"><span class="pre">smallestPop</span></tt> into
+<tt class="docutils literal"><span class="pre">biggestCity</span></tt> and <tt class="docutils literal"><span class="pre">smallestCity</span></tt> sub-documents.</p>
+</li>
+</ul>
+<p>The final output of this aggregation operation is:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;RI&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;biggestCity&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;CRANSTON&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pop&quot;</span> <span class="o">:</span> <span class="mi">176404</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;smallestCity&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;CLAYVILLE&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pop&quot;</span> <span class="o">:</span> <span class="mi">45</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="aggregation-with-user-preference-data">
+<h2>Aggregation with User Preference Data<a class="headerlink" href="#aggregation-with-user-preference-data" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Data Model<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<p>Consider a hypothetical sports club with a database that contains a
+<tt class="docutils literal"><span class="pre">user</span></tt> collection that tracks user&#8217;s join dates, sport preferences,
+and stores these data in documents that resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;jane&quot;</span><span class="p">,</span>
+  <span class="nx">joined</span> <span class="o">:</span> <span class="nx">ISODate</span><span class="p">(</span><span class="s2">&quot;2011-03-02&quot;</span><span class="p">),</span>
+  <span class="nx">likes</span> <span class="o">:</span> <span class="p">[</span><span class="s2">&quot;golf&quot;</span><span class="p">,</span> <span class="s2">&quot;racquetball&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+<span class="p">{</span>
+  <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;joe&quot;</span><span class="p">,</span>
+  <span class="nx">joined</span> <span class="o">:</span> <span class="nx">ISODate</span><span class="p">(</span><span class="s2">&quot;2012-07-02&quot;</span><span class="p">),</span>
+  <span class="nx">likes</span> <span class="o">:</span> <span class="p">[</span><span class="s2">&quot;tennis&quot;</span><span class="p">,</span> <span class="s2">&quot;golf&quot;</span><span class="p">,</span> <span class="s2">&quot;swimming&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="normalize-and-sort-documents">
+<h3>Normalize and Sort Documents<a class="headerlink" href="#normalize-and-sort-documents" title="Permalink to this headline">¶</a></h3>
+<p>The following operation returns user names in upper case and in
+alphabetical order. The aggregation includes user names for all documents in
+the <tt class="docutils literal"><span class="pre">users</span></tt> collection. You might do this to normalize user names for
+processing.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span>
+  <span class="p">[</span>
+    <span class="p">{</span> <span class="nx">$project</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">name</span><span class="o">:</span><span class="p">{</span><span class="nx">$toUpper</span><span class="o">:</span><span class="s2">&quot;$_id&quot;</span><span class="p">}</span> <span class="p">,</span> <span class="nx">_id</span><span class="o">:</span><span class="mi">0</span> <span class="p">}</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$sort</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">name</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>All documents from the <tt class="docutils literal"><span class="pre">users</span></tt> collection passes through the
+pipeline, which consists of the following operations:</p>
+<ul class="simple">
+<li>The <a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> operator:<ul>
+<li>creates a new field called <tt class="docutils literal"><span class="pre">name</span></tt>.</li>
+<li>converts the value of the <tt class="docutils literal"><span class="pre">_id</span></tt> to upper case, with the
+<a class="reference internal" href="../reference/aggregation/toUpper.html#exp._S_toUpper" title="$toUpper"><tt class="xref mongodb mongodb-expression docutils literal"><span class="pre">$toUpper</span></tt></a> operator. Then the
+<a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> creates a new field, named <tt class="docutils literal"><span class="pre">name</span></tt>
+to hold this value.</li>
+<li>suppresses the <tt class="docutils literal"><span class="pre">id</span></tt> field. <a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> will pass
+the <tt class="docutils literal"><span class="pre">_id</span></tt> field by default, unless explicitly suppressed.</li>
+</ul>
+</li>
+<li>The <a class="reference internal" href="../reference/aggregation/sort.html#stage._S_sort" title="$sort"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$sort</span></tt></a> operator orders the results by the
+<tt class="docutils literal"><span class="pre">name</span></tt> field.</li>
+</ul>
+<p>The results of the aggregation would resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;JANE&quot;</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;JILL&quot;</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;JOE&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="return-usernames-ordered-by-join-month">
+<h3>Return Usernames Ordered by Join Month<a class="headerlink" href="#return-usernames-ordered-by-join-month" title="Permalink to this headline">¶</a></h3>
+<p>The following aggregation operation returns user names sorted by the
+month they joined. This kind of aggregation could help generate
+membership renewal notices.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span>
+  <span class="p">[</span>
+    <span class="p">{</span> <span class="nx">$project</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">month_joined</span> <span class="o">:</span> <span class="p">{</span>
+                                    <span class="nx">$month</span> <span class="o">:</span> <span class="s2">&quot;$joined&quot;</span>
+                                  <span class="p">},</span>
+                   <span class="nx">name</span> <span class="o">:</span> <span class="s2">&quot;$_id&quot;</span><span class="p">,</span>
+                   <span class="nx">_id</span> <span class="o">:</span> <span class="mi">0</span>
+                 <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$sort</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">month_joined</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The pipeline passes all documents in the <tt class="docutils literal"><span class="pre">users</span></tt> collection through
+the following operations:</p>
+<ul class="simple">
+<li>The <a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> operator:<ul>
+<li>Creates two new fields: <tt class="docutils literal"><span class="pre">month_joined</span></tt> and <tt class="docutils literal"><span class="pre">name</span></tt>.</li>
+<li>Suppresses the <tt class="docutils literal"><span class="pre">id</span></tt> from the results. The <a class="reference internal" href="../reference/method/db.collection.aggregate.html#db.collection.aggregate" title="db.collection.aggregate()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">aggregate()</span></tt></a> method includes the <tt class="docutils literal"><span class="pre">_id</span></tt>, unless
+explicitly suppressed.</li>
+</ul>
+</li>
+<li>The <a class="reference internal" href="../reference/aggregation/month.html#exp._S_month" title="$month"><tt class="xref mongodb mongodb-expression docutils literal"><span class="pre">$month</span></tt></a> operator converts the values of the
+<tt class="docutils literal"><span class="pre">joined</span></tt> field to integer representations of the month. Then the
+<a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> operator assigns those values to the
+<tt class="docutils literal"><span class="pre">month_joined</span></tt> field.</li>
+<li>The <a class="reference internal" href="../reference/aggregation/sort.html#stage._S_sort" title="$sort"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$sort</span></tt></a> operator sorts the results by the
+<tt class="docutils literal"><span class="pre">month_joined</span></tt> field.</li>
+</ul>
+<p>The operation returns results that resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;ruth&quot;</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;harold&quot;</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">1</span><span class="p">,</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;kate&quot;</span>
+<span class="p">}</span>
+<span class="p">{</span>
+  <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">2</span><span class="p">,</span>
+  <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;jill&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="return-total-number-of-joins-per-month">
+<h3>Return Total Number of Joins per Month<a class="headerlink" href="#return-total-number-of-joins-per-month" title="Permalink to this headline">¶</a></h3>
+<p>The following operation shows how many people joined each month of the
+year. You might use this aggregated data for such information for recruiting and marketing
+strategies.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span>
+  <span class="p">[</span>
+    <span class="p">{</span> <span class="nx">$project</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">month_joined</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$month</span> <span class="o">:</span> <span class="s2">&quot;$joined&quot;</span> <span class="p">}</span> <span class="p">}</span> <span class="p">}</span> <span class="p">,</span>
+    <span class="p">{</span> <span class="nx">$group</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="p">{</span><span class="nx">month_joined</span><span class="o">:</span><span class="s2">&quot;$month_joined&quot;</span><span class="p">}</span> <span class="p">,</span> <span class="nx">number</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$sum</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$sort</span> <span class="o">:</span> <span class="p">{</span> <span class="s2">&quot;_id.month_joined&quot;</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The pipeline passes all documents in the <tt class="docutils literal"><span class="pre">users</span></tt> collection through
+the following operations:</p>
+<ul class="simple">
+<li>The <a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> operator creates a new field called
+<tt class="docutils literal"><span class="pre">month_joined</span></tt>.</li>
+<li>The <a class="reference internal" href="../reference/aggregation/month.html#exp._S_month" title="$month"><tt class="xref mongodb mongodb-expression docutils literal"><span class="pre">$month</span></tt></a> operator converts the values of the
+<tt class="docutils literal"><span class="pre">joined</span></tt> field to integer representations of the month. Then the
+<a class="reference internal" href="../reference/aggregation/project.html#stage._S_project" title="$project"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$project</span></tt></a> operator assigns the values to the
+<tt class="docutils literal"><span class="pre">month_joined</span></tt> field.</li>
+<li>The <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects all documents with a
+given <tt class="docutils literal"><span class="pre">month_joined</span></tt> value and counts how many documents there are
+for that value. Specifically, for each unique value,
+<a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> creates a new &#8220;per-month&#8221; document with two
+fields:<ul>
+<li><tt class="docutils literal"><span class="pre">_id</span></tt>, which contains a nested document with the
+<tt class="docutils literal"><span class="pre">month_joined</span></tt> field and its value.</li>
+<li><tt class="docutils literal"><span class="pre">number</span></tt>, which is a generated field. The <a class="reference internal" href="../reference/aggregation/sum.html#grp._S_sum" title="$sum"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$sum</span></tt></a>
+operator increments this field by 1 for every document containing
+the given <tt class="docutils literal"><span class="pre">month_joined</span></tt> value.</li>
+</ul>
+</li>
+<li>The <a class="reference internal" href="../reference/aggregation/sort.html#stage._S_sort" title="$sort"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$sort</span></tt></a> operator sorts the documents created by
+<a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> according to the contents of the
+<tt class="docutils literal"><span class="pre">month_joined</span></tt> field.</li>
+</ul>
+<p>The result of this aggregation operation would resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">1</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">3</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">2</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">9</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="p">{</span>
+    <span class="s2">&quot;month_joined&quot;</span> <span class="o">:</span> <span class="mi">3</span>
+  <span class="p">},</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">5</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="return-the-five-most-common-likes">
+<h3>Return the Five Most Common &#8220;Likes&#8221;<a class="headerlink" href="#return-the-five-most-common-likes" title="Permalink to this headline">¶</a></h3>
+<p>The following aggregation collects top five most &#8220;liked&#8221; activities in
+the data set. In this data set, you might use an analysis of this to
+help inform planning and future development.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">users</span><span class="p">.</span><span class="nx">aggregate</span><span class="p">(</span>
+  <span class="p">[</span>
+    <span class="p">{</span> <span class="nx">$unwind</span> <span class="o">:</span> <span class="s2">&quot;$likes&quot;</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$group</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;$likes&quot;</span> <span class="p">,</span> <span class="nx">number</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">$sum</span> <span class="o">:</span> <span class="mi">1</span> <span class="p">}</span> <span class="p">}</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$sort</span> <span class="o">:</span> <span class="p">{</span> <span class="nx">number</span> <span class="o">:</span> <span class="o">-</span><span class="mi">1</span> <span class="p">}</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="nx">$limit</span> <span class="o">:</span> <span class="mi">5</span> <span class="p">}</span>
+  <span class="p">]</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The pipeline begins with all documents in the <tt class="docutils literal"><span class="pre">users</span></tt> collection,
+and passes these documents through the following operations:</p>
+<ul>
+<li><p class="first">The <a class="reference internal" href="../reference/aggregation/unwind.html#stage._S_unwind" title="$unwind"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$unwind</span></tt></a> operator separates each value in the
+<tt class="docutils literal"><span class="pre">likes</span></tt> array, and creates a new version of the source document
+for every element in the array.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Given the following document from the <tt class="docutils literal"><span class="pre">users</span></tt> collection:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;jane&quot;</span><span class="p">,</span>
+  <span class="nx">joined</span> <span class="o">:</span> <span class="nx">ISODate</span><span class="p">(</span><span class="s2">&quot;2011-03-02&quot;</span><span class="p">),</span>
+  <span class="nx">likes</span> <span class="o">:</span> <span class="p">[</span><span class="s2">&quot;golf&quot;</span><span class="p">,</span> <span class="s2">&quot;racquetball&quot;</span><span class="p">]</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/aggregation/unwind.html#stage._S_unwind" title="$unwind"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$unwind</span></tt></a> operator would create the following
+documents:</p>
+<div class="last highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;jane&quot;</span><span class="p">,</span>
+  <span class="nx">joined</span> <span class="o">:</span> <span class="nx">ISODate</span><span class="p">(</span><span class="s2">&quot;2011-03-02&quot;</span><span class="p">),</span>
+  <span class="nx">likes</span> <span class="o">:</span> <span class="s2">&quot;golf&quot;</span>
+<span class="p">}</span>
+<span class="p">{</span>
+  <span class="nx">_id</span> <span class="o">:</span> <span class="s2">&quot;jane&quot;</span><span class="p">,</span>
+  <span class="nx">joined</span> <span class="o">:</span> <span class="nx">ISODate</span><span class="p">(</span><span class="s2">&quot;2011-03-02&quot;</span><span class="p">),</span>
+  <span class="nx">likes</span> <span class="o">:</span> <span class="s2">&quot;racquetball&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</li>
+<li><p class="first">The <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> operator collects all documents the same
+value for the <tt class="docutils literal"><span class="pre">likes</span></tt> field and counts each grouping. With this
+information, <a class="reference internal" href="../reference/aggregation/group.html#stage._S_group" title="$group"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$group</span></tt></a> creates a new document with two
+fields:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">_id</span></tt>, which contains the <tt class="docutils literal"><span class="pre">likes</span></tt> value.</li>
+<li><tt class="docutils literal"><span class="pre">number</span></tt>, which is a generated field. The <a class="reference internal" href="../reference/aggregation/sum.html#grp._S_sum" title="$sum"><tt class="xref mongodb mongodb-group docutils literal"><span class="pre">$sum</span></tt></a>
+operator increments this field by 1 for every document containing
+the given <tt class="docutils literal"><span class="pre">likes</span></tt> value.</li>
+</ul>
+</li>
+<li><p class="first">The <a class="reference internal" href="../reference/aggregation/sort.html#stage._S_sort" title="$sort"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$sort</span></tt></a> operator sorts these documents by the
+<tt class="docutils literal"><span class="pre">number</span></tt> field in reverse order.</p>
+</li>
+<li><p class="first">The <a class="reference internal" href="../reference/aggregation/limit.html#stage._S_limit" title="$limit"><tt class="xref mongodb mongodb-pipeline docutils literal"><span class="pre">$limit</span></tt></a> operator only includes the first 5 result
+documents.</p>
+</li>
+</ul>
+<p>The results of aggregation would resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;golf&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">33</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;racquetball&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">31</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;swimming&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">24</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;handball&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">19</span>
+<span class="p">},</span>
+<span class="p">{</span>
+  <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="s2">&quot;tennis&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;number&quot;</span> <span class="o">:</span> <span class="mi">18</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../core/aggregation.html" title="Previous Section: Aggregation Framework">&lt; &nbsp; Aggregation Framework</a></li>
+              <li id="btnvup"><a href="../aggregation.html" title="Parent Section: Aggregation" >&#47;&#92;&nbsp; Aggregation</a></li>
+              <li id="btnvnx"><a href="../reference/aggregation.html" title="Next Section: Aggregation Framework Reference">Aggregation Framework Reference &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../aggregation.html">Aggregation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/aggregation.html">Aggregation Framework</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Aggregation Framework Examples</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/aggregation.html">Aggregation Framework Reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/sql-aggregation-comparison.html">SQL to Aggregation Framework Mapping Chart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/map-reduce.html">Map-Reduce</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/simple-aggregation.html">Simple Aggregation Methods and Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/aggregation-examples.txt" target="_blank" title="Edit tutorial/aggregation-examples.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/aggregation-examples%2Etxt%22" target="_blank" title="Report a problem with tutorial/aggregation-examples.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/aggregation-examples.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/aggregation-examples'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/aggregation-examples'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

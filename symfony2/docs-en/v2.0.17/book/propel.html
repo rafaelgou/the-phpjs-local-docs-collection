@@ -1,0 +1,523 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Databases and Propel &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../index.html" />
+    <link rel="up" title="The Book" href="index.html" />
+    <link rel="next" title="Testing" href="testing.html" />
+    <link rel="prev" title="Databases and Doctrine" href="doctrine.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="testing.html" title="Testing"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="doctrine.html" title="Databases and Doctrine"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">The Book</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="databases-and-propel">
+<span id="index-0"></span><h1>Databases and Propel<a class="headerlink" href="#databases-and-propel" title="Permalink to this headline">¶</a></h1>
+<p>Let&#8217;s face it, one of the most common and challenging tasks for any application
+involves persisting and reading information to and from a database. Symfony2
+does not come integrated with any ORMs but the Propel integration is easy.
+To get started, read <a class="reference external" href="http://www.propelorm.org/cookbook/symfony2/working-with-symfony2.html#installation">Working With Symfony2</a>.</p>
+<div class="section" id="a-simple-example-a-product">
+<h2>A Simple Example: A Product<a class="headerlink" href="#a-simple-example-a-product" title="Permalink to this headline">¶</a></h2>
+<p>In this section, you&#8217;ll configure your database, create a <tt class="docutils literal"><span class="pre">Product</span></tt> object,
+persist it to the database and fetch it back out.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Code along with the example</p>
+<p>If you want to follow along with the example in this chapter, create an
+<tt class="docutils literal"><span class="pre">AcmeStoreBundle</span></tt> via:</p>
+<div class="last highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console generate:bundle --namespace<span class="o">=</span>Acme/StoreBundle
+</pre></div>
+</div>
+</div>
+<div class="section" id="configuring-the-database">
+<h3>Configuring the Database<a class="headerlink" href="#configuring-the-database" title="Permalink to this headline">¶</a></h3>
+<p>Before you can start, you&#8217;ll need to configure your database connection
+information.  By convention, this information is usually configured in an
+<tt class="docutils literal"><span class="pre">app/config/parameters.ini</span></tt> file:</p>
+<div class="highlight-ini"><div class="highlight"><pre><span class="c">; app/config/parameters.ini</span>
+<span class="k">[parameters]</span>
+    <span class="na">database_driver</span>   <span class="o">=</span> <span class="s">mysql</span>
+<span class="s">    database_host     = localhost</span>
+<span class="s">    database_name     = test_project</span>
+<span class="s">    database_user     = root</span>
+<span class="s">    database_password = password</span>
+<span class="s">    database_charset  = UTF8</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Defining the configuration via <tt class="docutils literal"><span class="pre">parameters.ini</span></tt> is just a convention. The
+parameters defined in that file are referenced by the main configuration
+file when setting up Propel:</p>
+<div class="last highlight-yaml"><pre>propel:
+    dbal:
+        driver:     %database_driver%
+        user:       %database_user%
+        password:   %database_password%
+        dsn:        %database_driver%:host=%database_host%;dbname=%database_name%;charset=%database_charset%</pre>
+</div>
+</div>
+<p>Now that Propel knows about your database, Symfony2 can create the database for
+you:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console propel:database:create
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In this example, you have one configured connection, named <tt class="docutils literal"><span class="pre">default</span></tt>. If
+you want to configure more than one connection, read the <a class="reference external" href="WorkingWithSymfony2-Configuration">PropelBundle
+configuration section</a>.</p>
+</div>
+</div>
+<div class="section" id="creating-a-model-class">
+<h3>Creating a Model Class<a class="headerlink" href="#creating-a-model-class" title="Permalink to this headline">¶</a></h3>
+<p>In the Propel world, ActiveRecord classes are known as <strong>models</strong> because classes
+generated by Propel contain some business logic.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For people who use Symfony2 with Doctrine2, <strong>models</strong> are equivalent to
+<strong>entities</strong>.</p>
+</div>
+<p>Suppose you&#8217;re building an application where products need to be displayed.
+First, create a <tt class="docutils literal"><span class="pre">schema.xml</span></tt> file inside the <tt class="docutils literal"><span class="pre">Resources/config</span></tt> directory
+of your <tt class="docutils literal"><span class="pre">AcmeStoreBundle</span></tt>:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span class="nt">&lt;database</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">namespace=</span><span class="s">&quot;Acme\StoreBundle\Model&quot;</span> <span class="na">defaultIdMethod=</span><span class="s">&quot;native&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;table</span> <span class="na">name=</span><span class="s">&quot;product&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">type=</span><span class="s">&quot;integer&quot;</span> <span class="na">required=</span><span class="s">&quot;true&quot;</span> <span class="na">primaryKey=</span><span class="s">&quot;true&quot;</span> <span class="na">autoIncrement=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span> <span class="na">type=</span><span class="s">&quot;varchar&quot;</span> <span class="na">primaryString=</span><span class="s">&quot;true&quot;</span> <span class="na">size=</span><span class="s">&quot;100&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;price&quot;</span> <span class="na">type=</span><span class="s">&quot;decimal&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;description&quot;</span> <span class="na">type=</span><span class="s">&quot;longvarchar&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/table&gt;</span>
+<span class="nt">&lt;/database&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="building-the-model">
+<h3>Building the Model<a class="headerlink" href="#building-the-model" title="Permalink to this headline">¶</a></h3>
+<p>After creating your <tt class="docutils literal"><span class="pre">schema.xml</span></tt>, generate your model from it by running:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console propel:model:build
+</pre></div>
+</div>
+<p>This generates each model class to quickly develop your application in the
+<tt class="docutils literal"><span class="pre">Model/</span></tt> directory the <tt class="docutils literal"><span class="pre">AcmeStoreBundle</span></tt> bundle.</p>
+</div>
+<div class="section" id="creating-the-database-tables-schema">
+<h3>Creating the Database Tables/Schema<a class="headerlink" href="#creating-the-database-tables-schema" title="Permalink to this headline">¶</a></h3>
+<p>Now you have a usable <tt class="docutils literal"><span class="pre">Product</span></tt> class and all you need to persist it. Of
+course, you don&#8217;t yet have the corresponding <tt class="docutils literal"><span class="pre">product</span></tt> table in your
+database. Fortunately, Propel can automatically create all the database tables
+needed for every known model in your application.  To do this, run:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console propel:sql:build
+<span class="nv">$ </span>php app/console propel:sql:insert --force
+</pre></div>
+</div>
+<p>Your database now has a fully-functional <tt class="docutils literal"><span class="pre">product</span></tt> table with columns that
+match the schema you&#8217;ve specified.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">You can run the last three commands combined by using the following
+command: <tt class="docutils literal"><span class="pre">php</span> <span class="pre">app/console</span> <span class="pre">propel:build</span> <span class="pre">--insert-sql</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="persisting-objects-to-the-database">
+<h3>Persisting Objects to the Database<a class="headerlink" href="#persisting-objects-to-the-database" title="Permalink to this headline">¶</a></h3>
+<p>Now that you have a <tt class="docutils literal"><span class="pre">Product</span></tt> object and corresponding <tt class="docutils literal"><span class="pre">product</span></tt> table,
+you&#8217;re ready to persist data to the database.  From inside a controller, this
+is pretty easy. Add the following method to the <tt class="docutils literal"><span class="pre">DefaultController</span></tt> of the
+bundle:</p>
+<div class="highlight-python"><pre>// src/Acme/StoreBundle/Controller/DefaultController.php
+
+// ...
+use Acme\StoreBundle\Model\Product;
+use Symfony\Component\HttpFoundation\Response;
+
+public function createAction()
+{
+    $product = new Product();
+    $product-&gt;setName('A Foo Bar');
+    $product-&gt;setPrice(19.99);
+    $product-&gt;setDescription('Lorem ipsum dolor');
+
+    $product-&gt;save();
+
+    return new Response('Created product id '.$product-&gt;getId());
+}</pre>
+</div>
+<p>In this piece of code, you instantiate and work with the <tt class="docutils literal"><span class="pre">$product</span></tt> object.
+When you call the <tt class="docutils literal"><span class="pre">save()</span></tt> method on it, you persist it to the database. No
+need to use other services, the object knows how to persist itself.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you&#8217;re following along with this example, you&#8217;ll need to create a
+<a class="reference internal" href="routing.html"><em>route</em></a> that points to this action to see it in action.</p>
+</div>
+</div>
+<div class="section" id="fetching-objects-from-the-database">
+<h3>Fetching Objects from the Database<a class="headerlink" href="#fetching-objects-from-the-database" title="Permalink to this headline">¶</a></h3>
+<p>Fetching an object back from the database is even easier. For example, suppose
+you&#8217;ve configured a route to display a specific <tt class="docutils literal"><span class="pre">Product</span></tt> based on its <tt class="docutils literal"><span class="pre">id</span></tt>
+value:</p>
+<div class="highlight-python"><pre>// ...
+use Acme\StoreBundle\Model\ProductQuery;
+
+public function showAction($id)
+{
+    $product = ProductQuery::create()
+        -&gt;findPk($id);
+
+    if (!$product) {
+        throw $this-&gt;createNotFoundException('No product found for id '.$id);
+    }
+
+    // ... do something, like pass the $product object into a template
+}</pre>
+</div>
+</div>
+<div class="section" id="updating-an-object">
+<h3>Updating an Object<a class="headerlink" href="#updating-an-object" title="Permalink to this headline">¶</a></h3>
+<p>Once you&#8217;ve fetched an object from Propel, updating it is easy. Suppose you
+have a route that maps a product id to an update action in a controller:</p>
+<div class="highlight-python"><pre>// ...
+use Acme\StoreBundle\Model\ProductQuery;
+
+public function updateAction($id)
+{
+    $product = ProductQuery::create()
+        -&gt;findPk($id);
+
+    if (!$product) {
+        throw $this-&gt;createNotFoundException('No product found for id '.$id);
+    }
+
+    $product-&gt;setName('New product name!');
+    $product-&gt;save();
+
+    return $this-&gt;redirect($this-&gt;generateUrl('homepage'));
+}</pre>
+</div>
+<p>Updating an object involves just three steps:</p>
+<ol class="arabic simple">
+<li>fetching the object from Propel;</li>
+<li>modifying the object;</li>
+<li>saving it.</li>
+</ol>
+</div>
+<div class="section" id="deleting-an-object">
+<h3>Deleting an Object<a class="headerlink" href="#deleting-an-object" title="Permalink to this headline">¶</a></h3>
+<p>Deleting an object is very similar, but requires a call to the <tt class="docutils literal"><span class="pre">delete()</span></tt>
+method on the object:</p>
+<div class="highlight-python"><pre>$product-&gt;delete();</pre>
+</div>
+</div>
+</div>
+<div class="section" id="querying-for-objects">
+<h2>Querying for Objects<a class="headerlink" href="#querying-for-objects" title="Permalink to this headline">¶</a></h2>
+<p>Propel provides generated <tt class="docutils literal"><span class="pre">Query</span></tt> classes to run both basic and complex queries
+without any work:</p>
+<div class="highlight-python"><pre>\Acme\StoreBundle\Model\ProductQuery::create()-&gt;findPk($id);
+
+\Acme\StoreBundle\Model\ProductQuery::create()
+    -&gt;filterByName('Foo')
+    -&gt;findOne();</pre>
+</div>
+<p>Imagine that you want to query for products which cost more than 19.99, ordered
+from cheapest to most expensive. From inside a controller, do the following:</p>
+<div class="highlight-python"><pre>$products = \Acme\StoreBundle\Model\ProductQuery::create()
+    -&gt;filterByPrice(array('min' =&gt; 19.99))
+    -&gt;orderByPrice()
+    -&gt;find();</pre>
+</div>
+<p>In one line, you get your products in a powerful oriented object way. No need
+to waste your time with SQL or whatever, Symfony2 offers fully object oriented
+programming and Propel respects the same philosophy by providing an awesome
+abstraction layer.</p>
+<p>If you want to reuse some queries, you can add your own methods to the
+<tt class="docutils literal"><span class="pre">ProductQuery</span></tt> class:</p>
+<div class="highlight-python"><pre>// src/Acme/StoreBundle/Model/ProductQuery.php
+class ProductQuery extends BaseProductQuery
+{
+    public function filterByExpensivePrice()
+    {
+        return $this
+            -&gt;filterByPrice(array('min' =&gt; 1000))
+    }
+}</pre>
+</div>
+<p>But note that Propel generates a lot of methods for you and a simple
+<tt class="docutils literal"><span class="pre">findAllOrderedByName()</span></tt> can be written without any effort:</p>
+<div class="highlight-python"><pre>\Acme\StoreBundle\Model\ProductQuery::create()
+    -&gt;orderByName()
+    -&gt;find();</pre>
+</div>
+</div>
+<div class="section" id="relationships-associations">
+<h2>Relationships/Associations<a class="headerlink" href="#relationships-associations" title="Permalink to this headline">¶</a></h2>
+<p>Suppose that the products in your application all belong to exactly one
+&#8220;category&#8221;. In this case, you&#8217;ll need a <tt class="docutils literal"><span class="pre">Category</span></tt> object and a way to relate
+a <tt class="docutils literal"><span class="pre">Product</span></tt> object to a <tt class="docutils literal"><span class="pre">Category</span></tt> object.</p>
+<p>Start by adding the <tt class="docutils literal"><span class="pre">category</span></tt> definition in your <tt class="docutils literal"><span class="pre">schema.xml</span></tt>:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;database</span> <span class="na">name=</span><span class="s">&quot;default&quot;</span> <span class="na">namespace=</span><span class="s">&quot;Acme\StoreBundle\Model&quot;</span> <span class="na">defaultIdMethod=</span><span class="s">&quot;native&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;table</span> <span class="na">name=</span><span class="s">&quot;product&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">type=</span><span class="s">&quot;integer&quot;</span> <span class="na">required=</span><span class="s">&quot;true&quot;</span> <span class="na">primaryKey=</span><span class="s">&quot;true&quot;</span> <span class="na">autoIncrement=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span> <span class="na">type=</span><span class="s">&quot;varchar&quot;</span> <span class="na">primaryString=</span><span class="s">&quot;true&quot;</span> <span class="na">size=</span><span class="s">&quot;100&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;price&quot;</span> <span class="na">type=</span><span class="s">&quot;decimal&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;description&quot;</span> <span class="na">type=</span><span class="s">&quot;longvarchar&quot;</span> <span class="nt">/&gt;</span>
+
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;category_id&quot;</span> <span class="na">type=</span><span class="s">&quot;integer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;foreign-key</span> <span class="na">foreignTable=</span><span class="s">&quot;category&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;reference</span> <span class="na">local=</span><span class="s">&quot;category_id&quot;</span> <span class="na">foreign=</span><span class="s">&quot;id&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/foreign-key&gt;</span>
+    <span class="nt">&lt;/table&gt;</span>
+
+    <span class="nt">&lt;table</span> <span class="na">name=</span><span class="s">&quot;category&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;id&quot;</span> <span class="na">type=</span><span class="s">&quot;integer&quot;</span> <span class="na">required=</span><span class="s">&quot;true&quot;</span> <span class="na">primaryKey=</span><span class="s">&quot;true&quot;</span> <span class="na">autoIncrement=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;column</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span> <span class="na">type=</span><span class="s">&quot;varchar&quot;</span> <span class="na">primaryString=</span><span class="s">&quot;true&quot;</span> <span class="na">size=</span><span class="s">&quot;100&quot;</span> <span class="nt">/&gt;</span>
+   <span class="nt">&lt;/table&gt;</span>
+<span class="nt">&lt;/database&gt;</span>
+</pre></div>
+</div>
+<p>Create the classes:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console propel:model:build
+</pre></div>
+</div>
+<p>Assuming you have products in your database, you don&#8217;t want lose them. Thanks to
+migrations, Propel will be able to update your database without losing existing
+data.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console propel:migration:generate-diff
+<span class="nv">$ </span>php app/console propel:migration:migrate
+</pre></div>
+</div>
+<p>Your database has been updated, you can continue to write your application.</p>
+<div class="section" id="saving-related-objects">
+<h3>Saving Related Objects<a class="headerlink" href="#saving-related-objects" title="Permalink to this headline">¶</a></h3>
+<p>Now, let&#8217;s see the code in action. Imagine you&#8217;re inside a controller:</p>
+<div class="highlight-python"><pre>// ...
+use Acme\StoreBundle\Model\Category;
+use Acme\StoreBundle\Model\Product;
+use Symfony\Component\HttpFoundation\Response;
+
+class DefaultController extends Controller
+{
+    public function createProductAction()
+    {
+        $category = new Category();
+        $category-&gt;setName('Main Products');
+
+        $product = new Product();
+        $product-&gt;setName('Foo');
+        $product-&gt;setPrice(19.99);
+        // relate this product to the category
+        $product-&gt;setCategory($category);
+
+        // save the whole
+        $product-&gt;save();
+
+        return new Response(
+            'Created product id: '.$product-&gt;getId().' and category id: '.$category-&gt;getId()
+        );
+    }
+}</pre>
+</div>
+<p>Now, a single row is added to both the <tt class="docutils literal"><span class="pre">category</span></tt> and product tables. The
+<tt class="docutils literal"><span class="pre">product.category_id</span></tt> column for the new product is set to whatever the id is
+of the new category. Propel manages the persistence of this relationship for
+you.</p>
+</div>
+<div class="section" id="fetching-related-objects">
+<h3>Fetching Related Objects<a class="headerlink" href="#fetching-related-objects" title="Permalink to this headline">¶</a></h3>
+<p>When you need to fetch associated objects, your workflow looks just like it did
+before.  First, fetch a <tt class="docutils literal"><span class="pre">$product</span></tt> object and then access its related
+<tt class="docutils literal"><span class="pre">Category</span></tt>:</p>
+<div class="highlight-python"><pre>// ...
+use Acme\StoreBundle\Model\ProductQuery;
+
+public function showAction($id)
+{
+    $product = ProductQuery::create()
+        -&gt;joinWithCategory()
+        -&gt;findPk($id);
+
+    $categoryName = $product-&gt;getCategory()-&gt;getName();
+
+    // ...
+}</pre>
+</div>
+<p>Note, in the above example, only one query was made.</p>
+</div>
+<div class="section" id="more-information-on-associations">
+<h3>More information on Associations<a class="headerlink" href="#more-information-on-associations" title="Permalink to this headline">¶</a></h3>
+<p>You will find more information on relations by reading the dedicated chapter on
+<a class="reference external" href="http://www.propelorm.org/documentation/04-relationships.html">Relationships</a>.</p>
+</div>
+</div>
+<div class="section" id="lifecycle-callbacks">
+<h2>Lifecycle Callbacks<a class="headerlink" href="#lifecycle-callbacks" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes, you need to perform an action right before or after an object is
+inserted, updated, or deleted.  These types of actions are known as &#8220;lifecycle&#8221;
+callbacks or &#8220;hooks&#8221;, as they&#8217;re callback methods that you need to execute
+during different stages of the lifecycle of an object (e.g. the object is
+inserted, updated, deleted, etc).</p>
+<p>To add a hook, just add a new method to the object class:</p>
+<div class="highlight-python"><pre>// src/Acme/StoreBundle/Model/Product.php
+
+// ...
+
+class Product extends BaseProduct
+{
+    public function preInsert(\PropelPDO $con = null)
+    {
+        // do something before the object is inserted
+    }
+}</pre>
+</div>
+<p>Propel provides the following hooks:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">preInsert()</span></tt> code executed before insertion of a new object</li>
+<li><tt class="docutils literal"><span class="pre">postInsert()</span></tt> code executed after insertion of a new object</li>
+<li><tt class="docutils literal"><span class="pre">preUpdate()</span></tt> code executed before update of an existing object</li>
+<li><tt class="docutils literal"><span class="pre">postUpdate()</span></tt> code executed after update of an existing object</li>
+<li><tt class="docutils literal"><span class="pre">preSave()</span></tt> code executed before saving an object (new or existing)</li>
+<li><tt class="docutils literal"><span class="pre">postSave()</span></tt> code executed after saving an object (new or existing)</li>
+<li><tt class="docutils literal"><span class="pre">preDelete()</span></tt> code executed before deleting an object</li>
+<li><tt class="docutils literal"><span class="pre">postDelete()</span></tt> code executed after deleting an object</li>
+</ul>
+</div>
+<div class="section" id="behaviors">
+<h2>Behaviors<a class="headerlink" href="#behaviors" title="Permalink to this headline">¶</a></h2>
+<p>All bundled behaviors in Propel are working with Symfony2. To get more
+information about how to use Propel behaviors, look at the <a class="reference external" href="http://www.propelorm.org/documentation/#behaviors_reference">Behaviors reference
+section</a>.</p>
+</div>
+<div class="section" id="commands">
+<h2>Commands<a class="headerlink" href="#commands" title="Permalink to this headline">¶</a></h2>
+<p>You should read the dedicated section for <a class="reference external" href="http://www.propelorm.org/cookbook/symfony2/working-with-symfony2#the_commands">Propel commands in Symfony2</a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Databases and Propel</a><ul>
+<li><a class="reference internal" href="#a-simple-example-a-product">A Simple Example: A Product</a><ul>
+<li><a class="reference internal" href="#configuring-the-database">Configuring the Database</a></li>
+<li><a class="reference internal" href="#creating-a-model-class">Creating a Model Class</a></li>
+<li><a class="reference internal" href="#building-the-model">Building the Model</a></li>
+<li><a class="reference internal" href="#creating-the-database-tables-schema">Creating the Database Tables/Schema</a></li>
+<li><a class="reference internal" href="#persisting-objects-to-the-database">Persisting Objects to the Database</a></li>
+<li><a class="reference internal" href="#fetching-objects-from-the-database">Fetching Objects from the Database</a></li>
+<li><a class="reference internal" href="#updating-an-object">Updating an Object</a></li>
+<li><a class="reference internal" href="#deleting-an-object">Deleting an Object</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#querying-for-objects">Querying for Objects</a></li>
+<li><a class="reference internal" href="#relationships-associations">Relationships/Associations</a><ul>
+<li><a class="reference internal" href="#saving-related-objects">Saving Related Objects</a></li>
+<li><a class="reference internal" href="#fetching-related-objects">Fetching Related Objects</a></li>
+<li><a class="reference internal" href="#more-information-on-associations">More information on Associations</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#lifecycle-callbacks">Lifecycle Callbacks</a></li>
+<li><a class="reference internal" href="#behaviors">Behaviors</a></li>
+<li><a class="reference internal" href="#commands">Commands</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="doctrine.html"
+                        title="previous chapter">Databases and Doctrine</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="testing.html"
+                        title="next chapter">Testing</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/book/propel.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="testing.html" title="Testing"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="doctrine.html" title="Databases and Doctrine"
+             >previous</a> |</li>
+        <li><a href="../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="index.html" >The Book</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

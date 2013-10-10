@@ -1,0 +1,132 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Once-only subpatterns</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.assertions.html">Assertions</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.conditional.html">Conditional subpatterns</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="regexp.reference.onlyonce" class="section">
+  <h2 class="title">Once-only subpatterns</h2>
+  <p class="para">
+   With both maximizing and minimizing repetition,  failure  of
+   what  follows  normally  causes  the repeated item to be
+   re-evaluated to see if a different number of repeats allows the
+   rest  of  the  pattern  to  match. Sometimes it is useful to
+   prevent this, either to change the nature of the  match,  or
+   to  cause  it fail earlier than it otherwise might, when the
+   author of the pattern knows there is no  point  in  carrying
+   on.
+  </p>
+  <p class="para">
+   Consider, for example, the pattern \d+foo  when  applied  to
+   the subject line
+   
+   <em>123456bar</em>
+  </p>
+  <p class="para">
+   After matching all 6 digits and then failing to match &quot;foo&quot;,
+   the normal action of the matcher is to try again with only 5
+   digits matching the \d+ item, and then with 4,  and  so  on,
+   before ultimately failing. Once-only subpatterns provide the
+   means for specifying that once a portion of the pattern  has
+   matched,  it  is  not to be re-evaluated in this way, so the
+   matcher would give up immediately on failing to match  &quot;foo&quot;
+   the  first  time.  The  notation  is another kind of special
+   parenthesis, starting with (?&gt; as in this example:
+   
+   <em>(?&gt;\d+)bar</em>
+  </p>
+  <p class="para">
+   This kind of parenthesis &quot;locks up&quot; the  part of the pattern
+   it  contains once it has matched, and a failure further into
+   the pattern is prevented from backtracking  into  it.
+   Backtracking  past  it to previous items, however, works as normal.
+  </p>
+  <p class="para">
+   An alternative description is that a subpattern of this type
+   matches  the  string  of  characters that an identical standalone
+   pattern would match, if anchored at the current point
+   in the subject string.
+  </p>
+  <p class="para">
+   Once-only subpatterns are not capturing subpatterns.  Simple
+   cases  such as the above example can be thought of as a maximizing
+   repeat that must  swallow  everything  it  can.  So,
+   while both \d+ and \d+? are prepared to adjust the number of
+   digits they match in order to make the rest of  the  pattern
+   match, (?&gt;\d+) can only match an entire sequence of digits.
+  </p>
+  <p class="para">
+   This construction can of course contain arbitrarily  complicated
+   subpatterns, and it can be nested.
+  </p>
+  <p class="para">
+   Once-only subpatterns can be used in conjunction with
+   lookbehind assertions  to specify efficient matching at the end
+   of the subject string. Consider a simple pattern such as
+   
+   <em>abcd$</em>
+   
+   when applied to a long string which does not match.  Because
+   matching  proceeds  from  left  to right, PCRE will look for
+   each &quot;a&quot; in the subject and then see if what follows matches
+   the rest of the pattern. If the pattern is specified as
+   
+   <em>^.*abcd$</em>
+   
+   then the initial .* matches the entire string at first,  but
+   when  this  fails  (because  there  is no following &quot;a&quot;), it
+   backtracks to match all but the last character, then all but
+   the  last  two  characters, and so on. Once again the search
+   for &quot;a&quot; covers the entire string, from right to left, so  we
+   are no better off. However, if the pattern is written as
+   
+   <em>^(?&gt;.*)(?&lt;=abcd)</em>
+   
+   then there can be no backtracking for the .*  item;  it  can
+   match  only  the  entire  string.  The subsequent lookbehind
+   assertion does a single test on the last four characters. If
+   it  fails,  the  match  fails immediately. For long strings,
+   this approach makes a significant difference to the processing time.
+  </p>
+  <p class="para">
+   When a pattern contains an unlimited repeat inside a subpattern
+   that can itself be repeated an unlimited number of
+   times, the use of a once-only subpattern is the only way  to
+   avoid  some  failing matches taking a very long time indeed.
+   The pattern
+   
+   <em>(\D+|&lt;\d+&gt;)*[!?]</em>
+   
+   matches an unlimited number of substrings that  either  consist
+   of  non-digits,  or digits enclosed in &lt;&gt;, followed by
+   either ! or ?. When it matches, it runs quickly. However, if
+   it is applied to
+   
+   <em>aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</em>
+   
+   it takes a long  time  before  reporting  failure.  This  is
+   because the string can be divided between the two repeats in
+   a large number of ways, and all have to be tried. (The example
+   used  [!?]  rather  than a single character at the end,
+   because both PCRE and Perl have an optimization that  allows
+   for  fast  failure  when  a  single  character is used. They
+   remember the last single character that is  required  for  a
+   match,  and  fail early if it is not present in the string.)
+   If the pattern is changed to
+   
+   <em>((?&gt;\D+)|&lt;\d+&gt;)*[!?]</em>
+   
+   sequences of non-digits cannot be broken, and  failure  happens quickly.
+  </p>
+ </div><hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="regexp.reference.assertions.html">Assertions</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="regexp.reference.conditional.html">Conditional subpatterns</a></div>
+ <div class="up"><a href="reference.pcre.pattern.syntax.html">PCRE regex syntax</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

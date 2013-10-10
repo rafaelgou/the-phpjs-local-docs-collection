@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.11: http://docutils.sourceforge.net/" />
+<title>Creating reStructuredText Interpreted Text Roles</title>
+<meta name="authors" content="David Goodger" />
+<meta name="date" content="2012-01-03" />
+<meta name="copyright" content="This document has been placed in the public domain." />
+<link rel="stylesheet" href="../../docutils/writers/html4css1/html4css1.css" type="text/css" />
+</head>
+<body>
+<div class="document" id="creating-restructuredtext-interpreted-text-roles">
+<h1 class="title">Creating reStructuredText Interpreted Text Roles</h1>
+<table class="docinfo" frame="void" rules="none">
+<col class="docinfo-name" />
+<col class="docinfo-content" />
+<tbody valign="top">
+<tr><th class="docinfo-name">Authors:</th>
+<td>David Goodger</td></tr>
+<tr><th class="docinfo-name">Contact:</th>
+<td><a class="first last reference external" href="mailto:docutils-develop&#64;lists.sourceforge.net">docutils-develop&#64;lists.sourceforge.net</a></td></tr>
+<tr><th class="docinfo-name">Date:</th>
+<td>2012-01-03</td></tr>
+<tr><th class="docinfo-name">Revision:</th>
+<td>7302</td></tr>
+<tr><th class="docinfo-name">Copyright:</th>
+<td>This document has been placed in the public domain.</td></tr>
+</tbody>
+</table>
+<p>Interpreted text roles are an extension mechanism for inline markup in
+reStructuredText.  This document aims to make the creation of new
+roles as easy and understandable as possible.</p>
+<p>Standard roles are described in <a class="reference external" href="../ref/rst/roles.html">reStructuredText Interpreted Text
+Roles</a>.  See the <a class="reference external" href="../ref/rst/restructuredtext.html#interpreted-text">Interpreted Text</a> section in the <a class="reference external" href="../ref/rst/restructuredtext.html">reStructuredText
+Markup Specification</a> for syntax details.</p>
+<div class="contents topic" id="contents">
+<p class="topic-title first">Contents</p>
+<ul class="simple">
+<li><a class="reference internal" href="#define-the-role-function" id="id1">Define the Role Function</a></li>
+<li><a class="reference internal" href="#specify-role-function-options-and-content" id="id2">Specify Role Function Options and Content</a></li>
+<li><a class="reference internal" href="#register-the-role" id="id3">Register the Role</a></li>
+<li><a class="reference internal" href="#examples" id="id4">Examples</a><ul>
+<li><a class="reference internal" href="#generic-roles" id="id5">Generic Roles</a></li>
+<li><a class="reference internal" href="#rfc-reference-role" id="id6">RFC Reference Role</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="define-the-role-function">
+<h1><a class="toc-backref" href="#id1">Define the Role Function</a></h1>
+<p>The role function creates and returns inline elements (nodes) and does
+any additional processing required.  Its signature is as follows:</p>
+<pre class="literal-block">
+def role_fn(name, rawtext, text, lineno, inliner,
+            options={}, content=[]):
+    code...
+
+# Set function attributes for customization:
+role_fn.options = ...
+role_fn.content = ...
+</pre>
+<p>Function attributes are described below (see <a class="reference internal" href="#specify-role-function-options-and-content">Specify Role Function
+Options and Content</a>).  The role function parameters are as follows:</p>
+<ul class="simple">
+<li><tt class="docutils literal">name</tt>: The local name of the interpreted role, the role name
+actually used in the document.</li>
+<li><tt class="docutils literal">rawtext</tt>: A string containing the enitre interpreted text input,
+including the role and markup.  Return it as a <tt class="docutils literal">problematic</tt> node
+linked to a system message if a problem is encountered.</li>
+<li><tt class="docutils literal">text</tt>: The interpreted text content.</li>
+<li><tt class="docutils literal">lineno</tt>: The line number where the interpreted text begins.</li>
+<li><tt class="docutils literal">inliner</tt>: The <tt class="docutils literal">docutils.parsers.rst.states.Inliner</tt> object that
+called role_fn.  It contains the several attributes useful for error
+reporting and document tree access.</li>
+<li><tt class="docutils literal">options</tt>: A dictionary of directive options for customization
+(from the <a class="reference external" href="../ref/rst/directives.html#role">&quot;role&quot; directive</a>), to be interpreted by the role
+function.  Used for additional attributes for the generated elements
+and other functionality.</li>
+<li><tt class="docutils literal">content</tt>: A list of strings, the directive content for
+customization (from the <a class="reference external" href="../ref/rst/directives.html#role">&quot;role&quot; directive</a>).  To be interpreted by
+the role function.</li>
+</ul>
+<p>Role functions return a tuple of two values:</p>
+<ul class="simple">
+<li>A list of nodes which will be inserted into the document tree at the
+point where the interpreted role was encountered (can be an empty
+list).</li>
+<li>A list of system messages, which will be inserted into the document tree
+immediately after the end of the current block (can also be empty).</li>
+</ul>
+</div>
+<div class="section" id="specify-role-function-options-and-content">
+<h1><a class="toc-backref" href="#id2">Specify Role Function Options and Content</a></h1>
+<p>Function attributes are for customization, and are interpreted by the
+<a class="reference external" href="../ref/rst/directives.html#role">&quot;role&quot; directive</a>.  If unspecified, role function attributes are
+assumed to have the value <tt class="docutils literal">None</tt>.  Two function attributes are
+recognized:</p>
+<ul>
+<li><p class="first"><tt class="docutils literal">options</tt>: The option specification.  All role functions
+implicitly support the &quot;class&quot; option, unless disabled with an
+explicit <tt class="docutils literal">{'class': None}</tt>.</p>
+<p>An option specification must be defined detailing the options
+available to the &quot;role&quot; directive.  An option spec is a mapping of
+option name to conversion function; conversion functions are applied
+to each option value to check validity and convert them to the
+expected type.  Python's built-in conversion functions are often
+usable for this, such as <tt class="docutils literal">int</tt>, <tt class="docutils literal">float</tt>, and <tt class="docutils literal">bool</tt> (included
+in Python from version 2.2.1).  Other useful conversion functions
+are included in the <tt class="docutils literal">docutils.parsers.rst.directives</tt> package.
+For further details, see <a class="reference external" href="rst-directives.html#specify-directive-arguments-options-and-content">Creating reStructuredText Directives</a>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal">content</tt>: A boolean; true if &quot;role&quot; directive content is allowed.
+Role functions must handle the case where content is required but
+not supplied (an empty content list will be supplied).</p>
+<p>As of this writing, no roles accept directive content.</p>
+</li>
+</ul>
+<p>Note that unlike directives, the &quot;arguments&quot; function attribute is not
+supported for role customization.  Directive arguments are handled by
+the &quot;role&quot; directive itself.</p>
+</div>
+<div class="section" id="register-the-role">
+<h1><a class="toc-backref" href="#id3">Register the Role</a></h1>
+<p>If the role is a general-use addition to the Docutils core, it must be
+registered with the parser and language mappings added:</p>
+<ol class="arabic">
+<li><p class="first">Register the new role using the canonical name:</p>
+<pre class="literal-block">
+from docutils.parsers.rst import roles
+roles.register_canonical_role(name, role_function)
+</pre>
+<p>This code is normally placed immediately after the definition of
+the role funtion.</p>
+</li>
+<li><p class="first">Add an entry to the <tt class="docutils literal">roles</tt> dictionary in
+<tt class="docutils literal">docutils/parsers/rst/languages/en.py</tt> for the role, mapping the
+English name to the canonical name (both lowercase).  Usually the
+English name and the canonical name are the same.  Abbreviations
+and other aliases may also be added here.</p>
+</li>
+<li><p class="first">Update all the other language modules as well.  For languages in
+which you are proficient, please add translations.  For other
+languages, add the English role name plus &quot;(translation required)&quot;.</p>
+</li>
+</ol>
+<p>If the role is application-specific, use the <tt class="docutils literal">register_local_role</tt>
+function:</p>
+<pre class="literal-block">
+from docutils.parsers.rst import roles
+roles.register_local_role(name, role_function)
+</pre>
+</div>
+<div class="section" id="examples">
+<h1><a class="toc-backref" href="#id4">Examples</a></h1>
+<p>For the most direct and accurate information, &quot;Use the Source, Luke!&quot;.
+All standard roles are documented in <a class="reference external" href="../ref/rst/roles.html">reStructuredText Interpreted
+Text Roles</a>, and the source code implementing them is located in the
+<tt class="docutils literal">docutils/parsers/rst/roles.py</tt> module.  Several representative
+roles are described below.</p>
+<div class="section" id="generic-roles">
+<h2><a class="toc-backref" href="#id5">Generic Roles</a></h2>
+<p>Many roles simply wrap a given element around the text.  There's a
+special helper function, <tt class="docutils literal">register_generic_role</tt>, which generates a
+role function from the canonical role name and node class:</p>
+<pre class="literal-block">
+register_generic_role('emphasis', nodes.emphasis)
+</pre>
+<p>For the implementation of <tt class="docutils literal">register_generic_role</tt>, see the
+<tt class="docutils literal">docutils.parsers.rst.roles</tt> module.</p>
+</div>
+<div class="section" id="rfc-reference-role">
+<h2><a class="toc-backref" href="#id6">RFC Reference Role</a></h2>
+<p>This role allows easy references to <a class="reference external" href="http://foldoc.doc.ic.ac.uk/foldoc/foldoc.cgi?query=rfc&amp;action=Search&amp;sourceid=Mozilla-search">RFCs</a> (Request For Comments
+documents) by automatically providing the base URL,
+<a class="reference external" href="http://www.faqs.org/rfcs/">http://www.faqs.org/rfcs/</a>, and appending the RFC document itself
+(rfcXXXX.html, where XXXX is the RFC number).  For example:</p>
+<pre class="literal-block">
+See :RFC:`2822` for information about email headers.
+</pre>
+<p>This is equivalent to:</p>
+<pre class="literal-block">
+See `RFC 2822`__ for information about email headers.
+
+__ http://www.faqs.org/rfcs/rfc2822.html
+</pre>
+<p>Here is the implementation of the role:</p>
+<pre class="literal-block">
+def rfc_reference_role(role, rawtext, text, lineno, inliner,
+                       options={}, content=[]):
+    try:
+        rfcnum = int(text)
+        if rfcnum &lt;= 0:
+            raise ValueError
+    except ValueError:
+        msg = inliner.reporter.error(
+            'RFC number must be a number greater than or equal to 1; '
+            '&quot;%s&quot; is invalid.' % text, line=lineno)
+        prb = inliner.problematic(rawtext, rawtext, msg)
+        return [prb], [msg]
+    # Base URL mainly used by inliner.rfc_reference, so this is correct:
+    ref = inliner.document.settings.rfc_base_url + inliner.rfc_url % rfcnum
+    set_classes(options)
+    node = nodes.reference(rawtext, 'RFC ' + utils.unescape(text), refuri=ref,
+                           **options)
+    return [node], []
+
+register_canonical_role('rfc-reference', rfc_reference_role)
+</pre>
+<p>Noteworthy in the code above are:</p>
+<ol class="arabic simple">
+<li>The interpreted text itself should contain the RFC number.  The
+<tt class="docutils literal">try</tt> clause verifies by converting it to an integer.  If the
+conversion fails, the <tt class="docutils literal">except</tt> clause is executed: a system
+message is generated, the entire interpreted text construct (in
+<tt class="docutils literal">rawtext</tt>) is wrapped in a <tt class="docutils literal">problematic</tt> node (linked to the
+system message), and the two are returned.</li>
+<li>The RFC reference itself is constructed from a stock URI, set as
+the &quot;refuri&quot; attribute of a &quot;reference&quot; element.</li>
+<li>The <tt class="docutils literal">options</tt> function parameter, a dictionary, may contain a
+&quot;class&quot; customization attribute; it is interpreted and replaced
+with a &quot;classes&quot; attribute by the <tt class="docutils literal">set_classes()</tt> function.  The
+resulting &quot;classes&quot; attribute is passed through to the &quot;reference&quot;
+element node constructor.</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="footer">
+<hr class="footer" />
+<a class="reference external" href="rst-roles.txt">View document source</a>.
+Generated on: 2013-03-22 08:22 UTC.
+Generated by <a class="reference external" href="http://docutils.sourceforge.net/">Docutils</a> from <a class="reference external" href="http://docutils.sourceforge.net/rst.html">reStructuredText</a> source.
+
+</div>
+</body>
+</html>

@@ -1,0 +1,1050 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Behaviours &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="searching.html" />
+    <link rel="prev" title="単一継承" href="inheritance.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="searching.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="inheritance.html" title="単一継承"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="behaviours">
+<h1>Behaviours<a class="headerlink" href="#behaviours" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="id1">
+<h2>はじめに<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h2>
+<p>モデルの中で似た内容を持つクラスを見つけることはよくあります。これらの内容はコンポーネント自身のスキーマ(リレーション、カラムの定義、インデックスの定義など)に関連することがあります。このコードをリファクタリングする明らかな方法は基底クラスとそれを継承するクラスを用意することです。</p>
+<p>しかしながら継承はこれらの一部しか解決しません。次のセクションで``Doctrine_Template``が継承よりもはるかに強力で柔軟であることを示します。</p>
+<p><a href="#id2"><span class="problematic" id="id3">``</span></a>Doctrine_Template``はクラステンプレートシステムです。基本的にテンプレートはRecordクラスがロードできるすぐ使える小さなコンポーネントです。テンプレートがロードされるとき``setTableDefinition()``と``setUp()``メソッドが起動されこれらの内部でメソッドが呼び出され渦中のクラスに導かれます。</p>
+<p>この章ではDoctrineで利用できる様々なビヘイビアの使い方を説明します。独自ビヘイビアの作り方も説明します。この章のコンセプトを掴むために``Doctrine_Template``と``Doctrine_Record_Generator``の背景にある理論に慣れなければなりません。これらのクラスがどんなものであるのか手短に説明します。</p>
+<p>ビヘイビアを言及するときテンプレート、ジェネレータとリスナーを広範囲に渡って使用するクラスパッケージを意味します。この章で紹介されるすべてのコンポーネントは``core``ビヘイビアとしてみなされています。これはDoctrineのメインリポジトリに保管されていることを意味します。</p>
+<p>通常ビヘイビアはテンプレートクラス(<a href="#id4"><span class="problematic" id="id5">``</span></a>Doctrine_Template``を継承するクラス)でジェネレータを使用します。共通のワークフローは次の通りです:</p>
+<ul class="simple">
+<li>新しいテンプレートが初期化される</li>
+<li>テンプレートはジェネレータを作成し``initialize()``メソッドを呼び出す</li>
+<li>テンプレートはクラスに添付される</li>
+</ul>
+<p>ご存知かもしれませんがテンプレートは共通の定義とオプションをレコードクラスに追加するために使われます。ジェネレータの目的はとても複雑です。通常これらはジェネリックレコードクラスを動的に作成するために使われます。これらのジェネリッククラスの定義はオーナーのクラスによります。例えばクラスをバージョニングする``AuditLog``カラムの定義はすべてのsequenceとautoincrementの定義が削除された親クラスのカラムです。</p>
+</div>
+<div class="section" id="id6">
+<h2>シンプルなテンプレート<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h2>
+<p>次の例において``TimestampBehavior``と呼ばれるテンプレートを定義します。基本的にテンプレートの目的はこのテンプレートをロードするレコードクラスに日付カラムの&#8217;created&#8217;と&#8217;updated&#8217;を追加することです。加えてこのテンプレートはレコードのアクションに基づいてこれらのカラムを更新するTimestampリスナーを使用します。</p>
+<blockquote>
+<div>// models/TimestampListener.php</div></blockquote>
+<p>class TimestampListener extends Doctrine_Record_Listener { public
+function preInsert(Doctrine_Event $event) {
+$event-&gt;getInvoker()-&gt;created = date(&#8216;Y-m-d&#8217;, time());
+$event-&gt;getInvoker()-&gt;updated = date(&#8216;Y-m-d&#8217;, time()); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">preUpdate</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">updated</span> <span class="o">=</span> <span class="nb">date</span><span class="p">(</span><span class="s1">&#39;Y-m-d&#39;</span><span class="p">,</span> <span class="nb">time</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p><a href="#id7"><span class="problematic" id="id8">``</span></a>actAs()``メソッドでモデルに添付できるように``TimestampTemplate``という名前の子の``Doctrine_Template``を作りましょう:</p>
+<blockquote>
+<div>// models/TimestampBehavior.php</div></blockquote>
+<p>class TimestampTemplate extends Doctrine_Template { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;created&#8217;, &#8216;date&#8217;);
+$this-&gt;hasColumn(&#8216;updated&#8217;, &#8216;date&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">setListener</span><span class="p">(</span><span class="k">new</span> <span class="nx">TimestampListener</span><span class="p">());</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>タイムスタンプの機能を必要とする``BlogPost``クラスを考えてみましょう。行う必要があるのはクラスの定義に``actAs()``の呼び出しを追加することです。</p>
+<blockquote>
+<div>class BlogPost extends Doctrine_Record</div></blockquote>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">200</span><span class="p">);</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;body&#39;</span><span class="p">,</span> <span class="s1">&#39;clob&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;TimestampBehavior&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>BlogPost: actAs: [TimestampBehavior] columns: title: string(200) body:</div></blockquote>
+<p>clob</p>
+<p><a href="#id9"><span class="problematic" id="id10">``</span></a>BlogPost``モデルを活用しようとするとき``created``と``updated``カラムが追加され保存されるときに自動的に設定されたことがわかります:</p>
+<blockquote>
+<div>$blogPost = new BlogPost(); $blogPost-&gt;title = &#8216;Test&#8217;; $blogPost-&gt;body</div></blockquote>
+<p>= &#8216;test&#8217;; $blogPost-&gt;save();</p>
+<p>print_r($blogPost-&gt;toArray());</p>
+<p>上記の例は次の出力を表示します:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [title] =&gt; Test [body] =&gt; test</div></blockquote>
+<p>[created] =&gt; 2009-01-22 [updated] =&gt; 2009-01-22 )</p>
+<blockquote>
+<div><strong>NOTE</strong>
+上記で説明した機能は既にお話した``Timestampable``ビヘイビアを通して利用できます。この章の[doc
+behaviors:core-behaviors:timestampable
+:name]セクションに戻って詳細内容を読むことができます。</div></blockquote>
+</div>
+<div class="section" id="id11">
+<h2>リレーション付きのテンプレート<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h2>
+<p>以前の章よりも状況は複雑になりがちです。他のモデルクラスへのリレーションを持つクラスがあり任意のクラスを格調されたクラスで置き換えたいことがあります。</p>
+<p>次の定義を持つ``User``と``Email``の2つのクラスを考えてみましょう:</p>
+<blockquote>
+<div>class User extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;password&#8217;, &#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;Email&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>class Email extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;address&#8217;, &#8216;string&#8217;);
+$this-&gt;hasColumn(&#8216;user_id&#8217;, &#8216;integer&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasOne</span><span class="p">(</span><span class="s1">&#39;User&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>User: columns: username: string(255) password: string(255)</div></blockquote>
+<p>Email: columns: address: string user_id: integer relations: User:</p>
+<p><a href="#id12"><span class="problematic" id="id13">``</span></a>User``と``Email``クラスを拡張し、例えば``ExtendedUser``と``ExtendedEmail``クラスを作る場合、<a href="#id14"><span class="problematic" id="id15">``</span></a>ExtendedUser``は``Email``クラスへのリレーションを保存しますが``ExtendedEmail``クラスへのリレーションは保存しません。もちろん``User``クラスの``setUp()``メソッドをオーバーライドして``ExtendedEmail``クラスへのリレーションを定義することはできますが、継承の本質を失います。<a href="#id16"><span class="problematic" id="id17">``</span></a>Doctrine_Template``はこの問題を依存オブジェクトの注入(dependency
+injection)の方法でエレガントに解決します。</p>
+<p>次の例では2つのテンプレート、<a href="#id18"><span class="problematic" id="id19">``</span></a>UserTemplate``と``EmailTemplate``を``User``と``Email``クラスが持つほぼ理想的な定義で定義します。</p>
+<blockquote>
+<div>// models/UserTemplate.php</div></blockquote>
+<p>class UserTemplate extends Doctrine_Template { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;username&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;password&#8217;, &#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasMany</span><span class="p">(</span><span class="s1">&#39;EmailTemplate as Emails&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p><a href="#id20"><span class="problematic" id="id21">``</span></a>EmailTemplate``を定義しましょう:</p>
+<blockquote>
+<div>// models/EmailTemplate.php</div></blockquote>
+<p>class EmailTemplate extends Doctrine_Template { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;address&#8217;, &#8216;string&#8217;);
+$this-&gt;hasColumn(&#8216;user_id&#8217;, &#8216;integer&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasOne</span><span class="p">(</span><span class="s1">&#39;UserTemplate as User&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;local&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;user_id&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;foreign&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;id&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>リレーションの設定方法に注目してください。Record具象クラスを指し示すのではなく、テンプレートへのリレーションを設定しています。これはDoctrineにこれらのテンプレート用のRecord具象クラスを探すように伝えています。Doctrineがこれらの具象継承を見つけられない場合リレーションパーサーは例外を投げますが、前に進む前に、実際のレコードクラスは次の通りです:</p>
+<blockquote>
+<div>class User extends Doctrine_Record { public function setUp() {</div></blockquote>
+<p>$this-&gt;actAs(&#8216;UserTemplate&#8217;); } }</p>
+<p>class Email extends Doctrine_Record { public function setUp() {
+$this-&gt;actAs(&#8216;EmailTemplate&#8217;); } }</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>User: actAs: [UserTemplate]</div></blockquote>
+<p>Email: actAs: [EmailTemplate]</p>
+<p>次のコードスニペットを考えてみましょう。テンプレート用の具象実装を設定していないのでこのコードスニペットは動きません。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;Emails; // throws an exception</p>
+<p>次のバージョンが動作します。<a href="#id22"><span class="problematic" id="id23">``</span></a>Doctrine_Manager``を使用してグローバルにテンプレート用の具象実装の設定をする方法を注目してください:</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $manager-&gt;setImpl(&#8216;UserTemplate&#8217;, &#8216;User&#8217;)
+-&gt;setImpl(&#8216;EmailTemplate&#8217;, &#8216;Email&#8217;);</p>
+<p>このコードは動作しますが以前のように例外を投げません:</p>
+<blockquote>
+<div>$user = new User(); $user-&gt;Emails[0]-&gt;address = <a class="reference external" href="mailto:'jonwage&#37;&#52;&#48;gmail&#46;com">'jonwage<span>&#64;</span>gmail<span>&#46;</span>com</a>&#8216;;</div></blockquote>
+<p>$user-&gt;save();</p>
+<p>print_r($user-&gt;toArray(true));</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [username] =&gt; [password] =&gt; [Emails]</div></blockquote>
+<p>=&gt; Array ( [0] =&gt; Array ( [id] =&gt; 1 [address] =&gt; <a class="reference external" href="mailto:jonwage&#37;&#52;&#48;gmail&#46;com">jonwage<span>&#64;</span>gmail<span>&#46;</span>com</a>
+[user_id] =&gt; 1 )</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">)</span>
+</pre></div>
+</div>
+<p>)</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">テンプレート用の実装はマネージャー、接続とテーブルレベルでも設定できます。</p>
+</div>
+</div>
+<div class="section" id="id24">
+<h2>デリゲートメソッド<a class="headerlink" href="#id24" title="Permalink to this headline">¶</a></h2>
+<p>フルテーブル定義のデリゲートシステムとして振る舞うことに加えて、<tt class="docutils literal"><span class="pre">Doctrine\_Template``はメソッドの呼び出しのデリゲートを可能にします。これはロードされたテンプレート内のすべてのメソッドはテンプレートをロードしたレコードの中で利用できることを意味します。この機能を実現するために内部では</span></tt>__call()``と呼ばれるマジックメソッドが使用されます。</p>
+<p>以前の例に``UserTemplate``にカスタムメソッドを追加してみましょう:</p>
+<blockquote>
+<div>// models/UserTemplate.php</div></blockquote>
+<p>class UserTemplate extends Doctrine_Template { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">authenticate</span><span class="p">(</span><span class="nv">$username</span><span class="p">,</span> <span class="nv">$password</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$invoker</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">==</span> <span class="nv">$username</span> <span class="o">&amp;&amp;</span> <span class="nv">$invoker</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">==</span> <span class="nv">$password</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>次のコードで使い方を見ましょう:</p>
+<blockquote>
+<div>$user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =</div></blockquote>
+<p>&#8216;changeme&#8217;;</p>
+<p>if ($user-&gt;authenticate(&#8216;jwage&#8217;, &#8216;changemte&#8217;)) { echo &#8216;Authenticated
+successfully!&#8217;; } else { echo &#8216;Could not authenticate user!&#8217;; }</p>
+<p><a href="#id25"><span class="problematic" id="id26">``</span></a>Doctrine_Table``クラスにメソッドをデリゲートすることも簡単にできます。しかし名前衝突を避けるために、テーブルクラス用のメソッドはメソッド名の最後に追加される``TableProxy``の文字列を持たなければなりません。</p>
+<p>新しいファインダーメソッドを追加する例は次の通りです:</p>
+<blockquote>
+<div>// models/UserTemplate.php</div></blockquote>
+<p>class UserTemplate extends Doctrine_Template { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">findUsersWithEmailTableProxy</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="nx">Doctrine_Query</span><span class="o">::</span><span class="na">create</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">select</span><span class="p">(</span><span class="s1">&#39;u.username&#39;</span><span class="p">)</span>
+        <span class="o">-&gt;</span><span class="na">from</span><span class="p">(</span><span class="s1">&#39;User u&#39;</span><span class="p">)</span>
+        <span class="o">-&gt;</span><span class="na">innerJoin</span><span class="p">(</span><span class="s1">&#39;u.Emails e&#39;</span><span class="p">)</span>
+        <span class="o">-&gt;</span><span class="na">execute</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p><a href="#id27"><span class="problematic" id="id28">``</span></a>User``モデル用の``Doctrine_Table``オブジェクトからのメソッドにアクセスできます:</p>
+<blockquote>
+<div>$userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</div></blockquote>
+<p>$users = $userTable-&gt;findUsersWithEmail();</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">それぞれのクラスは複数のテンプレートから構成されます。テンプレートが似たような定義を格納する場合最新のロードされたテンプレートは
+前のものを常にオーバーライドします。</p>
+</div>
+</div>
+<div class="section" id="id29">
+<h2>ビヘイビアを作成する<a class="headerlink" href="#id29" title="Permalink to this headline">¶</a></h2>
+<p>この節では独自ビヘイビア作成用の方法を説明します。一対多のEメールが必要な様々なRecordクラスを考えてみましょう。Emailクラスを即座に作成する一般的なビヘイビアを作成することでこの機能を実現します。</p>
+<p><a href="#id30"><span class="problematic" id="id31">``</span></a>EmailBehavior``と呼ばれるビヘイビアを``setTableDefinition()``メソッドで作成することからこのタスクを始めます。<a href="#id32"><span class="problematic" id="id33">``</span></a>setTableDefinition()``メソッドの内部では動的なレコードの定義に様々なヘルパーメソッドが使われます。次のメソッドが共通で使われています:</p>
+<blockquote>
+<div>public function initOptions() public function buildLocalRelation()</div></blockquote>
+<p>public function buildForeignKeys(Doctrine_Table
+<tt class="code docutils literal"><span class="pre">table)</span> <span class="pre">public</span> <span class="pre">function</span> <span class="pre">buildForeignRelation(</span></tt>alias = null)
+public function buildRelation() //
+buildForeignRelation()とbuildLocalRelation()を呼び出す</p>
+<blockquote>
+<div>class EmailBehavior extends Doctrine_Record_Generator { public</div></blockquote>
+<p>function initOptions() { $this-&gt;setOption(&#8216;className&#8217;, &#8216;%CLASS%Email&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre>    <span class="c1">// ほかのオプション</span>
+    <span class="c1">// $this-&gt;setOption(&#39;appLevelDelete&#39;, true);</span>
+    <span class="c1">// $this-&gt;setOption(&#39;cascadeDelete&#39;, false);</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">buildRelation</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">buildForeignRelation</span><span class="p">(</span><span class="s1">&#39;Emails&#39;</span><span class="p">);</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">buildLocalRelation</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;address&#39;</span><span class="p">,</span> <span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;email&#39;</span>  <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;primary&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="id34">
+<h2>コアビヘイビア<a class="headerlink" href="#id34" title="Permalink to this headline">¶</a></h2>
+<p>コアビヘイビアを使う次のいくつかの例のために以前の章で作成したテスト環境から既存のスキーマとモデルをすべて削除しましょう。</p>
+<blockquote>
+<div>$ rm schema.yml $ touch schema.yml $ rm -rf models/*</div></blockquote>
+<p>&#8211;
+紹介
+&#8211;</p>
+<p>Doctrineにはモデルにそのまま使える機能を提供するテンプレートが搭載されています。モデルでこれらのテンプレートを簡単に有効にできます。<a href="#id35"><span class="problematic" id="id36">``</span></a>Doctrine_Records``で直接行うもしくはYAMLでモデルを管理しているのであればこれらをYAMLスキーマで指定できます。</p>
+<p>次の例ではDoctrineに搭載されているビヘイビアの一部を実演します。</p>
+<div class="section" id="versionable">
+<h3>Versionable<a class="headerlink" href="#versionable" title="Permalink to this headline">¶</a></h3>
+<p>バージョン管理の機能を持たせるために``BlogPost``モデルを作成しましょう:</p>
+<blockquote>
+<div>// models/BlogPost.php</div></blockquote>
+<p>class BlogPost extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;body&#8217;, &#8216;clob&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Versionable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;versionColumn&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;version&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;className&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;%CLASS%Version&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;auditLog&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>BlogPost: actAs: Versionable: versionColumn: version className:</div></blockquote>
+<p>%CLASS%Version auditLog: true columns: title: string(255) body: clob</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id37"><span class="problematic" id="id38">``</span></a>auditLog``オプションはauditのログ履歴を無効にするために使われます。これはバージョン番号を維持したいがそれぞれのバージョンでのデータを維持したくない場合に使います。</div></blockquote>
+<p>上記のモデルで生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;BlogPost&#8217;));
+echo $sql[0] . &#8220;&#8221;; echo $sql[1];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE blog_post_version (id BIGINT, title VARCHAR(255), body</div></blockquote>
+<p>LONGTEXT, version BIGINT, PRIMARY KEY(id, version)) ENGINE = INNODB
+CREATE TABLE blog_post (id BIGINT AUTO_INCREMENT, title VARCHAR(255),
+body LONGTEXT, version BIGINT, PRIMARY KEY(id)) ENGINE = INNODB ALTER
+TABLE blog_post_version ADD FOREIGN KEY (id) REFERENCES blog_post(id)
+ON UPDATE CASCADE ON DELETE CASCADE</p>
+<blockquote>
+<div><strong>NOTE</strong>
+おそらく予期していなかったであろう2の追加ステートメントがあることに注目してください。ビヘイビアは自動的に``blog_post_version``テーブルを作成しこれを``blog_post``に関連付けます。</div></blockquote>
+<p><a href="#id39"><span class="problematic" id="id40">``</span></a>BlogPost``を挿入もしくは更新するときバージョンテーブルは古いバージョンのレコードをすべて保存していつでも差し戻しできるようにします。最初に``NewsItem``をインスタンス化するとき内部で起きていることは次の通りです:</p>
+<ul class="simple">
+<li><a href="#id41"><span class="problematic" id="id42">``</span></a>BlogPostVersion``という名前のクラスが即座に作成される。レコードが指し示すテーブルは``blog_post_version``である</li>
+<li><a href="#id43"><span class="problematic" id="id44">``</span></a>BlogPost``オブジェクトが削除/更新されるたびに以前のバージョンは``blog_post_version``に保存される</li>
+<li><a href="#id45"><span class="problematic" id="id46">``</span></a>BlogPost``オブジェクトが更新されるたびにバージョン番号が増える。</li>
+</ul>
+<p><a href="#id47"><span class="problematic" id="id48">``</span></a>BlogPost``モデルで遊びましょう:</p>
+<blockquote>
+<div>$blogPost = new BlogPost(); $blogPost-&gt;title = &#8216;Test blog post&#8217;;</div></blockquote>
+<p>$blogPost-&gt;body = &#8216;test&#8217;; $blogPost-&gt;save();</p>
+<p>$blogPost-&gt;title = &#8216;Modified blog post title&#8217;; $blogPost-&gt;save();</p>
+<p>print_r($blogPost-&gt;toArray());</p>
+<p>上記の例では次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [title] =&gt; Modified blog post title</div></blockquote>
+<p>[body] =&gt; test [version] =&gt; 2 )</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id49"><span class="problematic" id="id50">``</span></a>version``カラムの値が``2``であることに注目してください。2つのバージョンの``BlogPost``モデルを保存したからです。ビヘイビアが格納する``revert()``メソッドを使用することで別のバージョンに差し戻すことができます。</div></blockquote>
+<p>最初のバージョンに差し戻してみましょう:</p>
+<blockquote>
+<div><tt class="code docutils literal"><span class="pre">blogPost-&gt;revert(1);</span> <span class="pre">print_r(</span></tt>blogPost-&gt;toArray());</div></blockquote>
+<p>上記の例は次の内容を出力する:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 2 [title] =&gt; Test blog post [body] =&gt;</div></blockquote>
+<p>test [version] =&gt; 1 )</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id51"><span class="problematic" id="id52">``</span></a>version``カラムの値が1に設定され``title``は``BlogPost``を作成するときに設定されたオリジナルの値に戻ります。</div></blockquote>
+</div>
+<div class="section" id="timestampable">
+<h3>Timestampable<a class="headerlink" href="#timestampable" title="Permalink to this headline">¶</a></h3>
+<p>Timestampableビヘイビアは``created_at``と``updated_at``カラムを追加しレコードが挿入と更新されたときに値を自動的に設定します。</p>
+<p>日付を知ることは共通のニーズなので``BlogPost``モデルを展開してこれらの日付を自動的に設定するために``Timestampable``ビヘイビアを追加します。</p>
+<blockquote>
+<div>// models/BlogPost.php</div></blockquote>
+<p>class BlogPost extends Doctrine_Record { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Timestampable&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>BlogPost: actAs: # ... Timestampable: # ...</p>
+<p><a href="#id53"><span class="problematic" id="id54">``</span></a>updated_at``フィールドではなく``created_at``タイムスタンプといったカラムの1つだけを使うことに興味があるのであれば、下記の例のようにフィールドのどちらかに対して``disabled``をtrueに設定します。</p>
+<blockquote>
+<div>BlogPost: actAs: # ... Timestampable: created: name: created_at type:</div></blockquote>
+<p>timestamp format: Y-m-d H:i:s updated: disabled: true # ...</p>
+<p>新しい投稿を作成するときに何が起きるのか見てみましょう:</p>
+<blockquote>
+<div>$blogPost = new BlogPost(); $blogPost-&gt;title = &#8216;Test blog post&#8217;;</div></blockquote>
+<p>$blogPost-&gt;body = &#8216;test&#8217;; $blogPost-&gt;save();</p>
+<p>print_r($blogPost-&gt;toArray());</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [title] =&gt; Test blog post [body] =&gt;</div></blockquote>
+<p>test [version] =&gt; 1 [created_at] =&gt; 2009-01-21 17:54:23 [updated_at]
+=&gt; 2009-01-21 17:54:23 )</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id55"><span class="problematic" id="id56">``</span></a>created_at``と``updated_at``の値が自動的に設定されることに注目してください！</div></blockquote>
+<p>ビヘイビアの作成側の``Timestampable``ビヘイビアで使うことができるすべてのオプションのリストです:</p>
+<p>||~ 名前 ||~ デフォルト ||~ 説明 || || <tt class="docutils literal"><span class="pre">name</span></tt> ||
+<tt class="docutils literal"><span class="pre">created_at</span></tt> || カラムの名前 || || <tt class="docutils literal"><span class="pre">type</span></tt> || <tt class="docutils literal"><span class="pre">timestamp</span></tt>
+|| カラムの型 || || <tt class="docutils literal"><span class="pre">options</span></tt> || <tt class="docutils literal"><span class="pre">array()</span></tt> ||
+カラム用の追加オプション || || <tt class="docutils literal"><span class="pre">format</span></tt> || <tt class="docutils literal"><span class="pre">Y-m-d</span> <span class="pre">H:i:s</span></tt> ||
+timestampカラム型を使いたくない場合のタイムスタンプのフォーマット。日付はPHPの[<a class="reference external" href="http://www.php.net/date">http://www.php.net/date</a>
+date()]関数で生成される || || <tt class="docutils literal"><span class="pre">disabled</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> ||
+作成日を無効にするか || || <tt class="docutils literal"><span class="pre">expression</span></tt> || <tt class="docutils literal"><span class="pre">NOW()</span></tt> ||
+カラムの値を設定するために使用する式 ||</p>
+<p>作成側では不可能な更新側のビヘイビアで``Timestampable``ビヘイビアで使うことができるすべてのオプションのリストは次の通りです:</p>
+<p>||~ 名前 ||~ デフォルト||~ 説明 || || <tt class="docutils literal"><span class="pre">onInsert</span></tt>
+||``true`` || レコードが最初に挿入されるときに更新日付を設定するか
+||</p>
+</div>
+<div class="section" id="sluggable">
+<h3>Sluggable<a class="headerlink" href="#sluggable" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id57"><span class="problematic" id="id58">``</span></a>Sluggable``ビヘイビアは素晴らしい機能の1つでタイトル、題目などのカラムから作成できる人間が読解できるユニークな識別子を保存するためにモデルにカラムを自動的に追加します。これらの値は検索エンジンにフレンドリーなURLに使うことができます。</p>
+<p>投稿記事用のわかりやすいURLが欲しいので``Sluggable``ビヘイビアを使うように``BlogPost``モデルを拡張してみましょう:</p>
+<blockquote>
+<div>// models/BlogPost.php</div></blockquote>
+<p>class BlogPost extends Doctrine_Record { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Sluggable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;unique&#39;</span>    <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;fields&#39;</span>    <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;canUpdate&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>BlogPost: actAs: # ... Sluggable: unique: true fields: [title]
+canUpdate: true # ...</p>
+<p>新しい投稿を作成する際に何が起きるのか見てみましょう。slugカラムは自動的に設定されます:</p>
+<blockquote>
+<div>$blogPost = new BlogPost(); $blogPost-&gt;title = &#8216;Test blog post&#8217;;</div></blockquote>
+<p>$blogPost-&gt;body = &#8216;test&#8217;; $blogPost-&gt;save();</p>
+<p>print_r($blogPost-&gt;toArray());</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [title] =&gt; Test blog post [body] =&gt;</div></blockquote>
+<p>test [version] =&gt; 1 [created_at] =&gt; 2009-01-21 17:57:05 [updated_at]
+=&gt; 2009-01-21 17:57:05 [slug] =&gt; test-blog-post )</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id59"><span class="problematic" id="id60">``</span></a>title``カラムの値に基づいて``slug``カラムの値が自動的に設定されることに注目してください。スラッグが作成されるとき、デフォルトでは``urlized``が使われます。これはURLにフレンドリーではない文字は削除されホワイトスペースはハイフン(-)に置き換えられます。</div></blockquote>
+<p>uniqueフラグは作成されたスラッグがユニークであることを強制します。ユニークではない場合データベースに保存される前にauto
+incrementな整数がスラッグに自動的に追加されます。</p>
+<p><a href="#id61"><span class="problematic" id="id62">``</span></a>canUpdate``フラグはurlフレンドリーなスラッグを生成する際にユーザーが使用するスラッグを自動的に設定することを許可します。</p>
+<p><a href="#id63"><span class="problematic" id="id64">``</span></a>Sluggable``ビヘイビアで使うことができるすべてのオプションのリストは次の通りです:</p>
+<p>||~ 名前 ||~ デフォルト||~ 説明 || || <tt class="docutils literal"><span class="pre">name</span></tt> || <tt class="docutils literal"><span class="pre">slug</span></tt>
+|| スラッグカラムの名前 || || <tt class="docutils literal"><span class="pre">alias</span></tt> || <tt class="docutils literal"><span class="pre">null</span></tt> ||
+スラッグカラムのエイリアス || || <tt class="docutils literal"><span class="pre">type</span></tt> || <tt class="docutils literal"><span class="pre">string</span></tt> ||
+スラッグカラムの型 || || <tt class="docutils literal"><span class="pre">length</span></tt> || <tt class="docutils literal"><span class="pre">255</span></tt> ||
+スラッグカラムの長さ || || <tt class="docutils literal"><span class="pre">unique</span></tt> || <tt class="docutils literal"><span class="pre">true</span></tt> ||
+ユニークスラッグの値が強制されるかどうか || || <tt class="docutils literal"><span class="pre">options</span></tt> ||
+<tt class="docutils literal"><span class="pre">array()</span></tt> || スラッグカラム用の他のオプション || || <tt class="docutils literal"><span class="pre">fields</span></tt>
+|| <tt class="docutils literal"><span class="pre">array()</span></tt> || スラッグの値をビルドするために使用するフィールド
+|| || <tt class="docutils literal"><span class="pre">uniqueBy</span></tt> || <tt class="docutils literal"><span class="pre">array()</span></tt> ||
+ユニークスラッグを決定するフィールド || || <tt class="docutils literal"><span class="pre">uniqueIndex</span></tt>||
+<tt class="docutils literal"><span class="pre">true</span></tt> || ユニークインデックスを作成するかどうか || ||
+<tt class="docutils literal"><span class="pre">canUpdate</span></tt> || <tt class="docutils literal"><span class="pre">false</span></tt> || スラッグが更新できるかどうか || ||
+<tt class="docutils literal"><span class="pre">builder</span></tt> || <tt class="docutils literal"><span class="pre">array('Doctrine_Inflector',</span> <span class="pre">'urlize')</span></tt> ||
+スラッグをビルドするために使う``Class::method()`` || ||
+<tt class="docutils literal"><span class="pre">indexName</span></tt> || <tt class="docutils literal"><span class="pre">sluggable</span></tt> || 作成するインデックスの名前 ||</p>
+</div>
+<div class="section" id="i18n">
+<h3>I18n<a class="headerlink" href="#i18n" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id65"><span class="problematic" id="id66">``</span></a>Doctrine_I18n``パッケージはレコードクラス用の国際化サポートを提供するビヘイビアです。次の例では``title``と``content``の2つのフィールドを持つ``NewsItem``クラスがあります。異なる言語サポートを持つ``title``フィールドを用意したい場合を考えます。これは次のように実現できます:</p>
+<blockquote>
+<div>class NewsItem extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;body&#8217;, &#8216;blog&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;I18n&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>NewsItem: actAs: I18n: fields: [title, body] columns: title:</div></blockquote>
+<p>string(255) body: clob</p>
+<p><a href="#id67"><span class="problematic" id="id68">``</span></a>I18n``ビヘイビアで使うことができるすべてのオプションのリストは次の通りです:</p>
+<p>||~ 名前 ||~ デフォルト ||~ 説明 || || <tt class="docutils literal"><span class="pre">className</span></tt> ||
+<tt class="docutils literal"><span class="pre">%CLASS%Translation</span></tt> || 生成クラスに使う名前のパターン || ||
+<tt class="docutils literal"><span class="pre">fields</span></tt> || <tt class="docutils literal"><span class="pre">array()</span></tt> || 国際化するフィールド || || <tt class="docutils literal"><span class="pre">type</span></tt>
+|| <tt class="docutils literal"><span class="pre">string</span></tt> || <tt class="docutils literal"><span class="pre">lang``カラムの型</span> <span class="pre">\|\|</span> <span class="pre">\|\|</span> <span class="pre">``length</span></tt> || <tt class="docutils literal"><span class="pre">2</span></tt>
+|| <tt class="docutils literal"><span class="pre">lang``カラムの長さ</span> <span class="pre">\|\|</span> <span class="pre">\|\|</span> <span class="pre">``options</span></tt> || <tt class="docutils literal"><span class="pre">array()</span></tt> ||
+<a href="#id69"><span class="problematic" id="id70">``</span></a>lang``カラム用の他のオプション ||</p>
+<p>上記のモデルで生成されるSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;NewsItem&#8217;));
+echo $sql[0] . &#8220;&#8221;; echo $sql[1];</p>
+<p>上記のコードは次のSQLを出力します:</p>
+<blockquote>
+<div>CREATE TABLE news_item_translation (id BIGINT, title VARCHAR(255),</div></blockquote>
+<p>body LONGTEXT, lang CHAR(2), PRIMARY KEY(id, lang)) ENGINE = INNODB
+CREATE TABLE news_item (id BIGINT AUTO_INCREMENT, PRIMARY KEY(id))
+ENGINE = INNODB</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id71"><span class="problematic" id="id72">``</span></a>title``フィールドが``news_item``テーブルに存在しないことに注目してください。翻訳テーブルにあるとメインテーブルで同じフィールドが存在してリソースの無駄遣いになるからです。基本的にDoctrineは常にメインテーブルから翻訳されたフィールドをすべて削除します。</div></blockquote>
+<p>初めて新しい``NewsItem``レコードを初期化するときDoctrineは次の内容をビルドするビヘイビアを初期化します:</p>
+<ol class="arabic simple">
+<li><a href="#id73"><span class="problematic" id="id74">``</span></a>NewsItemTranslation``と呼ばれるRecordクラス</li>
+<li><a href="#id75"><span class="problematic" id="id76">``</span></a>NewsItemTranslation``と``NewsItem``の双方向なリレーション</li>
+</ol>
+<p><a href="#id77"><span class="problematic" id="id78">``</span></a>NewsItem``の翻訳を操作する方法を見てみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItem = new NewsItem(); $newsItem-&gt;Translation[&#8216;en&#8217;]-&gt;title =
+&#8216;some title&#8217;; $newsItem-&gt;Translation[&#8216;en&#8217;]-&gt;body = &#8216;test&#8217;;
+$newsItem-&gt;Translation[&#8216;fi&#8217;]-&gt;title = &#8216;joku otsikko&#8217;;
+$newsItem-&gt;Translation[&#8216;fi&#8217;]-&gt;body = &#8216;test&#8217;; $newsItem-&gt;save();</p>
+<p>print_r($newsItem-&gt;toArray());</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 1 [Translation] =&gt; Array ( [en] =&gt; Array</div></blockquote>
+<p>( [id] =&gt; 1 [title] =&gt; some title [body] =&gt; test [lang] =&gt; en ) [fi] =&gt;
+Array ( [id] =&gt; 1 [title] =&gt; joku otsikko [body] =&gt; test [lang] =&gt; fi )</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="p">)</span>
+</pre></div>
+</div>
+<p>)</p>
+<p>翻訳データをどのように読み取るのでしょうか？これは簡単です！すべての項目を見つけて翻訳を終わらせましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $newsItems = Doctrine_Query::create() -&gt;from(&#8216;NewsItem n&#8217;)
+-&gt;leftJoin(&#8216;n.Translation t&#8217;) -&gt;where(&#8216;t.lang = ?&#8217;)
+-&gt;execute(array(&#8216;fi&#8217;));</p>
+<p>echo $newsItems[0]-&gt;Translation[&#8216;fi&#8217;]-&gt;title;</p>
+<p>上記のコードは次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php joku otsikko</div></blockquote>
+</div>
+<div class="section" id="nestedset">
+<h3>NestedSet<a class="headerlink" href="#nestedset" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id79"><span class="problematic" id="id80">``</span></a>NestedSet``ビヘイビアによってモデルを入れ子集合ツリー構造(nested set
+tree
+structure)に変換できます。ツリー構造全体を1つのクエリで効率的に読み取ることができます。このビヘイビアはツリーのデータを操作するための素晴らしいインターフェイスも提供します。</p>
+<p>例として``Category``モデルを考えてみましょう。カテゴリを階層ツリー構造で編成する必要がある場合は次のようになります:</p>
+<blockquote>
+<div>// models/Category.php</div></blockquote>
+<p>class Category extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;NestedSet&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;hasManyRoots&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;rootColumnName&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;root_id&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>Category: actAs: NestedSet: hasManyRoots: true rootColumnName: root_id
+columns: name: string(255)</p>
+<p>上記のモデルで生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;Category&#8217;));
+echo $sql[0];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE category (id BIGINT AUTO_INCREMENT, name VARCHAR(255),</div></blockquote>
+<p>root_id INT, lft INT, rgt INT, level SMALLINT, PRIMARY KEY(id)) ENGINE
+= INNODB</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<tt class="docutils literal"><span class="pre">root_id</span></tt>、<tt class="docutils literal"><span class="pre">lft</span></tt>、<a href="#id81"><span class="problematic" id="id82">``</span></a>rgt``と``level``カラムが自動的に追加されることに注目してください。これらのカラムはツリー構造を編成して内部の自動処理に使われます。</div></blockquote>
+<p>ここでは``NestedSet``ビヘイビアの100％を検討しません。とても大きなビヘイビアなので[doc
+hierarchical-data 専用の章]があります。</p>
+</div>
+<div class="section" id="searchable">
+<h3>Searchable<a class="headerlink" href="#searchable" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id83"><span class="problematic" id="id84">``</span></a>Searchable``ビヘイビアは全文インデックス作成と検索機能を提供します。データベースとファイルの両方のインデックスと検索に使われます。</p>
+<p>求人投稿用の``Job``モデルがあり簡単に検索できるようにすることを考えてみましょう:</p>
+<blockquote>
+<div>// models/Job.php</div></blockquote>
+<p>class Job extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;description&#8217;, &#8216;clob&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Searchable&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>Job: actAs: Searchable: fields: [title, description] columns: title:</div></blockquote>
+<p>string(255) description: clob</p>
+<p>上記のモデルで生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;Job&#8217;)); echo
+$sql[0] . &#8220;&#8221;; echo $sql[1] . &#8220;&#8221;; echo $sql[2];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE job_index (id BIGINT, keyword VARCHAR(200), field</div></blockquote>
+<p>VARCHAR(50), position BIGINT, PRIMARY KEY(id, keyword, field, position))
+ENGINE = INNODB CREATE TABLE job (id BIGINT AUTO_INCREMENT, title
+VARCHAR(255), description LONGTEXT, PRIMARY KEY(id)) ENGINE = INNODB
+ALTER TABLE job_index ADD FOREIGN KEY (id) REFERENCES job(id) ON UPDATE
+CASCADE ON DELETE CASCADE</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id85"><span class="problematic" id="id86">``</span></a>job_index``テーブルおよび``job``と``job_index``の間の外部キーが自動的に生成されることに注目してください。</div></blockquote>
+<p><a href="#id87"><span class="problematic" id="id88">``</span></a>Searchable``ビヘイビアは非常に大きなトピックなので、詳細は[doc
+searching :name]の章で見つかります。</p>
+</div>
+<div class="section" id="geographical">
+<h3>Geographical<a class="headerlink" href="#geographical" title="Permalink to this headline">¶</a></h3>
+<p>下記のコードはデモのみです。Geographicalビヘイビアは2つのレコードの間のマイルもしくはキロメータの数値を決定するためのレコードデータで使うことができます。</p>
+<blockquote>
+<div>// models/Zipcode.php</div></blockquote>
+<p>class Zipcode extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;zipcode&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;city&#8217;, &#8216;string&#8217;, 255); $this-&gt;hasColumn(&#8216;state&#8217;,
+&#8216;string&#8217;, 2); $this-&gt;hasColumn(&#8216;county&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;zip_class&#8217;, &#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Geographical&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>Zipcode: actAs: [Geographical] columns: zipcode: string(255) city:
+string(255) state: string(2) county: string(255) zip_class: string(255)</p>
+<p>上記のモデルで生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql = Doctrine_Core::generateSqlFromArray(array(&#8216;Zipcode&#8217;));
+echo $sql[0];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE zipcode (id BIGINT AUTO_INCREMENT, zipcode VARCHAR(255),</div></blockquote>
+<p>city VARCHAR(255), state VARCHAR(2), county VARCHAR(255), zip_class
+VARCHAR(255), latitude DOUBLE, longitude DOUBLE, PRIMARY KEY(id)) ENGINE
+= INNODB</p>
+<blockquote>
+<div><strong>NOTE</strong>
+Geographicalビヘイビアが2つのレコードの距離を算出するために使われるレコードに``latitude``と``longitude``カラムを自動的に追加することに注目してください。使い方の例は下記の通りです。</div></blockquote>
+<p>最初に2つの異なるzipcodeレコードを読み取りましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $zipcode1 =
+Doctrine_Core::getTable(&#8216;Zipcode&#8217;)-&gt;findOneByZipcode(&#8216;37209&#8217;);
+$zipcode2 =
+Doctrine_Core::getTable(&#8216;Zipcode&#8217;)-&gt;findOneByZipcode(&#8216;37388&#8217;);</p>
+<p>ビヘイビアが提供する``getDistance()``メソッドを使用してこれら2つのレコードの間の距離を取得できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo <tt class="code docutils literal"><span class="pre">zipcode1-&gt;getDistance(</span></tt>zipcode2, $kilometers =
+false);</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id89"><span class="problematic" id="id90">``</span></a>getDistance()``メソッドの2番目の引数はキロメーターで距離を返すかどうかです。デフォルトはfalseです。</div></blockquote>
+<p>同じ市にはない50の近いzipcodeを取得してみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = $zipcode1-&gt;getDistanceQuery();</p>
+<p><tt class="code docutils literal"><span class="pre">q-&gt;orderby('miles</span> <span class="pre">asc')</span> <span class="pre">-&gt;addWhere(</span></tt>q-&gt;getRootAlias() . &#8216;.city
+!= ?&#8217;, $zipcode1-&gt;city) -&gt;limit(50);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id91"><span class="problematic" id="id92">``</span></a>getSql()``への上記の呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT z.id AS z**id, z.zipcode AS z**zipcode, z.city AS z**city,</div></blockquote>
+<p>z.state AS z**state, z.county AS z**county, z.zip_class AS
+z**zip_class, z.latitude AS z**latitude, z.longitude AS z**longitude,
+((ACOS(SIN(* PI() / 180) * SIN(z.latitude * PI() / 180) + COS(* PI()
+/ 180) * COS(z.latitude * PI() / 180) * COS((- z.longitude) * PI() /
+180)) * 180 / PI()) * 60 * 1.1515) AS z**0, ((ACOS(SIN(* PI() / 180)
+* SIN(z.latitude * PI() / 180) + COS(* PI() / 180) * COS(z.latitude
+* PI() / 180) * COS((- z.longitude) * PI() / 180)) * 180 / PI()) *
+60 * 1.1515 * 1.609344) AS z**1 FROM zipcode z WHERE z.city != ? ORDER
+BY z__0 asc LIMIT 50</p>
+<blockquote>
+<div><strong>NOTE</strong>
+上記のSQLクエリが書かなかったSQLの束を含んでいることに注目してください。これはレコードの間のマイル数を計算するためにビヘイビアによって自動的に追加されます。</div></blockquote>
+<p>クエリを実行して算出されたマイル数の値を使用します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $result = $q-&gt;execute();</p>
+<p>foreach ($result as $zipcode) { echo $zipcode-&gt;city . &#8221; - &#8221; .
+$zipcode-&gt;miles . &#8220;&#8221;; // You could also access $zipcode-&gt;kilometers }</p>
+<p>これをテストするためにサンプルのzipcodeを取得します</p>
+<p><tt class="docutils literal"><span class="pre">http://www.populardata.com/zip_codes.zip</span></tt></p>
+<p>csvファイルをダウンロードして次の関数でインポートしてください:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... function parseCsvFile($file, $columnheadings = false, $delimiter
+= &#8216;,&#8217;, $enclosure = &#8220;&#8221;&#8221;) { $row = 1; $rows = array();
+<tt class="code docutils literal"><span class="pre">handle</span> <span class="pre">=</span> <span class="pre">fopen(</span></tt>file, &#8216;r&#8217;);</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">while</span> <span class="p">((</span><span class="nv">$data</span> <span class="o">=</span> <span class="nb">fgetcsv</span><span class="p">(</span><span class="nv">$handle</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="nv">$delimiter</span><span class="p">,</span> <span class="nv">$enclosure</span><span class="p">))</span> <span class="o">!==</span> <span class="k">FALSE</span><span class="p">)</span> <span class="p">{</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="nv">$columnheadings</span> <span class="o">==</span> <span class="k">false</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="nv">$row</span> <span class="o">==</span> <span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nv">$headingTexts</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">elseif</span> <span class="p">(</span><span class="o">!</span><span class="p">(</span><span class="nv">$columnheadings</span> <span class="o">==</span> <span class="k">false</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">foreach</span> <span class="p">(</span><span class="nv">$data</span> <span class="k">as</span> <span class="nv">$key</span> <span class="o">=&gt;</span> <span class="nv">$value</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nb">unset</span><span class="p">(</span><span class="nv">$data</span><span class="p">[</span><span class="nv">$key</span><span class="p">]);</span>
+            <span class="nv">$data</span><span class="p">[</span><span class="nv">$headingTexts</span><span class="p">[</span><span class="nv">$key</span><span class="p">]]</span> <span class="o">=</span> <span class="nv">$value</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="nv">$rows</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="nv">$rows</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$data</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="nv">$row</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nb">fclose</span><span class="p">(</span><span class="nv">$handle</span><span class="p">);</span>
+<span class="k">return</span> <span class="nv">$rows</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>$array = parseCsvFile(&#8216;zipcodes.csv&#8217;, false);</p>
+<p>foreach ($array as $key =&gt; $value) { $zipcode = new Zipcode();
+<tt class="code docutils literal"><span class="pre">zipcode-&gt;fromArray(</span></tt>value); $zipcode-&gt;save(); }</p>
+</div>
+<div class="section" id="softdelete">
+<h3>SoftDelete<a class="headerlink" href="#softdelete" title="Permalink to this headline">¶</a></h3>
+<p><a href="#id93"><span class="problematic" id="id94">``</span></a>SoftDelete``ビヘイビアは``delete()``機能をオーバーライドし``deleted``カラムを追加するとてもシンプルだが大いにおすすめできるモデルビヘイビアです。<a href="#id95"><span class="problematic" id="id96">``</span></a>delete()``が呼び出されるとき、データベースからレコードを削除する代わりに、削除フラグを1にセットします。下記のコードは``SoftDelete``ビヘイビアでモデルを作る方法です。</p>
+<blockquote>
+<div>// models/SoftDeleteTest.php</div></blockquote>
+<p>class SoftDeleteTest extends Doctrine_Record { public function
+setTableDefinition() { $this-&gt;hasColumn(&#8216;name&#8217;, &#8216;string&#8217;, null, array(
+&#8216;primary&#8217; =&gt; true ) ); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;SoftDelete&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>SoftDeleteTest: actAs: [SoftDelete] columns: name: type: string(255)
+primary: true</p>
+<p>上記のモデルによって生成されたSQLをチェックしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $sql =
+Doctrine_Core::generateSqlFromArray(array(&#8216;SoftDeleteTest&#8217;)); echo
+$sql[0];</p>
+<p>上記のコードは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>CREATE TABLE soft_delete_test (name VARCHAR(255), deleted TINYINT(1)</div></blockquote>
+<p>DEFAULT &#8216;0&#8217; NOT NULL, PRIMARY KEY(name)) ENGINE = INNODB</p>
+<p>ビヘイビアを動かしてみましょう。</p>
+<blockquote>
+<div><strong>NOTE</strong>
+すべての実行されるクエリのためにDQLコールバックを有功にする必要があります。<a href="#id97"><span class="problematic" id="id98">``</span></a>SoftDelete``ビヘイビアにおいて追加のWHERE条件で``deleted_at``フラグが設定されているすべてのレコードを除外するSELECT文をフィルタリングするために使われます。</div></blockquote>
+<p><strong>DQLコールバックを有効にする</strong></p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $manager-&gt;setAttribute(Doctrine_Core::ATTR_USE_DQL_CALLBACKS,
+true);</p>
+<p><a href="#id99"><span class="problematic" id="id100">``</span></a>SoftDelete``の機能を実行できるように新しいレコードを保存します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $record = new SoftDeleteTest(); $record-&gt;name = &#8216;new record&#8217;;
+$record-&gt;save();</p>
+<p><a href="#id101"><span class="problematic" id="id102">``</span></a>delete()``を呼び出すとき``deleted``フラグが``true``にセットされます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $record-&gt;delete();</p>
+<p>print_r($record-&gt;toArray());</p>
+<p>上記の例は次の内容を出力します:</p>
+<blockquote>
+<div>$ php test.php Array ( [name] =&gt; new record [deleted] =&gt; 1 )</div></blockquote>
+<p>また、クエリを行うとき、<a href="#id103"><span class="problematic" id="id104">``</span></a>deleted``がnullではないレコードは結果から除外されます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;SoftDeleteTest t&#8217;);</p>
+<p>echo $q-&gt;getSqlQuery();</p>
+<p><a href="#id105"><span class="problematic" id="id106">``</span></a>getSql()``の呼び出しは次のSQLクエリを出力します:</p>
+<blockquote>
+<div>SELECT s.name AS s**name, s.deleted AS s**deleted FROM</div></blockquote>
+<p>soft_delete_test s WHERE (s.deleted = ? OR s.deleted IS NULL)</p>
+<blockquote>
+<div><strong>NOTE</strong>
+削除されていないレコードだけを返すためにwhere条件が自動的に追加されたことに注目してください。</div></blockquote>
+<p>クエリを実行する場合:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $count = $q-&gt;count(); echo $count;</p>
+<p>上記のコード0をechoします。deleteフラグが設定されたので保存されたレコードが除外されます。</p>
+</div>
+</div>
+<div class="section" id="id107">
+<h2>入れ子のビヘイビア<a class="headerlink" href="#id107" title="Permalink to this headline">¶</a></h2>
+<p>versionable、searchable、sluggable、と完全なI18nである完全なwikiデータベースを与える複数のビヘイビアの例です。</p>
+<blockquote>
+<div>class Wiki extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;content&#8217;, &#8216;string&#8217;); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$options</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;content&#39;</span><span class="p">));</span>
+    <span class="nv">$auditLog</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Versionable</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+    <span class="nv">$search</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Searchable</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+    <span class="nv">$slug</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_Sluggable</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+    <span class="nv">$i18n</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Doctrine_Template_I18n</span><span class="p">(</span><span class="nv">$options</span><span class="p">);</span>
+
+    <span class="nv">$i18n</span><span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$auditLog</span><span class="p">)</span>
+         <span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$search</span><span class="p">)</span>
+         <span class="o">-&gt;</span><span class="na">addChild</span><span class="p">(</span><span class="nv">$slug</span><span class="p">);</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="nv">$i18n</span><span class="p">);</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;Timestampable&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>WikiTest: actAs: I18n: fields: [title, content] actAs: Versionable:</div></blockquote>
+<p>fields: [title, content] Searchable: fields: [title, content] Sluggable:
+fields: [title] columns: title: string(255) content: string</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">現在上記の入れ子のビヘイビアは壊れています。開発者は後方互換性を修正するために懸命に取り組んでいます。修正ができたときにアナウンスを行いドキュメントを更新します。</p>
+</div>
+</div>
+<div class="section" id="id108">
+<h2>ファイルを生成する<a class="headerlink" href="#id108" title="Permalink to this headline">¶</a></h2>
+<p>デフォルトではビヘイビアによって生成されるクラスは実行時に評価されクラスを格納するファイルはディスクに書き込まれません。これは設定オプションで変更できます。下記のコードは実行時にクラスを評価する代わりにクラスを生成してファイルに書き込むためのI18nビヘイビアを設定する方法の例です。</p>
+<blockquote>
+<div>class NewsArticle extends Doctrine_Record { public function</div></blockquote>
+<p>setTableDefinition() { $this-&gt;hasColumn(&#8216;title&#8217;, &#8216;string&#8217;, 255);
+$this-&gt;hasColumn(&#8216;body&#8217;, &#8216;string&#8217;, 255); $this-&gt;hasColumn(&#8216;author&#8217;,
+&#8216;string&#8217;, 255); }</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">actAs</span><span class="p">(</span><span class="s1">&#39;I18n&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;fields&#39;</span>          <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;title&#39;</span><span class="p">,</span> <span class="s1">&#39;body&#39;</span><span class="p">),</span>
+            <span class="s1">&#39;generateFiles&#39;</span>   <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;generatePath&#39;</span>    <span class="o">=&gt;</span> <span class="s1">&#39;/path/to/generate&#39;</span>
+        <span class="p">)</span>
+    <span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div>NewsArticle: actAs: I18n: fields: [title, body] generateFiles: true</div></blockquote>
+<p>generatePath: /path/to/generate columns: title: string(255) body:
+string(255) author: string(255)</p>
+<p>コードを生成して実行時に評価するために``[<a class="reference external" href="http://www.php.net/eval">http://www.php.net/eval</a>
+eval()]``を使用する代わりにこれでビヘイビアはファイルを生成します。</p>
+</div>
+<div class="section" id="id109">
+<h2>生成クラスをクエリする<a class="headerlink" href="#id109" title="Permalink to this headline">¶</a></h2>
+<p>自動生成モデルをクエリしたい場合添付されたモデルを持つモデルがロードされ初期化されることを確認する必要があります。<a href="#id110"><span class="problematic" id="id111">``</span></a>Doctrine_Core::initializeModels()``スタティックメソッドを使用することでこれをできます。例えば``BlogPost``モデル用の翻訳テーブルにクエリをしたい場合、次のコードを実行する必要があります:</p>
+<blockquote>
+<div>Doctrine_Core::initializeModels(array(&#8216;BlogPost&#8217;));</div></blockquote>
+<p>$q = Doctrine_Query::create() -&gt;from(&#8216;BlogPostTranslation t&#8217;)
+-&gt;where(&#8216;t.id = ? AND t.lang = ?&#8217;, array(1, &#8216;en&#8217;));</p>
+<p>$translations = $q-&gt;execute();</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">モデルが最初にインスタンス化されるまでビヘイビアはインスタンス化されないのでこれは必須です。上記の``initializeModels()``メソッドは渡されたモデルをインスタンス化して情報がロードされたモデルの配列に適切にロードされることを確認します。</p>
+</div>
+<p>===
+まとめ
+===</p>
+<p>Doctrineビヘイビアについて多くのことを学びます。Doctrineに搭載されている素晴らしいビヘイビアの使い方と同じようにモデル用の独自ビヘイビアの書き方を学びます。</p>
+<p>[doc searching
+Searchable]ビヘイビアを詳しく検討するために移動する準備ができています。これは大きなトピックなので専門の章が用意されています。</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Behaviours</a><ul>
+<li><a class="reference internal" href="#id1">はじめに</a></li>
+<li><a class="reference internal" href="#id6">シンプルなテンプレート</a></li>
+<li><a class="reference internal" href="#id11">リレーション付きのテンプレート</a></li>
+<li><a class="reference internal" href="#id24">デリゲートメソッド</a></li>
+<li><a class="reference internal" href="#id29">ビヘイビアを作成する</a></li>
+<li><a class="reference internal" href="#id34">コアビヘイビア</a><ul>
+<li><a class="reference internal" href="#versionable">Versionable</a></li>
+<li><a class="reference internal" href="#timestampable">Timestampable</a></li>
+<li><a class="reference internal" href="#sluggable">Sluggable</a></li>
+<li><a class="reference internal" href="#i18n">I18n</a></li>
+<li><a class="reference internal" href="#nestedset">NestedSet</a></li>
+<li><a class="reference internal" href="#searchable">Searchable</a></li>
+<li><a class="reference internal" href="#geographical">Geographical</a></li>
+<li><a class="reference internal" href="#softdelete">SoftDelete</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id107">入れ子のビヘイビア</a></li>
+<li><a class="reference internal" href="#id108">ファイルを生成する</a></li>
+<li><a class="reference internal" href="#id109">生成クラスをクエリする</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="inheritance.html"
+                        title="previous chapter">単一継承</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="searching.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/behaviors.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="searching.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="inheritance.html" title="単一継承"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

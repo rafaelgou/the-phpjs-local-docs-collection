@@ -1,0 +1,400 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Geospatial Indexes and Queries &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/applications/geospatial-indexes.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/applications/geospatial-indexes" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Indexes" href="../indexes.html" />
+<link rel="next" title="2d Indexes" href="../core/2d.html" />
+<link rel="prev" title="Build Old Style Indexes" href="../tutorial/roll-back-to-v1.8-index.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../indexes.html">Indexes</a><span class="bcpoint"> > </span></li>
+          <li>Geospatial Indexes and Queries</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="geospatial-indexes-and-queries">
+<h1>Geospatial Indexes and Queries<a class="headerlink" href="#geospatial-indexes-and-queries" title="Permalink to this headline">¶</a></h1>
+<p>MongoDB offers a number of indexes and query mechanisms to handle
+geospatial information. This section introduces MongoDB&#8217;s geospatial
+features.</p>
+<div class="section" id="surfaces">
+<h2>Surfaces<a class="headerlink" href="#surfaces" title="Permalink to this headline">¶</a></h2>
+<p>Before storing your location data and writing queries, you must decide
+the type of surface to use to perform calculations. The type you choose
+affects how you store data, what type of index to build, and the syntax
+of your queries.</p>
+<p>MongoDB offers two surface types:</p>
+<ul>
+<li><p class="first"><strong>Spherical</strong></p>
+<p>To calculate geometry over an Earth-like sphere, store your location
+data on a spherical surface and use <a class="reference internal" href="../core/2dsphere.html"><em>2dsphere</em></a> index.</p>
+<p>Store your location data as GeoJSON objects with this coordinate-axis
+order: <strong>longitude, latitude</strong>. The coordinate reference system for
+GeoJSON uses the <a class="reference internal" href="../reference/glossary.html#term-wgs84"><em class="xref std std-term">WGS84</em></a> datum.</p>
+</li>
+<li><p class="first"><strong>Flat</strong></p>
+<p>To calculate distances on a Euclidean plane, store your location data
+as legacy coordinate pairs and use a <a class="reference internal" href="../core/2d.html"><em>2d</em></a> index.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="location-data">
+<span id="geo-overview-location-data"></span><h2>Location Data<a class="headerlink" href="#location-data" title="Permalink to this headline">¶</a></h2>
+<p>If you choose spherical surface calculations, you store location data as</p>
+<ul>
+<li><p class="first"><a class="reference internal" href="../reference/glossary.html#term-geojson"><em class="xref std std-term">GeoJSON</em></a> objects (preferred).</p>
+<p>Queries on GeoJSON objects always calculate on a sphere. The default
+coordinate reference system for GeoJSON uses the <a class="reference internal" href="../reference/glossary.html#term-wgs84"><em class="xref std std-term">WGS84</em></a> datum.</p>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4: </span>The storage and querying of GeoJSON objects
+is new in version 2.4. Prior to version 2.4, all geospatial data was
+stored as coordinate pairs.</p>
+<p>MongoDB supports the following GeoJSON objects:</p>
+<ul class="simple">
+<li>Point</li>
+<li>LineString</li>
+<li>Polygon</li>
+</ul>
+</li>
+<li><p class="first"><a class="reference internal" href="../reference/glossary.html#term-legacy-coordinate-pairs"><em class="xref std std-term">Legacy coordinate pairs</em></a></p>
+<p>MongoDB supports spherical surface calculations on legacy coordinate
+pairs by converting the data to the GeoJSON Point type.</p>
+</li>
+</ul>
+<p>If you choose flat surface calculations, you can store data only as
+<a class="reference internal" href="../reference/glossary.html#term-legacy-coordinate-pairs"><em class="xref std std-term">legacy coordinate pairs</em></a>.</p>
+</div>
+<div class="section" id="query-operations">
+<h2>Query Operations<a class="headerlink" href="#query-operations" title="Permalink to this headline">¶</a></h2>
+<p>MongoDB&#8217;s geospatial query operators let you query for:</p>
+<ul class="simple">
+<li><strong>Inclusion</strong>. MongoDB can query for locations contained entirely
+within a specified polygon. Inclusion queries use the
+<a class="reference internal" href="../reference/operator/geoWithin.html#op._S_geoWithin" title="$geoWithin"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$geoWithin</span></tt></a> operator.</li>
+<li><strong>Intersection</strong>. MongoDB can query for locations that intersect with
+a specified geometry. These queries apply only to data on a spherical
+surface. These queries use the <a class="reference internal" href="../reference/operator/geoIntersects.html#op._S_geoIntersects" title="$geoIntersects"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$geoIntersects</span></tt></a> operator.</li>
+<li><strong>Proximity</strong>. MongoDB can query for the points nearest to another
+point. Proximity queries use the <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> operator. The
+<a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> operator requires a <tt class="docutils literal"><span class="pre">2d</span></tt> or <tt class="docutils literal"><span class="pre">2dsphere</span></tt> index.</li>
+</ul>
+</div>
+<div class="section" id="geospatial-indexes">
+<h2>Geospatial Indexes<a class="headerlink" href="#geospatial-indexes" title="Permalink to this headline">¶</a></h2>
+<p>MongoDB provides the following geospatial index types to support the
+geospatial queries:</p>
+<ul>
+<li><p class="first"><a class="reference internal" href="../core/2dsphere.html"><em>2dsphere</em></a>, which supports:</p>
+<ul class="simple">
+<li>Calculations on a sphere</li>
+<li>Both GeoJSON objects and legacy coordinate pairs</li>
+<li>A compound index with scalar index fields (i.e. ascending or
+descending) as a prefix or suffix of the <tt class="docutils literal"><span class="pre">2dsphere</span></tt> index field</li>
+</ul>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.4: </span><tt class="docutils literal"><span class="pre">2dsphere</span></tt> indexes are not available before version 2.4.</p>
+</li>
+<li><p class="first"><a class="reference internal" href="../core/2d.html"><em>2d</em></a>, which supports:</p>
+<ul class="simple">
+<li>Calculations using flat geometry</li>
+<li>Legacy coordinate pairs (i.e., geospatial points on a flat
+coordinate system)</li>
+<li>A compound index with only one additional field, as a suffix of the
+<tt class="docutils literal"><span class="pre">2d</span></tt> index field</li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="geospatial-indexes-and-sharding">
+<h2>Geospatial Indexes and Sharding<a class="headerlink" href="#geospatial-indexes-and-sharding" title="Permalink to this headline">¶</a></h2>
+<p>You <em>cannot</em> use a geospatial index as the <a class="reference internal" href="../reference/glossary.html#term-shard-key"><em class="xref std std-term">shard key</em></a> index.</p>
+<p>You can create and maintain a geospatial index on
+a sharded collection if using different fields as the shard key.</p>
+<p>Queries using <a class="reference internal" href="../reference/operator/near.html#op._S_near" title="$near"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$near</span></tt></a> are not supported for sharded
+collections. Use <a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a> instead. You also can query for
+geospatial data using <a class="reference internal" href="../reference/operator/geoWithin.html#op._S_geoWithin" title="$geoWithin"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$geoWithin</span></tt></a>.</p>
+</div>
+<div class="section" id="additional-resources">
+<h2>Additional Resources<a class="headerlink" href="#additional-resources" title="Permalink to this headline">¶</a></h2>
+<p>The following pages provide complete documentation for geospatial
+indexes and queries:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../core/2d.html"><tt class="docutils literal"><span class="pre">2d</span></tt> Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/2dsphere.html"><tt class="docutils literal"><span class="pre">2dsphere</span></tt> Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/geohaystack.html">Haystack Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/calculate-distances-using-spherical-geometry-with-2d-geospatial-indexes.html">Calculate Distances in a <tt class="docutils literal"><span class="pre">2d</span></tt> Index Using Spherical Geometry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../core/geospatial-indexes.html"><tt class="docutils literal"><span class="pre">2d</span></tt> Index Internals</a></li>
+</ul>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../reference/operator/query-geospatial.html#geospatial-query-compatibility-chart"><em>Geospatial Query Compatibility</em></a></p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../tutorial/roll-back-to-v1.8-index.html" title="Previous Section: Build Old Style Indexes">&lt; &nbsp; Build Old Style Indexes</a></li>
+              <li id="btnvup"><a href="../indexes.html" title="Parent Section: Indexes" >&#47;&#92;&nbsp; Indexes</a></li>
+              <li id="btnvnx"><a href="../core/2d.html" title="Next Section: 2d Indexes">2d Indexes &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../indexes.html">Indexes</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/indexes.html">Indexing Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexes.html">Indexing Strategies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/indexes.html">Indexing Operations</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Geospatial Indexes and Queries</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../core/2d.html"><tt class="docutils literal"><span class="pre">2d</span></tt> Indexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/2dsphere.html"><tt class="docutils literal"><span class="pre">2dsphere</span></tt> Indexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/geohaystack.html">Haystack Indexes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorial/calculate-distances-using-spherical-geometry-with-2d-geospatial-indexes.html">Calculate Distances in a <tt class="docutils literal"><span class="pre">2d</span></tt> Index Using Spherical Geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../core/geospatial-indexes.html"><tt class="docutils literal"><span class="pre">2d</span></tt> Index Internals</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../core/text-search.html">Text Search</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/applications/geospatial-indexes.txt" target="_blank" title="Edit applications/geospatial-indexes.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22applications/geospatial-indexes%2Etxt%22" target="_blank" title="Report a problem with applications/geospatial-indexes.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/applications/geospatial-indexes.txt"'},
+		environment: {'repo': 'docs','source': 'applications/geospatial-indexes'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'applications/geospatial-indexes'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

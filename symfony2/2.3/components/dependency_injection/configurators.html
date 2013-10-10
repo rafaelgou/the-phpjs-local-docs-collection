@@ -1,0 +1,322 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Configuring Services with a Service Configurator &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Dependency Injection" href="index.html" />
+    <link rel="next" title="Managing Common Dependencies with Parent Services" href="parentservices.html" />
+    <link rel="prev" title="Using a Factory to Create Services" href="factories.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="parentservices.html" title="Managing Common Dependencies with Parent Services"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="factories.html" title="Using a Factory to Create Services"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="configuring-services-with-a-service-configurator">
+<span id="index-0"></span><h1>Configuring Services with a Service Configurator<a class="headerlink" href="#configuring-services-with-a-service-configurator" title="Permalink to this headline">¶</a></h1>
+<p>The Service Configurator is a feature of the Dependency Injection Container that
+allows you to use a callable to configure a service after its instantiation.</p>
+<p>You can specify a method in another service, a PHP function or a static method
+in a class. The service instance is passed to the callable, allowing the
+configurator to do whatever it needs to configure the service after its
+creation.</p>
+<p>A Service Configurator can be used, for example, when you a have a service that
+requires complex setup based on configuration settings coming from different
+sources/services. Using an external configurator, you can maintain the service
+implementation cleanly and keep it decoupled from the other objects that provide
+the configuration needed.</p>
+<p>Another interesting use case is when you have multiple objects that share a
+common configuration or that should be configured in a similar way at runtime.</p>
+<p>For example, suppose you have an application where you send different types of
+emails to users. Emails are passed through different formatters that could be
+enabled or not depending on some dynamic application settings. You start
+defining a <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt> class like this:</p>
+<div class="highlight-python"><pre>class NewsletterManager implements EmailFormatterAwareInterface
+{
+    protected $mailer;
+    protected $enabledFormatters;
+
+    public function setMailer(Mailer $mailer)
+    {
+        $this-&gt;mailer = $mailer;
+    }
+
+    public function setEnabledFormatters(array $enabledFormatters)
+    {
+        $this-&gt;enabledFormatters = $enabledFormatters;
+    }
+
+    // ...
+}</pre>
+</div>
+<p>and also a <tt class="docutils literal"><span class="pre">GreetingCardManager</span></tt> class:</p>
+<div class="highlight-python"><pre>class GreetingCardManager implements EmailFormatterAwareInterface
+{
+    protected $mailer;
+    protected $enabledFormatters;
+
+    public function setMailer(Mailer $mailer)
+    {
+        $this-&gt;mailer = $mailer;
+    }
+
+    public function setEnabledFormatters(array $enabledFormatters)
+    {
+        $this-&gt;enabledFormatters = $enabledFormatters;
+    }
+
+    // ...
+}</pre>
+</div>
+<p>As mentioned before, the goal is to set the formatters at runtime depending on
+application settings. To do this, you also have an <tt class="docutils literal"><span class="pre">EmailFormatterManager</span></tt>
+class which is responsible for loading and validating formatters enabled
+in the application:</p>
+<div class="highlight-python"><pre>class EmailFormatterManager
+{
+    protected $enabledFormatters;
+
+    public function loadFormatters()
+    {
+        // code to configure which formatters to use
+        $enabledFormatters = array(...);
+        // ...
+
+        $this-&gt;enabledFormatters = $enabledFormatters;
+    }
+
+    public function getEnabledFormatters()
+    {
+        return $this-&gt;enabledFormatters;
+    }
+
+    // ...
+}</pre>
+</div>
+<p>If your goal is to avoid having to couple <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt> and
+<tt class="docutils literal"><span class="pre">GreetingCardManager</span></tt> with <tt class="docutils literal"><span class="pre">EmailFormatterManager</span></tt>, then you might want to
+create a configurator class to configure these instances:</p>
+<div class="highlight-python"><pre>class EmailConfigurator
+{
+    private $formatterManager;
+
+    public function __construct(EmailFormatterManager $formatterManager)
+    {
+        $this-&gt;formatterManager = $formatterManager;
+    }
+
+    public function configure(EmailFormatterAwareInterface $emailManager)
+    {
+        $emailManager-&gt;setEnabledFormatters(
+            $this-&gt;formatterManager-&gt;getEnabledFormatters()
+        );
+    }
+
+    // ...
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">EmailConfigurator</span></tt>&#8216;s job is to inject the enabled filters into <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt>
+and <tt class="docutils literal"><span class="pre">GreetingCardManager</span></tt> because they are not aware of where the enabled
+filters come from. In the other hand, the <tt class="docutils literal"><span class="pre">EmailFormatterManager</span></tt> holds the
+knowledge about the enabled formatters and how to load them, keeping the single
+responsibility principle.</p>
+<div class="section" id="configurator-service-config">
+<h2>Configurator Service Config<a class="headerlink" href="#configurator-service-config" title="Permalink to this headline">¶</a></h2>
+<p>The service config for the above classes would look something like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_mailer</span><span class="p-Indicator">:</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">email_formatter_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">EmailFormatterManager</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">email_configurator</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">EmailConfigurator</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@email_formatter_manager&quot;</span><span class="p-Indicator">]</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">newsletter_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">NewsletterManager</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+        <span class="l-Scalar-Plain">configurator</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@email_configurator&quot;</span><span class="p-Indicator">,</span> <span class="nv">configure</span><span class="p-Indicator">]</span>
+
+    <span class="l-Scalar-Plain">greeting_card_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">GreetingCardManager</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+        <span class="l-Scalar-Plain">configurator</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@email_configurator&quot;</span><span class="p-Indicator">,</span> <span class="nv">configure</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><pre>&lt;services&gt;
+    &lt;service id="my_mailer" ...&gt;
+      &lt;!-- ... --&gt;
+    &lt;/service&gt;
+    &lt;service id="email_formatter_manager" class="EmailFormatterManager"&gt;
+      &lt;!-- ... --&gt;
+    &lt;/service&gt;
+    &lt;service id="email_configurator" class="EmailConfigurator"&gt;
+        &lt;argument type="service" id="email_formatter_manager" /&gt;
+      &lt;!-- ... --&gt;
+    &lt;/service&gt;
+    &lt;service id="newsletter_manager" class="NewsletterManager"&gt;
+        &lt;call method="setMailer"&gt;
+             &lt;argument type="service" id="my_mailer" /&gt;
+        &lt;/call&gt;
+        &lt;configurator service="email_configurator" method="configure" /&gt;
+    &lt;/service&gt;
+    &lt;service id="greeting_card_manager" class="GreetingCardManager"&gt;
+        &lt;call method="setMailer"&gt;
+             &lt;argument type="service" id="my_mailer" /&gt;
+        &lt;/call&gt;
+        &lt;configurator service="email_configurator" method="configure" /&gt;
+    &lt;/service&gt;
+&lt;/services&gt;</pre>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;email_formatter_manager&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;EmailFormatterManager&#39;</span>
+<span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;email_configurator&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;EmailConfigurator&#39;</span>
+<span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;newsletter_manager&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;NewsletterManager&#39;</span>
+<span class="p">))</span><span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+<span class="p">))</span><span class="o">-&gt;</span><span class="na">setConfigurator</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;email_configurator&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;configure&#39;</span><span class="p">,</span>
+<span class="p">)));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;greeting_card_manager&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;GreetingCardManager&#39;</span>
+<span class="p">))</span><span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+<span class="p">))</span><span class="o">-&gt;</span><span class="na">setConfigurator</span><span class="p">(</span><span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;email_configurator&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;configure&#39;</span><span class="p">,</span>
+<span class="p">)));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Configuring Services with a Service Configurator</a><ul>
+<li><a class="reference internal" href="#configurator-service-config">Configurator Service Config</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="factories.html"
+                        title="previous chapter">Using a Factory to Create Services</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="parentservices.html"
+                        title="next chapter">Managing Common Dependencies with Parent Services</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/dependency_injection/configurators.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="parentservices.html" title="Managing Common Dependencies with Parent Services"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="factories.html" title="Using a Factory to Create Services"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Dependency Injection</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

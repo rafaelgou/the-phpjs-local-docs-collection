@@ -1,0 +1,570 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Troubleshoot Replica Sets &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/troubleshoot-replica-sets.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/troubleshoot-replica-sets" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Replica Set Administration" href="../administration/replica-sets.html" />
+<link rel="next" title="Add an Arbiter to Replica Set" href="add-replica-set-arbiter.html" />
+<link rel="prev" title="Change Hostnames in a Replica Set" href="change-hostnames-in-a-replica-set.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../replication.html">Replication</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/replica-sets.html">Replica Set Administration</a><span class="bcpoint"> > </span></li>
+          <li>Troubleshoot Replica Sets</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="troubleshoot-replica-sets">
+<h1>Troubleshoot Replica Sets<a class="headerlink" href="#troubleshoot-replica-sets" title="Permalink to this headline">¶</a></h1>
+<p>This section describes common strategies for troubleshooting
+<a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica sets</em></a>.</p>
+<div class="section" id="check-replica-set-status">
+<span id="replica-set-troubleshooting-check-replication-status"></span><h2>Check Replica Set Status<a class="headerlink" href="#check-replica-set-status" title="Permalink to this headline">¶</a></h2>
+<p>To display the current state of the replica set and current state of
+each member, run the <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a> method in a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell connected to the replica set&#8217;s <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>. For descriptions
+of the information displayed by <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a>, see
+<a class="reference internal" href="../reference/command/replSetGetStatus.html"><em>replSetGetStatus</em></a>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a> method is a wrapper that runs the
+<a class="reference internal" href="../reference/command/replSetGetStatus.html#dbcmd.replSetGetStatus" title="replSetGetStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetGetStatus</span></tt></a> database command.</p>
+</div>
+</div>
+<div class="section" id="check-the-replication-lag">
+<span id="replica-set-replication-lag"></span><h2>Check the Replication Lag<a class="headerlink" href="#check-the-replication-lag" title="Permalink to this headline">¶</a></h2>
+<p>Replication lag is a delay between an operation on the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>
+and the application of that operation from the <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> to the
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a>. Replication lag can be a significant issue and can
+seriously affect MongoDB <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> deployments. Excessive
+replication lag makes &#8220;lagged&#8221; members ineligible to quickly become
+primary and increases the possibility that distributed
+read operations will be inconsistent.</p>
+<p>To check the current length of replication lag:</p>
+<ul>
+<li><p class="first">In a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell connected to the primary, call the
+<a class="reference internal" href="../reference/method/db.printSlaveReplicationInfo.html#db.printSlaveReplicationInfo" title="db.printSlaveReplicationInfo()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.printSlaveReplicationInfo()</span></tt></a> method.</p>
+<p>The returned document displays the <tt class="docutils literal"><span class="pre">syncedTo</span></tt> value for each member,
+which shows you when each member last read from the oplog, as shown in the following
+example:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">source</span><span class="o">:</span>   <span class="nx">m1</span><span class="p">.</span><span class="nx">example</span><span class="p">.</span><span class="nx">net</span><span class="o">:</span><span class="mi">30001</span>
+    <span class="nx">syncedTo</span><span class="o">:</span> <span class="nx">Tue</span> <span class="nx">Oct</span> <span class="mi">02</span> <span class="mi">2012</span> <span class="mi">11</span><span class="o">:</span><span class="mi">33</span><span class="o">:</span><span class="mi">40</span> <span class="nx">GMT</span><span class="o">-</span><span class="mi">0400</span> <span class="p">(</span><span class="nx">EDT</span><span class="p">)</span>
+        <span class="o">=</span> <span class="mi">7475</span> <span class="nx">secs</span> <span class="nx">ago</span> <span class="p">(</span><span class="mf">2.08</span><span class="nx">hrs</span><span class="p">)</span>
+<span class="nx">source</span><span class="o">:</span>   <span class="nx">m2</span><span class="p">.</span><span class="nx">example</span><span class="p">.</span><span class="nx">net</span><span class="o">:</span><span class="mi">30002</span>
+    <span class="nx">syncedTo</span><span class="o">:</span> <span class="nx">Tue</span> <span class="nx">Oct</span> <span class="mi">02</span> <span class="mi">2012</span> <span class="mi">11</span><span class="o">:</span><span class="mi">33</span><span class="o">:</span><span class="mi">40</span> <span class="nx">GMT</span><span class="o">-</span><span class="mi">0400</span> <span class="p">(</span><span class="nx">EDT</span><span class="p">)</span>
+        <span class="o">=</span> <span class="mi">7475</span> <span class="nx">secs</span> <span class="nx">ago</span> <span class="p">(</span><span class="mf">2.08</span><span class="nx">hrs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <a class="reference internal" href="../reference/method/rs.status.html#rs.status" title="rs.status()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">rs.status()</span></tt></a> method is a wrapper around the
+<a class="reference internal" href="../reference/command/replSetGetStatus.html#dbcmd.replSetGetStatus" title="replSetGetStatus"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">replSetGetStatus</span></tt></a> database command.</p>
+</div>
+</li>
+<li><p class="first">Monitor the rate of replication by watching the oplog time in the
+&#8220;replica&#8221; graph in the <a class="reference external" href="http://mms.10gen.com/">MongoDB Monitoring Service</a>. For more
+information see the <a class="reference external" href="http://mms.10gen.com/help/">documentation for MMS</a>.</p>
+</li>
+</ul>
+<p>Possible causes of replication lag include:</p>
+<ul>
+<li><p class="first"><strong>Network Latency</strong></p>
+<p>Check the network routes between the members of your set to ensure
+that there is no packet loss or network routing issue.</p>
+<p>Use tools including <tt class="docutils literal"><span class="pre">ping</span></tt> to test latency between set
+members and <tt class="docutils literal"><span class="pre">traceroute</span></tt> to expose the routing of packets
+network endpoints.</p>
+</li>
+<li><p class="first"><strong>Disk Throughput</strong></p>
+<p>If the file system and disk device on the secondary is
+unable to flush data to disk as quickly as the primary, then
+the secondary will have difficulty keeping state. Disk-related
+issues are incredibly prevalent on multi-tenant systems, including
+vitalized instances, and can be transient if the system accesses
+disk devices over an IP network (as is the case with Amazon&#8217;s
+EBS system.)</p>
+<p>Use system-level tools to assess disk status, including
+<tt class="docutils literal"><span class="pre">iostat</span></tt> or <tt class="docutils literal"><span class="pre">vmstat</span></tt>.</p>
+</li>
+<li><p class="first"><strong>Concurrency</strong></p>
+<p>In some cases, long-running operations on the primary can block
+replication on secondaries. For best results, configure <a class="reference internal" href="../core/write-concern.html#write-concern"><em>write
+concern</em></a> to require confirmation of replication to
+secondaries, as described in <a class="reference internal" href="../core/write-concern.html#replica-set-write-concern"><em>replica set write concern</em></a>. This prevents write operations from
+returning if replication cannot keep up with the write load.</p>
+<p>Use the <a class="reference internal" href="../reference/glossary.html#term-database-profiler"><em class="xref std std-term">database profiler</em></a> to see if there are slow queries
+or long-running operations that correspond to the incidences of lag.</p>
+</li>
+<li><p class="first"><strong>Appropriate Write Concern</strong></p>
+<p>If you are performing a large data ingestion or bulk load operation
+that requires a large number of writes to the primary, particularly
+with <a class="reference internal" href="../core/write-concern.html#write-concern-unacknowledged"><em>unacknowledged write concern</em></a>, the secondaries will not be able to
+read the oplog fast enough to keep up with changes.</p>
+<p>To prevent this, require <a class="reference internal" href="../core/write-operations.html#write-operations-write-concern"><em>write acknowledgment or journaled
+write concern</em></a> after every 100,
+1,000, or an another interval to provide an opportunity for
+secondaries to catch up with the primary.</p>
+<p>For more information see:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../core/write-concern.html#replica-set-write-concern"><em>Replica Acknowledge Write Concern</em></a></li>
+<li><a class="reference internal" href="../core/write-operations.html#write-operations-replica-sets"><em>Replica Set Write Concern</em></a></li>
+<li><a class="reference internal" href="../core/replication.html#replica-set-oplog-sizing"><em>Oplog</em></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="section" id="test-connections-between-all-members">
+<span id="replica-set-troubleshooting-check-connection"></span><h2>Test Connections Between all Members<a class="headerlink" href="#test-connections-between-all-members" title="Permalink to this headline">¶</a></h2>
+<p>All members of a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> must be able to connect to every
+other member of the set to support replication. Always verify
+connections in both &#8220;directions.&#8221;  Networking topologies and firewall
+configurations prevent normal and required connectivity, which can
+block replication.</p>
+<p>Consider the following example of a bidirectional test of networking:</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>Given a replica set with three members running on three separate
+hosts:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">m1.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">m2.example.net</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">m3.example.net</span></tt></li>
+</ul>
+<ol class="arabic">
+<li><p class="first">Test the connection from <tt class="docutils literal"><span class="pre">m1.example.net</span></tt> to the other hosts
+with the following operation set <tt class="docutils literal"><span class="pre">m1.example.net</span></tt>:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo --host m2.example.net --port 27017
+
+mongo --host m3.example.net --port 27017
+</pre></div>
+</div>
+</li>
+<li><p class="first">Test the connection from <tt class="docutils literal"><span class="pre">m2.example.net</span></tt> to the other two
+hosts with the following operation set from <tt class="docutils literal"><span class="pre">m2.example.net</span></tt>,
+as in:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo --host m1.example.net --port 27017
+
+mongo --host m3.example.net --port 27017
+</pre></div>
+</div>
+<p>You have now tested the connection between
+<tt class="docutils literal"><span class="pre">m2.example.net</span></tt> and <tt class="docutils literal"><span class="pre">m1.example.net</span></tt> in both directions.</p>
+</li>
+<li><p class="first">Test the connection from <tt class="docutils literal"><span class="pre">m3.example.net</span></tt> to the other two
+hosts with the following operation set from the
+<tt class="docutils literal"><span class="pre">m3.example.net</span></tt> host, as in:</p>
+<div class="highlight-sh"><div class="highlight"><pre>mongo --host m1.example.net --port 27017
+
+mongo --host m2.example.net --port 27017
+</pre></div>
+</div>
+</li>
+</ol>
+<p class="last">If any connection, in any direction fails, check your networking
+and firewall configuration and reconfigure your environment to
+allow these connections.</p>
+</div>
+</div>
+<div class="section" id="check-the-size-of-the-oplog">
+<span id="replica-set-troubleshooting-check-oplog-size"></span><h2>Check the Size of the Oplog<a class="headerlink" href="#check-the-size-of-the-oplog" title="Permalink to this headline">¶</a></h2>
+<p>A larger <a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> can give a replica set a greater tolerance for
+lag, and make the set more resilient.</p>
+<p>To check the size of the oplog for a given <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> member,
+connect to the member in a <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell and run the
+<a class="reference internal" href="../reference/method/db.printReplicationInfo.html#db.printReplicationInfo" title="db.printReplicationInfo()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.printReplicationInfo()</span></tt></a> method.</p>
+<p>The output displays the size of the oplog and the date ranges of the
+operations contained in the oplog. In the following example, the oplog
+is about 10MB and is able to fit about 26 hours (94400 seconds) of
+operations:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">configured</span> <span class="nx">oplog</span> <span class="nx">size</span><span class="o">:</span>   <span class="mf">10.10546875</span><span class="nx">MB</span>
+<span class="nx">log</span> <span class="nx">length</span> <span class="nx">start</span> <span class="nx">to</span> <span class="nx">end</span><span class="o">:</span> <span class="mi">94400</span> <span class="p">(</span><span class="mf">26.22</span><span class="nx">hrs</span><span class="p">)</span>
+<span class="nx">oplog</span> <span class="nx">first</span> <span class="nx">event</span> <span class="nx">time</span><span class="o">:</span>  <span class="nx">Mon</span> <span class="nx">Mar</span> <span class="mi">19</span> <span class="mi">2012</span> <span class="mi">13</span><span class="o">:</span><span class="mi">50</span><span class="o">:</span><span class="mi">38</span> <span class="nx">GMT</span><span class="o">-</span><span class="mi">0400</span> <span class="p">(</span><span class="nx">EDT</span><span class="p">)</span>
+<span class="nx">oplog</span> <span class="nx">last</span> <span class="nx">event</span> <span class="nx">time</span><span class="o">:</span>   <span class="nx">Wed</span> <span class="nx">Oct</span> <span class="mi">03</span> <span class="mi">2012</span> <span class="mi">14</span><span class="o">:</span><span class="mi">59</span><span class="o">:</span><span class="mi">10</span> <span class="nx">GMT</span><span class="o">-</span><span class="mi">0400</span> <span class="p">(</span><span class="nx">EDT</span><span class="p">)</span>
+<span class="nx">now</span><span class="o">:</span>                     <span class="nx">Wed</span> <span class="nx">Oct</span> <span class="mi">03</span> <span class="mi">2012</span> <span class="mi">15</span><span class="o">:</span><span class="mi">00</span><span class="o">:</span><span class="mi">21</span> <span class="nx">GMT</span><span class="o">-</span><span class="mi">0400</span> <span class="p">(</span><span class="nx">EDT</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The oplog should be long enough to hold all transactions for the
+longest downtime you expect on a secondary. At a minimum, an oplog
+should be able to hold minimum 24 hours of operations; however, many
+users prefer to have 72 hours or even a week&#8217;s work of operations.</p>
+<p>For more information on how oplog size affects operations, see:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../core/replication.html#replica-set-oplog-sizing"><em>Oplog</em></a>,</li>
+<li><a class="reference internal" href="../core/replication.html#replica-set-delayed-members"><em>Delayed Members</em></a>, and</li>
+<li><a class="reference internal" href="#replica-set-replication-lag"><em>Check the Replication Lag</em></a>.</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You normally want the oplog to be the same size on all
+members. If you resize the oplog, resize it on all members.</p>
+</div>
+<p>To change oplog size, see the <a class="reference internal" href="change-oplog-size.html"><em>Change the Size of the Oplog</em></a>
+tutorial.</p>
+</div>
+<div class="section" id="oplog-entry-timestamp-error">
+<h2>Oplog Entry Timestamp Error<a class="headerlink" href="#oplog-entry-timestamp-error" title="Permalink to this headline">¶</a></h2>
+<p>Consider the following error in <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> output and logs:</p>
+<div class="highlight-javascript"><pre>replSet error fatal couldn't query the local local.oplog.rs collection.  Terminating mongod after 30 seconds.
+&lt;timestamp&gt; [rsStart] bad replSet oplog entry?</pre>
+</div>
+<p>Often, an incorrectly typed value in the <tt class="docutils literal"><span class="pre">ts</span></tt> field in the last
+<a class="reference internal" href="../reference/glossary.html#term-oplog"><em class="xref std std-term">oplog</em></a> entry causes this error. The correct data type is
+Timestamp.</p>
+<p>Check the type of the <tt class="docutils literal"><span class="pre">ts</span></tt> value using the following two queries
+against the oplog collection:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span> <span class="o">=</span> <span class="nx">db</span><span class="p">.</span><span class="nx">getSiblingDB</span><span class="p">(</span><span class="s2">&quot;local&quot;</span><span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">oplog</span><span class="p">.</span><span class="nx">rs</span><span class="p">.</span><span class="nx">find</span><span class="p">().</span><span class="nx">sort</span><span class="p">({</span><span class="nx">$natural</span><span class="o">:-</span><span class="mi">1</span><span class="p">}).</span><span class="nx">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">oplog</span><span class="p">.</span><span class="nx">rs</span><span class="p">.</span><span class="nx">find</span><span class="p">({</span><span class="nx">ts</span><span class="o">:</span><span class="p">{</span><span class="nx">$type</span><span class="o">:</span><span class="mi">17</span><span class="p">}}).</span><span class="nx">sort</span><span class="p">({</span><span class="nx">$natural</span><span class="o">:-</span><span class="mi">1</span><span class="p">}).</span><span class="nx">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first query returns the last document in the oplog, while the
+second returns the last document in the oplog where the <tt class="docutils literal"><span class="pre">ts</span></tt> value
+is a Timestamp. The <a class="reference internal" href="../reference/operator/type.html#op._S_type" title="$type"><tt class="xref mongodb mongodb-operator docutils literal"><span class="pre">$type</span></tt></a> operator allows you to select
+<a class="reference internal" href="../reference/glossary.html#term-bson-types"><em class="xref std std-term">BSON type</em></a> 17, is the Timestamp data type.</p>
+<p>If the queries don&#8217;t return the same document, then the last document in
+the oplog has the wrong data type in the <tt class="docutils literal"><span class="pre">ts</span></tt> field.</p>
+<div class="admonition-example admonition">
+<p class="first admonition-title">Example</p>
+<p>If the first query returns this as the last oplog entry:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;ts&quot;</span> <span class="o">:</span> <span class="p">{</span><span class="nx">t</span><span class="o">:</span> <span class="mi">1347982456000</span><span class="p">,</span> <span class="nx">i</span><span class="o">:</span> <span class="mi">1</span><span class="p">},</span>
+  <span class="s2">&quot;h&quot;</span> <span class="o">:</span> <span class="nx">NumberLong</span><span class="p">(</span><span class="s2">&quot;8191276672478122996&quot;</span><span class="p">),</span>
+  <span class="s2">&quot;op&quot;</span> <span class="o">:</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;ns&quot;</span> <span class="o">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;o&quot;</span> <span class="o">:</span> <span class="p">{</span> <span class="s2">&quot;msg&quot;</span> <span class="o">:</span> <span class="s2">&quot;Reconfig set&quot;</span><span class="p">,</span> <span class="s2">&quot;version&quot;</span> <span class="o">:</span> <span class="mi">4</span> <span class="p">}</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>And the second query returns this as the last entry where <tt class="docutils literal"><span class="pre">ts</span></tt>
+has the <tt class="docutils literal"><span class="pre">Timestamp</span></tt> type:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;ts&quot;</span> <span class="o">:</span> <span class="nx">Timestamp</span><span class="p">(</span><span class="mi">1347982454000</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+  <span class="s2">&quot;h&quot;</span> <span class="o">:</span> <span class="nx">NumberLong</span><span class="p">(</span><span class="s2">&quot;6188469075153256465&quot;</span><span class="p">),</span>
+  <span class="s2">&quot;op&quot;</span> <span class="o">:</span> <span class="s2">&quot;n&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;ns&quot;</span> <span class="o">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;o&quot;</span> <span class="o">:</span> <span class="p">{</span> <span class="s2">&quot;msg&quot;</span> <span class="o">:</span> <span class="s2">&quot;Reconfig set&quot;</span><span class="p">,</span> <span class="s2">&quot;version&quot;</span> <span class="o">:</span> <span class="mi">3</span> <span class="p">}</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p class="last">Then the value for the <tt class="docutils literal"><span class="pre">ts</span></tt> field in the last oplog entry is of the
+wrong data type.</p>
+</div>
+<p>To set the proper type for this value and resolve this issue,
+use an update operation that resembles the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">oplog</span><span class="p">.</span><span class="nx">rs</span><span class="p">.</span><span class="nx">update</span><span class="p">(</span> <span class="p">{</span> <span class="nx">ts</span><span class="o">:</span> <span class="p">{</span> <span class="nx">t</span><span class="o">:</span><span class="mi">1347982456000</span><span class="p">,</span> <span class="nx">i</span><span class="o">:</span><span class="mi">1</span> <span class="p">}</span> <span class="p">},</span>
+                    <span class="p">{</span> <span class="nx">$set</span><span class="o">:</span> <span class="p">{</span> <span class="nx">ts</span><span class="o">:</span> <span class="k">new</span> <span class="nx">Timestamp</span><span class="p">(</span><span class="mi">1347982456000</span><span class="p">,</span> <span class="mi">1</span><span class="p">)}})</span>
+</pre></div>
+</div>
+<p>Modify the timestamp values as needed based on your oplog entry. This
+operation may take some period to complete because the update must
+scan and pull the entire oplog into memory.</p>
+</div>
+<div class="section" id="duplicate-key-error-on-local-slaves">
+<h2>Duplicate Key Error on <tt class="docutils literal"><span class="pre">local.slaves</span></tt><a class="headerlink" href="#duplicate-key-error-on-local-slaves" title="Permalink to this headline">¶</a></h2>
+<p>The <em>duplicate key on local.slaves</em> error, occurs when a
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-slave"><em class="xref std std-term">slave</em></a> changes its hostname and the
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-master"><em class="xref std std-term">master</em></a> tries to update its <tt class="docutils literal"><span class="pre">local.slaves</span></tt>
+collection with the new name. The update fails because it contains the
+same <tt class="docutils literal"><span class="pre">_id</span></tt> value as the document containing the previous hostname. The
+error itself will resemble the following.</p>
+<div class="highlight-none"><div class="highlight"><pre>exception 11000 E11000 duplicate key error index: local.slaves.$_id_  dup key: { : ObjectId(&#39;&lt;object ID&gt;&#39;) } 0ms
+</pre></div>
+</div>
+<p>This is a benign error and does not affect replication operations on
+the <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-slave"><em class="xref std std-term">slave</em></a>.</p>
+<p>To prevent the error from appearing, drop the <tt class="docutils literal"><span class="pre">local.slaves</span></tt>
+collection from the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-master"><em class="xref std std-term">master</em></a>, with the
+following sequence of operations in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">use</span> <span class="nx">local</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">slaves</span><span class="p">.</span><span class="nx">drop</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The next time a <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-slave"><em class="xref std std-term">slave</em></a> polls the
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-master"><em class="xref std std-term">master</em></a>, the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-master"><em class="xref std std-term">master</em></a>
+recreates the <tt class="docutils literal"><span class="pre">local.slaves</span></tt> collection.</p>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="change-hostnames-in-a-replica-set.html" title="Previous Section: Change Hostnames in a Replica Set">&lt; &nbsp; Change Hostnames in a Replica Set</a></li>
+              <li id="btnvup"><a href="../replication.html" title="Parent Section: Replication" >&#47;&#92;&nbsp; Replication</a></li>
+              <li id="btnvnx"><a href="add-replica-set-arbiter.html" title="Next Section: Add an Arbiter to Replica Set">Add an Arbiter to Replica Set &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../replication.html">Replication</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../core/replication.html">Replica Set Fundamental Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replica-set-architectures.html">Replica Set Architectures and Deployment Patterns</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/replication.html">Replica Set Considerations and Behaviors for Applications and Development</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/replication-internals.html">Replica Set Internals and Behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/master-slave.html">Master Slave Replication</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/replica-sets.html">Replica Set Administration</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="deploy-replica-set.html">Deploy a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-standalone-to-replica-set.html">Convert a Standalone to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="expand-replica-set.html">Add Members to a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="remove-replica-set-member.html">Remove Members from Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="replace-replica-set-member.html">Replace a Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="adjust-replica-set-member-priority.html">Adjust Priority for Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="resync-replica-set-member.html">Resync a Member of a Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="deploy-geographically-distributed-replica-set.html">Deploy a Geographically Distributed Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change-oplog-size.html">Change the Size of the Oplog</a></li>
+<li class="toctree-l3"><a class="reference internal" href="force-member-to-be-primary.html">Force a Member to Become Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="manage-chained-replication.html">Manage Chained Replication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change-hostnames-in-a-replica-set.html">Change Hostnames in a Replica Set</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Troubleshoot Replica Sets</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="add-replica-set-arbiter.html">Add an Arbiter to Replica Set</a></li>
+<li class="toctree-l3"><a class="reference internal" href="convert-secondary-into-arbiter.html">Convert a Secondary to an Arbiter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-delayed-replica-set-member.html">Configure a Delayed Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-hidden-replica-set-member.html">Configure a Replica Set Member as Hidden</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-a-non-voting-replica-set-member.html">Configure a Non-Voting Replica Set Member</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-secondary-only-replica-set-member.html">Prevent Replica Set Member from Becoming Primary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-secondary-sync-target.html">Configure a Secondary&#8217;s Sync Target</a></li>
+<li class="toctree-l3"><a class="reference internal" href="configure-replica-set-tag-sets.html">Configure Replica Set Tag Sets</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reconfigure-replica-set-with-unavailable-members.html">Reconfigure a Replica Set with Unavailable Members</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-configuration.html">Replica Set Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-commands.html">Replica Set Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/replica-set-features.html">Replica Set Features and Version Compatibility</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/troubleshoot-replica-sets.txt" target="_blank" title="Edit tutorial/troubleshoot-replica-sets.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/troubleshoot-replica-sets%2Etxt%22" target="_blank" title="Report a problem with tutorial/troubleshoot-replica-sets.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/troubleshoot-replica-sets.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/troubleshoot-replica-sets'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/troubleshoot-replica-sets'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

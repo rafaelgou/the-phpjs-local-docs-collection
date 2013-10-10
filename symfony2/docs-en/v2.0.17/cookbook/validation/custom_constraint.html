@@ -1,0 +1,377 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to create a Custom Validation Constraint &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Validation" href="index.html" />
+    <link rel="next" title="Configuration" href="../configuration/index.html" />
+    <link rel="prev" title="Validation" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../configuration/index.html" title="Configuration"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Validation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Validation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-create-a-custom-validation-constraint">
+<span id="index-0"></span><h1>How to create a Custom Validation Constraint<a class="headerlink" href="#how-to-create-a-custom-validation-constraint" title="Permalink to this headline">¶</a></h1>
+<p>You can create a custom constraint by extending the base constraint class,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Validator/Constraint.html" title="Symfony\Component\Validator\Constraint"><span class="pre">Constraint</span></a></tt>.
+As an example we&#8217;re going to create a simple validator that checks if a string
+contains only alphanumeric characters.</p>
+<div class="section" id="creating-constraint-class">
+<h2>Creating Constraint class<a class="headerlink" href="#creating-constraint-class" title="Permalink to this headline">¶</a></h2>
+<p>First you need to create a Constraint class and extend <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Validator/Constraint.html" title="Symfony\Component\Validator\Constraint"><span class="pre">Constraint</span></a></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Validator/constraints/ContainsAlphanumeric.php
+namespace Acme\DemoBundle\Validator\Constraints;
+
+use Symfony\Component\Validator\Constraint;
+
+/**
+ * @Annotation
+ */
+class ContainsAlphanumeric extends Constraint
+{
+    public $message = 'The string "%string%" contains an illegal character: it can only contain letters or numbers.';
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">&#64;Annotation</span></tt> annotation is necessary for this new constraint in
+order to make it available for use in classes via annotations.
+Options for your constraint are represented as public properties on the
+constraint class.</p>
+</div>
+</div>
+<div class="section" id="creating-the-validator-itself">
+<h2>Creating the Validator itself<a class="headerlink" href="#creating-the-validator-itself" title="Permalink to this headline">¶</a></h2>
+<p>As you can see, a constraint class is fairly minimal. The actual validation is
+performed by a another &#8220;constraint validator&#8221; class. The constraint validator
+class is specified by the constraint&#8217;s <tt class="docutils literal"><span class="pre">validatedBy()</span></tt> method, which
+includes some simple default logic:</p>
+<div class="highlight-python"><pre>// in the base Symfony\Component\Validator\Constraint class
+public function validatedBy()
+{
+    return get_class($this).'Validator';
+}</pre>
+</div>
+<p>In other words, if you create a custom <tt class="docutils literal"><span class="pre">Constraint</span></tt> (e.g. <tt class="docutils literal"><span class="pre">MyConstraint</span></tt>),
+Symfony2 will automatically look for another class, <tt class="docutils literal"><span class="pre">MyConstraintValidator</span></tt>
+when actually performing the validation.</p>
+<p>The validator class is also simple, and only has one required method: <tt class="docutils literal"><span class="pre">isValid</span></tt>:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Validator/Constraints/ContainsAlphanumericValidator.php
+namespace Acme\DemoBundle\Validator\Constraints;
+
+use Symfony\Component\Validator\Constraint;
+use Symfony\Component\Validator\ConstraintValidator;
+
+class ContainsAlphanumericValidator extends ConstraintValidator
+{
+    public function isValid($value, Constraint $constraint)
+    {
+        if (!preg_match('/^[a-zA-Za0-9]+$/', $value, $matches)) {
+            $this-&gt;setMessage($constraint-&gt;message, array('%string%' =&gt; $value));
+
+            return false;
+        }
+
+        return true;
+    }
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Don&#8217;t forget to call <tt class="docutils literal"><span class="pre">setMessage</span></tt> to construct an error message when the
+value is invalid.</p>
+</div>
+</div>
+<div class="section" id="using-the-new-validator">
+<h2>Using the new Validator<a class="headerlink" href="#using-the-new-validator" title="Permalink to this headline">¶</a></h2>
+<p>Using custom validators is very easy, just as the ones provided by Symfony2 itself:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/BlogBundle/Resources/config/validation.yml</span>
+<span class="l-Scalar-Plain">Acme\DemoBundle\Entity\AcmeEntity</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">properties</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">NotBlank</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
+            <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">Acme\DemoBundle\Validator\Constraints\ContainsAlphanumeric</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span>
+</pre></div>
+</div>
+</li>
+<li><em>Annotations</em><div class="highlight-php-annotations"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Entity/AcmeEntity.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Validator\Constraints</span> <span class="k">as</span> <span class="nx">Assert</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\DemoBundle\Validator\Constraints</span> <span class="k">as</span> <span class="nx">AcmeAssert</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">AcmeEntity</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @Assert\NotBlank</span>
+<span class="sd">     * @AcmeAssert\ContainsAlphanumeric</span>
+<span class="sd">     */</span>
+    <span class="k">protected</span> <span class="nv">$name</span><span class="p">;</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/DemoBundle/Resources/config/validation.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;constraint-mapping</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/constraint-mapping&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/constraint-mapping http://symfony.com/schema/dic/constraint-mapping/constraint-mapping-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;class</span> <span class="na">name=</span><span class="s">&quot;Acme\DemoBundle\Entity\AcmeEntity&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;property</span> <span class="na">name=</span><span class="s">&quot;name&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;constraint</span> <span class="na">name=</span><span class="s">&quot;NotBlank&quot;</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;constraint</span> <span class="na">name=</span><span class="s">&quot;Acme\DemoBundle\Validator\Constraints\ContainsAlphanumeric&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;/class&gt;</span>
+<span class="nt">&lt;/constraint-mapping&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Entity/AcmeEntity.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Validator\Mapping\ClassMetadata</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Validator\Constraints\NotBlank</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\DemoBundle\Validator\Constraints\ContainsAlphanumeric</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">AcmeEntity</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="nv">$name</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">static</span> <span class="k">function</span> <span class="nf">loadValidatorMetadata</span><span class="p">(</span><span class="nx">ClassMetadata</span> <span class="nv">$metadata</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$metadata</span><span class="o">-&gt;</span><span class="na">addPropertyConstraint</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">NotBlank</span><span class="p">());</span>
+        <span class="nv">$metadata</span><span class="o">-&gt;</span><span class="na">addPropertyConstraint</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">ContainsAlphanumeric</span><span class="p">());</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>If your constraint contains options, then they should be public properties
+on the custom Constraint class you created earlier. These options can be
+configured like options on core Symfony constraints.</p>
+<div class="section" id="constraint-validators-with-dependencies">
+<h3>Constraint Validators with Dependencies<a class="headerlink" href="#constraint-validators-with-dependencies" title="Permalink to this headline">¶</a></h3>
+<p>If your constraint validator has dependencies, such as a database connection,
+it will need to be configured as a service in the dependency injection
+container. This service must include the <tt class="docutils literal"><span class="pre">validator.constraint_validator</span></tt>
+tag and an <tt class="docutils literal"><span class="pre">alias</span></tt> attribute:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">validator.unique.your_validator_name</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Fully\Qualified\Validator\Class\Name</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">validator.constraint_validator</span><span class="p-Indicator">,</span> <span class="nv">alias</span><span class="p-Indicator">:</span> <span class="nv">alias_name</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;validator.unique.your_validator_name&quot;</span> <span class="na">class=</span><span class="s">&quot;Fully\Qualified\Validator\Class\Name&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;doctrine.orm.default_entity_manager&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;validator.constraint_validator&quot;</span> <span class="na">alias=</span><span class="s">&quot;alias_name&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;validator.unique.your_validator_name&#39;</span><span class="p">,</span> <span class="s1">&#39;Fully\Qualified\Validator\Class\Name&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;validator.constraint_validator&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;alias&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;alias_name&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Your constraint class should now use this alias to reference the appropriate
+validator:</p>
+<div class="highlight-python"><pre>public function validatedBy()
+{
+    return 'alias_name';
+}</pre>
+</div>
+<p>As mentioned above, Symfony2 will automatically look for a class named after
+the constraint, with <tt class="docutils literal"><span class="pre">Validator</span></tt> appended.  If your constraint validator
+is defined as a service, it&#8217;s important that you override the
+<tt class="docutils literal"><span class="pre">validatedBy()</span></tt> method to return the alias used when defining your service,
+otherwise Symfony2 won&#8217;t use the constraint validator service, and will
+instantiate the class instead, without any dependencies injected.</p>
+</div>
+<div class="section" id="class-constraint-validator">
+<h3>Class Constraint Validator<a class="headerlink" href="#class-constraint-validator" title="Permalink to this headline">¶</a></h3>
+<p>Beside validating a class property, a constraint can have a class scope by
+providing a target:</p>
+<div class="highlight-python"><pre>public function getTargets()
+{
+    return self::CLASS_CONSTRAINT;
+}</pre>
+</div>
+<p>With this, the validator <tt class="docutils literal"><span class="pre">isValid()</span></tt> method gets an object as its first argument:</p>
+<div class="highlight-python"><pre>class ProtocolClassValidator extends ConstraintValidator
+{
+    public function isValid($protocol, Constraint $constraint)
+    {
+        if ($protocol-&gt;getFoo() != $protocol-&gt;getBar()) {
+
+            $propertyPath = $this-&gt;context-&gt;getPropertyPath() . 'foo';
+            $this-&gt;context-&gt;setPropertyPath($propertyPath);
+            $this-&gt;context-&gt;addViolation($constraint-&gt;getMessage(), array(), null);
+
+            return false;
+        }
+
+        return true;
+    }
+}</pre>
+</div>
+<p>Note that a class constraint validator is applied to the class itself, and
+not to the property:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/BlogBundle/Resources/config/validation.yml</span>
+<span class="l-Scalar-Plain">Acme\DemoBundle\Entity\AcmeEntity</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">constraints</span><span class="p-Indicator">:</span>
+        <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">ContainsAlphanumeric</span>
+</pre></div>
+</div>
+</li>
+<li><em>Annotations</em><div class="highlight-php-annotations"><div class="highlight"><pre><span class="sd">/**</span>
+<span class="sd"> * @AcmeAssert\ContainsAlphanumeric</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">AcmeEntity</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/BlogBundle/Resources/config/validation.xml --&gt;</span>
+<span class="nt">&lt;class</span> <span class="na">name=</span><span class="s">&quot;Acme\DemoBundle\Entity\AcmeEntity&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;constraint</span> <span class="na">name=</span><span class="s">&quot;ContainsAlphanumeric&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/class&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to create a Custom Validation Constraint</a><ul>
+<li><a class="reference internal" href="#creating-constraint-class">Creating Constraint class</a></li>
+<li><a class="reference internal" href="#creating-the-validator-itself">Creating the Validator itself</a></li>
+<li><a class="reference internal" href="#using-the-new-validator">Using the new Validator</a><ul>
+<li><a class="reference internal" href="#constraint-validators-with-dependencies">Constraint Validators with Dependencies</a></li>
+<li><a class="reference internal" href="#class-constraint-validator">Class Constraint Validator</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Validation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../configuration/index.html"
+                        title="next chapter">Configuration</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/validation/custom_constraint.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../configuration/index.html" title="Configuration"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Validation"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Validation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

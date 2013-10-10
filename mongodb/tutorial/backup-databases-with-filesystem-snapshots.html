@@ -1,0 +1,592 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Use Filesystem Snapshots to Backup and Restore MongoDB Databases &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/backup-databases-with-filesystem-snapshots.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/backup-databases-with-filesystem-snapshots" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Backup and Recovery Operations for MongoDB" href="../administration/backups.html" />
+<link rel="next" title="Copy Databases Between Instances" href="copy-databases-between-instances.html" />
+<link rel="prev" title="Use mongodump and mongorestore to Backup and Restore MongoDB Databases" href="backup-databases-with-binary-database-dumps.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../administration.html">Administration</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a><span class="bcpoint"> > </span></li>
+          <li>Use Filesystem Snapshots to Backup and Restore MongoDB Databases</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="use-filesystem-snapshots-to-backup-and-restore-mongodb-databases">
+<h1>Use Filesystem Snapshots to Backup and Restore MongoDB Databases<a class="headerlink" href="#use-filesystem-snapshots-to-backup-and-restore-mongodb-databases" title="Permalink to this headline">¶</a></h1>
+<p>This document describes a procedure for creating backups of MongoDB
+systems using system-level tools, such as <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> or storage
+appliance, as well as the corresponding restoration strategies.</p>
+<p>These filesystem snapshots, or &#8220;block-level&#8221; backup methods use system
+level tools to create copies of the device that holds MongoDB&#8217;s data
+files. These methods complete quickly and work reliably, but require
+more system configuration outside of MongoDB.</p>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last"><a class="reference internal" href="../core/backups.html"><em>Backup Strategies for MongoDB Systems</em></a> and
+<a class="reference internal" href="backup-databases-with-binary-database-dumps.html"><em>Use mongodump and mongorestore to Backup and Restore MongoDB Databases</em></a>.</p>
+</div>
+<div class="section" id="snapshots-overview">
+<span id="id1"></span><h2>Snapshots Overview<a class="headerlink" href="#snapshots-overview" title="Permalink to this headline">¶</a></h2>
+<p>Snapshots work by creating pointers between the live data and a
+special snapshot volume. These pointers are theoretically equivalent
+to &#8220;hard links.&#8221; As the working data diverges from the snapshot,
+the snapshot process uses a copy-on-write strategy. As a result the snapshot
+only stores modified data.</p>
+<p>After making the snapshot, you mount the snapshot image on your
+file system and copy data from the snapshot. The resulting backup
+contains a full copy of all data.</p>
+<p>Snapshots have the following limitations:</p>
+<ul>
+<li><p class="first">The database must be in a consistent or recoverable state when the
+snapshot takes place. This means that all writes accepted by the
+database need to be fully written to disk: either to the
+<a class="reference internal" href="../reference/glossary.html#term-journal"><em class="xref std std-term">journal</em></a> or to data files.</p>
+<p>If all writes are not on disk when the backup occurs, the backup
+will not reflect these changes. If writes are <em>in progress</em> when the
+backup occurs, the data files will reflect an inconsistent
+state. With <a class="reference internal" href="../reference/glossary.html#term-journal"><em class="xref std std-term">journaling</em></a> all data-file states
+resulting from in-progress writes are recoverable; without
+journaling you must flush all pending writes to disk before
+running the backup operation and must ensure that no writes occur during
+the entire backup procedure.</p>
+<p>If you do use journaling, the journal <strong>must</strong> reside on the same volume
+as the data.</p>
+</li>
+<li><p class="first">Snapshots create an image of an entire disk image. Unless you need
+to back up your entire system, consider isolating your MongoDB data
+files, journal (if applicable), and configuration on one logical
+disk that doesn&#8217;t contain any other data.</p>
+<p>Alternately, store all MongoDB data files on a dedicated device
+so that you can make backups without duplicating extraneous data.</p>
+</li>
+<li><p class="first">Ensure that you copy data from snapshots and onto other systems to
+ensure that data is safe from site failures.</p>
+</li>
+<li><p class="first">Although different snapshots methods provide different capability, the
+LVM method outlined below does not provide any capacity for
+capturing incremental backups.</p>
+</li>
+</ul>
+<div class="section" id="snapshots-with-journaling">
+<span id="backup-with-journaling"></span><h3>Snapshots With Journaling<a class="headerlink" href="#snapshots-with-journaling" title="Permalink to this headline">¶</a></h3>
+<p>If your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance has journaling enabled, then you can
+use any kind of file system or volume/block level snapshot tool to
+create backups.</p>
+<p>If you manage your own infrastructure on a Linux-based system, configure
+your system with <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> to provide your disk packages and provide
+snapshot capability. You can also use LVM-based setups <em>within</em> a
+cloud/virtualized environment.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Running <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> provides additional flexibility and enables the
+possibility of using snapshots to back up MongoDB.</p>
+</div>
+</div>
+<div class="section" id="snapshots-with-amazon-ebs-in-a-raid-10-configuration">
+<h3>Snapshots with Amazon EBS in a RAID 10 Configuration<a class="headerlink" href="#snapshots-with-amazon-ebs-in-a-raid-10-configuration" title="Permalink to this headline">¶</a></h3>
+<p>If your deployment depends on Amazon’s Elastic Block Storage (EBS) with
+RAID configured within your instance, it is impossible to get a
+consistent state across all disks using the platform’s snapshot tool. As
+an alternative, you can do one of the following:</p>
+<ul>
+<li><p class="first">Flush all writes to disk and create a write lock to ensure
+consistent state during the backup process.</p>
+<p>If you choose this option see <a class="reference internal" href="#backup-without-journaling"><em>Create Backups on Instances that do not have Journaling Enabled</em></a>.</p>
+</li>
+<li><p class="first">Configure <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> to run and hold your MongoDB data files on top of the
+RAID within your system.</p>
+<p>If you choose this option, perform the LVM backup operation described
+in <a class="reference internal" href="#lvm-backup-operation"><em>Create a Snapshot</em></a>.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="backup-and-restore-using-lvm-on-a-linux-system">
+<span id="lvm-backup-and-restore"></span><h2>Backup and Restore Using LVM on a Linux System<a class="headerlink" href="#backup-and-restore-using-lvm-on-a-linux-system" title="Permalink to this headline">¶</a></h2>
+<p>This section provides an overview of a simple backup process
+using <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> on a Linux system. While the tools, commands, and paths may
+be (slightly) different on your system the following steps provide a
+high level overview of the backup operation.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Only use the following procedure as a guideline for a backup system
+and infrastructure. Production backup systems must consider a
+number of application specific requirements and factors unique to
+specific environments.</p>
+</div>
+<div class="section" id="create-a-snapshot">
+<span id="lvm-backup-operation"></span><h3>Create a Snapshot<a class="headerlink" href="#create-a-snapshot" title="Permalink to this headline">¶</a></h3>
+<p>To create a snapshot with <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a>, issue a command as root in the
+following format:</p>
+<div class="highlight-sh"><div class="highlight"><pre>lvcreate --size 100M --snapshot --name mdb-snap01 /dev/vg0/mongodb
+</pre></div>
+</div>
+<p>This command creates an <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> snapshot (with the <tt class="docutils literal"><span class="pre">--snapshot</span></tt> option)
+named <tt class="docutils literal"><span class="pre">mdb-snap01</span></tt> of the <tt class="docutils literal"><span class="pre">mongodb</span></tt> volume in the <tt class="docutils literal"><span class="pre">vg0</span></tt>
+volume group.</p>
+<p>This example creates a snapshot named <tt class="docutils literal"><span class="pre">mdb-snap01</span></tt> located at
+<tt class="docutils literal"><span class="pre">/dev/vg0/mdb-snap01</span></tt>. The location and paths to your systems volume
+groups and devices may vary slightly depending on your operating
+system&#8217;s <a class="reference internal" href="../reference/glossary.html#term-lvm"><em class="xref std std-term">LVM</em></a> configuration.</p>
+<p>The snapshot has a cap of at 100 megabytes, because of the parameter
+<tt class="docutils literal"><span class="pre">--size</span> <span class="pre">100M</span></tt>. This size does not reflect the total amount of the
+data on the disk, but rather the quantity of differences between the
+current state of <tt class="docutils literal"><span class="pre">/dev/vg0/mongodb</span></tt> and the creation of the snapshot
+(i.e. <tt class="docutils literal"><span class="pre">/dev/vg0/mdb-snap01</span></tt>.)</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>Ensure that you create snapshots with enough space to account for
+data growth, particularly for the period of time that it takes to copy
+data out of the system or to a temporary image.</p>
+<p class="last">If your snapshot runs out of space, the snapshot image
+becomes unusable. Discard this logical volume and create another.</p>
+</div>
+<p>The snapshot will exist when the command returns. You can restore
+directly from the snapshot at any time or by creating a new logical
+volume and restoring from this snapshot to the alternate image.</p>
+<p>While snapshots are great for creating high quality backups very
+quickly, they are not ideal as a format for storing backup
+data. Snapshots typically depend and reside on the same storage
+infrastructure as the original disk images. Therefore, it&#8217;s crucial
+that you archive these snapshots and store them elsewhere.</p>
+</div>
+<div class="section" id="archive-a-snapshot">
+<h3>Archive a Snapshot<a class="headerlink" href="#archive-a-snapshot" title="Permalink to this headline">¶</a></h3>
+<p>After creating a snapshot, mount the snapshot and move the data to
+separate storage. Your system might try to compress the backup images as
+you move the offline. The following procedure fully
+archives the data from the snapshot:</p>
+<div class="highlight-sh"><div class="highlight"><pre>umount /dev/vg0/mdb-snap01
+dd <span class="k">if</span><span class="o">=</span>/dev/vg0/mdb-snap01 | gzip &gt; mdb-snap01.gz
+</pre></div>
+</div>
+<p>The above command sequence does the following:</p>
+<ul>
+<li><p class="first">Ensures that the <tt class="docutils literal"><span class="pre">/dev/vg0/mdb-snap01</span></tt> device is not mounted.</p>
+</li>
+<li><p class="first">Performs a block level copy of the entire snapshot image using the <tt class="docutils literal"><span class="pre">dd</span></tt>
+command and compresses the result in a gzipped file in the
+current working directory.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This command will create a large <tt class="docutils literal"><span class="pre">gz</span></tt> file in your current
+working directory. Make sure that you run this command in a file
+system that has enough free space.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="restore-a-snapshot">
+<span id="backup-restore-snapshot"></span><h3>Restore a Snapshot<a class="headerlink" href="#restore-a-snapshot" title="Permalink to this headline">¶</a></h3>
+<p>To restore a snapshot created with the above method, issue the following
+sequence of commands:</p>
+<div class="highlight-sh"><div class="highlight"><pre>lvcreate --size 1G --name mdb-new vg0
+gzip -d -c mdb-snap01.gz | dd <span class="nv">of</span><span class="o">=</span>/dev/vg0/mdb-new
+mount /dev/vg0/mdb-new /srv/mongodb
+</pre></div>
+</div>
+<p>The above sequence does the following:</p>
+<ul>
+<li><p class="first">Creates a new logical volume named <tt class="docutils literal"><span class="pre">mdb-new</span></tt>, in the <tt class="docutils literal"><span class="pre">/dev/vg0</span></tt>
+volume group. The path to the new device will be <tt class="docutils literal"><span class="pre">/dev/vg0/mdb-new</span></tt>.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>This volume will have a maximum size of 1 gigabyte. The original
+file system must have had a total size of 1 gigabyte or smaller, or
+else the restoration will fail.</p>
+<p class="last">Change <tt class="docutils literal"><span class="pre">1G</span></tt> to your desired volume size.</p>
+</div>
+</li>
+<li><p class="first">Uncompresses and unarchives the <tt class="docutils literal"><span class="pre">mdb-snap01.gz</span></tt> into the
+<tt class="docutils literal"><span class="pre">mdb-new</span></tt> disk image.</p>
+</li>
+<li><p class="first">Mounts the <tt class="docutils literal"><span class="pre">mdb-new</span></tt> disk image to the <tt class="docutils literal"><span class="pre">/srv/mongodb</span></tt> directory.
+Modify the mount point to correspond to your MongoDB data file
+location, or other location as needed.</p>
+</li>
+</ul>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The restored snapshot will have a stale <tt class="docutils literal"><span class="pre">mongod.lock</span></tt> file. If
+you do not remove this file from the snapshot, and MongoDB may
+assume that the stale lock file indicates an unclean shutdown. If
+you&#8217;re running with <a class="reference internal" href="../reference/configuration-options.html#journal" title="journal"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">journal</span></tt></a> enabled, and you <em>do not</em>
+use <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a>, you do not need to remove the
+<tt class="docutils literal"><span class="pre">mongod.lock</span></tt> file. If you use <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a> you will
+need to remove the lock.</p>
+</div>
+</div>
+<div class="section" id="restore-directly-from-a-snapshot">
+<span id="backup-restore-from-snapshot"></span><h3>Restore Directly from a Snapshot<a class="headerlink" href="#restore-directly-from-a-snapshot" title="Permalink to this headline">¶</a></h3>
+<p>To restore a backup without writing to a compressed <tt class="docutils literal"><span class="pre">gz</span></tt> file, use
+the following sequence of commands:</p>
+<div class="highlight-sh"><div class="highlight"><pre>umount /dev/vg0/mdb-snap01
+lvcreate --size 1G --name mdb-new vg0
+dd <span class="k">if</span><span class="o">=</span>/dev/vg0/mdb-snap01 <span class="nv">of</span><span class="o">=</span>/dev/vg0/mdb-new
+mount /dev/vg0/mdb-new /srv/mongodb
+</pre></div>
+</div>
+</div>
+<div class="section" id="remote-backup-storage">
+<h3>Remote Backup Storage<a class="headerlink" href="#remote-backup-storage" title="Permalink to this headline">¶</a></h3>
+<p>You can implement off-system backups using the <a class="reference internal" href="#backup-restore-from-snapshot"><em>combined process</em></a> and SSH.</p>
+<p>This sequence is identical to procedures explained above, except that it
+archives and compresses the backup on a remote system using SSH.</p>
+<p>Consider the following procedure:</p>
+<div class="highlight-sh"><div class="highlight"><pre>umount /dev/vg0/mdb-snap01
+dd <span class="k">if</span><span class="o">=</span>/dev/vg0/mdb-snap01 | ssh username@example.com gzip &gt; /opt/backup/mdb-snap01.gz
+lvcreate --size 1G --name mdb-new vg0
+ssh username@example.com gzip -d -c /opt/backup/mdb-snap01.gz | dd <span class="nv">of</span><span class="o">=</span>/dev/vg0/mdb-new
+mount /dev/vg0/mdb-new /srv/mongodb
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="create-backups-on-instances-that-do-not-have-journaling-enabled">
+<span id="backup-without-journaling"></span><h2>Create Backups on Instances that do not have Journaling Enabled<a class="headerlink" href="#create-backups-on-instances-that-do-not-have-journaling-enabled" title="Permalink to this headline">¶</a></h2>
+<p>If your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance does not run with journaling
+enabled, or if your journal is on a separate volume, obtaining a
+functional backup of a consistent state is more complicated.
+As described in this section, you must flush all
+writes to disk and lock the database to prevent writes during the
+backup process. If you have a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> configuration,
+then for your backup use a
+<a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> which is not receiving reads (i.e. <a class="reference internal" href="../reference/glossary.html#term-hidden-member"><em class="xref std std-term">hidden
+member</em></a>).</p>
+<ol class="arabic">
+<li><p class="first">To flush writes to disk and to &#8220;lock&#8221; the database (to prevent
+further writes), issue the <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a> method in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">fsyncLock</span><span class="p">();</span>
+</pre></div>
+</div>
+</li>
+<li><p class="first">Perform the backup operation described in <a class="reference internal" href="#lvm-backup-operation"><em>Create a Snapshot</em></a>.</p>
+</li>
+<li><p class="first">To unlock the database after the snapshot has completed, use the
+following command in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">fsyncUnlock</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.0: </span>MongoDB 2.0 added <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a> and
+<a class="reference internal" href="../reference/method/db.fsyncUnlock.html#db.fsyncUnlock" title="db.fsyncUnlock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncUnlock()</span></tt></a> helpers to the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a>
+shell.  Prior to this version, use the <a class="reference internal" href="../reference/command/fsync.html#dbcmd.fsync" title="fsync"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">fsync</span></tt></a>
+command with the <tt class="docutils literal"><span class="pre">lock</span></tt> option, as follows:</p>
+<div class="last highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">runCommand</span><span class="p">(</span> <span class="p">{</span> <span class="nx">fsync</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">lock</span><span class="o">:</span> <span class="kc">true</span> <span class="p">}</span> <span class="p">);</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">runCommand</span><span class="p">(</span> <span class="p">{</span> <span class="nx">fsync</span><span class="o">:</span> <span class="mi">1</span><span class="p">,</span> <span class="nx">lock</span><span class="o">:</span> <span class="kc">false</span> <span class="p">}</span> <span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The database cannot be locked with <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a> while
+profiling is enabled.  You must disable profiling before locking
+the database with <a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a>.  Disable profiling
+using <a class="reference internal" href="../reference/method/db.setProfilingLevel.html#db.setProfilingLevel" title="db.setProfilingLevel()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.setProfilingLevel()</span></tt></a> as follows in the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell:</p>
+</div>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">setProfilingLevel</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span>When used in combination with <a class="reference internal" href="../reference/command/fsync.html#dbcmd.fsync" title="fsync"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">fsync</span></tt></a> or
+<a class="reference internal" href="../reference/method/db.fsyncLock.html#db.fsyncLock" title="db.fsyncLock()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">db.fsyncLock()</span></tt></a>, <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> may block some
+reads, including those from <a class="reference internal" href="../reference/program/mongodump.html#bin.mongodump" title="mongodump"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongodump</span></tt></a>, when
+queued write operation waits behind the <a class="reference internal" href="../reference/command/fsync.html#dbcmd.fsync" title="fsync"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">fsync</span></tt></a>
+lock.</p>
+</div>
+</li>
+</ol>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="backup-databases-with-binary-database-dumps.html" title="Previous Section: Use mongodump and mongorestore to Backup and Restore MongoDB Databases">&lt; &nbsp; Use mongodump and mongorestore to Backup and Restore MongoDB Databases</a></li>
+              <li id="btnvup"><a href="../administration.html" title="Parent Section: Administration" >&#47;&#92;&nbsp; Administration</a></li>
+              <li id="btnvnx"><a href="copy-databases-between-instances.html" title="Next Section: Copy Databases Between Instances">Copy Databases Between Instances &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../administration.html">Administration</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../administration/configuration.html">Run-time Database Configuration</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../administration/backups.html">Backup and Recovery Operations for MongoDB</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="../core/backups.html">Backup Strategies for MongoDB Systems</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-databases-with-binary-database-dumps.html">Use <tt class="docutils literal"><span class="pre">mongodump</span></tt> and <tt class="docutils literal"><span class="pre">mongorestore</span></tt> to Backup and Restore MongoDB Databases</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Use Filesystem Snapshots to Backup and Restore MongoDB Databases</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="copy-databases-between-instances.html">Copy Databases Between Instances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="recover-data-following-unexpected-shutdown.html">Recover MongoDB Data following Unexpected Shutdown</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-small-sharded-cluster-with-mongodump.html">Backup a Small Sharded Cluster with <tt class="docutils literal"><span class="pre">mongodump</span></tt></a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-sharded-cluster-with-filesystem-snapshots.html">Create Backup of a Sharded Cluster with Filesystem Snapshots</a></li>
+<li class="toctree-l3"><a class="reference internal" href="backup-sharded-cluster-with-database-dumps.html">Create Backup of a Sharded Cluster with Database Dumps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="restore-single-shard.html">Restore a Single Shard</a></li>
+<li class="toctree-l3"><a class="reference internal" href="restore-sharded-cluster.html">Restore Sharded Clusters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="schedule-backup-window-for-sharded-clusters.html">Schedule Backup Window for Sharded Clusters</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data-center-awareness.html">Data Center Awareness</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/journaling.html">Journaling</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configure-ssl.html">Connect to MongoDB with SSL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="monitor-with-snmp.html">Monitor MongoDB with SNMP</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-mongodb-processes.html">Manage <tt class="docutils literal"><span class="pre">mongod</span></tt> Processes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="rotate-log-files.html">Rotate Log Files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/monitoring.html">Monitoring for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="manage-the-database-profiler.html">Analyze Performance of Database Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/import-export.html">Import and Export MongoDB Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ulimit.html">Linux <tt class="docutils literal"><span class="pre">ulimit</span></tt> Settings</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/production-notes.html">Production Notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="use-database-commands.html">Use Database Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorial.html">MongoDB Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/backup-databases-with-filesystem-snapshots.txt" target="_blank" title="Edit tutorial/backup-databases-with-filesystem-snapshots.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/backup-databases-with-filesystem-snapshots%2Etxt%22" target="_blank" title="Report a problem with tutorial/backup-databases-with-filesystem-snapshots.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/backup-databases-with-filesystem-snapshots.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/backup-databases-with-filesystem-snapshots'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/backup-databases-with-filesystem-snapshots'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

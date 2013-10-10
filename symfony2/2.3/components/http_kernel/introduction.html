@@ -1,0 +1,716 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>The HttpKernel Component &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="HTTP Kernel" href="index.html" />
+    <link rel="next" title="The Intl Component" href="../intl.html" />
+    <link rel="prev" title="HTTP Kernel" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../intl.html" title="The Intl Component"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="HTTP Kernel"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">HTTP Kernel</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="the-httpkernel-component">
+<span id="index-0"></span><h1>The HttpKernel Component<a class="headerlink" href="#the-httpkernel-component" title="Permalink to this headline">¶</a></h1>
+<blockquote>
+<div>The HttpKernel Component provides a structured process for converting
+a <tt class="docutils literal"><span class="pre">Request</span></tt> into a <tt class="docutils literal"><span class="pre">Response</span></tt> by making use of the event dispatcher.
+It&#8217;s flexible enough to create a full-stack framework (Symfony), a micro-framework
+(Silex) or an advanced CMS system (Drupal).</div></blockquote>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>You can install the component in 2 different ways:</p>
+<ul class="simple">
+<li>Use the official Git repository (<a class="reference external" href="https://github.com/symfony/HttpKernel">https://github.com/symfony/HttpKernel</a>);</li>
+<li><a class="reference internal" href="../using_components.html"><em>Install it via Composer</em></a> (<tt class="docutils literal"><span class="pre">symfony/http-kernel</span></tt> on <a class="reference external" href="https://packagist.org/packages/symfony/http-kernel">Packagist</a>).</li>
+</ul>
+</div>
+<div class="section" id="the-workflow-of-a-request">
+<h2>The Workflow of a Request<a class="headerlink" href="#the-workflow-of-a-request" title="Permalink to this headline">¶</a></h2>
+<p>Every HTTP web interaction begins with a request and ends with a response.
+Your job as a developer is to create PHP code that reads the request information
+(e.g. the URL) and creates and returns a response (e.g. an HTML page or JSON string).</p>
+<img alt="../../_images/request-response-flow.png" class="align-center" src="../../_images/request-response-flow.png" />
+<p>Typically, some sort of framework or system is built to handle all the repetitive
+tasks (e.g. routing, security, etc) so that a developer can easily build
+each <em>page</em> of the application. Exactly <em>how</em> these systems are built varies
+greatly. The HttpKernel component provides an interface that formalizes
+the process of starting with a request and creating the appropriate response.
+The component is meant to be the heart of any application or framework, no
+matter how varied the architecture of that system:</p>
+<div class="highlight-python"><pre>namespace Symfony\Component\HttpKernel;
+
+use Symfony\Component\HttpFoundation\Request;
+
+interface HttpKernelInterface
+{
+    // ...
+
+    /**
+     * @return Response A Response instance
+     */
+    public function handle(
+        Request $request,
+        $type = self::MASTER_REQUEST,
+        $catch = true
+    );
+}</pre>
+</div>
+<p>Internally, <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html#method_handle" title="Symfony\Component\HttpKernel\HttpKernel::handle()"><span class="pre">HttpKernel::handle()</span></a></tt> -
+the concrete implementation of <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernelInterface.html#method_handle" title="Symfony\Component\HttpKernel\HttpKernelInterface::handle()"><span class="pre">HttpKernelInterface::handle()</span></a></tt> -
+defines a workflow that starts with a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt>
+and ends with a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html" title="Symfony\Component\HttpFoundation\Response"><span class="pre">Response</span></a></tt>.</p>
+<img alt="../../_images/01-workflow.png" class="align-center" src="../../_images/01-workflow.png" />
+<p>The exact details of this workflow are the key to understanding how the kernel
+(and the Symfony Framework or any other library that uses the kernel) works.</p>
+<div class="section" id="httpkernel-driven-by-events">
+<h3>HttpKernel: Driven by Events<a class="headerlink" href="#httpkernel-driven-by-events" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">HttpKernel::handle()</span></tt> method works internally by dispatching events.
+This makes the method both flexible, but also a bit abstract, since all the
+&#8220;work&#8221; of a framework/application built with HttpKernel is actually done
+in event listeners.</p>
+<p>To help explain this process, this document looks at each step of the process
+and talks about how one specific implementation of the HttpKernel - the Symfony
+Framework - works.</p>
+<p>Initially, using the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html" title="Symfony\Component\HttpKernel\HttpKernel"><span class="pre">HttpKernel</span></a></tt>
+is really simple, and involves creating an <a class="reference internal" href="../event_dispatcher/introduction.html"><em>event dispatcher</em></a>
+and a <a class="reference internal" href="#component-http-kernel-resolve-controller"><em>controller resolver</em></a>
+(explained below). To complete your working kernel, you&#8217;ll add more event
+listeners to the events discussed below:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\HttpKernel;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+
+// create the Request object
+$request = Request::createFromGlobals();
+
+$dispatcher = new EventDispatcher();
+// ... add some event listeners
+
+// create your controller resolver
+$resolver = new ControllerResolver();
+// instantiate the kernel
+$kernel = new HttpKernel($dispatcher, $resolver);
+
+// actually execute the kernel, which turns the request into a response
+// by dispatching events, calling a controller, and returning the response
+$response = $kernel-&gt;handle($request);
+
+// echo the content and send the headers
+$response-&gt;send();
+
+// triggers the kernel.terminate event
+$kernel-&gt;terminate($request, $response);</pre>
+</div>
+<p>See &#8220;<a class="reference internal" href="#http-kernel-working-example"><em>A Full Working Example</em></a>&#8221; for a more concrete implementation.</p>
+<p>For general information on adding listeners to the events below, see
+<a class="reference internal" href="#http-kernel-creating-listener"><em>Creating an Event Listener</em></a>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Fabien Potencier also wrote a wonderful series on using the <tt class="docutils literal"><span class="pre">HttpKernel</span></tt>
+component and other Symfony2 components to create your own framework. See
+<a class="reference external" href="http://fabien.potencier.org/article/50/create-your-own-framework-on-top-of-the-symfony2-components-part-1">Create your own framework... on top of the Symfony2 Components</a>.</p>
+</div>
+</div>
+<div class="section" id="the-kernel-request-event">
+<span id="component-http-kernel-kernel-request"></span><h3>1) The <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event<a class="headerlink" href="#the-kernel-request-event" title="Permalink to this headline">¶</a></h3>
+<p><strong>Typical Purposes</strong>: To add more information to the <tt class="docutils literal"><span class="pre">Request</span></tt>, initialize
+parts of the system, or return a <tt class="docutils literal"><span class="pre">Response</span></tt> if possible (e.g. a security
+layer that denies access)</p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>The first event that is dispatched inside <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html#method_handle" title="Symfony\Component\HttpKernel\HttpKernel::handle()"><span class="pre">HttpKernel::handle</span></a></tt>
+is <tt class="docutils literal"><span class="pre">kernel.request</span></tt>, which may have a variety of different listeners.</p>
+<img alt="../../_images/02-kernel-request.png" class="align-center" src="../../_images/02-kernel-request.png" />
+<p>Listeners of this event can be quite varied. Some listeners - such as a security
+listener - might have enough information to create a <tt class="docutils literal"><span class="pre">Response</span></tt> object immediately.
+For example, if a security listener determined that a user doesn&#8217;t have access,
+that listener may return a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/RedirectResponse.html" title="Symfony\Component\HttpFoundation\RedirectResponse"><span class="pre">RedirectResponse</span></a></tt>
+to the login page or a 403 Access Denied response.</p>
+<p>If a <tt class="docutils literal"><span class="pre">Response</span></tt> is returned at this stage, the process skips directly to
+the <a class="reference internal" href="#component-http-kernel-kernel-response"><em>kernel.response</em></a> event.</p>
+<img alt="../../_images/03-kernel-request-response.png" class="align-center" src="../../_images/03-kernel-request-response.png" />
+<p>Other listeners simply initialize things or add more information to the request.
+For example, a listener might determine and set the locale on the <tt class="docutils literal"><span class="pre">Request</span></tt>
+object.</p>
+<p>Another common listener is routing. A router listener may process the <tt class="docutils literal"><span class="pre">Request</span></tt>
+and determine the controller that should be rendered (see the next section).
+In fact, the <tt class="docutils literal"><span class="pre">Request</span></tt> object has an &#8220;<a class="reference internal" href="../http_foundation/introduction.html#component-foundation-attributes"><em>attributes</em></a>&#8221;
+bag which is a perfect spot to store this extra, application-specific data
+about the request. This means that if your router listener somehow determines
+the controller, it can store it on the <tt class="docutils literal"><span class="pre">Request</span></tt> attributes (which can be used
+by your controller resolver).</p>
+<p>Overall, the purpose of the <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event is either to create and
+return a <tt class="docutils literal"><span class="pre">Response</span></tt> directly, or to add information to the <tt class="docutils literal"><span class="pre">Request</span></tt>
+(e.g. setting the locale or setting some other information on the <tt class="docutils literal"><span class="pre">Request</span></tt>
+attributes).</p>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.request</span></tt> in the Symfony Framework</p>
+<p>The most important listener to <tt class="docutils literal"><span class="pre">kernel.request</span></tt> in the Symfony Framework
+is the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/RouterListener.html" title="Symfony\Component\HttpKernel\EventListener\RouterListener"><span class="pre">RouterListener</span></a></tt>.
+This class executes the routing layer, which returns an <em>array</em> of information
+about the matched request, including the <tt class="docutils literal"><span class="pre">_controller</span></tt> and any placeholders
+that are in the route&#8217;s pattern (e.g. <tt class="docutils literal"><span class="pre">{slug}</span></tt>). See
+<a class="reference internal" href="../routing/introduction.html"><em>Routing Component</em></a>.</p>
+<p class="last">This array of information is stored in the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt>
+object&#8217;s <tt class="docutils literal"><span class="pre">attributes</span></tt> array. Adding the routing information here doesn&#8217;t
+do anything yet, but is used next when resolving the controller.</p>
+</div>
+</div>
+<div class="section" id="resolve-the-controller">
+<span id="component-http-kernel-resolve-controller"></span><h3>2) Resolve the Controller<a class="headerlink" href="#resolve-the-controller" title="Permalink to this headline">¶</a></h3>
+<p>Assuming that no <tt class="docutils literal"><span class="pre">kernel.request</span></tt> listener was able to create a <tt class="docutils literal"><span class="pre">Response</span></tt>,
+the next step in HttpKernel is to determine and prepare (i.e. resolve) the
+controller. The controller is the part of the end-application&#8217;s code that
+is responsible for creating and returning the <tt class="docutils literal"><span class="pre">Response</span></tt> for a specific page.
+The only requirement is that it is a PHP callable - i.e. a function, method
+on an object, or a <tt class="docutils literal"><span class="pre">Closure</span></tt>.</p>
+<p>But <em>how</em> you determine the exact controller for a request is entirely up
+to your application. This is the job of the &#8220;controller resolver&#8221; -  a class
+that implements <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface"><span class="pre">ControllerResolverInterface</span></a></tt>
+and is one of the constructor arguments to <tt class="docutils literal"><span class="pre">HttpKernel</span></tt>.</p>
+<img alt="../../_images/04-resolve-controller.png" class="align-center" src="../../_images/04-resolve-controller.png" />
+<p>Your job is to create a class that implements the interface and fill in its
+two methods: <tt class="docutils literal"><span class="pre">getController</span></tt> and <tt class="docutils literal"><span class="pre">getArguments</span></tt>. In fact, one default
+implementation already exists, which you can use directly or learn from:
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolver.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>.
+This implementation is explained more in the sidebar below:</p>
+<div class="highlight-python"><pre>namespace Symfony\Component\HttpKernel\Controller;
+
+use Symfony\Component\HttpFoundation\Request;
+
+interface ControllerResolverInterface
+{
+    public function getController(Request $request);
+
+    public function getArguments(Request $request, $controller);
+}</pre>
+</div>
+<p>Internally, the <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt> method first calls
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html#method_getController" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface::getController()"><span class="pre">getController()</span></a></tt>
+on the controller resolver. This method is passed the <tt class="docutils literal"><span class="pre">Request</span></tt> and is responsible
+for somehow determining and returning a PHP callable (the controller) based
+on the request&#8217;s information.</p>
+<p>The second method, <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html#method_getArguments" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface::getArguments()"><span class="pre">getArguments()</span></a></tt>,
+will be called after another event - <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> - is dispatched.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Resolving the Controller in the Symfony2 Framework</p>
+<p>The Symfony Framework uses the built-in
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolver.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>
+class (actually, it uses a sub-class with some extra functionality
+mentioned below). This class leverages the information that was placed
+on the <tt class="docutils literal"><span class="pre">Request</span></tt> object&#8217;s <tt class="docutils literal"><span class="pre">attributes</span></tt> property during the <tt class="docutils literal"><span class="pre">RouterListener</span></tt>.</p>
+<p><strong>getController</strong></p>
+<p>The <tt class="docutils literal"><span class="pre">ControllerResolver</span></tt> looks for a <tt class="docutils literal"><span class="pre">_controller</span></tt>
+key on the <tt class="docutils literal"><span class="pre">Request</span></tt> object&#8217;s attributes property (recall that this
+information is typically placed on the <tt class="docutils literal"><span class="pre">Request</span></tt> via the <tt class="docutils literal"><span class="pre">RouterListener</span></tt>).
+This string is then transformed into a PHP callable by doing the following:</p>
+<p>a) The <tt class="docutils literal"><span class="pre">AcmeDemoBundle:Default:index</span></tt> format of the <tt class="docutils literal"><span class="pre">_controller</span></tt> key
+is changed to another string that contains the full class and method
+name of the controller by following the convention used in Symfony2 - e.g.
+<tt class="docutils literal"><span class="pre">Acme\DemoBundle\Controller\DefaultController::indexAction</span></tt>. This transformation
+is specific to the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Controller/ControllerResolver.html" title="Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>
+sub-class used by the Symfony2 Framework.</p>
+<p>b) A new instance of your controller class is instantiated with no
+constructor arguments.</p>
+<p>c) If the controller implements <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/ContainerAwareInterface.html" title="Symfony\Component\DependencyInjection\ContainerAwareInterface"><span class="pre">ContainerAwareInterface</span></a></tt>,
+<tt class="docutils literal"><span class="pre">setContainer</span></tt> is called on the controller object and the container
+is passed to it. This step is also specific to the  <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Controller/ControllerResolver.html" title="Symfony\Bundle\FrameworkBundle\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>
+sub-class used by the Symfony2 Framework.</p>
+<p class="last">There are also a few other variations on the above process (e.g. if
+you&#8217;re registering your controllers as services).</p>
+</div>
+</div>
+</div>
+<div class="section" id="the-kernel-controller-event">
+<span id="component-http-kernel-kernel-controller"></span><h2>3) The <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> event<a class="headerlink" href="#the-kernel-controller-event" title="Permalink to this headline">¶</a></h2>
+<p><strong>Typical Purposes</strong>: Initialize things or change the controller just before
+the controller is executed.</p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>After the controller callable has been determined, <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt>
+dispatches the <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> event. Listeners to this event might initialize
+some part of the system that needs to be initialized after certain things
+have been determined (e.g. the controller, routing information) but before
+the controller is executed. For some examples, see the Symfony2 section below.</p>
+<img alt="../../_images/06-kernel-controller.png" class="align-center" src="../../_images/06-kernel-controller.png" />
+<p>Listeners to this event can also change the controller callable completely
+by calling <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterControllerEvent.html#method_setController" title="Symfony\Component\HttpKernel\Event\FilterControllerEvent::setController()"><span class="pre">FilterControllerEvent::setController</span></a></tt>
+on the event object that&#8217;s passed to listeners on this event.</p>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.controller</span></tt> in the Symfony Framework</p>
+<p>There are a few minor listeners to the <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> event in
+the Symfony Framework, and many deal with collecting profiler data when
+the profiler is enabled.</p>
+<p class="last">One interesting listener comes from the <tt class="xref doc docutils literal"><span class="pre">SensioFrameworkExtraBundle</span></tt>,
+which is packaged with the Symfony Standard Edition. This listener&#8217;s
+<tt class="xref doc docutils literal"><span class="pre">&#64;ParamConverter</span></tt>
+functionality allows you to pass a full object (e.g. a <tt class="docutils literal"><span class="pre">Post</span></tt> object)
+to your controller instead of a scalar value (e.g. an <tt class="docutils literal"><span class="pre">id</span></tt> parameter
+that was on your route). The listener - <tt class="docutils literal"><span class="pre">ParamConverterListener</span></tt> - uses
+reflection to look at each of the arguments of the controller and tries
+to use different methods to convert those to objects, which are then
+stored in the <tt class="docutils literal"><span class="pre">attributes</span></tt> property of the <tt class="docutils literal"><span class="pre">Request</span></tt> object. Read the
+next section to see why this is important.</p>
+</div>
+</div>
+<div class="section" id="getting-the-controller-arguments">
+<h2>4) Getting the Controller Arguments<a class="headerlink" href="#getting-the-controller-arguments" title="Permalink to this headline">¶</a></h2>
+<p>Next, <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt> calls
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html#method_getArguments" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface::getArguments()"><span class="pre">getArguments()</span></a></tt>.
+Remember that the controller returned in <tt class="docutils literal"><span class="pre">getController</span></tt> is a callable.
+The purpose of <tt class="docutils literal"><span class="pre">getArguments</span></tt> is to return the array of arguments that
+should be passed to that controller. Exactly how this is done is completely
+up to your design, though the built-in <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolver.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolver"><span class="pre">ControllerResolver</span></a></tt>
+is a good example.</p>
+<img alt="../../_images/07-controller-arguments.png" class="align-center" src="../../_images/07-controller-arguments.png" />
+<p>At this point the kernel has a PHP callable (the controller) and an array
+of arguments that should be passed when executing that callable.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Getting the Controller Arguments in the Symfony2 Framework</p>
+<p>Now that you know exactly what the controller callable (usually a method
+inside a controller object) is, the <tt class="docutils literal"><span class="pre">ControllerResolver</span></tt> uses <a class="reference external" href="http://php.net/manual/en/book.reflection.php">reflection</a>
+on the callable to return an array of the <em>names</em> of each of the arguments.
+It then iterates over each of these arguments and uses the following tricks
+to determine which value should be passed for each argument:</p>
+<p>a) If the <tt class="docutils literal"><span class="pre">Request</span></tt> attributes bag contains a key that matches the name
+of the argument, that value is used. For example, if the first argument
+to a controller is <tt class="docutils literal"><span class="pre">$slug</span></tt>, and there is a <tt class="docutils literal"><span class="pre">slug</span></tt> key in the <tt class="docutils literal"><span class="pre">Request</span></tt>
+<tt class="docutils literal"><span class="pre">attributes</span></tt> bag, that value is used (and typically this value came
+from the <tt class="docutils literal"><span class="pre">RouterListener</span></tt>).</p>
+<p class="last">b) If the argument in the controller is type-hinted with Symfony&#8217;s
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html" title="Symfony\Component\HttpFoundation\Request"><span class="pre">Request</span></a></tt> object, then the
+<tt class="docutils literal"><span class="pre">Request</span></tt> is passed in as the value.</p>
+</div>
+<div class="section" id="calling-the-controller">
+<span id="component-http-kernel-calling-controller"></span><h3>5) Calling the Controller<a class="headerlink" href="#calling-the-controller" title="Permalink to this headline">¶</a></h3>
+<p>The next step is simple! <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt> executes the controller.</p>
+<img alt="../../_images/08-call-controller.png" class="align-center" src="../../_images/08-call-controller.png" />
+<p>The job of the controller is to build the response for the given resource.
+This could be an HTML page, a JSON string or anything else. Unlike every
+other part of the process so far, this step is implemented by the &#8220;end-developer&#8221;,
+for each page that is built.</p>
+<p>Usually, the controller will return a <tt class="docutils literal"><span class="pre">Response</span></tt> object. If this is true,
+then the work of the kernel is just about done! In this case, the next step
+is the <a class="reference internal" href="#component-http-kernel-kernel-response"><em>kernel.response</em></a> event.</p>
+<img alt="../../_images/09-controller-returns-response.png" class="align-center" src="../../_images/09-controller-returns-response.png" />
+<p>But if the controller returns anything besides a <tt class="docutils literal"><span class="pre">Response</span></tt>, then the kernel
+has a little bit more work to do - <a class="reference internal" href="#component-http-kernel-kernel-view"><em>kernel.view</em></a>
+(since the end goal is <em>always</em> to generate a <tt class="docutils literal"><span class="pre">Response</span></tt> object).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A controller must return <em>something</em>. If a controller returns <tt class="docutils literal"><span class="pre">null</span></tt>,
+an exception will be thrown immediately.</p>
+</div>
+</div>
+<div class="section" id="the-kernel-view-event">
+<span id="component-http-kernel-kernel-view"></span><h3>6) The <tt class="docutils literal"><span class="pre">kernel.view</span></tt> event<a class="headerlink" href="#the-kernel-view-event" title="Permalink to this headline">¶</a></h3>
+<p><strong>Typical Purposes</strong>: Transform a non-<tt class="docutils literal"><span class="pre">Response</span></tt> return value from a controller
+into a <tt class="docutils literal"><span class="pre">Response</span></tt></p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>If the controller doesn&#8217;t return a <tt class="docutils literal"><span class="pre">Response</span></tt> object, then the kernel dispatches
+another event - <tt class="docutils literal"><span class="pre">kernel.view</span></tt>. The job of a listener to this event is to
+use the return value of the controller (e.g. an array of data or an object)
+to create a <tt class="docutils literal"><span class="pre">Response</span></tt>.</p>
+<img alt="../../_images/10-kernel-view.png" class="align-center" src="../../_images/10-kernel-view.png" />
+<p>This can be useful if you want to use a &#8220;view&#8221; layer: instead of returning
+a <tt class="docutils literal"><span class="pre">Response</span></tt> from the controller, you return data that represents the page.
+A listener to this event could then use this data to create a <tt class="docutils literal"><span class="pre">Response</span></tt> that
+is in the correct format (e.g HTML, json, etc).</p>
+<p>At this stage, if no listener sets a response on the event, then an exception
+is thrown: either the controller <em>or</em> one of the view listeners must always
+return a <tt class="docutils literal"><span class="pre">Response</span></tt>.</p>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.view</span></tt> in the Symfony Framework</p>
+<p>There is no default listener inside the Symfony Framework for the <tt class="docutils literal"><span class="pre">kernel.view</span></tt>
+event. However, one core bundle -
+<tt class="xref doc docutils literal"><span class="pre">SensioFrameworkExtraBundle</span></tt> -
+<em>does</em> add a listener to this event. If your controller returns an array,
+and you place the <tt class="xref doc docutils literal"><span class="pre">&#64;Template</span></tt>
+annotation above the controller, then this listener renders a template,
+passes the array you returned from your controller to that template,
+and creates a <tt class="docutils literal"><span class="pre">Response</span></tt> containing the returned content from that
+template.</p>
+<p class="last">Additionally, a popular community bundle <a class="reference external" href="https://github.com/friendsofsymfony/FOSRestBundle">FOSRestBundle</a> implements
+a listener on this event which aims to give you a robust view layer
+capable of using a single controller to return many different content-type
+responses (e.g. HTML, JSON, XML, etc).</p>
+</div>
+</div>
+<div class="section" id="the-kernel-response-event">
+<span id="component-http-kernel-kernel-response"></span><h3>7) The <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event<a class="headerlink" href="#the-kernel-response-event" title="Permalink to this headline">¶</a></h3>
+<p><strong>Typical Purposes</strong>: Modify the <tt class="docutils literal"><span class="pre">Response</span></tt> object just before it is sent</p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>The end goal of the kernel is to transform a <tt class="docutils literal"><span class="pre">Request</span></tt> into a <tt class="docutils literal"><span class="pre">Response</span></tt>. The
+<tt class="docutils literal"><span class="pre">Response</span></tt> might be created during the <a class="reference internal" href="#component-http-kernel-kernel-request"><em>kernel.request</em></a>
+event, returned from the <a class="reference internal" href="#component-http-kernel-calling-controller"><em>controller</em></a>,
+or returned by one of the listeners to the <a class="reference internal" href="#component-http-kernel-kernel-view"><em>kernel.view</em></a>
+event.</p>
+<p>Regardless of who creates the <tt class="docutils literal"><span class="pre">Response</span></tt>, another event - <tt class="docutils literal"><span class="pre">kernel.response</span></tt>
+is dispatched directly afterwards. A typical listener to this event will modify
+the <tt class="docutils literal"><span class="pre">Response</span></tt> object in some way, such as modifying headers, adding cookies,
+or even changing the content of the <tt class="docutils literal"><span class="pre">Response</span></tt> itself (e.g. injecting some
+JavaScript before the end <tt class="docutils literal"><span class="pre">&lt;/body&gt;</span></tt> tag of an HTML response).</p>
+<p>After this event is dispatched, the final <tt class="docutils literal"><span class="pre">Response</span></tt> object is returned
+from <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html#method_handle" title="Symfony\Component\HttpKernel\HttpKernel::handle()"><span class="pre">handle()</span></a></tt>. In the
+most typical use-case, you can then call the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html#method_send" title="Symfony\Component\HttpFoundation\Response::send()"><span class="pre">send()</span></a></tt>
+method, which sends the headers and prints the <tt class="docutils literal"><span class="pre">Response</span></tt> content.</p>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.response</span></tt> in the Symfony Framework</p>
+<p class="last">There are several minor listeners on this event inside the Symfony Framework,
+and most modify the response in some way. For example, the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/WebProfilerBundle/EventListener/WebDebugToolbarListener.html" title="Symfony\Bundle\WebProfilerBundle\EventListener\WebDebugToolbarListener"><span class="pre">WebDebugToolbarListener</span></a></tt>
+injects some JavaScript at the bottom of your page in the <tt class="docutils literal"><span class="pre">dev</span></tt> environment
+which causes the web debug toolbar to be displayed. Another listener,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/Firewall/ContextListener.html" title="Symfony\Component\Security\Http\Firewall\ContextListener"><span class="pre">ContextListener</span></a></tt>
+serializes the current user&#8217;s information into the
+session so that it can be reloaded on the next request.</p>
+</div>
+</div>
+<div class="section" id="the-kernel-terminate-event">
+<span id="component-http-kernel-kernel-terminate"></span><h3>8) The <tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> event<a class="headerlink" href="#the-kernel-terminate-event" title="Permalink to this headline">¶</a></h3>
+<p><strong>Typical Purposes</strong>: To perform some &#8220;heavy&#8221; action after the response has
+been streamed to the user</p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>The final event of the HttpKernel process is <tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> and is unique
+because it occurs <em>after</em> the <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt> method, and after the
+response is sent to the user. Recall from above, then the code that uses
+the kernel, ends like this:</p>
+<div class="highlight-python"><pre>// echo the content and send the headers
+$response-&gt;send();
+
+// triggers the kernel.terminate event
+$kernel-&gt;terminate($request, $response);</pre>
+</div>
+<p>As you can see, by calling <tt class="docutils literal"><span class="pre">$kernel-&gt;terminate</span></tt> after sending the response,
+you will trigger the <tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> event where you can perform certain
+actions that you may have delayed in order to return the response as quickly
+as possible to the client (e.g. sending emails).</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Using the <tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> event is optional, and should only be
+called if your kernel implements <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/TerminableInterface.html" title="Symfony\Component\HttpKernel\TerminableInterface"><span class="pre">TerminableInterface</span></a></tt>.</p>
+</div>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> in the Symfony Framework</p>
+<p class="last">If you use the <tt class="docutils literal"><span class="pre">SwiftmailerBundle</span></tt> with Symfony2 and use <tt class="docutils literal"><span class="pre">memory</span></tt>
+spooling, then the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/SwiftmailerBundle/EventListener/EmailSenderListener.html" title="Symfony\Bundle\SwiftmailerBundle\EventListener\EmailSenderListener"><span class="pre">EmailSenderListener</span></a></tt>
+is activated, which actually delivers any emails that you scheduled to
+send during the request.</p>
+</div>
+</div>
+<div class="section" id="handling-exceptions-the-kernel-exception-event">
+<span id="component-http-kernel-kernel-exception"></span><h3>Handling Exceptions:: the <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> event<a class="headerlink" href="#handling-exceptions-the-kernel-exception-event" title="Permalink to this headline">¶</a></h3>
+<p><strong>Typical Purposes</strong>: Handle some type of exception and create an appropriate
+<tt class="docutils literal"><span class="pre">Response</span></tt> to return for the exception</p>
+<p><a class="reference internal" href="#component-http-kernel-event-table"><em>Kernel Events Information Table</em></a></p>
+<p>If an exception is thrown at any point inside <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt>, another
+event - <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> is thrown. Internally, the body of the <tt class="docutils literal"><span class="pre">handle</span></tt>
+function is wrapped in a try-catch block. When any exception is thrown, the
+<tt class="docutils literal"><span class="pre">kernel.exception</span></tt> event is dispatched so that your system can somehow respond
+to the exception.</p>
+<img alt="../../_images/11-kernel-exception.png" class="align-center" src="../../_images/11-kernel-exception.png" />
+<p>Each listener to this event is passed a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForExceptionEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent"><span class="pre">GetResponseForExceptionEvent</span></a></tt>
+object, which you can use to access the original exception via the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForExceptionEvent.html#method_getException" title="Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent::getException()"><span class="pre">getException()</span></a></tt>
+method. A typical listener on this event will check for a certain type of
+exception and create an appropriate error <tt class="docutils literal"><span class="pre">Response</span></tt>.</p>
+<p>For example, to generate a 404 page, you might throw a special type of exception
+and then add a listener on this event that looks for this exception and
+creates and returns a 404 <tt class="docutils literal"><span class="pre">Response</span></tt>. In fact, the <tt class="docutils literal"><span class="pre">HttpKernel</span></tt> component
+comes with an <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/ExceptionListener.html" title="Symfony\Component\HttpKernel\EventListener\ExceptionListener"><span class="pre">ExceptionListener</span></a></tt>,
+which if you choose to use, will do this and more by default (see the sidebar
+below for more details).</p>
+<div class="sidebar">
+<p class="first sidebar-title"><tt class="docutils literal"><span class="pre">kernel.exception</span></tt> in the Symfony Framework</p>
+<p>There are two main listeners to <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> when using the
+Symfony Framework.</p>
+<p><strong>ExceptionListener in HttpKernel</strong></p>
+<p>The first comes core to the <tt class="docutils literal"><span class="pre">HttpKernel</span></tt> component
+and is called <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/EventListener/ExceptionListener.html" title="Symfony\Component\HttpKernel\EventListener\ExceptionListener"><span class="pre">ExceptionListener</span></a></tt>.
+The listener has several goals:</p>
+<p>1) The thrown exception is converted into a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Exception/FlattenException.html" title="Symfony\Component\HttpKernel\Exception\FlattenException"><span class="pre">FlattenException</span></a></tt>
+object, which contains all the information about the request, but which
+can be printed and serialized.</p>
+<p>2) If the original exception implements
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Exception/HttpExceptionInterface.html" title="Symfony\Component\HttpKernel\Exception\HttpExceptionInterface"><span class="pre">HttpExceptionInterface</span></a></tt>,
+then <tt class="docutils literal"><span class="pre">getStatusCode</span></tt> and <tt class="docutils literal"><span class="pre">getHeaders</span></tt> are called on the exception
+and used to populate the headers and status code of the <tt class="docutils literal"><span class="pre">FlattenException</span></tt>
+object. The idea is that these are used in the next step when creating
+the final response.</p>
+<p>3) A controller is executed and passed the flattened exception. The exact
+controller to render is passed as a constructor argument to this listener.
+This controller will return the final <tt class="docutils literal"><span class="pre">Response</span></tt> for this error page.</p>
+<p><strong>ExceptionListener in Security</strong></p>
+<p class="last">The other important listener is the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/Firewall/ExceptionListener.html" title="Symfony\Component\Security\Http\Firewall\ExceptionListener"><span class="pre">ExceptionListener</span></a></tt>.
+The goal of this listener is to handle security exceptions and, when
+appropriate, <em>help</em> the user to authenticate (e.g. redirect to the login
+page).</p>
+</div>
+</div>
+</div>
+<div class="section" id="creating-an-event-listener">
+<span id="http-kernel-creating-listener"></span><h2>Creating an Event Listener<a class="headerlink" href="#creating-an-event-listener" title="Permalink to this headline">¶</a></h2>
+<p>As you&#8217;ve seen, you can create and attach event listeners to any of the events
+dispatched during the <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt> cycle. Typically a listener is a PHP
+class with a method that&#8217;s executed, but it can be anything. For more information
+on creating and attaching event listeners, see <a class="reference internal" href="../event_dispatcher/introduction.html"><em>The Event Dispatcher Component</em></a>.</p>
+<p>The name of each of the &#8220;kernel&#8221; events is defined as a constant on the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/KernelEvents.html" title="Symfony\Component\HttpKernel\KernelEvents"><span class="pre">KernelEvents</span></a></tt> class. Additionally, each
+event listener is passed a single argument, which is some sub-class of <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/KernelEvent.html" title="Symfony\Component\HttpKernel\Event\KernelEvent"><span class="pre">KernelEvent</span></a></tt>.
+This object contains information about the current state of the system and
+each event has their own event object:</p>
+<table border="1" class="docutils" id="component-http-kernel-event-table">
+<colgroup>
+<col width="14%" />
+<col width="23%" />
+<col width="63%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><strong>Name</strong></td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents</span></tt> <strong>Constant</strong></td>
+<td><strong>Argument passed to the listener</strong></td>
+</tr>
+<tr class="row-even"><td>kernel.request</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::REQUEST</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseEvent"><span class="pre">GetResponseEvent</span></a></tt></td>
+</tr>
+<tr class="row-odd"><td>kernel.controller</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::CONTROLLER</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterControllerEvent.html" title="Symfony\Component\HttpKernel\Event\FilterControllerEvent"><span class="pre">FilterControllerEvent</span></a></tt></td>
+</tr>
+<tr class="row-even"><td>kernel.view</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::VIEW</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForControllerResultEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseForControllerResultEvent"><span class="pre">GetResponseForControllerResultEvent</span></a></tt></td>
+</tr>
+<tr class="row-odd"><td>kernel.response</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::RESPONSE</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/FilterResponseEvent.html" title="Symfony\Component\HttpKernel\Event\FilterResponseEvent"><span class="pre">FilterResponseEvent</span></a></tt></td>
+</tr>
+<tr class="row-even"><td>kernel.terminate</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::TERMINATE</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/PostResponseEvent.html" title="Symfony\Component\HttpKernel\Event\PostResponseEvent"><span class="pre">PostResponseEvent</span></a></tt></td>
+</tr>
+<tr class="row-odd"><td>kernel.exception</td>
+<td><tt class="docutils literal"><span class="pre">KernelEvents::EXCEPTION</span></tt></td>
+<td><tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/GetResponseForExceptionEvent.html" title="Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent"><span class="pre">GetResponseForExceptionEvent</span></a></tt></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="a-full-working-example">
+<span id="http-kernel-working-example"></span><h2>A Full Working Example<a class="headerlink" href="#a-full-working-example" title="Permalink to this headline">¶</a></h2>
+<p>When using the HttpKernel component, you&#8217;re free to attach any listeners
+to the core events and use any controller resolver that implements the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Controller/ControllerResolverInterface.html" title="Symfony\Component\HttpKernel\Controller\ControllerResolverInterface"><span class="pre">ControllerResolverInterface</span></a></tt>.
+However, the HttpKernel component comes with some built-in listeners and
+a built-in ControllerResolver that can be used to create a working example:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\HttpKernel;
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\HttpKernel\Controller\ControllerResolver;
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\Matcher\UrlMatcher;
+use Symfony\Component\Routing\RequestContext;
+
+$routes = new RouteCollection();
+$routes-&gt;add('hello', new Route('/hello/{name}', array(
+        '_controller' =&gt; function (Request $request) {
+            return new Response(sprintf("Hello %s", $request-&gt;get('name')));
+        }
+    )
+));
+
+$request = Request::createFromGlobals();
+
+$matcher = new UrlMatcher($routes, new RequestContext());
+
+$dispatcher = new EventDispatcher();
+$dispatcher-&gt;addSubscriber(new RouterListener($matcher));
+
+$resolver = new ControllerResolver();
+$kernel = new HttpKernel($dispatcher, $resolver);
+
+$response = $kernel-&gt;handle($request);
+$response-&gt;send();
+
+$kernel-&gt;terminate($request, $response);</pre>
+</div>
+</div>
+<div class="section" id="sub-requests">
+<h2>Sub Requests<a class="headerlink" href="#sub-requests" title="Permalink to this headline">¶</a></h2>
+<p>In addition to the &#8220;main&#8221; request that&#8217;s sent into <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt>,
+you can also send so-called &#8220;sub request&#8221;. A sub request looks and acts like
+any other request, but typically serves to render just one small portion of
+a page instead of a full page. You&#8217;ll most commonly make sub-requests from
+your controller (or perhaps from inside a template, that&#8217;s being rendered by
+your controller).</p>
+<img alt="../../_images/sub-request.png" class="align-center" src="../../_images/sub-request.png" />
+<p>To execute a sub request, use <tt class="docutils literal"><span class="pre">HttpKernel::handle</span></tt>, but change the second
+arguments as follows:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
+
+// ...
+
+// create some other request manually as needed
+$request = new Request();
+// for example, possibly set its _controller manually
+$request-&gt;attributes-&gt;add('_controller', '...');
+
+$response = $kernel-&gt;handle($request, HttpKernelInterface::SUB_REQUEST);
+// do something with this response</pre>
+</div>
+<p>This creates another full request-response cycle where this new <tt class="docutils literal"><span class="pre">Request</span></tt> is
+transformed into a <tt class="docutils literal"><span class="pre">Response</span></tt>. The only difference internally is that some
+listeners (e.g. security) may only act upon the master request. Each listener
+is passed some sub-class of <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/KernelEvent.html" title="Symfony\Component\HttpKernel\Event\KernelEvent"><span class="pre">KernelEvent</span></a></tt>,
+whose <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/Event/KernelEvent.html#method_getRequestType" title="Symfony\Component\HttpKernel\Event\KernelEvent::getRequestType()"><span class="pre">getRequestType()</span></a></tt>
+can be used to figure out if the current request is a &#8220;master&#8221; or &#8220;sub&#8221; request.</p>
+<p>For example, a listener that only needs to act on the master request may
+look like this:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpKernel\HttpKernelInterface;
+// ...
+
+public function onKernelRequest(GetResponseEvent $event)
+{
+    if (HttpKernelInterface::MASTER_REQUEST !== $event-&gt;getRequestType()) {
+        return;
+    }
+
+    // ...
+}</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">The HttpKernel Component</a><ul>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#the-workflow-of-a-request">The Workflow of a Request</a><ul>
+<li><a class="reference internal" href="#httpkernel-driven-by-events">HttpKernel: Driven by Events</a></li>
+<li><a class="reference internal" href="#the-kernel-request-event">1) The <tt class="docutils literal"><span class="pre">kernel.request</span></tt> event</a></li>
+<li><a class="reference internal" href="#resolve-the-controller">2) Resolve the Controller</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#the-kernel-controller-event">3) The <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> event</a></li>
+<li><a class="reference internal" href="#getting-the-controller-arguments">4) Getting the Controller Arguments</a><ul>
+<li><a class="reference internal" href="#calling-the-controller">5) Calling the Controller</a></li>
+<li><a class="reference internal" href="#the-kernel-view-event">6) The <tt class="docutils literal"><span class="pre">kernel.view</span></tt> event</a></li>
+<li><a class="reference internal" href="#the-kernel-response-event">7) The <tt class="docutils literal"><span class="pre">kernel.response</span></tt> event</a></li>
+<li><a class="reference internal" href="#the-kernel-terminate-event">8) The <tt class="docutils literal"><span class="pre">kernel.terminate</span></tt> event</a></li>
+<li><a class="reference internal" href="#handling-exceptions-the-kernel-exception-event">Handling Exceptions:: the <tt class="docutils literal"><span class="pre">kernel.exception</span></tt> event</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#creating-an-event-listener">Creating an Event Listener</a></li>
+<li><a class="reference internal" href="#a-full-working-example">A Full Working Example</a></li>
+<li><a class="reference internal" href="#sub-requests">Sub Requests</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">HTTP Kernel</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../intl.html"
+                        title="next chapter">The Intl Component</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/http_kernel/introduction.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../intl.html" title="The Intl Component"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="HTTP Kernel"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >HTTP Kernel</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

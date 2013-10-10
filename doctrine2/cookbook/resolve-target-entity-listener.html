@@ -1,0 +1,450 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Keeping your Modules independent &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="SQL-Table Prefixes" href="sql-table-prefixes.html" />
+    <link rel="prev" title="Integrating with CodeIgniter" href="integrating-with-codeigniter.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="sql-table-prefixes.html" title="SQL-Table Prefixes"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="integrating-with-codeigniter.html" title="Integrating with CodeIgniter"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="keeping-your-modules-independent">
+<h1>Keeping your Modules independent<a class="headerlink" href="#keeping-your-modules-independent" title="Permalink to this headline">¶</a></h1>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.2.</span></p>
+<p>One of the goals of using modules is to create discreet units of functionality
+that do not have many (if any) dependencies, allowing you to use that
+functionality in other applications without including unnecessary items.</p>
+<p>Doctrine 2.2 includes a new utility called the <tt class="docutils literal"><span class="pre">ResolveTargetEntityListener</span></tt>,
+that functions by intercepting certain calls inside Doctrine and rewrite
+targetEntity parameters in your metadata mapping at runtime. It means that
+in your bundle you are able to use an interface or abstract class in your
+mappings and expect correct mapping to a concrete entity at runtime.</p>
+<p>This functionality allows you to define relationships between different entities
+but not making them hard dependencies.</p>
+<div class="section" id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">¶</a></h2>
+<p>In the following example, the situation is we have an <cite>InvoiceModule</cite>
+which provides invoicing functionality, and a <cite>CustomerModule</cite> that
+contains customer management tools. We want to keep these separated,
+because they can be used in other systems without each other, but for
+our application we want to use them together.</p>
+<p>In this case, we have an <tt class="docutils literal"><span class="pre">Invoice</span></tt> entity with a relationship to a
+non-existent object, an <tt class="docutils literal"><span class="pre">InvoiceSubjectInterface</span></tt>. The goal is to get
+the <tt class="docutils literal"><span class="pre">ResolveTargetEntityListener</span></tt> to replace any mention of the interface
+with a real object that implements that interface.</p>
+</div>
+<div class="section" id="set-up">
+<h2>Set up<a class="headerlink" href="#set-up" title="Permalink to this headline">¶</a></h2>
+<p>We&#8217;re going to use the following basic entities (which are incomplete
+for brevity) to explain how to set up and use the RTEL.</p>
+<p>A Customer entity</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// src/Acme/AppModule/Entity/Customer.php</span>
+
+<span class="k">namespace</span> <span class="nx">Acme\AppModule\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping</span> <span class="k">as</span> <span class="nx">ORM</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\CustomerModule\Entity\Customer</span> <span class="k">as</span> <span class="nx">BaseCustomer</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\InvoiceModule\Model\InvoiceSubjectInterface</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * @ORM\Entity</span>
+<span class="sd"> * @ORM\Table(name=&quot;customer&quot;)</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">Customer</span> <span class="k">extends</span> <span class="nx">BaseCustomer</span> <span class="k">implements</span> <span class="nx">InvoiceSubjectInterface</span>
+<span class="p">{</span>
+    <span class="c1">// In our example, any methods defined in the InvoiceSubjectInterface</span>
+    <span class="c1">// are already implemented in the BaseCustomer</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An Invoice entity</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// src/Acme/InvoiceModule/Entity/Invoice.php</span>
+
+<span class="k">namespace</span> <span class="nx">Acme\InvoiceModule\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Doctrine\ORM\Mapping</span> <span class="k">AS</span> <span class="nx">ORM</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\InvoiceModule\Model\InvoiceSubjectInterface</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * Represents an Invoice.</span>
+<span class="sd"> *</span>
+<span class="sd"> * @ORM\Entity</span>
+<span class="sd"> * @ORM\Table(name=&quot;invoice&quot;)</span>
+<span class="sd"> */</span>
+<span class="k">class</span> <span class="nc">Invoice</span>
+<span class="p">{</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @ORM\ManyToOne(targetEntity=&quot;Acme\InvoiceModule\Model\InvoiceSubjectInterface&quot;)</span>
+<span class="sd">     * @var InvoiceSubjectInterface</span>
+<span class="sd">     */</span>
+    <span class="k">protected</span> <span class="nv">$subject</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>An InvoiceSubjectInterface</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="c1">// src/Acme/InvoiceModule/Model/InvoiceSubjectInterface.php</span>
+
+<span class="k">namespace</span> <span class="nx">Acme\InvoiceModule\Model</span><span class="p">;</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * An interface that the invoice Subject object should implement.</span>
+<span class="sd"> * In most circumstances, only a single object should implement</span>
+<span class="sd"> * this interface as the ResolveTargetEntityListener can only</span>
+<span class="sd"> * change the target to a single object.</span>
+<span class="sd"> */</span>
+<span class="k">interface</span> <span class="nx">InvoiceSubjectInterface</span>
+<span class="p">{</span>
+    <span class="c1">// List any additional methods that your InvoiceModule</span>
+    <span class="c1">// will need to access on the subject so that you can</span>
+    <span class="c1">// be sure that you have access to those methods.</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * @return string</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getName</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Next, we need to configure the listener. Add this to the area you set up Doctrine. You
+must set this up in the way outlined below, otherwise you can not be guaranteed that
+the targetEntity resolution will occur reliably:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$evm</span>  <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\EventManager</span><span class="p">;</span>
+<span class="nv">$rtel</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\ORM\Tools\ResolveTargetEntityListener</span><span class="p">;</span>
+
+<span class="c1">// Adds a target-entity class</span>
+<span class="nv">$rtel</span><span class="o">-&gt;</span><span class="na">addResolveTargetEntity</span><span class="p">(</span><span class="s1">&#39;Acme\\InvoiceModule\\Model\\InvoiceSubjectInterface&#39;</span><span class="p">,</span> <span class="s1">&#39;Acme\\CustomerModule\\Entity\\Customer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">());</span>
+
+<span class="c1">// Add the ResolveTargetEntityListener</span>
+<span class="nv">$evm</span><span class="o">-&gt;</span><span class="na">addEventListener</span><span class="p">(</span><span class="nx">Doctrine\ORM\Events</span><span class="o">::</span><span class="na">loadClassMetadata</span><span class="p">,</span> <span class="nv">$rtel</span><span class="p">);</span>
+
+<span class="nv">$em</span> <span class="o">=</span> <span class="nx">\Doctrine\ORM\EntityManager</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="nv">$connectionOptions</span><span class="p">,</span> <span class="nv">$config</span><span class="p">,</span> <span class="nv">$evm</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="final-thoughts">
+<h2>Final Thoughts<a class="headerlink" href="#final-thoughts" title="Permalink to this headline">¶</a></h2>
+<p>With the <tt class="docutils literal"><span class="pre">ResolveTargetEntityListener</span></tt>, we are able to decouple our
+bundles, keeping them usable by themselves, but still being able to
+define relationships between different objects. By using this method,
+I&#8217;ve found my bundles end up being easier to maintain independently.</p>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">Keeping your Modules independent</a><ul>
+<li><a class="reference internal" href="#background">Background</a></li>
+<li><a class="reference internal" href="#set-up">Set up</a></li>
+<li><a class="reference internal" href="#final-thoughts">Final Thoughts</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="integrating-with-codeigniter.html"
+                                  title="previous chapter">Integrating with CodeIgniter</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="sql-table-prefixes.html"
+                                  title="next chapter">SQL-Table Prefixes</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/cookbook/resolve-target-entity-listener.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/cookbook/resolve-target-entity-listener.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/cookbook/resolve-target-entity-listener.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

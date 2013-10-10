@@ -1,0 +1,196 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Basic memory management</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="internals2.memory.html">Memory management</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="internals2.memory.persistence.html">Data persistence</a></div>
+ <div class="up"><a href="internals2.memory.html">Memory management</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="internals2.memory.management" class="sect1">
+  <h2 class="title">Basic memory management</h2>
+
+  <p class="para">
+   When programming in the C programming language the developer has to manually
+   care about memory management. As PHP is usually used as a web server
+   module memory management is from special relevance in order to prevent memory
+   leaks. Additionally you should be aware that PHP might be used in threaded
+   environments which means that global variables might lead to race
+   conditions. For information about dealing with thread-global data please
+   refer to the documentation on the <a href="internals2.memory.tsrm.html" class="xref">Thread-Safe Resource Manager</a>,
+   which serves as thread-isolation facility.
+  </p>
+
+  <p class="para">
+   Additionally to these requirements the Zend Engine is faced with a quite
+   special usage pattern where, within a relatively short time, many memory
+   blocks of the size of a zval structure or  other small memory blocks are
+   requested and freed again. Memory management in PHP has also to respect
+   the <a href="ini.core.html#ini.memory-limit" class="link">memory_limit</a>.
+  </p>
+
+  <p class="para">
+   For fulfilling the above requirements the Zend Engine provides a special
+   memory manager for handling request-bound data. Request-bound data is data
+   that is needed only for serving a single request and which will be freed at
+   the request&#039;s end at latest. Extension authors will mostly only have contact 
+   with the routines listed in the table below. Although they are implemented 
+   as macros for providing some convenience features this documentation will 
+   treat them like functions.
+  </p>
+
+  <table id="internals2.memory.management.apis" class="doctable table">
+   <caption><strong>Main memory APIs</strong></caption>
+   
+    <thead>
+     <tr>
+      <th>Prototype</th>
+      <th>Description</th>
+     </tr>
+
+    </thead>
+
+    <tbody class="tbody">
+     
+     <tr>
+      <td><code class="code">void *emalloc(size_t size)</code></td>
+      <td>Allocate <code class="code">size</code> bytes of memory.</td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">void *ecalloc(size_t nmemb, size_t size)</code></td>
+      <td>
+       Allocate a buffer for <code class="code">nmemb</code> elements of
+       <code class="code">size</code> bytes and makes sure it is initialized with zeros.
+      </td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">void *erealloc(void *ptr, size_t size)</code></td>
+      <td>
+       Resize the buffer <code class="code">ptr</code>, which was allocated using
+       <code class="code">emalloc</code> to hold <code class="code">size</code> bytes of memory.
+      </td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">void efree(void *ptr)</code></td>
+      <td>
+       Free the buffer pointed by <code class="code">ptr</code>. The buffer had to be 
+       allocated by <code class="code">emalloc</code>.
+      </td>
+     </tr>
+
+
+     <tr>
+      <td>
+       <code class="code">void *safe_emalloc(size_t nmemb, size_t size, size_t offset)</code>
+      </td>
+      <td>
+       Allocate a buffer for holding <code class="code">nmemb</code> blocks of each
+       <code class="code">size</code> bytes and an additional <code class="code">offset</code> bytes.
+       This is similar to <code class="code">emalloc(nmemb * size + offset)</code> but adds
+       a special protection against overflows.
+      </td>
+     </tr>
+
+
+     <tr>
+      <td><code class="code">char *estrdup(const char *s)</code></td>
+      <td>
+       Allocate a buffer that can hold the NULL-terminated string
+       <code class="code">s</code> and copy the <code class="code">s</code> into that buffer.
+      </td>
+     </tr>
+
+
+     <tr>
+      <td>
+       <code class="code">char *estrndup(const char *s, unsigned int length)</code>
+      </td>
+      <td>
+       Similar to <code class="code">estrdup</code> while the length of the
+       NULL-terminated string is already known.
+      </td>
+     </tr>
+
+    </tbody>
+   
+  </table>
+
+
+  <blockquote class="note"><p><strong class="note">Note</strong>: 
+   <span class="simpara">
+    Unlike their C standard library&#039;s counterparts the Zend Engine&#039;s memory
+    management functions won&#039;t return NULL in case of an problem while 
+    allocating the requested memory but bail out and terminate the current 
+    request.
+   </span>
+  </p></blockquote>
+
+  <p class="para">
+   As said above it is an essential part of the memory management to avoid
+   having memory leaks and therefore free all memory you&#039;ve allocated as soon
+   as possible. As a safety net the Zend Engine will free all memory, which had
+   been allocated using above mentioned APIs at the end of a request. If PHP 
+   was built using the <code class="code">--enable-debug</code> configuration option this 
+   will lead to a warning.
+  </p>
+
+  <div class="example" id="internals2.memory.management.example.leak">
+   <p><strong>Example #1 PHP&#039;s leak warnings</strong></p>
+   <div class="example-contents">
+<div class="ccode"><pre class="ccode">ZEND_FUNCTION(leak)
+{
+    long leakbytes = 3;
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, &quot;|l&quot;, &amp;leakbytes) == FAILURE) {
+        return;
+    }
+
+    emalloc(leakbytes);
+}</pre>
+</div>
+   </div>
+
+   <div class="example-contents"><p>The above example will output
+something similar to:</p></div>
+   <div class="example-contents screen">
+<div class="cdata"><pre>
+[Thu Oct 22 02:14:57 2009]  Script:  &#039;-&#039;
+/home/johannes/src/PHP_5_3/Zend/zend_builtin_functions.c(1377) :  Freeing 0x088888D4 (3 bytes), script=-
+=== Total 1 memory leaks detected ===
+</pre></div>
+   </div>
+  </div>
+
+  <blockquote class="note"><p><strong class="note">Note</strong>: 
+   <span class="simpara">
+    When dealing with PHP variables you have to make sure the variable&#039;s
+    memory is allocated using emalloc and take care of the reference count.
+    Details can be found in <a href="internals2.variables.html" class="xref">Working with variables</a>.
+   </span>
+  </p></blockquote>
+
+  <blockquote class="note"><p><strong class="note">Note</strong>: 
+   <span class="simpara">
+    This leak detection can only find leaks caused by blocks allocated by 
+    emalloc. You&#039;re advised to use a memory checker like valgrind or libumem
+    for deeper analysis. To simplify the analysis PHP&#039;s memory manager can be 
+    disabled by setting the environment variable USE_ZEND_ALLOC=0 before 
+    starting PHP.
+   </span>
+  </p></blockquote>
+
+ </div><hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="internals2.memory.html">Memory management</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="internals2.memory.persistence.html">Data persistence</a></div>
+ <div class="up"><a href="internals2.memory.html">Memory management</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

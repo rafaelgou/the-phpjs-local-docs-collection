@@ -1,0 +1,1118 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>マネージャー &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Manual" href="index.html" />
+    <link rel="next" title="はじめに" href="native-sql.html" />
+    <link rel="prev" title="はじめに" href="dql-doctrine-query-language.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="native-sql.html" title="はじめに"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dql-doctrine-query-language.html" title="はじめに"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Manual</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <p>この章はDoctrineを構成するすべてのメインコンポーネントとそれらの連携方法を鳥の目から見ることを目的としています。前の章で既に大半のコンポーネントを検討しましたがこの章ではすべてのコンポーネントとそれらのジョブの理解が進みます。</p>
+<div class="section" id="id1">
+<h1>マネージャー<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id2"><span class="problematic" id="id3">``</span></a>Doctrine_Manager``クラスはSingletonで構成階層のrootでありDoctrineのいくつかの面をコントロールするFacadeです。次のコードでSingletonインスタンスを読み取ることができます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $manager = Doctrine_Manager::getInstance();</p>
+<div class="section" id="id4">
+<h2>接続を読み取る<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $connections = <tt class="code docutils literal"><span class="pre">manager-&gt;getConnections();</span> <span class="pre">foreach</span> <span class="pre">(</span></tt>connections
+as $connection) { echo $connection-&gt;getName() . &#8220;&#8221;; }</p>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a>Doctrine_Manager``はイテレータを実装するので接続をループするために変数$managerをループできます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... foreach ($manager as $connection) { echo $connection-&gt;getName() .
+&#8220;&#8221;; }</p>
+</div>
+</div>
+<div class="section" id="id7">
+<h1>接続<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id8"><span class="problematic" id="id9">``</span></a>Doctrine_Connection``はデータベース用のラッパーです。接続は典型的なPDOのインスタンスですが、Doctrineの設計のおおかげで、PDOが提供する機能を模倣する独自アダプタを設計することが可能です。</p>
+<p><a href="#id10"><span class="problematic" id="id11">``</span></a>Doctrine_Connection``クラスは次のことを対処します:</p>
+<ul class="simple">
+<li>PDOから見つからないデータベースのポータビリティ機能(例えばLIMIT/OFFSETのエミュレーション)を処理する</li>
+<li><a href="#id12"><span class="problematic" id="id13">``</span></a>Doctrine_Table``オブジェクトの経過を追跡する</li>
+<li>レコードの経過を追跡する</li>
+<li>update/insert/deleteする必要のあるレコードの経過を追跡する</li>
+<li>トランザクションと入れ子構造のトランザクションを処理する</li>
+<li>INSERT / UPDATE /
+DELETEオペレーションの場合の実際のデータベースクエリを処理する</li>
+<li>DQLを使用データベースクエリを行う。DQLは[doc
+dql-doctrine-query-language :name]の章で学ぶことができる。</li>
+<li>オプションとしてDoctrine_Validatorを使用してトランザクションをバリデートしてあり得るエラーの全情報を示す</li>
+</ul>
+<div class="section" id="id14">
+<h2>利用できるドライバ<a class="headerlink" href="#id14" title="Permalink to this headline">¶</a></h2>
+<p>DoctrineはPDOがサポートするデータベース用のすべてのドライバを持ちます。サポートされるデータベースは次の通りです:</p>
+<ul class="simple">
+<li>FreeTDS / Microsoft SQL Server / Sybase</li>
+<li>Firebird/Interbase 6</li>
+<li>Informix</li>
+<li>Mysql</li>
+<li>Oracle</li>
+<li>Odbc</li>
+<li>PostgreSQL</li>
+<li>Sqlite</li>
+</ul>
+</div>
+<div class="section" id="id15">
+<h2>接続を作成する<a class="headerlink" href="#id15" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $conn =
+Doctrine_Manager::connection(&#8216;mysql://username:password&#64;localhost/test&#8217;,
+&#8216;connection 1&#8217;);</p>
+<blockquote>
+<div><strong>NOTE</strong>
+前の章で既に新しい接続を作成しました。上記のステップをスキップして既に作成した接続を使うことができます。<a href="#id16"><span class="problematic" id="id17">``</span></a>Doctrine_Manager::connection()``メソッドを使用して読み取ることができます。</div></blockquote>
+</div>
+<div class="section" id="flush">
+<h2>接続をflushする<a class="headerlink" href="#flush" title="Permalink to this headline">¶</a></h2>
+<p>新しい``User``レコードを作成するときレコードは接続をflushしてその接続に対して保存されていないすべてのオブジェクトを保存します。下記は例です:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $conn = Doctrine_Manager::connection();</p>
+<p>$user1 = new User(); $user1-&gt;username = &#8216;Jack&#8217;;</p>
+<p>$user2 = new User(); $user2-&gt;username = &#8216;jwage&#8217;;</p>
+<p>$conn-&gt;flush();</p>
+<p><a href="#id18"><span class="problematic" id="id19">``</span></a>Doctrine_Connection::flush()``を呼び出せばその接続に対する未保存のレコードインスタンスが保存されます。もちろんオプションとしてそれぞれのレコードごとに``save()``を呼び出して同じことができます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user1-&gt;save(); $user2-&gt;save();</p>
+</div>
+</div>
+<div class="section" id="id20">
+<h1>テーブル<a class="headerlink" href="#id20" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id21"><span class="problematic" id="id22">``</span></a>Doctrine_Table``はコンポーネント(レコード)によって指定されるスキーマ情報を保有します。例えば``Doctrine_Record``を継承する``User``クラスがある場合、それぞれのスキーマ定義の呼び出しは後で使う情報を保有するユニークなテーブルオブジェクトにデリゲートされます。</p>
+<p>それぞれの``Doctrine_Table``は``Doctrine_Connection``によって登録されます。下記に示されるそれぞれのコンポーネント用のテーブルオブジェクトを簡単に取得できます。</p>
+<p>例えば、Userクラス用のテーブルオブジェクトを読み取りたい場合を考えます。これは``User``を``Doctrine_Core::getTable()``メソッドの第一引数として渡すことで可能です。</p>
+<div class="section" id="id23">
+<h2>テーブルオブジェクトを取得する<a class="headerlink" href="#id23" title="Permalink to this headline">¶</a></h2>
+<p>指定するレコードのテーブルオブジェクトを取得するには、<a href="#id24"><span class="problematic" id="id25">``</span></a>Doctrine_Record::getTable()``を呼び出すだけです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $accountTable = Doctrine_Core::getTable(&#8216;Account&#8217;);</p>
+</div>
+<div class="section" id="id26">
+<h2>カラム情報を取得する<a class="headerlink" href="#id26" title="Permalink to this headline">¶</a></h2>
+<p>適切な``Doctrine_Table``メソッドを使用することで``Doctrine_Record``のカラム定義セットを読み取ることができます。すべてのカラムのすべての情報が必要な場合は次のように行います:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $columns = $accountTable-&gt;getColumns();</p>
+<p>$columns = <tt class="code docutils literal"><span class="pre">accountTable-&gt;getColumns();</span> <span class="pre">foreach</span> <span class="pre">(</span></tt>columns as
+<tt class="code docutils literal"><span class="pre">column)</span> <span class="pre">{</span> <span class="pre">print_r(</span></tt>column); }</p>
+<p>上記の例が実行されるときに次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [type] =&gt; integer [length] =&gt; 20 [autoincrement]</div></blockquote>
+<p>=&gt; 1 [primary] =&gt; 1 ) Array ( [type] =&gt; string [length] =&gt; 255 ) Array (
+[type] =&gt; decimal [length] =&gt; 18 )</p>
+<p>ときにこれがやりすぎであることがあります。次の例はカラムの名前を配列として読み取る方法を示しています:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $names = <tt class="code docutils literal"><span class="pre">accountTable-&gt;getColumnNames();</span> <span class="pre">print_r(</span></tt>names);</p>
+<p>上記の例が実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [0] =&gt; id [1] =&gt; name [2] =&gt; amount )</div></blockquote>
+</div>
+<div class="section" id="id27">
+<h2>リレーションの情報を取得する<a class="headerlink" href="#id27" title="Permalink to this headline">¶</a></h2>
+<p>次のように``Doctrine_Table::getRelations()``を呼び出すことですべての``Doctrine_Relation``オブジェクトの配列を取得できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>$relations = $userTable-&gt;getRelations();</p>
+<p>foreach ($relations as $name =&gt; $relation) { echo $name . &#8221;:&#8221;; echo
+&#8220;Local - &#8221; . $relation-&gt;getLocal() . &#8220;&#8221;; echo &#8220;Foreign - &#8221; .
+$relation-&gt;getForeign() . &#8220;&#8221;; }</p>
+<p>上記の例が実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Email: Local - id Foreign - user_id</div></blockquote>
+<p>Phonenumbers: Local - id Foreign - user_id</p>
+<p>Groups: Local - user_id Foreign - group_id</p>
+<p>Friends: Local - user1 Foreign - user2</p>
+<p>Addresses: Local - id Foreign - user_id</p>
+<p>Threads: Local - id Foreign - user_id</p>
+<p><a href="#id28"><span class="problematic" id="id29">``</span></a>Doctrine_Table::getRelation()``メソッドを使用することで個別のリレーション用の``Doctrine_Relation``オブジェクトを取得できます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $relation = $userTable-&gt;getRelation(&#8216;Phonenumbers&#8217;);</p>
+<p>echo &#8216;Name: &#8216; . $relation[&#8216;alias&#8217;] . &#8220;&#8221;; echo &#8216;Local - &#8216; .
+$relation[&#8216;local&#8217;] . &#8220;&#8221;; echo &#8216;Foreign - &#8216; .
+<tt class="code docutils literal"><span class="pre">relation['foreign']</span> <span class="pre">.</span> <span class="pre">&quot;\n&quot;;</span> <span class="pre">echo</span> <span class="pre">'Relation</span> <span class="pre">Class</span> <span class="pre">-</span> <span class="pre">'</span> <span class="pre">.</span> <span class="pre">get_class(</span></tt>relation);</p>
+<p>上記の例が実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Name: Phonenumbers Local - id Foreign - user_id</div></blockquote>
+<p>Relation Class - Doctrine_Relation_ForeignKey</p>
+<blockquote>
+<div><strong>NOTE</strong>
+上記の例において変数``$relation}は}配列としてアクセスできる``Doctrine_Relation_ForeignKey``のインスタンスを格納していることに注目してください。多くのDoctrineのクラスのように、これが``ArrayAccess``を実装するからです。</div></blockquote>
+<p><a href="#id30"><span class="problematic" id="id31">``</span></a>toArray()``メソッドと``print_r()``を使用することでリレーションのすべての情報を検査してデバッグすることができます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $array = <tt class="code docutils literal"><span class="pre">relation-&gt;toArray();</span> <span class="pre">print_r(</span></tt>array);</p>
+</div>
+<div class="section" id="id32">
+<h2>ファインダーメソッド<a class="headerlink" href="#id32" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id33"><span class="problematic" id="id34">``</span></a>Doctrine_Table``は基本的なファインダーメソッドを提供します。これらのファインダーメソッドはとても速く書けるので1つのデータベーステーブルからデータを取得する場合に使われます。いくつかのコンポーネント(データベーステーブル)を使用するクエリが必要な場合
+<a href="#id35"><span class="problematic" id="id36">``</span></a>Doctrine_Connection::query()``を使います。</p>
+<p>主キーで個別のユーザーを簡単に見つけるには``find()``メソッドを使用します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = <tt class="code docutils literal"><span class="pre">userTable-&gt;find(2);</span> <span class="pre">print_r(</span></tt>user-&gt;toArray());</p>
+<p>上記の例が実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [id] =&gt; 2 [is_active] =&gt; 1 [is_super_admin]</div></blockquote>
+<p>=&gt; 0 [first_name] =&gt; [last_name] =&gt; [username] =&gt; jwage [password] =&gt;
+[type] =&gt; [created_at] =&gt; 2009-01-21 13:29:12 [updated_at] =&gt;
+2009-01-21 13:29:12 )</p>
+<p>データベースのすべての``User``レコードのコレクションを読み取るために``findAll()``メソッドを使うこともできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... foreach ($userTable-&gt;findAll() as $user) { echo $user-&gt;username .
+&#8220;&#8221;; }</p>
+<p>上記の例が実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div><p>$ php test.php Jack jwage</p>
+<blockquote>
+<div><strong>CAUTION</strong>
+<a href="#id37"><span class="problematic" id="id38">``</span></a>findAll()``メソッドは推奨されません。このメソッドがデータベースのすべてのレコードを返しリレーションから情報を読み取る場合高いクエリカウントを引き起こしながらそのデータを遅延ロードするからです。[doc
+dql-doctrine-query-language
+:name]の章を読めばレコードと関連レコードを効率的に読み取る方法を学べます。</div></blockquote>
+</div></blockquote>
+<p><a href="#id39"><span class="problematic" id="id40">``</span></a>findByDql()``メソッドを使用して
+DQLでレコードのセットを読み取ることもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findByDql(&#8216;username LIKE ?&#8217;, &#8216;%jw%&#8217;);</p>
+<p>foreach($users as $user) { echo $user-&gt;username . &#8220;&#8221;; }</p>
+<p>上記の例が実行されるときに次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php jwage</div></blockquote>
+<p>Doctrineは追加のマジックファインダーメソッドも提供します。この内容はDQLの章の[doc
+dql-doctrine-query-language:magic-finders
+:name]セクションで読むことができます。</p>
+<blockquote>
+<div><p><strong>NOTE</strong>
+<a href="#id41"><span class="problematic" id="id42">``</span></a>Doctrine_Table``によって提供される下記のすべてのファインダーメソッドはクエリを実行するために``Doctrine_Query``のインスタンスを使用します。オブジェクトは内部で動的に構築され実行されます。</p>
+<p>リレーションを通して複数のオブジェクトにアクセスするときは``Doctrine_Query``インスタンスを使用することが多いに推奨されます。そうでなければデータが遅延ロードされるので高いクエリカウントを得ることになります。[doc
+dql-doctrine-query-language :name]の章で詳細を学ぶことができます。</p>
+</div></blockquote>
+<div class="section" id="id43">
+<h3>カスタムのテーブルクラス<a class="headerlink" href="#id43" title="Permalink to this headline">¶</a></h3>
+<p>カスタムのテーブルクラスを追加するのはとても楽です。行う必要のあるのはクラスを[componentName]Tableとして名付けこれらに``Doctrine_Table``を継承させます。<a href="#id44"><span class="problematic" id="id45">``</span></a>User``モデルに関して次のようなクラスを作ることになります:</p>
+<blockquote>
+<div>// models/UserTable.php</div></blockquote>
+<p>class UserTable extends Doctrine_Table { }</p>
+</div>
+</div>
+<div class="section" id="id46">
+<h2>カスタムのファインダー<a class="headerlink" href="#id46" title="Permalink to this headline">¶</a></h2>
+<p>カスタムのテーブルオブジェクトにカスタムのファインダーメソッドを追加できます。これらのファインダーメソッドは速い``Doctrine_Table``ファインダーメソッドもしくは[doc
+dql-doctrine-query-language DQL API]
+(<tt class="docutils literal"><span class="pre">Doctrine_Query::create()</span></tt>)を使用できます。</p>
+<blockquote>
+<div>// models/UserTable.php</div></blockquote>
+<p>class UserTable extends Doctrine_Table { public function
+findByName(<tt class="code docutils literal"><span class="pre">name)</span> <span class="pre">{</span> <span class="pre">return</span> <span class="pre">Doctrine_Query::create()</span> <span class="pre">-&gt;from('User</span> <span class="pre">u')</span> <span class="pre">-&gt;where('u.name</span> <span class="pre">LIKE</span> <span class="pre">?',</span> <span class="pre">&quot;%</span></tt>name%&#8221;)
+-&gt;execute(); } }</p>
+<p>Doctrineは``getTable()``を呼び出すときに``Doctrine_Table``の子クラスである``UserTable``が存在するかチェックしそうである場合、デフォルトの``Doctrine_Table``の代わりにそのクラスのインスタンスを返します。</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+カスタムの``Doctrine_Table``クラスをロードするには、下記のように``bootstrap.php``ファイルで``autoload_table_classes``属性を有効にしなければなりません。</div></blockquote>
+<p>// boostrap.php</p>
+</div></blockquote>
+<p>// ...
+$manager-&gt;setAttribute(Doctrine_Core::ATTR_AUTOLOAD_TABLE_CLASSES,
+true);</p>
+<p>これで``User``テーブルオブジェクトに問い合わせるとき次の内容が得られます:</p>
+<blockquote>
+<div>$userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</div></blockquote>
+<p>echo get_class($userTable); // UserTable</p>
+<p>$users = $userTable-&gt;findByName(&#8220;Jack&#8221;);</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id47"><span class="problematic" id="id48">``</span></a>findByName()``メソッドを追加する上記の例はマジックファインダーメソッドによって自動的に利用可能になります。DQLの章の[doc
+dql-doctrine-query-language:magic-finders
+:name]セクションで読むことができます。</div></blockquote>
+</div>
+</div>
+<div class="section" id="id49">
+<h1>レコード<a class="headerlink" href="#id49" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineは``Doctrine_Record``子クラスを用いてRDBMSのテーブルを表します。これらのクラスはスキーマ情報、お婦四、属性などを定義する場所です。これらの子クラスのインスタンスはデータベースのレコードを表しこれらのオブジェクトでプロパティの取得と設定ができます。</p>
+<div class="section" id="id50">
+<h2>プロパティ<a class="headerlink" href="#id50" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id51"><span class="problematic" id="id52">``</span></a>Doctrine_Record``のそれぞれ割り当てられたカラムプロパティはデータベースのテーブルカラムを表します。[doc
+defining-models :name]の章でモデルの定義方法の詳細を学ぶことになります。</p>
+<p>カラムへのアクセスは簡単です:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>$user = $userTable-&gt;find(1);</p>
+<p><strong>オーバーロードを通してプロパティにアクセスする</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user-&gt;username;</p>
+<p><strong>get()でプロパティにアクセスする</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user-&gt;get(&#8216;username);</p>
+<p><strong>ArrayAccessでプロパティにアクセスする</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user[&#8216;username&#8217;];</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">カラムの値にアクセスする推奨方法はArrayAccessを使うことです。これによって必要に応じてレコードと配列取得を切り替えるのが簡単になるからです。</p>
+</div>
+<p>レコードのプロパティのイテレーションは配列のやり方と似ています。<a href="#id53"><span class="problematic" id="id54">``</span></a>foreach``コンストラクトを使用します。<a href="#id55"><span class="problematic" id="id56">``</span></a>Doctrine_Record``は``IteratorAggregate``インターフェイスを実装するのでこれは実現可能です。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... foreach ($user as $field =&gt; $value) { echo $field . &#8216;: &#8216; . $value
+. &#8220;&#8221;; }</p>
+<p>配列に関してプロパティの存在のチェックには``isset()``を、プロパティをnullに設定するには``unset()``が利用できます。</p>
+<p>if文で&#8217;name&#8217;という名前のプロパティが存在するか簡単にチェックできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... if (isset($user[&#8216;username&#8217;])) {</p>
+<p>}</p>
+<p>nameプロパティの割り当てを解除したい場合PHPの``unset()``関数を使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... unset($user[&#8216;username&#8217;]);</p>
+<p>レコードプロパティ用に値を設定するとき``Doctrine_Record::getModified()``を使用して修正されたフィールドと値の配列を取得できます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user[&#8216;username&#8217;] = &#8216;Jack Daniels&#8217;;</p>
+<p>print_r($user-&gt;getModified());</p>
+<p>上記のコードが実行されるとき次の内容が出力されます:</p>
+<blockquote>
+<div>$ php test.php Array ( [username] =&gt; Jack Daniels )</div></blockquote>
+<p><a href="#id57"><span class="problematic" id="id58">``</span></a>Doctrine_Record::isModified()``メソッドを使用してレコードが修正されることをチェックすることもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user-&gt;isModified() ? &#8216;Modified&#8217;:&#8217;Not Modified&#8217;;</p>
+<p>ときどき任意のレコードのカラムカウントを読み取りたいことがあります。これを行うには``count()``関数にレコードを引数として渡します。<a href="#id59"><span class="problematic" id="id60">``</span></a>Doctrine_Record``が``Countable``インターフェイスを実装するのでこれは可能です。他には``count()``メソッドを呼び出す方法があります。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo <tt class="code docutils literal"><span class="pre">record-&gt;count();</span> <span class="pre">echo</span> <span class="pre">count(</span></tt>record);</p>
+<p><a href="#id61"><span class="problematic" id="id62">``</span></a>Doctrine_Record``は任意のレコードの識別子にアクセスするための特別なメソッドを提供します。このメソッドは``identifier()``と呼ばれキーが識別子のフィールド名であり、値が、関連プロパティの値である配列を返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user[&#8216;username&#8217;] = &#8216;Jack Daniels&#8217;; $user-&gt;save();</p>
+<p>print_r($user-&gt;identifier()); // array(&#8216;id&#8217; =&gt; 1)</p>
+<p>よくあるのは配列の値を任意のレコードに割り当てることです。これらの値を個別に設定するのはやりずらいと思うかもしれません。しかし悩む必要はありません。<a href="#id63"><span class="problematic" id="id64">``</span></a>Doctrine_Record``は任意の配列もしくはレコードを別のものにマージする方法を提供します。</p>
+<p><a href="#id65"><span class="problematic" id="id66">``</span></a>merge()``メソッドはレコードもしくは配列のプロパティをイテレートしてオブジェクトに値を割り当てます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $values = array( &#8216;username&#8217; =&gt; &#8216;someone&#8217;, &#8216;age&#8217; =&gt; 11, );</p>
+<p><tt class="code docutils literal"><span class="pre">user-&gt;merge(</span></tt>values);</p>
+<p>echo $user-&gt;username; // someone echo $user-&gt;age; // 11</p>
+<p>次のように1つのレコードの値を別のものにマージすることもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user1 = new User(); $user1-&gt;username = &#8216;jwage&#8217;;</p>
+<p>$user2 = new User(); <tt class="code docutils literal"><span class="pre">user2-&gt;merge(</span></tt>user1);</p>
+<p>echo $user2-&gt;username; // jwage</p>
+<blockquote>
+<div><strong>NOTE</strong>
+<a href="#id67"><span class="problematic" id="id68">``</span></a>Doctrine_Record``は``fromArray()``メソッドを持ちます。このメソッドは``merge()``に理想的なもので``toArray()``メソッドとの一貫性を保つためだけに存在します。</div></blockquote>
+</div>
+<div class="section" id="id69">
+<h2>レコードを更新する<a class="headerlink" href="#id69" title="Permalink to this headline">¶</a></h2>
+<p>オブジェクトの更新は非常に簡単で、<a href="#id70"><span class="problematic" id="id71">``</span></a>Doctrine_Record::save()``メソッドを呼び出すだけです。他の方法は``Doctrine_Connection::flush()``を呼び出す方法でこの場合すべてのオブジェクトが保存されます。flushはsaveメソッドを呼び出すだけよりも重たいオペレーションであることに注意してください。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>$user = $userTable-&gt;find(2);</p>
+<p>if ($user !== false) { $user-&gt;username = &#8216;Jack Daniels&#8217;;</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>ときどき直接更新を行いたいことがあります。直接の更新においてオブジェクトはデータベースからロードされません。むしろデータベースの状態が直接更新されます。次の例においてすべてのユーザーを更新するためにDQL
+UPDATE文を使います。</p>
+<p>すべてのユーザー名を小文字にするクエリを実行します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;update(&#8216;User u&#8217;)
+-&gt;set(&#8216;u.username&#8217;, &#8216;LOWER(u.name)&#8217;);</p>
+<p>$q-&gt;execute();</p>
+<p>レコードの識別子が既知であればオブジェクトを利用して更新を実行することもできます。<a href="#id72"><span class="problematic" id="id73">``</span></a>Doctrine_Record::assignIdentifier()``メソッドを使うときこれはレコード識別子を設定し状態を変更するので``Doctrine_Record::save()``の呼び出しはinsertの代わりにupdateを実行します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;assignIdentifer(1); $user-&gt;username =
+&#8216;jwage&#8217;; $user-&gt;save();</p>
+</div>
+<div class="section" id="id74">
+<h2>レコードを置き換える<a class="headerlink" href="#id74" title="Permalink to this headline">¶</a></h2>
+<p>レコードを置き換えるのはシンプルです。まずは新しいオブジェクトをインスタンス化して保存します。次にデータベースに既に存在する同じ主キーもしくはユニークキーの値で新しいオブジェクトをインスタンス化すればデータベースで新しい列をinsertする代わりに列を置き換え/更新が行われます。下記は例です。</p>
+<p>最初に、ユーザー名がユニークインデックスである``User``モデルを想像してみましょう。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =
+&#8216;changeme&#8217;; $user-&gt;save();</p>
+<p>次のクエリを発行します。</p>
+<blockquote>
+<div>INSERT INTO user (username, password) VALUES (?,?) (&#8216;jwage&#8217;,</div></blockquote>
+<p>&#8216;changeme&#8217;)</p>
+<p>別の新しいオブジェクトを作り同じユーザー名と異なるパスワードを設定します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;password =
+&#8216;newpassword&#8217;; $user-&gt;replace();</p>
+<p>次のクエリが発行されます</p>
+<blockquote>
+<div>REPLACE INTO user (id,username,password) VALUES (?,?,?) (null, &#8216;jwage&#8217;,</div></blockquote>
+<p>&#8216;newpassword&#8217;)</p>
+<p>新しいレコードがinsertされる代わりにレコードが置き換え/更新されます。</p>
+</div>
+<div class="section" id="id75">
+<h2>レコードをリフレッシュする<a class="headerlink" href="#id75" title="Permalink to this headline">¶</a></h2>
+<p>ときにデータベースからのデータでレコードをリフレッシュしたいことがあります。<a href="#id76"><span class="problematic" id="id77">``</span></a>Doctrine_Record::refresh()``を使います。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = Doctrine_Core::getTable(&#8216;User&#8217;)-&gt;find(2);
+$user-&gt;username = &#8216;New name&#8217;;</p>
+<p><a href="#id78"><span class="problematic" id="id79">``</span></a>Doctrine_Record::refresh()``メソッドを使う場合データベースからデータが再度選択されインスタンスのプロパティが更新されます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user-&gt;refresh();</p>
+</div>
+<div class="section" id="id80">
+<h2>リレーションをリフレッシュする<a class="headerlink" href="#id80" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id81"><span class="problematic" id="id82">``</span></a>Doctrine_Record::refresh()``メソッドは既にロードされたレコードのリレーションをリフレッシュすることもできますが、オリジナルのクエリでこれらを指定する必要があります。</p>
+<p>最初に関連``Groups``で``User``を読み取りましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Groups&#8217;) -&gt;where(&#8216;id = ?&#8217;);</p>
+<p>$user = $q-&gt;fetchOne(array(1));</p>
+<p>関連``Users``で``Group``を読み取りましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;Group g&#8217;)
+-&gt;leftJoin(&#8216;g.Users&#8217;) -&gt;where(&#8216;id = ?&#8217;);</p>
+<p>$group = $q-&gt;fetchOne(array(1));</p>
+<p><a href="#id83"><span class="problematic" id="id84">``</span></a>UserGroup``インスタンスで読み取られた``User``と``Group``をリンクしましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userGroup = new UserGroup(); $userGroup-&gt;user_id = $user-&gt;id;
+$userGroup-&gt;group_id = $group-&gt;id; $userGroup-&gt;save();</p>
+<p><a href="#id85"><span class="problematic" id="id86">``</span></a>Group``を``User``に追加するだけで``User``を``Group``にリンクすることもできます。Doctrineは``UserGroup``インスタンスの作成を自動的に引き受けます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user-&gt;Groups[] = $group; $user-&gt;save()</p>
+<p><a href="#id87"><span class="problematic" id="id88">``</span></a>Doctrine_Record::refresh(true)``を呼び出す場合新しく作成された参照をロードするレコードとリレーションがリフレッシュされます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user-&gt;refresh(true); $group-&gt;refresh(true);</p>
+<p><a href="#id89"><span class="problematic" id="id90">``</span></a>Doctrine_Record::refreshRelated()``を使用してモデルの定義されたすべてのリレーションを遅延リフレッシュすることもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = Doctrine_Core::getTable(&#8216;User&#8217;)-&gt;findOneByName(&#8216;jon&#8217;);
+$user-&gt;refreshRelated();</p>
+<p>リレーションを個別に指定してリフレッシュしたい場合リレーションの名前を``refreshRelated()``メソッドに渡せばリレーションは遅延ロードされます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user-&gt;refreshRelated(&#8216;Phonenumber&#8217;);</p>
+</div>
+<div class="section" id="id91">
+<h2>レコードを削除する<a class="headerlink" href="#id91" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineでのレコード削除は``Doctrine_Record::delete()``、<a href="#id92"><span class="problematic" id="id93">``</span></a>Doctrine_Collection::delete()``と``Doctrine_Connection::delete()``メソッドによって処理されます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8220;User&#8221;);</p>
+<p>$user = $userTable-&gt;find(2);</p>
+<p>// ユーザーと関連コンポジットオブジェクトすべてを削除する if($user !==
+false) { $user-&gt;delete(); }</p>
+<p><a href="#id94"><span class="problematic" id="id95">``</span></a>User``レコードの``Doctrine_Collection``がある場合``delete()``を呼び出すと``Doctrine_Record::delete()``が呼び出されてすべてのレコードがループされます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p><a href="#id96"><span class="problematic" id="id97">``</span></a>Doctrine_Collection::delete()``を呼び出すことですべてのユーザーと関連コンポジットオブジェクトを削除できます。deleteを1つずつ呼び出すことでコレクションのすべての``Users``がループされます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users-&gt;delete();</p>
+</div>
+<div class="section" id="id98">
+<h2>式の値を使う<a class="headerlink" href="#id98" title="Permalink to this headline">¶</a></h2>
+<p>SQLの式をカラムの値として使う必要のある状況があります。これはポータブルなDQL式をネイティブなSQL式に変換する``Doctrine_Expression``を使用することで実現できます。</p>
+<p><a href="#id99"><span class="problematic" id="id100">``</span></a>timepoint(datetime)``と``name(string)``のカラムを持つeventという名前のクラスがある場合を考えてみましょう。現在のタイムスタンプによるレコードの保存は次のように実現されます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;username = &#8216;jwage&#8217;; $user-&gt;updated_at
+= new Doctrine_Expression(&#8216;NOW()&#8217;); $user-&gt;save();</p>
+<p>上記のコードは次のSQLクエリを発行します:</p>
+<blockquote>
+<div>INSERT INTO user (username, updated_at_) VALUES (&#8216;jwage&#8217;, NOW())</div></blockquote>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<blockquote>
+<div>更新された値を取得するためにオブジェクトで``Doctrine_Expression``を使うとき``refresh()``を呼び出さなければなりません。</div></blockquote>
+<p class="last">// test.php</p>
+</div>
+<p>// ... $user-&gt;refresh();</p>
+</div>
+<div class="section" id="id101">
+<h2>レコードの状態を取得する<a class="headerlink" href="#id101" title="Permalink to this headline">¶</a></h2>
+<p>それぞれの``Doctrine_Record``は状態を持ちます。最初のすべてレコードは一時的もしくは永続的になります。データベースから読み取られたすべてのレコードは永続的に新しく作成されたすべてのレコードは一時的なものと見なされます。<a href="#id102"><span class="problematic" id="id103">``</span></a>Doctrine_Record``がデータベースから読み取られるが唯一ロードされたプロパティが主キーである場合、このレコードはプロキシと呼ばれる状態を持ちます。</p>
+<p>一時的もしくは永続的なすべての``Doctrine_Record``はcleanもしくはdirtyのどちらかです。<a href="#id104"><span class="problematic" id="id105">``</span></a>Doctrine_Record``はプロパティが変更されていないときはcleanで少なくともプロパティの1つが変更されたときはdirtyです。</p>
+<p>レコードはlockedと呼ばれる状態を持つこともできます。まれに起きる循環参照の場合に無限反復を避けるためにDoctrineは現在レコードで操作オペレーションが行われていることを示すこの状態を内部で使用します。</p>
+<p>レコードがなり得るすべての異なる状態と手短な説明を含むテーブルは下記の通りです:</p>
+<p>||~ 名前 ||~ 説明 || || <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_PROXY</span></tt> ||
+レコードがproxyの状態にある一方で、永続性とすべてではないプロパティがデータベースからロードされる。
+|| || <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_TCLEAN</span></tt> ||
+レコードが一時的にcleanである一方で、一時性が変更されプロパティは変更されない。||
+|| <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_TDIRTY</span></tt> ||
+レコードが一時的にdirtyである一方で、一時性とプロパティの一部が変更される。||
+|| <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_DIRTY</span></tt> ||
+レコードがdirtyである一方で永続性とプロパティの一部が変更される。||
+|| <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_CLEAN</span></tt> ||
+レコードがcleanである一方で、永続性は変更されプロパティは変更されない。||
+|| <tt class="docutils literal"><span class="pre">Doctrine\_Record::STATE_LOCKED</span></tt> ||
+レコードがロックされる。||</p>
+<p><a href="#id106"><span class="problematic" id="id107">``</span></a>Doctrine_Record::state()``メソッドを使用してレコードの状態を簡単に取得できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User();</p>
+<p>if ($user-&gt;state() == Doctrine_Record::STATE_TDIRTY) { echo &#8216;Record is
+transient dirty&#8217;; }</p>
+<blockquote>
+<div><blockquote>
+<div><strong>NOTE</strong>
+上記のオブジェクトは``TDIRTY``です。これがスキーマで指定されたデフォルトの値をいくつか持つからです。デフォルトの値を持たないオブジェクトを使い新しいインスタンスを作成すると``TCLEAN``が返されます。</div></blockquote>
+<p>// test.php</p>
+</div></blockquote>
+<p>// ... $account = new Account();</p>
+<p>if ($account-&gt;state() == Doctrine_Record::STATE_TCLEAN) { echo &#8216;Record
+is transient clean&#8217;; }</p>
+</div>
+<div class="section" id="id108">
+<h2>オブジェクトのコピーを取得する<a class="headerlink" href="#id108" title="Permalink to this headline">¶</a></h2>
+<p>ときにオブジェクトのコピーを手に入れたいことがあります(コピーされたすべてのプロパティを持つオブジェクト)。Doctrineはこのためのシンプルなメソッド:
+<a href="#id109"><span class="problematic" id="id110">``</span></a>Doctrine_Record::copy()``を提供します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $copy = $user-&gt;copy();</p>
+<p><a href="#id111"><span class="problematic" id="id112">``</span></a>copy()``でレコードをコピーすると古いレコードの値を持つ新しいレコード(<a href="#id113"><span class="problematic" id="id114">``</span></a>TDIRTY``の状態)が返され、そのレコードのリレーションがコピーされることに注意してください。リレーションもコピーしたくなければ、<a href="#id115"><span class="problematic" id="id116">``</span></a>copy(false)``を使う必要があります。</p>
+<p><strong>リレーション無しのユーザーのコピーを入手する</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $copy = $user-&gt;copy(false);</p>
+<p>PHPの``clone``キーワードを使えばこの``copy()``メソッドが内部で使用されます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $copy = clone $user;</p>
+</div>
+<div class="section" id="id117">
+<h2>空白のレコードを保存する<a class="headerlink" href="#id117" title="Permalink to this headline">¶</a></h2>
+<p>デフォルトでは未修整のレコードで``save()``メソッドが呼び出されているときDoctrineは実行しません。レコードが修正されていなくてもレコードを強制的にINSERTしたい状況があります。これはレコードの状態を``Doctrine_Record::STATE_TDIRTY``を割り当てることで実現できます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User(); $user-&gt;state(&#8216;TDIRTY&#8217;); $user-&gt;save();</p>
+</div>
+<div class="section" id="id118">
+<h2>カスタムの値をマッピングする<a class="headerlink" href="#id118" title="Permalink to this headline">¶</a></h2>
+<p>カスタムの値をレコードにマッピングしたい状況があります。例えば値が外部のリソースに依存しておりこれらの値をデータベースにシリアライズして保存せずに実行時に利用可能にすることだけを行いたい場合があります。これは次のように実現できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user-&gt;mapValue(&#8216;isRegistered&#8217;, true);</p>
+<p>$user-&gt;isRegistered; // true</p>
+</div>
+<div class="section" id="id119">
+<h2>シリアライズ<a class="headerlink" href="#id119" title="Permalink to this headline">¶</a></h2>
+<p>ときにレコードオブジェクトをシリアライズしたいことがあります(例えばキャッシュを保存するため):</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... <tt class="code docutils literal"><span class="pre">string</span> <span class="pre">=</span> <span class="pre">serialize(</span></tt>user);</p>
+<p><tt class="code docutils literal"><span class="pre">user</span> <span class="pre">=</span> <span class="pre">unserialize(</span></tt>string);</p>
+</div>
+<div class="section" id="id120">
+<h2>存在をチェックする<a class="headerlink" href="#id120" title="Permalink to this headline">¶</a></h2>
+<p>レコードがデータベースに存在するか知りたいことがとてもよくあります。任意のレコードがデータベースの列の同等の内容を持つかを確認するために``exists()``メソッドを使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $record = new User();</p>
+<p>echo $record-&gt;exists() ? &#8216;Exists&#8217;:&#8217;Does Not Exist&#8217;; // Does Not Exist</p>
+<p>$record-&gt;username = &#8216;someone&#8217;; $record-&gt;save();</p>
+<p>echo $record-&gt;exists() ? &#8216;Exists&#8217;:&#8217;Does Not Exist&#8217;; // Exists</p>
+</div>
+<div class="section" id="id121">
+<h2>カラム用のコールバック関数<a class="headerlink" href="#id121" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id122"><span class="problematic" id="id123">``</span></a>Doctrine_Record``はカラムを呼び出すコールバックを添付する方法を提供します。例えば特定のカラムをトリムしたい場合、次のメソッドを使うことができます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $record-&gt;call(&#8216;trim&#8217;, &#8216;username&#8217;);</p>
+</div>
+</div>
+<div class="section" id="id124">
+<h1>コレクション<a class="headerlink" href="#id124" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id125"><span class="problematic" id="id126">``</span></a>Doctrine_Collection``はレコードのコレクションです(Doctrine_Recordを参照)。レコードに関してコレクションは``Doctrine_Collection::delete()``と``Doctrine_Collection::save()``をそれぞれ使用して削除と保存ができます。</p>
+<p>DQL API(<a href="#id127"><span class="problematic" id="id128">``</span></a>Doctrine_Query``を参照)もしくはrawSql
+API(<a href="#id129"><span class="problematic" id="id130">``</span></a>Doctrine_RawSql``を参照)のどちらかでデータベースからデータを取得するとき、デフォルトではメソッドは``Doctrine_Collection``のインスタンスを返します。</p>
+<p>次の例では新しいコレクションを初期化する方法を示しています:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = new Doctrine_Collection(&#8216;User&#8217;);</p>
+<p>コレクションにデータを追加します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users[0]-&gt;username = &#8216;Arnold&#8217;; $users[1]-&gt;username = &#8216;Somebody&#8217;;</p>
+<p>コレクションの削除と同じように保存もできます:</p>
+<blockquote>
+<div>$users-&gt;save();</div></blockquote>
+<div class="section" id="id131">
+<h2>要素にアクセスする<a class="headerlink" href="#id131" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id132"><span class="problematic" id="id133">``</span></a>set()``と``get()``メソッドもしくはArrayAccessインターフェイスで``Doctrine_Collection``の要素にアクセスできます。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;); $users =
+$userTable-&gt;findAll();</p>
+<p><strong>ArrayAccessインターフェイスで要素にアクセスする</strong></p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users[0]-&gt;username = &#8220;Jack Daniels&#8221;; $users[1]-&gt;username = &#8220;John
+Locke&#8221;;</p>
+<p><strong>get()で要素にアクセスする</strong></p>
+<blockquote>
+<div>echo $users-&gt;get(1)-&gt;username;</div></blockquote>
+</div>
+<div class="section" id="id134">
+<h2>新しい要素を追加する<a class="headerlink" href="#id134" title="Permalink to this headline">¶</a></h2>
+<p>存在しないコレクションの単独の要素とこれらの要素(レコード)にアクセスするときDoctrineはこれらを自動的に追加します。</p>
+<p>次の例ではデータベースからすべてのユーザー(5人)を取得しコレクションにユーザーの組を追加します。</p>
+<p>PHP配列に関してインデックスはゼロから始まります。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p>echo count($users); // 5</p>
+<p>$users[5]-&gt;username = &#8220;new user 1&#8221;; $users[6]-&gt;username = &#8220;new user 2&#8221;;</p>
+<p>オプションとして配列インデックスから5と6を省略可能でその場合通常のPHP配列と同じように自動的にインクリメントされます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users[]-&gt;username = &#8216;new user 3&#8217;; // キーは7 $users[]-&gt;username
+= &#8216;new user 4&#8217;; // キーは8</p>
+</div>
+<div class="section" id="id135">
+<h2>コレクションのカウントを取得する<a class="headerlink" href="#id135" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id136"><span class="problematic" id="id137">``</span></a>Doctrine_Collection::count()``メソッドはコレクションの現在の要素の数を返します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p>echo $users-&gt;count();</p>
+<p><a href="#id138"><span class="problematic" id="id139">``</span></a>Doctrine_Collection``はCountableインターフェイスを実装するの以前の例に対する妥当な代替方法はcount()メソッドにコレクションを引数として渡すことです。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo count($users);</p>
+</div>
+<div class="section" id="id140">
+<h2>コレクションを保存する<a class="headerlink" href="#id140" title="Permalink to this headline">¶</a></h2>
+<p><a href="#id141"><span class="problematic" id="id142">``</span></a>Doctrine_Record``と同じようにコレクションは``save()``メソッドを呼び出すことで保存できます。<a href="#id143"><span class="problematic" id="id144">``</span></a>save()``が呼び出されるときDoctrineはすべてのレコードに対して``save()``オペレーションを実行しトランザクション全体のプロシージャをラップします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p>$users[0]-&gt;username = &#8216;Jack Daniels&#8217;;</p>
+<p>$users[1]-&gt;username = &#8216;John Locke&#8217;;</p>
+<p>$users-&gt;save();</p>
+</div>
+<div class="section" id="id145">
+<h2>コレクションを削除する<a class="headerlink" href="#id145" title="Permalink to this headline">¶</a></h2>
+<p>Doctrine
+Recordsとまったく同じように``delete()``メソッドを呼び出すだけでDoctrine
+Collectionsは削除できます。すべてのコレクションに関してDoctrineはsingle-shot-deleteを実行する方法を知っています。これはそれぞれのコレクションに対して1つのデータベースクエリのみが実行されることを意味します。</p>
+<p>例えば複数のコレクションがある場合を考えます。ユーザーのコレクションを削除するときDoctrineはトランザクション全体に対して1つのクエリのみを実行します。クエリは次のようになります:</p>
+<blockquote>
+<div>DELETE FROM user WHERE id IN (1,2,3, ... ,N)</div></blockquote>
+</div>
+<div class="section" id="id146">
+<h2>キーのマッピング<a class="headerlink" href="#id146" title="Permalink to this headline">¶</a></h2>
+<p>ときにコレクションの要素用の通常のインデックス作成をしたくないことがあります。その場合例えば主キーをコレクションとしてマッピングすることが役に立つことがあります。次の例はこれを実現する方法を実演しています。</p>
+<p><a href="#id147"><span class="problematic" id="id148">``</span></a>id``カラムをマッピングします。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// .... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>$userTable-&gt;setAttribute(Doctrine_Core::ATTR_COLL_KEY, &#8216;id&#8217;);</p>
+<p>これで``user``コレクションは``id``カラムの値を要素インデックスとして使用します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p>foreach($users as $id =&gt; $user) { echo $id . $user-&gt;username; }</p>
+<p><a href="#id149"><span class="problematic" id="id150">``</span></a>name``カラムをマッピングするとよいでしょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $userTable = Doctrine_Core::getTable(&#8216;User&#8217;);</p>
+<p>$userTable-&gt;setAttribute(Doctrine_Core::ATTR_COLL_KEY, &#8216;username&#8217;);</p>
+<p>これでユーザーコレクションは``name``カラムの値を要素インデックスとして使用します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $userTable-&gt;findAll();</p>
+<p>foreach($users as $username =&gt; $user) { echo $username . &#8216; - &#8216; .
+$user-&gt;created_at . &#8220;&#8221;; }</p>
+<blockquote>
+<div><strong>CAUTION</strong>
+スキーマで``username``カラムがuniqueとして指定された場合のみこれは利用可能であることに注意してください。そうでなければ重複するコレクションのキーのためにデータは適切にハイドレイトされない事態に遭遇することになります。</div></blockquote>
+</div>
+<div class="section" id="id151">
+<h2>関連レコードをロードする<a class="headerlink" href="#id151" title="Permalink to this headline">¶</a></h2>
+<p>Doctrineはすべてのレコード要素用のすべての関連レコードを効率的い読み取る方法を提供します。これは例えばユーザーのコレクションがある場合``loadRelated()``メソッドを呼び出すだけですべてのユーザーのすべての電話番号をロードできることを意味します。</p>
+<p>しかしながら、大抵の場合関連要素を明示的にロードする必要はなく、むしろ行うべきはDQL
+APIとJOINを使用して一度にすべてをロードすることを試みることです。</p>
+<p>次の例ではユーザー、電話番号とユーザーが所属するグループを読み取るために3つのクエリを使用します。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;);</p>
+<p>$users = $q-&gt;execute();</p>
+<p>すべてのユーザーの電話番号をロードしてみましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users-&gt;loadRelated(&#8216;Phonenumbers&#8217;);</p>
+<p>foreach($users as $user) { echo $user-&gt;Phonenumbers[0]-&gt;phonenumber; //
+ここでは追加のDBクエリは不要 }</p>
+<p><a href="#id152"><span class="problematic" id="id153">``</span></a>loadRelated()``はリレーション、アソシエーションに対しても動作します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users-&gt;loadRelated(&#8216;Groups&#8217;);</p>
+<p>foreach($users as $user) { echo $user-&gt;Groups[0]-&gt;name; }</p>
+<p>下記の例はDQL APIを使用してより効率的にこれを行う方法を示します。</p>
+<p>1つのクエリですべてをロードする``Doctrine_Query``を書きます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Phonenumbers p&#8217;) -&gt;leftJoin(&#8216;u.Groups g&#8217;);</p>
+<p>$users = $q-&gt;execute();</p>
+<p><a href="#id154"><span class="problematic" id="id155">``</span></a>Phonenumbers``と``Groups``を使うとき追加のデータベースクエリは必要ありません:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... foreach($users as $user) { echo
+$user-&gt;Phonenumbers[0]-&gt;phonenumber; echo $user-&gt;Groups[0]-&gt;name; }</p>
+</div>
+</div>
+<div class="section" id="id156">
+<h1>バリデータ<a class="headerlink" href="#id156" title="Permalink to this headline">¶</a></h1>
+<p>DoctrineのバリデーションはMVCアーキテクチャのモデル部分でビジネスルールを強制する方法です。このバリデーションを永続的なデータ保存が行われる直前に渡される必要のあるゲートウェイとみなすことができます。これらのビジネスルールの定義はレコードレベル、すなわちactive
+recordモデルクラスにおいて行われます(<a href="#id157"><span class="problematic" id="id158">``</span></a>Doctrine_Record``を継承するクラス)。この種のバリデーションを使うために最初に行う必要のあることはこれをグローバルに設定することです。これは``Doctrine_Manager``を通して行われます。</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $manager-&gt;setAttribute(Doctrine_Core::ATTR_VALIDATE,
+Doctrine::VALIDATE_ALL);</p>
+<p>バリデーションを有効にすると、一連のバリデーションが自動的に使えるようになります:</p>
+<ul class="simple">
+<li>データ型のバリデーション:
+カラムに割り当てられるすべての値は正しい型であるかチェックされます。すなわち次のよに指定した場合</li>
+</ul>
+<p>レコードのカラムが&#8217;integer&#8217;型である場合、Doctrineはそのカラムに割り当てられた値がその型であるかをバリデートします。PHPはゆるい型の言語なのでこの種の型バリデーションはできる限りスマートであるように試みます。例えば2は&#8221;7&#8221;と同じように有効な整数型である一方で&#8221;3f&#8221;はそうではありません。型バリデーションはすべてのカラムで行われます(すべてのカラム定義は型を必要とするからです)。</p>
+<ul class="simple">
+<li>長さのバリデーション:
+名前がほのめかす通り、カラムに割り当てられたすべての値が最大長を越えないことを確認するためにバリデートされます。</li>
+</ul>
+<p>次の定数:
+<tt class="docutils literal"><span class="pre">VALIDATE\_ALL</span></tt>、<tt class="docutils literal"><span class="pre">VALIDATE\_TYPES</span></tt>、<tt class="docutils literal"><span class="pre">VALIDATE\_LENGTHS</span></tt>、<tt class="docutils literal"><span class="pre">VALIDATE\_CONSTRAINTS</span></tt>、<a href="#id159"><span class="problematic" id="id160">``</span></a>VALIDATE_NONE``をビット演算子で結びつけることができます。</p>
+<p>例えば長さバリデーション以外のすべてのバリデーションを有効にするには次のように行います:</p>
+<blockquote>
+<div>// bootstrap.php</div></blockquote>
+<p>// ... $manager-&gt;setAttribute(Doctrine_Core::ATTR_VALIDATE,
+VALIDATE_ALL &amp; ~VALIDATE_LENGTHS);</p>
+<p>[doc data-validation
+:name]の章でこのトピックの詳細を読むことができます。</p>
+<div class="section" id="id161">
+<h2>さらにバリデーション<a class="headerlink" href="#id161" title="Permalink to this headline">¶</a></h2>
+<p>型と長さバリデーションは手軽ですが大抵の場合これらだけでは十分ではありません。それゆえDoctrineはデータをより詳しくバリデートするために利用できるメカニズムを提供します。</p>
+<p>バリデータはさらにバリデーションを指定するための簡単な手段です。Doctrineは``email``、<tt class="docutils literal"><span class="pre">country</span></tt>、<tt class="docutils literal"><span class="pre">ip</span></tt>、<a href="#id162"><span class="problematic" id="id163">``</span></a>range``と``regexp``バリデータなど頻繁に必要とされるたくさんのバリデータを事前に定義しています。[doc
+data-validation
+:name]の章で利用可能なバリデータの全リストが見つかります。<a href="#id164"><span class="problematic" id="id165">``</span></a>hasColumn()``メソッドの4番目の引数を通してどのバリデータをどのカラムに適用するのかを指定できます。これが十分ではなく事前に定義されたバリデータとして利用できない特別なバリデータが必要な場合、3つの選択肢があります:</p>
+<ul class="simple">
+<li>独自のバリデータを書けます。</li>
+<li>Doctrineの開発者に新しいバリデータのニーズを提案できます。</li>
+<li>バリデータフックが使えます。</li>
+</ul>
+<p>最初の2つのオプションが推奨されます。バリデーションが一般的に利用可能で多くの状況に適用できるからです。このケースにおいて新しいバリデータを実装するのは良い考えです。しかしながら、バリデーションが特別なものでなければDoctrineが提供するフックを使う方がベターです:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">validate()</span></tt> (レコードがバリデートされるたびに実行される)</li>
+<li><tt class="docutils literal"><span class="pre">validateOnInsert()</span></tt>
+(レコードが新しくバリデートされるときに実行される)</li>
+<li><tt class="docutils literal"><span class="pre">validateOnUpdate()</span></tt>
+(レコードが新しくなくバリデートされるときに実行される)</li>
+</ul>
+<p>active recordで特殊なバリデーションが必要な場合active
+recordクラス(<a href="#id166"><span class="problematic" id="id167">``</span></a>Doctrine_Record``の子孫)でこれらのメソッドの1つをオーバーライドできます。フィールドをバリデートするためにこれらのメソッドの範囲内でPHPのすべての力を使うことができます。フィールドがバリデーションを渡さないときエラーをレコードのエラーに追加できます。次のコードスニペットはカスタムバリデーションと一緒にバリデータを定義する例を示しています:</p>
+<blockquote>
+<div>// models/User.php</div></blockquote>
+<p>class User extends BaseUser { protected function validate() { if
+($this-&gt;username == &#8216;God&#8217;) { // Blasphemy! Stop that! ;-) // syntax:
+add(, ) $errorStack = $this-&gt;getErrorStack(); $errorStack-&gt;add(&#8216;name&#8217;,
+&#8216;You cannot use this username!&#8217;); } } }</p>
+<p>// models/Email.php</p>
+<p>class Email extends BaseEmail { // ...</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">public</span> <span class="k">function</span> <span class="nf">setTableDefinition</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="k">parent</span><span class="o">::</span><span class="na">setTableDefinition</span><span class="p">();</span>
+
+    <span class="c1">// ...</span>
+
+    <span class="c1">// 使われる&#39;email&#39;と&#39;unique&#39;バリデータ</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">hasColumn</span><span class="p">(</span><span class="s1">&#39;address&#39;</span><span class="p">,</span><span class="s1">&#39;string&#39;</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;email&#39;</span><span class="p">,</span> <span class="s1">&#39;unique&#39;</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>YAMLフォーマットでの同じ例は次の通りです。[doc yaml-schema-files
+:name]の章でYAMLの詳細を読むことができます:</p>
+<blockquote>
+<div># schema.yml</div></blockquote>
+<p>Email: columns: address: type: string(150) email: true unique: true</p>
+</div>
+<div class="section" id="validnot-valid">
+<h2>ValidもしくはNot Valid<a class="headerlink" href="#validnot-valid" title="Permalink to this headline">¶</a></h2>
+<p>モデルでビジネスルールを指定する方法を理解したので、アプリケーションの残りの部分でこれらのルールを扱う方法を見てみましょう。</p>
+<div class="section" id="id168">
+<h3>暗黙のバリデーション<a class="headerlink" href="#id168" title="Permalink to this headline">¶</a></h3>
+<p>(<a href="#id169"><span class="problematic" id="id170">``</span></a>$record-&gt;save()``の呼び出しを通して)レコードが永続的データとして保存されているときバリデーションの全手続きが実行されます。そのプロセスの間にエラーが起きると``Doctrine_Validator_Exception``型のエラーが投げられます。例外を補足して``Doctrine_Validator_Exception::getInvalidRecords()``インスタンスメソッドを使用してエラーを解析できます。このメソッドはバリデーションをパスしなかったすべてのレコードへの参照を持つ通常の配列を返します。それぞれのレコードのエラースタックを解析することでそれぞれのレコードのエラーを詳しく調査することができます。レコードのエラースタックは``Doctrine_Record::getErrorStack()``インスタンスメソッドで取得できます。それぞれのエラースタックは``Doctrine_Validator_ErrorStack``クラスのインスタンスです。エラースタックはエラーを検査するためのインターフェイスを簡単に使う方法を提供します。</p>
+</div>
+<div class="section" id="id171">
+<h3>明示的なバリデーション<a class="headerlink" href="#id171" title="Permalink to this headline">¶</a></h3>
+<p>任意のときに任意のレコードに対してバリデーションを明示的に実行できます。この目的のために``Doctrine_Record``は``Doctrine_Record::isValid()``インスタンスメソッドを提供します。このメソッドはバリデーションの結果を示す論理型を返します。このメソッドがfalseを返す場合、例外が投げられないこと以外は上記と同じ方法でエラースタックを検査できるので、<a href="#id172"><span class="problematic" id="id173">``</span></a>Doctrine_Record::getErrorStack()``を通したバリデーションがパスしなかったレコードのエラースタックを得られます。</p>
+<p>次のコードスニペットは``Doctrine_Validator_Exception``によって引き起こされる明示的なバリデーションの処理方法の例です。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = new User();</p>
+<p>try { $user-&gt;username = str_repeat(&#8216;t&#8217;, 256); $user-&gt;Email-&gt;address =
+&#8220;drink&#64;&#64;notvalid..&#8221;; $user-&gt;save(); }
+catch(Doctrine_Validator_Exception $e) { $userErrors =
+$user-&gt;getErrorStack(); $emailErrors = $user-&gt;Email-&gt;getErrorStack();</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">foreach</span><span class="p">(</span><span class="nv">$userErrors</span> <span class="k">as</span> <span class="nv">$fieldName</span> <span class="o">=&gt;</span> <span class="nv">$errorCodes</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$fieldName</span> <span class="o">.</span> <span class="s2">&quot; - &quot;</span> <span class="o">.</span> <span class="nb">implode</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">,</span> <span class="nv">$errorCodes</span><span class="p">)</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">foreach</span><span class="p">(</span><span class="nv">$emailErrors</span> <span class="k">as</span> <span class="nv">$fieldName</span> <span class="o">=&gt;</span> <span class="nv">$errorCodes</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="nv">$fieldName</span> <span class="o">.</span> <span class="s2">&quot; - &quot;</span> <span class="o">.</span> <span class="nb">implode</span><span class="p">(</span><span class="s1">&#39;, &#39;</span><span class="p">,</span> <span class="nv">$errorCodes</span><span class="p">)</span> <span class="o">.</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last"><a href="#id174"><span class="problematic" id="id175">``</span></a>$e-&gt;getInvalidRecords()``を使うことができます。扱っているレコードを知っているときは上記の内容を直接使う方がシンプルです。</p>
+</div>
+<p>アプリケーションで簡単に使えるように読みやすく整形されたエラースタックを読み取ることもできます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... echo $user-&gt;getErrorStackAsString();</p>
+<p>次のようにエラー文字列が出力されます:</p>
+<blockquote>
+<div>Validation failed in class User</div></blockquote>
+<p>1 field had validation error:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="o">*</span> <span class="mi">1</span> <span class="nx">validator</span> <span class="nx">failed</span> <span class="nx">on</span> <span class="nx">username</span> <span class="p">(</span><span class="nx">length</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="id176">
+<h1>プロファイラー<a class="headerlink" href="#id176" title="Permalink to this headline">¶</a></h1>
+<p><a href="#id177"><span class="problematic" id="id178">``</span></a>Doctrine_Connection_Profiler``は``Doctrine_Connection``用のイベントリスナーです。これは柔軟なクエリプロファイリングを提供します。SQL文字列に加えクエリプロファイルはクエリを実行するための経過時間を含みます。これによってモデルクラスにデバッグコードを追加せずにクエリのインスペクションの実行が可能になります。</p>
+<p><a href="#id179"><span class="problematic" id="id180">``</span></a>Doctrine_Connection_Profiler``はDoctrine_Connection用のイベントリスナーとして追加されることで有効になります。</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $profiler = new Doctrine_Connection_Profiler();</p>
+<p>$conn = Doctrine_Manager::connection(); <tt class="code docutils literal"><span class="pre">conn-&gt;setListener(</span></tt>profiler);</p>
+<div class="section" id="id181">
+<h2>基本的な使い方<a class="headerlink" href="#id181" title="Permalink to this headline">¶</a></h2>
+<p>ページの中にはロードが遅いものがあるでしょう。次のコードは接続から完全なプロファイラーレポートを構築する方法を示しています:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... <tt class="code docutils literal"><span class="pre">time</span> <span class="pre">=</span> <span class="pre">0;</span> <span class="pre">foreach</span> <span class="pre">(</span></tt>profiler as $event) { $time +=
+$event-&gt;getElapsedSecs(); echo $event-&gt;getName() . &#8221; &#8221; . sprintf(&#8220;%f&#8221;,
+$event-&gt;getElapsedSecs()) . &#8220;&#8221;; echo $event-&gt;getQuery() . &#8220;&#8221;; $params =
+<tt class="code docutils literal"><span class="pre">event-&gt;getParams();</span> <span class="pre">if(</span> <span class="pre">!</span> <span class="pre">empty(</span></tt>params)) { print_r($params);
+} } echo &#8220;Total time: &#8221; . $time . &#8220;&#8221;;</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">[<a class="reference external" href="http://www.symfony-project.com">http://www.symfony-project.com</a>
+symfony]、[<a class="reference external" href="http://framework.zend.com">http://framework.zend.com</a>
+Zend]などのフレームワークはウェブデバッグツールバーを提供します。Doctrineはそれぞれのクエリにかかる時間と同様にすべてのページで実行されるクエリの回数をレポートする機能を提供します。</p>
+</div>
+</div>
+</div>
+<div class="section" id="id182">
+<h1>マネージャーをロックする<a class="headerlink" href="#id182" title="Permalink to this headline">¶</a></h1>
+<blockquote>
+<div><strong>NOTE</strong>
+&#8216;トランザクション(Transaction)&#8217;という用語はデータベースのトランザクションではなく一般的な意味を示します。</div></blockquote>
+<p>ロックは並行処理をコントロールするメカニズムです。最もよく知られるロック戦略は楽観的と悲観的ロックです。次のセクションでこれら2つの戦略の手短な説明を行います。現在Doctrineがサポートしているのは悲観的ロックです。</p>
+<div class="section" id="id183">
+<h2>楽観的ロック<a class="headerlink" href="#id183" title="Permalink to this headline">¶</a></h2>
+<p>トランザクションが開始するときオブジェクトの状態/バージョンに注目されます。トランザクションが終了するとき注目された状態/バージョンの参与しているオブジェクトが現在の状態/バージョンと比較されます。状態/バージョンが異なる場合オブジェクトは他のトランザクションによって修正され現在のトランザクションは失敗します。このアプローチは&#8217;楽観的&#8217;(optimistic)と呼ばれます。複数のユーザーが同時に同じオブジェクト上のトランザクションに参加しないことを前提としているからです。</p>
+</div>
+<div class="section" id="id184">
+<h2>悲観的ロック<a class="headerlink" href="#id184" title="Permalink to this headline">¶</a></h2>
+<p>トランザクションに参加する必要のあるオブジェクトはユーザーがトランザクションを開始した瞬間にロックされます。ロックが有効な間、他のユーザーがこれらのオブジェクトで作動するトランザクションを始めることはありません。これによってトランザクションを始めるユーザー以外のユーザーが同じオブジェクトを修正しないことが保証されます。</p>
+<p>Doctrineの悲観的オフラインロック機能はHTTPリクエストとレスポンスサイクルと/もしくは完了させるためにたくさんの時間がかかるアクションもしくはプロシージャの並行処理をコントロールするために使うことができます。</p>
+</div>
+<div class="section" id="id185">
+<h2>例<a class="headerlink" href="#id185" title="Permalink to this headline">¶</a></h2>
+<p>次のコードスニペットはDoctrineの悲観的オフラインロック機能の使い方を実演しています。</p>
+<p>ロックがリクエストされたページでロックマネージャーインスタンスを取得します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $lockingManager = new Doctrine_Locking_Manager_Pessimistic();</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<blockquote>
+<div>300秒 =
+5分のタイムアウトをロックしようとする前に、タイムアウトした古いロックを必ず解放してください。これは``releaseAgedLocks()``メソッドを使用することで可能です。</div></blockquote>
+<p class="last">// test.php</p>
+</div>
+<p>// ... $user = Doctrine_Core::getTable(&#8216;User&#8217;)-&gt;find(1);</p>
+<p>try { $lockingManager-&gt;releaseAgedLocks(300);</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$gotLock</span> <span class="o">=</span> <span class="nv">$lockingManager</span><span class="o">-&gt;</span><span class="na">getLock</span><span class="p">(</span><span class="nv">$user</span><span class="p">,</span> <span class="s1">&#39;jwage&#39;</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="nv">$gotLock</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;Got lock!&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+    <span class="k">echo</span> <span class="s2">&quot;Sorry, someone else is currently working on this record&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>} catch(Doctrine_Locking_Exception $dle) { echo $dle-&gt;getMessage(); //
+handle the error }</p>
+<p>トランザクションが終了するページでロックマネジャーのインスタンスを取得します:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $user = Doctrine_Core::getTable(&#8216;User&#8217;)-&gt;find(1);</p>
+<p>$lockingManager = new Doctrine_Locking_Manager_Pessimistic();</p>
+<p>try { if (<tt class="code docutils literal"><span class="pre">lockingManager-&gt;releaseLock(</span></tt>user, &#8216;jwage&#8217;)) { echo
+&#8220;Lock released&#8221;; } else { echo &#8220;Record was not locked. No locks
+released.&#8221;; } } catch(Doctrine_Locking_Exception $dle) { echo
+$dle-&gt;getMessage(); // handle the error }</p>
+</div>
+<div class="section" id="id186">
+<h2>技術的な詳細<a class="headerlink" href="#id186" title="Permalink to this headline">¶</a></h2>
+<p>悲観的オフラインロックマネージャーはロックをデータベースで保存します(それゆえ&#8217;オフライン&#8217;です)。マネージャーをインスタンス化して``ATTR_CREATE_TABLES``がTRUEに設定されているときに必要なロックテーブルは自動的に作成されます。インストール用の集中化と一貫したテーブル作成のプロシージャを提供するために将来この振る舞いが変更される可能性があります。</p>
+</div>
+</div>
+<div class="section" id="id187">
+<h1>ビュー<a class="headerlink" href="#id187" title="Permalink to this headline">¶</a></h1>
+<p>データベースビューは複雑なクエリのパフォーマンスを多いに増大できます。これらをキャッシュされたクエリとして見なすことができます。<a href="#id188"><span class="problematic" id="id189">``</span></a>Doctrine_View``はデータベースビューとDQLクエリの統合を提供します。</p>
+<div class="section" id="id190">
+<h2>ビューを使う<a class="headerlink" href="#id190" title="Permalink to this headline">¶</a></h2>
+<p>データベースでビューを使うのは簡単です。<a href="#id191"><span class="problematic" id="id192">``</span></a>Doctrine_View``クラスは既存のビューの作成と削除をする機能を提供します。</p>
+<p><a href="#id193"><span class="problematic" id="id194">``</span></a>Doctrine_Query``によって実行されるSQLを保存することで``Doctrine_View``クラスは``Doctrine_Query``クラスを統合します。</p>
+<p>最初に新しい``Doctrine_Query``インスタンスを作成しましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $q = Doctrine_Query::create() -&gt;from(&#8216;User u&#8217;)
+-&gt;leftJoin(&#8216;u.Phonenumber p&#8217;) -&gt;limit(20);</p>
+<p>データベースビューを指定するための``name``と同じように``Doctrine_View``インスタンスを作成し``Doctrine_Query``インスタンスにこれを渡しましょう:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... <tt class="code docutils literal"><span class="pre">view</span> <span class="pre">=</span> <span class="pre">new</span> <span class="pre">Doctrine_View(</span></tt>q,
+&#8216;RetrieveUsersAndPhonenumbers&#8217;);</p>
+<p><a href="#id195"><span class="problematic" id="id196">``</span></a>Doctrine_View::create()``メソッドを使用してビューを簡単に作成できます:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... try { $view-&gt;create(); } catch (Exception $e) {}</p>
+<p>代わりにデータベースビューを削除したい場合``Doctrine_View::drop()``メソッドを使います:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... try { $view-&gt;drop(); } catch (Exception $e) {}</p>
+<p>ビューの使用はとても簡単です。<a href="#id197"><span class="problematic" id="id198">``</span></a>Doctrine_Query``オブジェクトと同じようにビューの実行と結果の取得には``Doctrine_View::execute()``を使います:</p>
+<blockquote>
+<div>// test.php</div></blockquote>
+<p>// ... $users = $view-&gt;execute();</p>
+<p>foreach ($users as <tt class="code docutils literal"><span class="pre">user)</span> <span class="pre">{</span> <span class="pre">print_r(</span></tt>us-&gt;toArray()); }</p>
+</div>
+</div>
+<div class="section" id="id199">
+<h1>まとめ<a class="headerlink" href="#id199" title="Permalink to this headline">¶</a></h1>
+<p>Doctrineが提供するコア機能の大部分を見てきました。この本の次の章では日常生活を楽にするオプション機能の一部をカバーします。</p>
+<p>[doc native-sql 次の章]ではDoctrine Query
+Languageの代わりに配列とオブジェクトの間でデータをハイドレイトするネイティブなSQLの使い方を学びます。</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">マネージャー</a><ul>
+<li><a class="reference internal" href="#id4">接続を読み取る</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">接続</a><ul>
+<li><a class="reference internal" href="#id14">利用できるドライバ</a></li>
+<li><a class="reference internal" href="#id15">接続を作成する</a></li>
+<li><a class="reference internal" href="#flush">接続をflushする</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id20">テーブル</a><ul>
+<li><a class="reference internal" href="#id23">テーブルオブジェクトを取得する</a></li>
+<li><a class="reference internal" href="#id26">カラム情報を取得する</a></li>
+<li><a class="reference internal" href="#id27">リレーションの情報を取得する</a></li>
+<li><a class="reference internal" href="#id32">ファインダーメソッド</a><ul>
+<li><a class="reference internal" href="#id43">カスタムのテーブルクラス</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id46">カスタムのファインダー</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id49">レコード</a><ul>
+<li><a class="reference internal" href="#id50">プロパティ</a></li>
+<li><a class="reference internal" href="#id69">レコードを更新する</a></li>
+<li><a class="reference internal" href="#id74">レコードを置き換える</a></li>
+<li><a class="reference internal" href="#id75">レコードをリフレッシュする</a></li>
+<li><a class="reference internal" href="#id80">リレーションをリフレッシュする</a></li>
+<li><a class="reference internal" href="#id91">レコードを削除する</a></li>
+<li><a class="reference internal" href="#id98">式の値を使う</a></li>
+<li><a class="reference internal" href="#id101">レコードの状態を取得する</a></li>
+<li><a class="reference internal" href="#id108">オブジェクトのコピーを取得する</a></li>
+<li><a class="reference internal" href="#id117">空白のレコードを保存する</a></li>
+<li><a class="reference internal" href="#id118">カスタムの値をマッピングする</a></li>
+<li><a class="reference internal" href="#id119">シリアライズ</a></li>
+<li><a class="reference internal" href="#id120">存在をチェックする</a></li>
+<li><a class="reference internal" href="#id121">カラム用のコールバック関数</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id124">コレクション</a><ul>
+<li><a class="reference internal" href="#id131">要素にアクセスする</a></li>
+<li><a class="reference internal" href="#id134">新しい要素を追加する</a></li>
+<li><a class="reference internal" href="#id135">コレクションのカウントを取得する</a></li>
+<li><a class="reference internal" href="#id140">コレクションを保存する</a></li>
+<li><a class="reference internal" href="#id145">コレクションを削除する</a></li>
+<li><a class="reference internal" href="#id146">キーのマッピング</a></li>
+<li><a class="reference internal" href="#id151">関連レコードをロードする</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id156">バリデータ</a><ul>
+<li><a class="reference internal" href="#id161">さらにバリデーション</a></li>
+<li><a class="reference internal" href="#validnot-valid">ValidもしくはNot Valid</a><ul>
+<li><a class="reference internal" href="#id168">暗黙のバリデーション</a></li>
+<li><a class="reference internal" href="#id171">明示的なバリデーション</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id176">プロファイラー</a><ul>
+<li><a class="reference internal" href="#id181">基本的な使い方</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id182">マネージャーをロックする</a><ul>
+<li><a class="reference internal" href="#id183">楽観的ロック</a></li>
+<li><a class="reference internal" href="#id184">悲観的ロック</a></li>
+<li><a class="reference internal" href="#id185">例</a></li>
+<li><a class="reference internal" href="#id186">技術的な詳細</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id187">ビュー</a><ul>
+<li><a class="reference internal" href="#id190">ビューを使う</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id199">まとめ</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="dql-doctrine-query-language.html"
+                        title="previous chapter">はじめに</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="native-sql.html"
+                        title="next chapter">はじめに</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/ja/manual/component-overview.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="native-sql.html" title="はじめに"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dql-doctrine-query-language.html" title="はじめに"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Japanese Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Manual</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,707 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>24. Caching &mdash; Doctrine 2 ORM 2 documentation</title>
+    <link rel="stylesheet" href="../_static/bootstrap/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/layout.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/configurationblock.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '2',
+        COLLAPSE_MODINDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/configurationblock.js"></script>
+    <script src="../_static/bootstrap/js/bootstrap.min.js"></script>
+
+    <script type="text/javascript">
+    <!--
+        $(document).ready(function() {
+            $("#versions").change(function() {
+                var docsUrl = $(this).val();
+                window.location.href = docsUrl;
+            });
+        });
+    -->
+    </script>
+    <link rel="shortcut icon" href="../_static/doctrine.ico"/>
+    <link rel="top" title="Doctrine 2 ORM 2 documentation" href="../index.html" />
+    <link rel="next" title="25. Improving Performance" href="improving-performance.html" />
+    <link rel="prev" title="23. PHP Mapping" href="php-mapping.html" />
+ 
+<!-- RTD Extra Head -->
+
+
+<script type="text/javascript" src="//media.readthedocs.org/javascript/rtd.js"></script>
+<link rel="stylesheet" href="//media.readthedocs.org/css/rtd-shim.css" type="text/css" />
+<!-- end RTD <extrahead> -->
+
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="header">
+        <h1 id="h1title"></h1>
+        <div id="logo">
+          <a href="http://www.doctrine-project.org/">Doctrine - PHP Database Libraries</a>
+        </div>
+      </div>
+      <div id="nav" class="cls">
+        <div class="tl cls">
+          <ul>
+            <li><a target="_top" href="/">home</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/about">about</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects.html">projects</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/orm">orm</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/projects/dbal">dbal</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/blog">blog</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/jira">development</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/contribute">contribute</a></li>
+            <li><a class="" target="_top" href="http://www.doctrine-project.org/community">community</a></li>
+          </ul>
+        </div>
+      </div>
+      <div id="content" class="cls">
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="improving-performance.html" title="25. Improving Performance"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="php-mapping.html" title="23. PHP Mapping"
+             accesskey="P">previous</a> |</li>
+        <li><a href="/">Doctrine Homepage</a> &raquo;</li>
+        <li><a href="../index.html">Doctrine 2 ORM 2 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+        <div class="document">
+            <div class="documentwrapper">
+                <div class="bodywrapper">
+
+              <div class="body" >
+                
+  <div class="section" id="caching">
+<h1>24. Caching<a class="headerlink" href="#caching" title="Permalink to this headline">¶</a></h1>
+<p>Doctrine provides cache drivers in the <tt class="docutils literal"><span class="pre">Common</span></tt> package for some
+of the most popular caching implementations such as APC, Memcache
+and Xcache. We also provide an <tt class="docutils literal"><span class="pre">ArrayCache</span></tt> driver which stores
+the data in a PHP array. Obviously, the cache does not live between
+requests but this is useful for testing in a development
+environment.</p>
+<div class="section" id="cache-drivers">
+<h2>24.1. Cache Drivers<a class="headerlink" href="#cache-drivers" title="Permalink to this headline">¶</a></h2>
+<p>The cache drivers follow a simple interface that is defined in
+<tt class="docutils literal"><span class="pre">Doctrine\Common\Cache\Cache</span></tt>. All the cache drivers extend a
+base class <tt class="docutils literal"><span class="pre">Doctrine\Common\Cache\AbstractCache</span></tt> which implements
+the before mentioned interface.</p>
+<p>The interface defines the following methods for you to publicly
+use.</p>
+<ul class="simple">
+<li>fetch($id) - Fetches an entry from the cache.</li>
+<li>contains($id) - Test if an entry exists in the cache.</li>
+<li>save($id, $data, $lifeTime = false) - Puts data into the cache.</li>
+<li>delete($id) - Deletes a cache entry.</li>
+</ul>
+<p>Each driver extends the <tt class="docutils literal"><span class="pre">AbstractCache</span></tt> class which defines a few
+abstract protected methods that each of the drivers must
+implement.</p>
+<ul class="simple">
+<li>_doFetch($id)</li>
+<li>_doContains($id)</li>
+<li>_doSave($id, $data, $lifeTime = false)</li>
+<li>_doDelete($id)</li>
+</ul>
+<p>The public methods <tt class="docutils literal"><span class="pre">fetch()</span></tt>, <tt class="docutils literal"><span class="pre">contains()</span></tt>, etc. utilize the
+above protected methods that are implemented by the drivers. The
+code is organized this way so that the protected methods in the
+drivers do the raw interaction with the cache implementation and
+the <tt class="docutils literal"><span class="pre">AbstractCache</span></tt> can build custom functionality on top of
+these methods.</p>
+<div class="section" id="apc">
+<h3>24.1.1. APC<a class="headerlink" href="#apc" title="Permalink to this headline">¶</a></h3>
+<p>In order to use the APC cache driver you must have it compiled and
+enabled in your php.ini. You can read about APC
+<a class="reference external" href="http://us2.php.net/apc">in the PHP Documentation</a>. It will give
+you a little background information about what it is and how you
+can use it as well as how to install it.</p>
+<p>Below is a simple example of how you could use the APC cache driver
+by itself.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ApcCache</span><span class="p">();</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">,</span> <span class="s1">&#39;my_data&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="memcache">
+<h3>24.1.2. Memcache<a class="headerlink" href="#memcache" title="Permalink to this headline">¶</a></h3>
+<p>In order to use the Memcache cache driver you must have it compiled
+and enabled in your php.ini. You can read about Memcache
+` on the PHP website &lt;<a class="reference external" href="http://us2.php.net/memcache">http://us2.php.net/memcache</a>&gt;`_. It will
+give you a little background information about what it is and how
+you can use it as well as how to install it.</p>
+<p>Below is a simple example of how you could use the Memcache cache
+driver by itself.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$memcache</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Memcache</span><span class="p">();</span>
+<span class="nv">$memcache</span><span class="o">-&gt;</span><span class="na">connect</span><span class="p">(</span><span class="s1">&#39;memcache_host&#39;</span><span class="p">,</span> <span class="mi">11211</span><span class="p">);</span>
+
+<span class="nv">$cacheDriver</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\MemcacheCache</span><span class="p">();</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">setMemcache</span><span class="p">(</span><span class="nv">$memcache</span><span class="p">);</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">,</span> <span class="s1">&#39;my_data&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="xcache">
+<h3>24.1.3. Xcache<a class="headerlink" href="#xcache" title="Permalink to this headline">¶</a></h3>
+<p>In order to use the Xcache cache driver you must have it compiled
+and enabled in your php.ini. You can read about Xcache
+<a class="reference external" href="http://xcache.lighttpd.net/">here</a>. It will give you a little
+background information about what it is and how you can use it as
+well as how to install it.</p>
+<p>Below is a simple example of how you could use the Xcache cache
+driver by itself.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\XcacheCache</span><span class="p">();</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">,</span> <span class="s1">&#39;my_data&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="redis">
+<h3>24.1.4. Redis<a class="headerlink" href="#redis" title="Permalink to this headline">¶</a></h3>
+<p>In order to use the Redis cache driver you must have it compiled
+and enabled in your php.ini. You can read about what is Redis
+<a class="reference external" href="http://redis.io/">from here</a>. Also check
+<a class="reference external" href="https://github.com/nicolasff/phpredis/">A PHP extension for Redis</a> for how you can use
+and install Redis PHP extension.</p>
+<p>Below is a simple example of how you could use the Redis cache
+driver by itself.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$redis</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Redis</span><span class="p">();</span>
+<span class="nv">$redis</span><span class="o">-&gt;</span><span class="na">connect</span><span class="p">(</span><span class="s1">&#39;redis_host&#39;</span><span class="p">,</span> <span class="mi">6379</span><span class="p">);</span>
+
+<span class="nv">$cacheDriver</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\RedisCache</span><span class="p">();</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">setRedis</span><span class="p">(</span><span class="nv">$redis</span><span class="p">);</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">,</span> <span class="s1">&#39;my_data&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="using-cache-drivers">
+<h2>24.2. Using Cache Drivers<a class="headerlink" href="#using-cache-drivers" title="Permalink to this headline">¶</a></h2>
+<p>In this section we&#8217;ll describe how you can fully utilize the API of
+the cache drivers to save cache, check if some cache exists, fetch
+the cached data and delete the cached data. We&#8217;ll use the
+<tt class="docutils literal"><span class="pre">ArrayCache</span></tt> implementation as our example here.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ArrayCache</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="section" id="saving">
+<h3>24.2.1. Saving<a class="headerlink" href="#saving" title="Permalink to this headline">¶</a></h3>
+<p>To save some data to the cache driver it is as simple as using the
+<tt class="docutils literal"><span class="pre">save()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">,</span> <span class="s1">&#39;my_data&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">save()</span></tt> method accepts three arguments which are described
+below.</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">$id</span></tt> - The cache id</li>
+<li><tt class="docutils literal"><span class="pre">$data</span></tt> - The cache entry/data.</li>
+<li><tt class="docutils literal"><span class="pre">$lifeTime</span></tt> - The lifetime. If != false, sets a specific
+lifetime for this cache entry (null =&gt; infinite lifeTime).</li>
+</ul>
+<p>You can save any type of data whether it be a string, array,
+object, etc.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$array</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;key1&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;value1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;key2&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;value2&#39;</span>
+<span class="p">);</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">(</span><span class="s1">&#39;my_array&#39;</span><span class="p">,</span> <span class="nv">$array</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="checking">
+<h3>24.2.2. Checking<a class="headerlink" href="#checking" title="Permalink to this headline">¶</a></h3>
+<p>Checking whether some cache exists is very simple, just use the
+<tt class="docutils literal"><span class="pre">contains()</span></tt> method. It accepts a single argument which is the ID
+of the cache entry.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span><span class="s1">&#39;cache_id&#39;</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;cache exists&#39;</span><span class="p">;</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="k">echo</span> <span class="s1">&#39;cache does not exist&#39;</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="fetching">
+<h3>24.2.3. Fetching<a class="headerlink" href="#fetching" title="Permalink to this headline">¶</a></h3>
+<p>Now if you want to retrieve some cache entry you can use the
+<tt class="docutils literal"><span class="pre">fetch()</span></tt> method. It also accepts a single argument just like
+<tt class="docutils literal"><span class="pre">contains()</span></tt> which is the ID of the cache entry.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$array</span> <span class="o">=</span> <span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">fetch</span><span class="p">(</span><span class="s1">&#39;my_array&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="deleting">
+<h3>24.2.4. Deleting<a class="headerlink" href="#deleting" title="Permalink to this headline">¶</a></h3>
+<p>As you might guess, deleting is just as easy as saving, checking
+and fetching. We have a few ways to delete cache entries. You can
+delete by an individual ID, regular expression, prefix, suffix or
+you can delete all entries.</p>
+<div class="section" id="by-cache-id">
+<h4>24.2.4.1. By Cache ID<a class="headerlink" href="#by-cache-id" title="Permalink to this headline">¶</a></h4>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">delete</span><span class="p">(</span><span class="s1">&#39;my_array&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="all">
+<h4>24.2.4.2. All<a class="headerlink" href="#all" title="Permalink to this headline">¶</a></h4>
+<p>If you simply want to delete all cache entries you can do so with
+the <tt class="docutils literal"><span class="pre">deleteAll()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$deleted</span> <span class="o">=</span> <span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">deleteAll</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="namespaces">
+<h3>24.2.5. Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this headline">¶</a></h3>
+<p>If you heavily use caching in your application and utilize it in
+multiple parts of your application, or use it in different
+applications on the same server you may have issues with cache
+naming collisions. This can be worked around by using namespaces.
+You can set the namespace a cache driver should use by using the
+<tt class="docutils literal"><span class="pre">setNamespace()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$cacheDriver</span><span class="o">-&gt;</span><span class="na">setNamespace</span><span class="p">(</span><span class="s1">&#39;my_namespace_&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="integrating-with-the-orm">
+<h2>24.3. Integrating with the ORM<a class="headerlink" href="#integrating-with-the-orm" title="Permalink to this headline">¶</a></h2>
+<p>The Doctrine ORM package is tightly integrated with the cache
+drivers to allow you to improve performance of various aspects of
+Doctrine by just simply making some additional configurations and
+method calls.</p>
+<div class="section" id="query-cache">
+<h3>24.3.1. Query Cache<a class="headerlink" href="#query-cache" title="Permalink to this headline">¶</a></h3>
+<p>It is highly recommended that in a production environment you cache
+the transformation of a DQL query to its SQL counterpart. It
+doesn&#8217;t make sense to do this parsing multiple times as it doesn&#8217;t
+change unless you alter the DQL query.</p>
+<p>This can be done by configuring the query cache implementation to
+use on your ORM configuration.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">\Doctrine\ORM\Configuration</span><span class="p">();</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">setQueryCacheImpl</span><span class="p">(</span><span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ApcCache</span><span class="p">());</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="result-cache">
+<h3>24.3.2. Result Cache<a class="headerlink" href="#result-cache" title="Permalink to this headline">¶</a></h3>
+<p>The result cache can be used to cache the results of your queries
+so that we don&#8217;t have to query the database or hydrate the data
+again after the first time. You just need to configure the result
+cache implementation.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">setResultCacheImpl</span><span class="p">(</span><span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ApcCache</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>Now when you&#8217;re executing DQL queries you can configure them to use
+the result cache.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$query</span> <span class="o">=</span> <span class="nv">$em</span><span class="o">-&gt;</span><span class="na">createQuery</span><span class="p">(</span><span class="s1">&#39;select u from \Entities\User u&#39;</span><span class="p">);</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">useResultCache</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>You can also configure an individual query to use a different
+result cache driver.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setResultCacheDriver</span><span class="p">(</span><span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ApcCache</span><span class="p">());</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Setting the result cache driver on the query will
+automatically enable the result cache for the query. If you want to
+disable it pass false to <tt class="docutils literal"><span class="pre">useResultCache()</span></tt>.</p>
+<div class="last highlight-python"><pre>&lt;?php
+$query-&gt;useResultCache(false);</pre>
+</div>
+</div>
+<p>If you want to set the time the cache has to live you can use the
+<tt class="docutils literal"><span class="pre">setResultCacheLifetime()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setResultCacheLifetime</span><span class="p">(</span><span class="mi">3600</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The ID used to store the result set cache is a hash which is
+automatically generated for you if you don&#8217;t set a custom ID
+yourself with the <tt class="docutils literal"><span class="pre">setResultCacheId()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">setResultCacheId</span><span class="p">(</span><span class="s1">&#39;my_custom_id&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>You can also set the lifetime and cache ID by passing the values as
+the second and third argument to <tt class="docutils literal"><span class="pre">useResultCache()</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$query</span><span class="o">-&gt;</span><span class="na">useResultCache</span><span class="p">(</span><span class="k">true</span><span class="p">,</span> <span class="mi">3600</span><span class="p">,</span> <span class="s1">&#39;my_custom_id&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="metadata-cache">
+<h3>24.3.3. Metadata Cache<a class="headerlink" href="#metadata-cache" title="Permalink to this headline">¶</a></h3>
+<p>Your class metadata can be parsed from a few different sources like
+YAML, XML, Annotations, etc. Instead of parsing this information on
+each request we should cache it using one of the cache drivers.</p>
+<p>Just like the query and result cache we need to configure it
+first.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="cp">&lt;?php</span>
+<span class="nv">$config</span><span class="o">-&gt;</span><span class="na">setMetadataCacheImpl</span><span class="p">(</span><span class="k">new</span> <span class="nx">\Doctrine\Common\Cache\ApcCache</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>Now the metadata information will only be parsed once and stored in
+the cache driver.</p>
+</div>
+</div>
+<div class="section" id="clearing-the-cache">
+<h2>24.4. Clearing the Cache<a class="headerlink" href="#clearing-the-cache" title="Permalink to this headline">¶</a></h2>
+<p>We&#8217;ve already shown you previously how you can use the API of the
+cache drivers to manually delete cache entries. For your
+convenience we offer a command line task for you to help you with
+clearing the query, result and metadata cache.</p>
+<p>From the Doctrine command line you can run the following command.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache</span>
+</pre></div>
+</div>
+<p>Running this task with no arguments will clear all the cache for
+all the configured drivers. If you want to be more specific about
+what you clear you can use the following options.</p>
+<p>To clear the query cache use the <tt class="docutils literal"><span class="pre">--query</span></tt> option.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --query</span>
+</pre></div>
+</div>
+<p>To clear the metadata cache use the <tt class="docutils literal"><span class="pre">--metadata</span></tt> option.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --metadata</span>
+</pre></div>
+</div>
+<p>To clear the result cache use the <tt class="docutils literal"><span class="pre">--result</span></tt> option.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --result</span>
+</pre></div>
+</div>
+<p>When you use the <tt class="docutils literal"><span class="pre">--result</span></tt> option you can use some other options
+to be more specific about what queries result sets you want to
+clear.</p>
+<p>Just like the API of the cache drivers you can clear based on an
+ID, regular expression, prefix or suffix.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --result --id=cache_id</span>
+</pre></div>
+</div>
+<p>Or if you want to clear based on a regular expressions.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --result --regex=users_.*</span>
+</pre></div>
+</div>
+<p>Or with a prefix.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --result --prefix=users_</span>
+</pre></div>
+</div>
+<p>And finally with a suffix.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$ ./doctrine clear-cache --result --suffix=_my_account</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Using the <tt class="docutils literal"><span class="pre">--id</span></tt>, <tt class="docutils literal"><span class="pre">--regex</span></tt>, etc. options with the
+<tt class="docutils literal"><span class="pre">--query</span></tt> and <tt class="docutils literal"><span class="pre">--metadata</span></tt> are not allowed as it is not
+necessary to be specific about what you clear. You only ever need
+to completely clear the cache to remove stale entries.</p>
+</div>
+</div>
+<div class="section" id="cache-slams">
+<h2>24.5. Cache Slams<a class="headerlink" href="#cache-slams" title="Permalink to this headline">¶</a></h2>
+<p>Something to be careful of when utilizing the cache drivers is
+cache slams. If you have a heavily trafficked website with some
+code that checks for the existence of a cache record and if it does
+not exist it generates the information and saves it to the cache.
+Now if 100 requests were issued all at the same time and each one
+sees the cache does not exist and they all try and insert the same
+cache entry it could lock up APC, Xcache, etc. and cause problems.
+Ways exist to work around this, like pre-populating your cache and
+not letting your users requests populate the cache.</p>
+<p>You can read more about cache slams
+<a class="reference external" href="http://notmysock.org/blog/php/user-cache-timebomb.html">in this blog post</a>.</p>
+</div>
+</div>
+
+
+              </div>
+                </div>
+
+            </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+
+
+
+             
+            <div id="searchbox" style="">
+              <h3>Search</h3>
+                <form class="search" action="http://readthedocs.org/search/project/" method="get">
+                  <input type="text" name="q" size="18">
+                  <input type="submit" value="Go">
+                  <input type="hidden" name="selected_facets" value="project:Doctrine ORM">
+                </form>
+            </div>
+            <h3><a href="../index.html">Table Of Contents</a></h3>
+            <ul>
+<li><a class="reference internal" href="#">24. Caching</a><ul>
+<li><a class="reference internal" href="#cache-drivers">24.1. Cache Drivers</a><ul>
+<li><a class="reference internal" href="#apc">24.1.1. APC</a></li>
+<li><a class="reference internal" href="#memcache">24.1.2. Memcache</a></li>
+<li><a class="reference internal" href="#xcache">24.1.3. Xcache</a></li>
+<li><a class="reference internal" href="#redis">24.1.4. Redis</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#using-cache-drivers">24.2. Using Cache Drivers</a><ul>
+<li><a class="reference internal" href="#saving">24.2.1. Saving</a></li>
+<li><a class="reference internal" href="#checking">24.2.2. Checking</a></li>
+<li><a class="reference internal" href="#fetching">24.2.3. Fetching</a></li>
+<li><a class="reference internal" href="#deleting">24.2.4. Deleting</a><ul>
+<li><a class="reference internal" href="#by-cache-id">24.2.4.1. By Cache ID</a></li>
+<li><a class="reference internal" href="#all">24.2.4.2. All</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#namespaces">24.2.5. Namespaces</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#integrating-with-the-orm">24.3. Integrating with the ORM</a><ul>
+<li><a class="reference internal" href="#query-cache">24.3.1. Query Cache</a></li>
+<li><a class="reference internal" href="#result-cache">24.3.2. Result Cache</a></li>
+<li><a class="reference internal" href="#metadata-cache">24.3.3. Metadata Cache</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#clearing-the-cache">24.4. Clearing the Cache</a></li>
+<li><a class="reference internal" href="#cache-slams">24.5. Cache Slams</a></li>
+</ul>
+</li>
+</ul>
+
+            <h4>Previous topic</h4>
+            <p class="topless"><a href="php-mapping.html"
+                                  title="previous chapter">23. PHP Mapping</a></p>
+            <h4>Next topic</h4>
+            <p class="topless"><a href="improving-performance.html"
+                                  title="next chapter">25. Improving Performance</a></p>
+  
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      
+        <li><a href="../_sources/reference/caching.txt"
+               rel="nofollow">Show Source</a></li>
+      
+      
+        <li><a href="https://github.com/doctrine/doctrine2/blob/master/docs/en/reference/caching.rst">
+          Show on GitHub</a></li>
+        <li><a href="https://github.com/doctrine/doctrine2/edit/master/docs/en/reference/caching.rst">
+          Edit on GitHub</a></li>
+      
+    </ul>
+  
+
+        </div>
+      </div>
+          <div class="clearer"></div>
+        </div>
+
+          <div class="footer">
+              &copy; Copyright 2010-12, Doctrine Project Team.
+              Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+            <br/>
+            <a target="_BLANK" href="http://www.servergrove.com"><img src="http://www.doctrine-project.org/images/servergrove.jpg" /></a>      <br/><br/>
+            <form action="https://www.paypal.com/cgi-bin/webscr" method="post">
+              <input type="hidden" name="cmd" value="_s-xclick" />
+              <input type="hidden" name="hosted_button_id" value="BAE2E3XANQ77Y" />
+              <input type="image" src="https://www.paypal.com/en_US/i/btn/btn_donateCC_LG.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" />
+              <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1" height="1" />
+            </form>
+          </div>
+ <!-- End original user content -->
+
+
+<br/>
+<br/>
+<br/>
+
+
+<style type="text/css">
+  #version_menu, .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0.75s;
+    transition: all 0.25s 0.75s;
+  }
+  .footer_popout:hover #version_menu, .footer_popout:hover .rtd-badge.rtd {
+    -webkit-transition: all 0.25s 0s;
+    transition: all 0.25s 0s;
+  }
+  .rtd-badge {
+    position: fixed;
+    display: block;
+    bottom: 5px;
+    height: 40px;
+    text-indent: -9999em;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -moz-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+    -webkit-box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  }
+  #version_menu {
+    position: fixed;
+    visibility: hidden;
+    opacity: 0;
+    bottom: 11px;
+    right: 47px;
+    list-style-type: none;
+    margin: 0;
+  }
+  .footer_popout:hover #version_menu {
+    visibility: visible;
+    opacity: 1;
+    right: 166px;
+  }
+  #version_menu li {
+    display: block;
+    float: right;
+  }
+  #version_menu li a {
+    display: block;
+    padding: 6px 10px 4px 10px;
+    margin: 7px 7px 0 0;
+    font-weight: bold;
+    font-size: 14px;
+    height: 20px;
+    line-height: 17px;
+    text-decoration: none;
+    color: #fff;
+    background: #8ca1af url(//media.readthedocs.org//images/gradient-light.png) bottom left repeat-x;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    -webkit-border-radius: 3px;
+    box-shadow: 0 1px 1px #465158;
+    -moz-box-shadow: 0 1px 1px #465158;
+    -webkit-box-shadow: 0 1px 1px #465158;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  #version_menu li a:hover {
+    text-decoration: none;
+    background-color: #697983;
+    box-shadow: 0 1px 0px #465158;
+    -moz-box-shadow: 0 1px 0px #465158;
+    -webkit-box-shadow: 0 1px 0px #465158;
+  }
+  .rtd-badge.rtd {
+    background: #3b4449 url(//media.readthedocs.org//images/badge-rtd.png) scroll top left no-repeat;
+    border: 1px solid #282E32;
+    width: 41px;
+    right: 5px;
+  }
+  .footer_popout:hover .rtd-badge.rtd {
+    width: 160px;
+  }
+  .rtd-badge.revsys { background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline-sponsored {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 290px;
+    right: 173px;
+  }
+  .rtd-badge.revsys-inline {
+    position: inherit;
+    margin-left: auto;
+    margin-right: 175px;
+    margin-bottom: 5px;
+    background: #465158 url(//media.readthedocs.org//images/badge-revsys-sm.png) top left no-repeat;
+    border: 1px solid #1C5871;
+    width: 205px;
+    right: 173px;
+  }
+
+</style>
+<div class="rtd_doc_footer">
+  <div class="footer_popout">
+    <a href="//readthedocs.org/projects/doctrine-orm/?fromdocs=doctrine-orm" class="rtd-badge rtd"> Brought to you by Read the Docs</a>
+    <ul id="version_menu">
+      
+        <li><a href="/en/latest/">latest</a></li>
+      
+    </ul>
+  </div>
+</div>
+<!-- RTD Analytics Code -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-17997319-1']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+
+
+
+
+      </div>
+
+      <div id="bot-rcnr">
+        <div class="tl"><!-- corner --></div>
+      </div>
+    </div>
+
+  <script src="http://www.google-analytics.com/urchin.js" type="text/javascript">
+  </script>
+  <script type="text/javascript">
+  _uacct = "UA-288343-7";
+  urchinTracker();
+  </script>
+  <a class="githublink" href="http://github.com/doctrine"><img src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png" alt="Fork me on GitHub"></a>
+  </body>
+</html>

@@ -1,0 +1,859 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Write a Tumblelog Application with Django MongoDB Engine &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/write-a-tumblelog-application-with-django-mongodb-engine.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/write-a-tumblelog-application-with-django-mongodb-engine" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Use Cases" href="../use-cases.html" />
+<link rel="next" title="Write a Tumblelog Application with Flask and MongoEngine" href="write-a-tumblelog-application-with-flask-mongoengine.html" />
+<link rel="prev" title="Storing Comments" href="../use-cases/storing-comments.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../use-cases.html">Use Cases</a><span class="bcpoint"> > </span></li>
+          <li>Write a Tumblelog Application with Django MongoDB Engine</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="write-a-tumblelog-application-with-django-mongodb-engine">
+<h1>Write a Tumblelog Application with Django MongoDB Engine<a class="headerlink" href="#write-a-tumblelog-application-with-django-mongodb-engine" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>In this tutorial, you will learn how to create a basic tumblelog
+application using the popular <a class="reference external" href="http://www.djangoproject.com">Django</a> Python web-framework and the
+<a class="reference internal" href="../reference/glossary.html#term-mongodb"><em class="xref std std-term">MongoDB</em></a> database.</p>
+<p>The tumblelog will consist of two parts:</p>
+<ol class="arabic simple">
+<li>A public site that lets people view posts and comment on them.</li>
+<li>An admin site that lets you add, change and delete posts and publish
+comments.</li>
+</ol>
+<p>This tutorial assumes that you are already familiar with Django and
+have a basic familiarity with MongoDB operation and have
+<a class="reference internal" href="../installation.html#tutorials-installation"><em>installed MongoDB</em></a>.</p>
+<div class="admonition-where-to-get-help admonition">
+<p class="first admonition-title">Where to get help</p>
+<p class="last">If you&#8217;re having trouble going through this tutorial, please post
+a message to <a class="reference external" href="http://groups.google.com/group/mongodb-user">mongodb-user</a> or join the IRC chat in <em>#mongodb</em> on
+<a class="reference external" href="http://freenode.net/">irc.freenode.net</a> to chat with other MongoDB users who might be
+able to help.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last"><a class="reference external" href="http://django-mongodb.org/">Django MongoDB Engine</a> uses a forked version of Django 1.3
+that adds non-relational support.</p>
+</div>
+</div>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>Begin by installing packages required by later steps in this tutorial.</p>
+<div class="section" id="prerequisite">
+<h3>Prerequisite<a class="headerlink" href="#prerequisite" title="Permalink to this headline">¶</a></h3>
+<p>This tutorial uses <a class="reference external" href="http://pypi.python.org/pypi/pip">pip</a> to install packages and <a class="reference external" href="http://virtualenv.org">virtualenv</a> to isolate
+Python environments. While these tools and this configuration are not
+required as such, they ensure a standard environment and are strongly
+recommended. Issue the following commands at the system prompt:</p>
+<div class="highlight-sh"><div class="highlight"><pre>pip install virtualenv
+virtualenv myproject
+</pre></div>
+</div>
+<p>Respectively, these commands: install the <tt class="docutils literal"><span class="pre">virtualenv</span></tt> program
+(using <tt class="docutils literal"><span class="pre">pip</span></tt>) and create an isolated Python environment for this
+project (named <tt class="docutils literal"><span class="pre">myproject</span></tt>.)</p>
+<p>To activate <tt class="docutils literal"><span class="pre">myproject</span></tt> environment at the system prompt, use the
+following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nb">source </span>myproject/bin/activate
+</pre></div>
+</div>
+</div>
+<div class="section" id="installing-packages">
+<h3>Installing Packages<a class="headerlink" href="#installing-packages" title="Permalink to this headline">¶</a></h3>
+<p>Django MongoDB Engine directly depends on:</p>
+<ul class="simple">
+<li><a class="reference external" href="http://www.allbuttonspressed.com/projects/django-nonrel">Django-nonrel</a>, a fork of Django 1.3 that adds support for non-relational
+databases</li>
+<li><a class="reference external" href="http://www.allbuttonspressed.com/projects/djangotoolbox">djangotoolbox</a>, a bunch of utilities for non-relational Django applications
+and backends</li>
+</ul>
+<p>Install by issuing the following commands:</p>
+<div class="highlight-bash"><div class="highlight"><pre>pip install https://bitbucket.org/wkornewald/django-nonrel/get/tip.tar.gz
+pip install https://bitbucket.org/wkornewald/djangotoolbox/get/tip.tar.gz
+pip install https://github.com/django-nonrel/mongodb-engine/tarball/master
+</pre></div>
+</div>
+<p>Continue with the tutorial to begin building the &#8220;tumblelog&#8221;
+application.</p>
+</div>
+</div>
+<div class="section" id="build-a-blog-to-get-started">
+<h2>Build a Blog to Get Started<a class="headerlink" href="#build-a-blog-to-get-started" title="Permalink to this headline">¶</a></h2>
+<p>In this tutorial you will build a basic blog as the foundation of this
+application and use this as the basis of your tumblelog
+application. You will add the first post using the shell and then
+later use the Django administrative interface.</p>
+<p>Call the <tt class="docutils literal"><span class="pre">startproject</span></tt> command, as with other Django projects, to
+get started and create the basic project skeleton:</p>
+<div class="highlight-bash"><div class="highlight"><pre>django-admin.py startproject tumblelog
+</pre></div>
+</div>
+<div class="section" id="configuring-django">
+<h3>Configuring Django<a class="headerlink" href="#configuring-django" title="Permalink to this headline">¶</a></h3>
+<p>Configure the database in the <tt class="file docutils literal"><span class="pre">tumblelog/settings.py</span></tt> file:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">DATABASES</span> <span class="o">=</span> <span class="p">{</span>
+   <span class="s">&#39;default&#39;</span><span class="p">:</span> <span class="p">{</span>
+      <span class="s">&#39;ENGINE&#39;</span><span class="p">:</span> <span class="s">&#39;django_mongodb_engine&#39;</span><span class="p">,</span>
+      <span class="s">&#39;NAME&#39;</span><span class="p">:</span> <span class="s">&#39;my_tumble_log&#39;</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition-see-also admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">The <a class="reference external" href="http://django-mongodb.org/reference/settings.html">Django MongoDB Engine Settings</a> documentation for
+more configuration options.</p>
+</div>
+</div>
+<div class="section" id="define-the-schema">
+<h3>Define the Schema<a class="headerlink" href="#define-the-schema" title="Permalink to this headline">¶</a></h3>
+<p>The first step in writing a tumblelog in <a class="reference external" href="http://www.djangoproject.com">Django</a> is to define the
+&#8220;models&#8221; or in MongoDB&#8217;s terminology <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a>.</p>
+<p>In this application, you will define posts and comments, so that each
+<tt class="docutils literal"><span class="pre">Post</span></tt> can contain a list of <tt class="docutils literal"><span class="pre">Comments</span></tt>. Edit the
+<tt class="file docutils literal"><span class="pre">tumblelog/models.py</span></tt> file so it resembles the following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.db</span> <span class="kn">import</span> <span class="n">models</span>
+<span class="kn">from</span> <span class="nn">django.core.urlresolvers</span> <span class="kn">import</span> <span class="n">reverse</span>
+
+<span class="kn">from</span> <span class="nn">djangotoolbox.fields</span> <span class="kn">import</span> <span class="n">ListField</span><span class="p">,</span> <span class="n">EmbeddedModelField</span>
+
+
+<span class="k">class</span> <span class="nc">Post</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">auto_now_add</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">db_index</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+    <span class="n">slug</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">SlugField</span><span class="p">()</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">()</span>
+    <span class="n">comments</span> <span class="o">=</span> <span class="n">ListField</span><span class="p">(</span><span class="n">EmbeddedModelField</span><span class="p">(</span><span class="s">&#39;Comment&#39;</span><span class="p">),</span> <span class="n">editable</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_absolute_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">reverse</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s">&quot;slug&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">slug</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+
+    <span class="k">class</span> <span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">ordering</span> <span class="o">=</span> <span class="p">[</span><span class="s">&quot;-created_at&quot;</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">Comment</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">auto_now_add</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">(</span><span class="n">verbose_name</span><span class="o">=</span><span class="s">&quot;Comment&quot;</span><span class="p">)</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">verbose_name</span><span class="o">=</span><span class="s">&quot;Name&quot;</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The Django &#8220;nonrel&#8221; code looks the same as vanilla Django, however
+there is no built in support for some of MongoDB&#8217;s native data types
+like Lists and Embedded data. <tt class="xref py py-mod docutils literal"><span class="pre">djangotoolbox</span></tt> handles these
+definitions.</p>
+<div class="admonition-see admonition seealso">
+<p class="first admonition-title">See</p>
+<p class="last">The Django MongoDB Engine <a class="reference external" href="http://django-mongodb.org/reference/fields.html">fields</a> documentation for more.</p>
+</div>
+<p>The models declare an index to the <tt class="docutils literal"><span class="pre">Post</span></tt> class. One for the
+<tt class="docutils literal"><span class="pre">created_at</span></tt> date as our frontpage will order by date: there
+is no need to add <tt class="docutils literal"><span class="pre">db_index</span></tt> on <tt class="docutils literal"><span class="pre">SlugField</span></tt> because
+there is a default index on <tt class="docutils literal"><span class="pre">SlugField</span></tt>.</p>
+</div>
+<div class="section" id="add-data-with-the-shell">
+<h3>Add Data with the Shell<a class="headerlink" href="#add-data-with-the-shell" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="file docutils literal"><span class="pre">manage.py</span></tt> provides a shell interface for the application
+that you can use to insert data into the tumblelog. Begin by issuing
+the following command to load the Python shell:</p>
+<div class="highlight-bash"><div class="highlight"><pre>python manage.py shell
+</pre></div>
+</div>
+<p>Create the first post using the following sequence of operations:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="p">(</span>
+<span class="gp">... </span><span class="n">title</span><span class="o">=</span><span class="s">&quot;Hello World!&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">slug</span><span class="o">=</span><span class="s">&quot;hello-world&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">body</span> <span class="o">=</span> <span class="s">&quot;Welcome to my new shiny Tumble log powered by MongoDB and Django-MongoDB!&quot;</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Add comments using the following sequence of operations:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span>
+<span class="go">[]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">comment</span> <span class="o">=</span> <span class="n">Comment</span><span class="p">(</span>
+<span class="gp">... </span><span class="n">author</span><span class="o">=</span><span class="s">&quot;Joe Bloggs&quot;</span><span class="p">,</span>
+<span class="gp">... </span><span class="n">body</span><span class="o">=</span><span class="s">&quot;Great post! I&#39;m looking forward to reading your blog&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">comment</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Finally, inspect the post:</p>
+<div class="highlight-pycon"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">post</span> <span class="o">=</span> <span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span>
+<span class="go">&lt;Post: Hello World!&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">post</span><span class="o">.</span><span class="n">comments</span>
+<span class="go">[&lt;Comment: Comment object&gt;]</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="add-the-views">
+<h3>Add the Views<a class="headerlink" href="#add-the-views" title="Permalink to this headline">¶</a></h3>
+<p>Because <a class="reference external" href="http://django-mongodb.org/">django-mongodb</a> provides tight integration with Django you can
+use <a class="reference external" href="https://docs.djangoproject.com/en/1.3/topics/class-based-views/">generic views</a> to display the frontpage and post pages for the
+tumblelog.  Insert the following content into the <tt class="file docutils literal"><span class="pre">urls.py</span></tt> file
+to add the views:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.conf.urls.defaults</span> <span class="kn">import</span> <span class="n">patterns</span><span class="p">,</span> <span class="n">include</span><span class="p">,</span> <span class="n">url</span>
+<span class="kn">from</span> <span class="nn">django.views.generic</span> <span class="kn">import</span> <span class="n">ListView</span><span class="p">,</span> <span class="n">DetailView</span>
+<span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Post</span>
+
+<span class="n">urlpatterns</span> <span class="o">=</span> <span class="n">patterns</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,</span>
+    <span class="n">url</span><span class="p">(</span><span class="s">r&#39;^$&#39;</span><span class="p">,</span> <span class="n">ListView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span>
+        <span class="n">queryset</span><span class="o">=</span><span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span>
+        <span class="n">context_object_name</span><span class="o">=</span><span class="s">&quot;posts_list&quot;</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="s">&quot;home&quot;</span>
+    <span class="p">),</span>
+    <span class="n">url</span><span class="p">(</span><span class="s">r&#39;^post/(?P&lt;slug&gt;[a-zA-Z0-9-]+)/$&#39;</span><span class="p">,</span> <span class="n">DetailView</span><span class="o">.</span><span class="n">as_view</span><span class="p">(</span>
+        <span class="n">queryset</span><span class="o">=</span><span class="n">Post</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span>
+        <span class="n">context_object_name</span><span class="o">=</span><span class="s">&quot;post&quot;</span><span class="p">),</span>
+        <span class="n">name</span><span class="o">=</span><span class="s">&quot;post&quot;</span>
+    <span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="add-templates">
+<h3>Add Templates<a class="headerlink" href="#add-templates" title="Permalink to this headline">¶</a></h3>
+<p>In the tumblelog directory add the following directories <tt class="file docutils literal"><span class="pre">templates</span></tt>
+and <tt class="file docutils literal"><span class="pre">templates/tumblelog</span></tt> for storing the tumblelog templates:</p>
+<div class="highlight-bash"><div class="highlight"><pre>mkdir -p templates/tumblelog
+</pre></div>
+</div>
+<p>Configure Django so it can find the templates by updating
+<tt class="docutils literal"><span class="pre">TEMPLATE_DIRS</span></tt> in the <tt class="file docutils literal"><span class="pre">settings.py</span></tt> file to the
+following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">import</span> <span class="nn">os.path</span>
+<span class="n">TEMPLATE_DIRS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">&#39;../templates&#39;</span><span class="p">),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Then add a base template that all others can inherit from. Add the
+following to <tt class="file docutils literal"><span class="pre">templates/base.html</span></tt>:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="cp">&lt;!DOCTYPE html&gt;</span>
+<span class="nt">&lt;html</span> <span class="na">lang=</span><span class="s">&quot;en&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;head&gt;</span>
+    <span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">&quot;utf-8&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;title&gt;</span>My Tumblelog<span class="nt">&lt;/title&gt;</span>
+    <span class="nt">&lt;link</span> <span class="na">href=</span><span class="s">&quot;http://twitter.github.com/bootstrap/1.4.0/bootstrap.css&quot;</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;style&gt;</span><span class="nc">.content</span> <span class="p">{</span><span class="k">padding-top</span><span class="o">:</span> <span class="m">80px</span><span class="p">;}</span><span class="nt">&lt;/style&gt;</span>
+  <span class="nt">&lt;/head&gt;</span>
+
+  <span class="nt">&lt;body&gt;</span>
+
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;topbar&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;fill&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+          <span class="nt">&lt;h1&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;/&quot;</span> <span class="na">class=</span><span class="s">&quot;brand&quot;</span><span class="nt">&gt;</span>My Tumblelog<span class="nt">&lt;/a&gt;</span>! <span class="nt">&lt;small&gt;</span>Starring MongoDB and Django-MongoDB.<span class="nt">&lt;/small&gt;&lt;/h1&gt;</span>
+        <span class="nt">&lt;/div&gt;</span>
+      <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+
+    <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;container&quot;</span><span class="nt">&gt;</span>
+      <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;content&quot;</span><span class="nt">&gt;</span>
+        <span class="cp">{%</span> <span class="k">block</span> <span class="nv">page_header</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+        <span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+      <span class="nt">&lt;/div&gt;</span>
+    <span class="nt">&lt;/div&gt;</span>
+
+  <span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</pre></div>
+</div>
+<p>Create the frontpage for the blog, which should list all the
+posts. Add the following template to the
+<tt class="file docutils literal"><span class="pre">templates/tumblelog/post_list.html</span></tt>:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">for</span> <span class="nv">post</span> <span class="k">in</span> <span class="nv">posts_list</span> <span class="cp">%}</span>
+      <span class="nt">&lt;h2&gt;&lt;a</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{%</span> <span class="k">url</span> <span class="nv">post</span> <span class="nv">slug</span><span class="o">=</span><span class="nv">post.slug</span> <span class="cp">%}</span><span class="s">&quot;</span><span class="nt">&gt;</span><span class="cp">{{</span> <span class="nv">post.title</span> <span class="cp">}}</span><span class="nt">&lt;/a&gt;&lt;/h2&gt;</span>
+      <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncatewords</span><span class="o">:</span><span class="m">20</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+      <span class="nt">&lt;p&gt;</span>
+        <span class="cp">{{</span> <span class="nv">post.created_at</span> <span class="cp">}}</span> |
+        <span class="cp">{%</span> <span class="k">with</span> <span class="nv">total</span><span class="o">=</span><span class="nv">post.comments</span><span class="o">|</span><span class="nf">length</span> <span class="cp">%}</span>
+            <span class="cp">{{</span> <span class="nv">total</span> <span class="cp">}}</span> comment<span class="cp">{{</span> <span class="nv">total</span><span class="o">|</span><span class="nf">pluralize</span> <span class="cp">}}</span>
+        <span class="cp">{%</span> <span class="k">endwith</span> <span class="cp">%}</span>
+      <span class="nt">&lt;/p&gt;</span>
+    <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Finally, add <tt class="file docutils literal"><span class="pre">templates/tumblelog/post_detail.html</span></tt> for the individual
+posts:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">extends</span> <span class="s2">&quot;base.html&quot;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">page_header</span> <span class="cp">%}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;page-header&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;h1&gt;</span><span class="cp">{{</span> <span class="nv">post.title</span> <span class="cp">}}</span><span class="nt">&lt;/h1&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">content</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;p&gt;</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.created_at</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+  <span class="nt">&lt;hr&gt;</span>
+  <span class="nt">&lt;h2&gt;</span>Comments<span class="nt">&lt;/h2&gt;</span>
+  <span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.comments</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">for</span> <span class="nv">comment</span> <span class="k">in</span> <span class="nv">post.comments</span> <span class="cp">%}</span>
+       <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">comment.body</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+       <span class="nt">&lt;p&gt;&lt;strong&gt;</span><span class="cp">{{</span> <span class="nv">comment.author</span> <span class="cp">}}</span><span class="nt">&lt;/strong&gt;</span> <span class="nt">&lt;small&gt;</span>on <span class="cp">{{</span> <span class="nv">comment.created_at</span> <span class="cp">}}</span><span class="nt">&lt;/small&gt;&lt;/p&gt;</span>
+      <span class="cp">{{</span> <span class="nv">comment.text</span> <span class="cp">}}</span>
+    <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+  <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Run <tt class="docutils literal"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">runserver</span></tt> to see your new tumblelog! Go to
+<a class="reference external" href="http://localhost:8000/">http://localhost:8000/</a> and you should see:</p>
+<img alt="../_images/django-nonrel-frontpage.png" class="align-center" src="../_images/django-nonrel-frontpage.png" />
+</div>
+</div>
+<div class="section" id="add-comments-to-the-blog">
+<h2>Add Comments to the Blog<a class="headerlink" href="#add-comments-to-the-blog" title="Permalink to this headline">¶</a></h2>
+<p>In the next step you will provide the facility for readers of the
+tumblelog to comment on posts. This a requires custom form and view to
+handle the form, and data. You will also update the template to
+include the form.</p>
+<div class="section" id="create-the-comments-form">
+<h3>Create the Comments Form<a class="headerlink" href="#create-the-comments-form" title="Permalink to this headline">¶</a></h3>
+<p>You must customize form handling to deal with embedded comments.  By
+extending <tt class="xref py py-class docutils literal"><span class="pre">ModelForm</span></tt>, it is possible to append the comment to
+the post on save.  Create and add the following to <tt class="file docutils literal"><span class="pre">forms.py</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.forms</span> <span class="kn">import</span> <span class="n">ModelForm</span>
+<span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Comment</span>
+
+
+<span class="k">class</span> <span class="nc">CommentForm</span><span class="p">(</span><span class="n">ModelForm</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">object</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Override the default to store the original document</span>
+<span class="sd">        that comments are embedded in.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object</span> <span class="o">=</span> <span class="nb">object</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">(</span><span class="n">CommentForm</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Append to the comments list and save the post&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">comments</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">instance</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">object</span>
+
+    <span class="k">class</span> <span class="nc">Meta</span><span class="p">:</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">Comment</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="handle-comments-in-the-view">
+<h3>Handle Comments in the View<a class="headerlink" href="#handle-comments-in-the-view" title="Permalink to this headline">¶</a></h3>
+<p>You must extend the generic views need to handle the form logic. Add
+the following to the <tt class="file docutils literal"><span class="pre">views.py</span></tt> file:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.http</span> <span class="kn">import</span> <span class="n">HttpResponseRedirect</span>
+<span class="kn">from</span> <span class="nn">django.views.generic</span> <span class="kn">import</span> <span class="n">DetailView</span>
+<span class="kn">from</span> <span class="nn">tumblelog.forms</span> <span class="kn">import</span> <span class="n">CommentForm</span>
+
+
+<span class="k">class</span> <span class="nc">PostDetailView</span><span class="p">(</span><span class="n">DetailView</span><span class="p">):</span>
+    <span class="n">methods</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#39;get&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_object</span><span class="p">()</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">CommentForm</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="p">)</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context_data</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_to_response</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">post</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_object</span><span class="p">()</span>
+        <span class="n">form</span> <span class="o">=</span> <span class="n">CommentForm</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">POST</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">form</span><span class="o">.</span><span class="n">is_valid</span><span class="p">():</span>
+            <span class="n">form</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">HttpResponseRedirect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="o">.</span><span class="n">get_absolute_url</span><span class="p">())</span>
+
+        <span class="n">context</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_context_data</span><span class="p">(</span><span class="nb">object</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object</span><span class="p">,</span> <span class="n">form</span><span class="o">=</span><span class="n">form</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">render_to_response</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">PostDetailView</span></tt> class extends the <tt class="docutils literal"><span class="pre">DetailView</span></tt> class so
+that it can handle <tt class="docutils literal"><span class="pre">GET</span></tt> and <tt class="docutils literal"><span class="pre">POST</span></tt> requests.  On <tt class="docutils literal"><span class="pre">POST</span></tt>,
+<tt class="xref py py-func docutils literal"><span class="pre">post()</span></tt> validates the comment: if valid, <tt class="xref py py-func docutils literal"><span class="pre">post()</span></tt>
+appends the comment to the post.</p>
+</div>
+<p>Don&#8217;t forget to update the <tt class="file docutils literal"><span class="pre">urls.py</span></tt> file and import the
+<tt class="xref py py-class docutils literal"><span class="pre">PostDetailView</span></tt> class to replace the <a class="reference external" href="https://django.readthedocs.org/en/latest/ref/class-based-views/flattened-index.html#DetailView" title="(in Django v1.6)"><tt class="xref py py-class docutils literal"><span class="pre">DetailView</span></tt></a>
+class.</p>
+</div>
+<div class="section" id="add-comments-to-the-templates">
+<h3>Add Comments to the Templates<a class="headerlink" href="#add-comments-to-the-templates" title="Permalink to this headline">¶</a></h3>
+<p>Finally, you can add the form to the templates, so that readers can
+create comments. Splitting the template for the forms out into
+<tt class="file docutils literal"><span class="pre">templates/_forms.html</span></tt> will allow maximum reuse of forms code:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="nt">&lt;fieldset&gt;</span>
+<span class="cp">{%</span> <span class="k">for</span> <span class="nv">field</span> <span class="k">in</span> <span class="nv">form.visible_fields</span> <span class="cp">%}</span>
+<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;clearfix </span><span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="cp">%}</span><span class="s">error</span><span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span><span class="s">&quot;</span><span class="nt">&gt;</span>
+  <span class="cp">{{</span> <span class="nv">field.label_tag</span> <span class="cp">}}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;input&quot;</span><span class="nt">&gt;</span>
+    <span class="cp">{{</span> <span class="nv">field</span> <span class="cp">}}</span>
+    <span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="k">or</span> <span class="nv">field.help_text</span> <span class="cp">%}</span>
+      <span class="nt">&lt;span</span> <span class="na">class=</span><span class="s">&quot;help-inline&quot;</span><span class="nt">&gt;</span>
+      <span class="cp">{%</span> <span class="k">if</span> <span class="nv">field.errors</span> <span class="cp">%}</span>
+        <span class="cp">{{</span> <span class="nv">field.errors</span><span class="o">|</span><span class="nf">join</span><span class="s1">:&#39; &#39;</span> <span class="cp">}}</span>
+      <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+        <span class="cp">{{</span> <span class="nv">field.help_text</span> <span class="cp">}}</span>
+      <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+      <span class="nt">&lt;/span&gt;</span>
+    <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+<span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">csrf_token</span> <span class="cp">%}</span>
+<span class="nt">&lt;div</span> <span class="na">style=</span><span class="s">&quot;display:none&quot;</span><span class="nt">&gt;</span><span class="cp">{%</span> <span class="k">for</span> <span class="nv">h</span> <span class="k">in</span> <span class="nv">form.hidden_fields</span> <span class="cp">%}</span> <span class="cp">{{</span> <span class="nv">h</span> <span class="cp">}}{%</span> <span class="k">endfor</span> <span class="cp">%}</span><span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/fieldset&gt;</span>
+</pre></div>
+</div>
+<p>After the comments section in <tt class="file docutils literal"><span class="pre">post_detail.html</span></tt> add the
+following code to generate the comments form:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="nt">&lt;h2&gt;</span>Add a comment<span class="nt">&lt;/h2&gt;</span>
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;.&quot;</span> <span class="na">method=</span><span class="s">&quot;post&quot;</span><span class="nt">&gt;</span>
+  <span class="cp">{%</span> <span class="k">include</span> <span class="s2">&quot;_forms.html&quot;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">&quot;actions&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;submit&quot;</span> <span class="na">class=</span><span class="s">&quot;btn primary&quot;</span> <span class="na">value=</span><span class="s">&quot;comment&quot;</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/form&gt;</span>
+</pre></div>
+</div>
+<p>Your tumblelog&#8217;s readers can now comment on your posts! Run <tt class="docutils literal"><span class="pre">python</span>
+<span class="pre">manage.py</span> <span class="pre">runserver</span></tt> to see the changes by visiting <a class="reference external" href="http://localhost:8000/hello-world/">http://localhost:8000/hello-world/</a>. You should see the following:</p>
+<img alt="../_images/django-nonrel-comment-form.png" class="align-center" src="../_images/django-nonrel-comment-form.png" />
+</div>
+</div>
+<div class="section" id="add-site-administration-interface">
+<h2>Add Site Administration Interface<a class="headerlink" href="#add-site-administration-interface" title="Permalink to this headline">¶</a></h2>
+<p>While you may always add posts using the shell interface as above, you
+can easily create an administrative interface for posts with
+Django. Enable the admin by adding the following apps to
+<tt class="xref py py-obj docutils literal"><span class="pre">INSTALLED_APPS</span></tt> in <tt class="file docutils literal"><span class="pre">settings.py</span></tt>.</p>
+<ul class="simple">
+<li><a class="reference external" href="https://django.readthedocs.org/en/latest/ref/contrib/admin/index.html#django.contrib.admin" title="(in Django v1.6)"><tt class="docutils literal"><span class="pre">django.contrib.admin</span></tt></a></li>
+<li><tt class="xref py py-mod docutils literal"><span class="pre">django_mongodb_engine</span></tt></li>
+<li><tt class="xref py py-mod docutils literal"><span class="pre">djangotoolbox</span></tt></li>
+<li><tt class="xref py py-mod docutils literal"><span class="pre">tumblelog</span></tt></li>
+</ul>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">This application does not require the <tt class="xref py py-class docutils literal"><span class="pre">Sites</span></tt>
+framework. As a result, remove <a class="reference external" href="https://django.readthedocs.org/en/latest/ref/contrib/sites.html#django.contrib.sites" title="(in Django v1.6)"><tt class="docutils literal"><span class="pre">django.contrib.sites</span></tt></a> from
+<tt class="xref py py-obj docutils literal"><span class="pre">INSTALLED_APPS</span></tt>.  If you need it later please read
+<a class="reference external" href="http://django-mongodb.org/troubleshooting.html#site-id-issues">SITE_ID issues</a> document.</p>
+</div>
+<p>Create a <tt class="file docutils literal"><span class="pre">admin.py</span></tt> file and register the <tt class="docutils literal"><span class="pre">Post</span></tt> model
+with the admin app:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.contrib</span> <span class="kn">import</span> <span class="n">admin</span>
+<span class="kn">from</span> <span class="nn">tumblelog.models</span> <span class="kn">import</span> <span class="n">Post</span>
+
+<span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Post</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The above modifications deviate from the default <a class="reference external" href="http://www.allbuttonspressed.com/projects/django-nonrel">django-nonrel</a> and
+<tt class="xref py py-mod docutils literal"><span class="pre">djangotoolbox</span></tt> mode of operation. Django&#8217;s administration
+module will not work unless you exclude the <tt class="docutils literal"><span class="pre">comments</span></tt> field. By
+making the <tt class="docutils literal"><span class="pre">comments</span></tt> field non-editable in the &#8220;admin&#8221; model
+definition, you will allow the administrative interface to function.</p>
+<p>If you need an administrative interface for a ListField you must
+write your own Form / Widget.</p>
+<div class="admonition-see last admonition seealso">
+<p class="first admonition-title">See</p>
+<p class="last">The <a class="reference external" href="https://docs.djangoproject.com/en/dev/ref/contrib/admin/">Django Admin</a> documentation docs for additional information.</p>
+</div>
+</div>
+<p>Update the <tt class="file docutils literal"><span class="pre">urls.py</span></tt> to enable the administrative interface.
+Add the import and discovery mechanism to the top of the file and then
+add the admin import rule to the <tt class="xref py py-obj docutils literal"><span class="pre">urlpatterns</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c"># Enable admin</span>
+<span class="kn">from</span> <span class="nn">django.contrib</span> <span class="kn">import</span> <span class="n">admin</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">autodiscover</span><span class="p">()</span>
+
+<span class="n">urlpatterns</span> <span class="o">=</span> <span class="n">patterns</span><span class="p">(</span><span class="s">&#39;&#39;</span><span class="p">,</span>
+
+    <span class="c"># ...</span>
+
+    <span class="n">url</span><span class="p">(</span><span class="s">r&#39;^admin/&#39;</span><span class="p">,</span> <span class="n">include</span><span class="p">(</span><span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">urls</span><span class="p">)),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, add a superuser and setup the indexes by issuing the
+following command at the system prompt:</p>
+<div class="highlight-bash"><div class="highlight"><pre>python manage.py syncdb
+</pre></div>
+</div>
+<p>Once done run the server and you can login to admin by going to
+<a class="reference external" href="http://localhost:8000/admin/">http://localhost:8000/admin/</a>.</p>
+<img alt="../_images/django-nonrel-admin.png" class="align-center" src="../_images/django-nonrel-admin.png" />
+</div>
+<div class="section" id="convert-the-blog-to-a-tumblelog">
+<h2>Convert the Blog to a Tumblelog<a class="headerlink" href="#convert-the-blog-to-a-tumblelog" title="Permalink to this headline">¶</a></h2>
+<p>Currently, the application only supports posts. In this section you
+will add special post types including: <em>Video</em>, <em>Image</em> and <em>Quote</em> to
+provide a more traditional tumblelog application. Adding this data
+requires no migration.</p>
+<p>In <tt class="file docutils literal"><span class="pre">models.py</span></tt> update the <tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> class to add new
+fields for the new post types. Mark these fields with <tt class="docutils literal"><span class="pre">blank=True</span></tt>
+so that the fields can be empty.</p>
+<p>Update <tt class="xref py py-class docutils literal"><span class="pre">Post</span></tt> in the <tt class="file docutils literal"><span class="pre">models.py</span></tt> files to resemble the
+following:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">POST_CHOICES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="p">(</span><span class="s">&#39;p&#39;</span><span class="p">,</span> <span class="s">&#39;post&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s">&#39;v&#39;</span><span class="p">,</span> <span class="s">&#39;video&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s">&#39;i&#39;</span><span class="p">,</span> <span class="s">&#39;image&#39;</span><span class="p">),</span>
+    <span class="p">(</span><span class="s">&#39;q&#39;</span><span class="p">,</span> <span class="s">&#39;quote&#39;</span><span class="p">),</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Post</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">created_at</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">DateTimeField</span><span class="p">(</span><span class="n">auto_now_add</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">)</span>
+    <span class="n">slug</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">SlugField</span><span class="p">()</span>
+
+    <span class="n">comments</span> <span class="o">=</span> <span class="n">ListField</span><span class="p">(</span><span class="n">EmbeddedModelField</span><span class="p">(</span><span class="s">&#39;Comment&#39;</span><span class="p">),</span> <span class="n">editable</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="n">post_type</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="n">POST_CHOICES</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s">&#39;p&#39;</span><span class="p">)</span>
+
+    <span class="n">body</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">help_text</span><span class="o">=</span><span class="s">&quot;The body of the Post / Quote&quot;</span><span class="p">)</span>
+    <span class="n">embed_code</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">TextField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">help_text</span><span class="o">=</span><span class="s">&quot;The embed code for video&quot;</span><span class="p">)</span>
+    <span class="n">image_url</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">URLField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">help_text</span><span class="o">=</span><span class="s">&quot;Image src&quot;</span><span class="p">)</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">blank</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">255</span><span class="p">,</span> <span class="n">help_text</span><span class="o">=</span><span class="s">&quot;Author name&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_absolute_url</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">reverse</span><span class="p">(</span><span class="s">&#39;post&#39;</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span><span class="s">&quot;slug&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">slug</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">__unicode__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p><a class="reference external" href="http://www.allbuttonspressed.com/projects/django-nonrel">Django-Nonrel</a> doesn&#8217;t support multi-table inheritance. This
+means that you will have to manually create an administrative form
+to handle data validation for the different post types.</p>
+<p class="last">The &#8220;Abstract Inheritance&#8221; facility means that the view logic would
+need to merge data from multiple collections.</p>
+</div>
+<p>The administrative interface should now handle adding multiple types
+of post. To conclude this process, you must update the frontend
+display to handle and output the different post types.</p>
+<p>In the <tt class="file docutils literal"><span class="pre">post_list.html</span></tt> file, change the post output display to
+resemble the following:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;p&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncatewords</span><span class="o">:</span><span class="m">20</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;v&#39;</span> <span class="cp">%}</span>
+  <span class="cp">{{</span> <span class="nv">post.embed_code</span><span class="o">|</span><span class="nf">safe</span> <span class="cp">}}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;i&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">post.image_url</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="nt">/&gt;&lt;p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;q&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;blockquote&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span><span class="o">|</span><span class="nf">truncatewords</span><span class="o">:</span><span class="m">20</span> <span class="cp">}}</span><span class="nt">&lt;/blockquote&gt;</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.author</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>In the <tt class="file docutils literal"><span class="pre">post_detail.html</span></tt> file, change the output for full
+posts:</p>
+<div class="highlight-html+django"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;p&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;v&#39;</span> <span class="cp">%}</span>
+  <span class="cp">{{</span> <span class="nv">post.embed_code</span><span class="o">|</span><span class="nf">safe</span> <span class="cp">}}</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;i&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;p&gt;&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">post.image_url</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="nt">/&gt;&lt;p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">if</span> <span class="nv">post.post_type</span> <span class="o">==</span> <span class="s1">&#39;q&#39;</span> <span class="cp">%}</span>
+  <span class="nt">&lt;blockquote&gt;</span><span class="cp">{{</span> <span class="nv">post.body</span> <span class="cp">}}</span><span class="nt">&lt;/blockquote&gt;</span>
+  <span class="nt">&lt;p&gt;</span><span class="cp">{{</span> <span class="nv">post.author</span> <span class="cp">}}</span><span class="nt">&lt;/p&gt;</span>
+<span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<p>Now you have a fully fledged tumbleblog using Django and MongoDB!</p>
+<img alt="../_images/django-nonrel-tumblelog.png" class="align-center" src="../_images/django-nonrel-tumblelog.png" />
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="../use-cases/storing-comments.html" title="Previous Section: Storing Comments">&lt; &nbsp; Storing Comments</a></li>
+              <li id="btnvup"><a href="../use-cases.html" title="Parent Section: Use Cases" >&#47;&#92;&nbsp; Use Cases</a></li>
+              <li id="btnvnx"><a href="write-a-tumblelog-application-with-flask-mongoengine.html" title="Next Section: Write a Tumblelog Application with Flask and MongoEngine">Write a Tumblelog Application with Flask and MongoEngine &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../use-cases.html">Use Cases</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/storing-log-data.html">Storing Log Data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/pre-aggregated-reports.html">Pre-Aggregated Reports</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/hierarchical-aggregation.html">Hierarchical Aggregation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/product-catalog.html">Product Catalog</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/inventory-management.html">Inventory Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/category-hierarchy.html">Category Hierarchy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/metadata-and-asset-management.html">Metadata and Asset Management</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../use-cases/storing-comments.html">Storing Comments</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Write a Tumblelog Application with Django MongoDB Engine</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="write-a-tumblelog-application-with-flask-mongoengine.html">Write a Tumblelog Application with Flask and MongoEngine</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/write-a-tumblelog-application-with-django-mongodb-engine.txt" target="_blank" title="Edit tutorial/write-a-tumblelog-application-with-django-mongodb-engine.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/write-a-tumblelog-application-with-django-mongodb-engine%2Etxt%22" target="_blank" title="Report a problem with tutorial/write-a-tumblelog-application-with-django-mongodb-engine.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/write-a-tumblelog-application-with-django-mongodb-engine.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/write-a-tumblelog-application-with-django-mongodb-engine'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/write-a-tumblelog-application-with-django-mongodb-engine'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

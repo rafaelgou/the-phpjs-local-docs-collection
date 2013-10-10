@@ -1,0 +1,424 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to use Data Transformers &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Form" href="index.html" />
+    <link rel="next" title="How to Dynamically Generate Forms Using Form Events" href="dynamic_form_generation.html" />
+    <link rel="prev" title="How to customize Form Rendering" href="form_customization.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="dynamic_form_generation.html" title="How to Dynamically Generate Forms Using Form Events"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="form_customization.html" title="How to customize Form Rendering"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Form</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-use-data-transformers">
+<span id="index-0"></span><h1>How to use Data Transformers<a class="headerlink" href="#how-to-use-data-transformers" title="Permalink to this headline">¶</a></h1>
+<p>You&#8217;ll often find the need to transform the data the user entered in a form into
+something else for use in your program. You could easily do this manually in your
+controller, but what if you want to use this specific form in different places?</p>
+<p>Say you have a one-to-one relation of Task to Issue, e.g. a Task optionally has an
+issue linked to it. Adding a listbox with all possible issues can eventually lead to
+a really long listbox in which it is impossible to find something. You might
+want to add a textbox instead, where the user can simply enter the issue number.</p>
+<p>You could try to do this in your controller, but it&#8217;s not the best solution.
+It would be better if this issue were automatically converted to an Issue object.
+This is where Data Transformers come into play.</p>
+<div class="section" id="creating-the-transformer">
+<h2>Creating the Transformer<a class="headerlink" href="#creating-the-transformer" title="Permalink to this headline">¶</a></h2>
+<p>First, create an <cite>IssueToNumberTransformer</cite> class - this class will be responsible
+for converting to and from the issue number and the Issue object:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/DataTransformer/IssueToNumberTransformer.php
+namespace Acme\TaskBundle\Form\DataTransformer;
+
+use Symfony\Component\Form\DataTransformerInterface;
+use Symfony\Component\Form\Exception\TransformationFailedException;
+use Doctrine\Common\Persistence\ObjectManager;
+use Acme\TaskBundle\Entity\Issue;
+
+class IssueToNumberTransformer implements DataTransformerInterface
+{
+    /**
+     * @var ObjectManager
+     */
+    private $om;
+
+    /**
+     * @param ObjectManager $om
+     */
+    public function __construct(ObjectManager $om)
+    {
+        $this-&gt;om = $om;
+    }
+
+    /**
+     * Transforms an object (issue) to a string (number).
+     *
+     * @param  Issue|null $issue
+     * @return string
+     */
+    public function transform($issue)
+    {
+        if (null === $issue) {
+            return "";
+        }
+
+        return $issue-&gt;getNumber();
+    }
+
+    /**
+     * Transforms a string (number) to an object (issue).
+     *
+     * @param  string $number
+     * @return Issue|null
+     * @throws TransformationFailedException if object (issue) is not found.
+     */
+    public function reverseTransform($number)
+    {
+        if (!$number) {
+            return null;
+        }
+
+        $issue = $this-&gt;om
+            -&gt;getRepository('AcmeTaskBundle:Issue')
+            -&gt;findOneBy(array('number' =&gt; $number))
+        ;
+
+        if (null === $issue) {
+            throw new TransformationFailedException(sprintf(
+                'An issue with number "%s" does not exist!',
+                $number
+            ));
+        }
+
+        return $issue;
+    }
+}</pre>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">If you want a new issue to be created when an unknown number is entered, you
+can instantiate it rather than throwing the <tt class="docutils literal"><span class="pre">TransformationFailedException</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="using-the-transformer">
+<h2>Using the Transformer<a class="headerlink" href="#using-the-transformer" title="Permalink to this headline">¶</a></h2>
+<p>Now that you have the transformer built, you just need to add it to your
+issue field in some form.</p>
+<blockquote>
+<div><p>You can also use transformers without creating a new custom form type
+by calling <tt class="docutils literal"><span class="pre">prependNormTransformer</span></tt> (or <tt class="docutils literal"><span class="pre">appendClientTransformer</span></tt> - see
+<a class="reference internal" href="#norm-and-client-transformers">Norm and Client Transformers</a>) on any field builder:</p>
+<div class="highlight-python"><pre>use Acme\TaskBundle\Form\DataTransformer\IssueToNumberTransformer;
+
+class TaskType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        // ...
+
+        // this assumes that the entity manager was passed in as an option
+        $entityManager = $options['em'];
+        $transformer = new IssueToNumberTransformer($entityManager);
+
+        // add a normal text field, but add our transformer to it
+        $builder-&gt;add(
+            $builder-&gt;create('issue', 'text')
+                -&gt;prependNormTransformer($transformer)
+        );
+    }
+
+    // ...
+}</pre>
+</div>
+</div></blockquote>
+<p>This example requires that you pass in the entity manager as an option
+when creating your form. Later, you&#8217;ll learn how you could create a custom
+<tt class="docutils literal"><span class="pre">issue</span></tt> field type to avoid needing to do this in your controller:</p>
+<div class="highlight-python"><pre>$taskForm = $this-&gt;createForm(new TaskType(), $task, array(
+    'em' =&gt; $this-&gt;getDoctrine()-&gt;getEntityManager(),
+));</pre>
+</div>
+<p>Cool, you&#8217;re done! Your user will be able to enter an issue number into the
+text field and it will be transformed back into an Issue object. This means
+that, after a successful bind, the Form framework will pass a real Issue
+object to <tt class="docutils literal"><span class="pre">Task::setIssue()</span></tt> instead of the issue number.</p>
+<p>If the issue isn&#8217;t found, a form error will be created for that field and
+its error message can be controlled with the <tt class="docutils literal"><span class="pre">invalid_message</span></tt> field option.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p>Notice that adding a transformer requires using a slightly more complicated
+syntax when adding the field. The following is <strong>wrong</strong>, as the transformer
+would be applied to the entire form, instead of just this field:</p>
+<div class="last highlight-python"><pre>// THIS IS WRONG - TRANSFORMER WILL BE APPLIED TO THE ENTIRE FORM
+// see above example for correct code
+$builder-&gt;add('issue', 'text')
+    -&gt;prependNormTransformer($transformer);</pre>
+</div>
+</div>
+<div class="section" id="norm-and-client-transformers">
+<h3>Norm and Client Transformers<a class="headerlink" href="#norm-and-client-transformers" title="Permalink to this headline">¶</a></h3>
+<p>In the above example, the transformer was used as a &#8220;norm&#8221; transformer.
+In fact, there are two different type of transformers and three different
+types of underlying data.</p>
+<p>In any form, the 3 different types of data are:</p>
+<p>1) <strong>App data</strong> - This is the data in the format used in your application
+(e.g. an <tt class="docutils literal"><span class="pre">Issue</span></tt> object). If you call <tt class="docutils literal"><span class="pre">Form::getData</span></tt> or <tt class="docutils literal"><span class="pre">Form::setData</span></tt>,
+you&#8217;re dealing with the &#8220;app&#8221; data.</p>
+<p>2) <strong>Norm Data</strong> - This is a normalized version of your data, and is commonly
+the same as your &#8220;app&#8221; data (though not in our example). It&#8217;s not commonly
+used directly.</p>
+<p>3) <strong>Client Data</strong> - This is the format that&#8217;s used to fill in the form fields
+themselves. It&#8217;s also the format in which the user will submit the data. When
+you call <tt class="docutils literal"><span class="pre">Form::bind($data)</span></tt>, the <tt class="docutils literal"><span class="pre">$data</span></tt> is in the &#8220;client&#8221; data format.</p>
+<p>The 2 different types of transformers help convert to and from each of these
+types of data:</p>
+<dl class="docutils">
+<dt><strong>Norm transformers</strong>:</dt>
+<dd><ul class="first last simple">
+<li><tt class="docutils literal"><span class="pre">transform</span></tt>: &#8220;app data&#8221; =&gt; &#8220;norm data&#8221;</li>
+<li><tt class="docutils literal"><span class="pre">reverseTransform</span></tt>: &#8220;norm data&#8221; =&gt; &#8220;app data&#8221;</li>
+</ul>
+</dd>
+<dt><strong>Client transformers</strong>:</dt>
+<dd><ul class="first last simple">
+<li><tt class="docutils literal"><span class="pre">transform</span></tt>: &#8220;norm data&#8221; =&gt; &#8220;client data&#8221;</li>
+<li><tt class="docutils literal"><span class="pre">reverseTransform</span></tt>: &#8220;client data&#8221; =&gt; &#8220;norm data&#8221;</li>
+</ul>
+</dd>
+</dl>
+<p>Which transformer you need depends on your situation.</p>
+<p>To use the client transformer, call <tt class="docutils literal"><span class="pre">appendClientTransformer</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="so-why-did-we-use-the-norm-transformer">
+<h2>So why did we use the norm transformer?<a class="headerlink" href="#so-why-did-we-use-the-norm-transformer" title="Permalink to this headline">¶</a></h2>
+<p>In our example, the field is a <tt class="docutils literal"><span class="pre">text</span></tt> field, and we always expect a text
+field to be a simple, scalar format in the &#8220;norm&#8221; and &#8220;client&#8221; formats. For
+this reason, the most appropriate transformer was the &#8220;norm&#8221; transformer
+(which converts to/from the <em>norm</em> format - string issue number - to the <em>app</em>
+format - Issue object).</p>
+<p>The difference between the transformers is subtle and you should always think
+about what the &#8220;norm&#8221; data for a field should really be. For example, the
+&#8220;norm&#8221; data for a <tt class="docutils literal"><span class="pre">text</span></tt> field is a string, but is a <tt class="docutils literal"><span class="pre">DateTime</span></tt> object
+for a <tt class="docutils literal"><span class="pre">date</span></tt> field.</p>
+</div>
+<div class="section" id="using-transformers-in-a-custom-field-type">
+<h2>Using Transformers in a custom field type<a class="headerlink" href="#using-transformers-in-a-custom-field-type" title="Permalink to this headline">¶</a></h2>
+<p>In the above example, you applied the transformer to a normal <tt class="docutils literal"><span class="pre">text</span></tt> field.
+This was easy, but has two downsides:</p>
+<p>1) You need to always remember to apply the transformer whenever you&#8217;re adding
+a field for issue numbers</p>
+<p>2) You need to worry about passing in the <tt class="docutils literal"><span class="pre">em</span></tt> option whenever you&#8217;re creating
+a form that uses the transformer.</p>
+<p>Because of these, you may choose to create a <a class="reference internal" href="create_custom_field_type.html"><em>create a custom field type</em></a>.
+First, create the custom field type class:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/IssueSelectorType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+use Acme\TaskBundle\Form\DataTransformer\IssueToNumberTransformer;
+use Doctrine\Common\Persistence\ObjectManager;
+
+class IssueSelectorType extends AbstractType
+{
+    /**
+     * @var ObjectManager
+     */
+    private $om;
+
+    /**
+     * @param ObjectManager $om
+     */
+    public function __construct(ObjectManager $om)
+    {
+        $this-&gt;om = $om;
+    }
+
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $transformer = new IssueToNumberTransformer($this-&gt;om);
+        $builder-&gt;prependNormTransformer($transformer);
+    }
+
+    public function getDefaultOptions(array $options)
+    {
+        return array(
+            'invalid_message' =&gt; 'The selected issue does not exist',
+        );
+    }
+
+    public function getParent(array $options)
+    {
+        return 'text';
+    }
+
+    public function getName()
+    {
+        return 'issue_selector';
+    }
+}</pre>
+</div>
+<p>Next, register your type as a service and tag it with <tt class="docutils literal"><span class="pre">form.type</span></tt> so that
+it&#8217;s recognized as a custom field type:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme_demo.type.issue_selector</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\TaskBundle\Form\Type\IssueSelectorType</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@doctrine.orm.entity_manager&quot;</span><span class="p-Indicator">]</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">form.type</span><span class="p-Indicator">,</span> <span class="nv">alias</span><span class="p-Indicator">:</span> <span class="nv">issue_selector</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme_demo.type.issue_selector&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\TaskBundle\Form\Type\IssueSelectorType&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;doctrine.orm.entity_manager&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;form.type&quot;</span> <span class="na">alias=</span><span class="s">&quot;issue_selector&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now, whenever you need to use your special <tt class="docutils literal"><span class="pre">issue_selector</span></tt> field type,
+it&#8217;s quite easy:</p>
+<div class="highlight-python"><pre>// src/Acme/TaskBundle/Form/Type/TaskType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilder;
+
+class TaskType extends AbstractType
+{
+    public function buildForm(FormBuilder $builder, array $options)
+    {
+        $builder
+            -&gt;add('task')
+            -&gt;add('dueDate', null, array('widget' =&gt; 'single_text'));
+            -&gt;add('issue', 'issue_selector');
+    }
+
+    public function getName()
+    {
+        return 'task';
+    }
+}</pre>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to use Data Transformers</a><ul>
+<li><a class="reference internal" href="#creating-the-transformer">Creating the Transformer</a></li>
+<li><a class="reference internal" href="#using-the-transformer">Using the Transformer</a><ul>
+<li><a class="reference internal" href="#norm-and-client-transformers">Norm and Client Transformers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#so-why-did-we-use-the-norm-transformer">So why did we use the norm transformer?</a></li>
+<li><a class="reference internal" href="#using-transformers-in-a-custom-field-type">Using Transformers in a custom field type</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="form_customization.html"
+                        title="previous chapter">How to customize Form Rendering</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="dynamic_form_generation.html"
+                        title="next chapter">How to Dynamically Generate Forms Using Form Events</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/data_transformers.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="dynamic_form_generation.html" title="How to Dynamically Generate Forms Using Form Events"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="form_customization.html" title="How to customize Form Rendering"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Form</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

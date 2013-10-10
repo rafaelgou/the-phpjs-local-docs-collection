@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Conex&atilde;o Permanente com o Banco de Dados</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="features.connection-handling.html">Tratamento de Conex&otilde;es</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="features.safe-mode.html">Safe Mode</a></div>
+ <div class="up"><a href="features.html">Caracter&iacute;sticas</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="features.persistent-connections" class="chapter">
+  <h1>Conexão Permanente com o Banco de Dados</h1>
+
+
+  <p class="simpara">
+   Conexões persistentes são conexões que não fecham quando a
+   execução do seu script termina. Quando uma conexão persistente é
+   requisitada, o PHP checa se já existe uma conexão persistente
+   idêntica (que foi mantida aberta anteriormente) - e, se ela existe, ele
+   a usa. Se não existir, ele cria uma nova. Uma conexão
+   &#039;idêntica&#039; é uma conexão que foi aberta ao mesmo host, com o
+   mesmo nome de usuário e a mesma senha (onde for aplicável).
+  </p>
+  <p class="simpara">
+   Pessoas que não estão totalmente familiarizadas com a maneira como servidores 
+   web trabalham e distribuem a carga podem confundir conexões persistentes com o que
+   elas não são. In particular, elas <em class="emphasis">não</em> dão a
+   você a habilidade de abrir &#039;sessões de usuários&#039; na mesma conexão, elas
+   <em class="emphasis">não</em> dão a habilidade de construir uma
+   transação eficientemente, e elas não fazem um monte de outras
+   coisas. De fato, para ser extremamente claro sobre o assunto,
+   conexões persistentes não te dão <em class="emphasis">nenhuma</em>
+   funcionalidade que não era possível com as suas correspondentes
+   não-persistentes.
+  </p>
+  <p class="simpara">
+   Por que?   
+  </p> 
+  <p class="simpara">
+   Tem a ver com a maneira como os servidores web funcionam. Existem três maneiras
+   de seu servidor web utilizar o PHP para gerar páginas.
+  </p>
+  <p class="simpara">
+   O primeiro método é usar o PHP como um CGI &quot;wrapper&quot;. Quando executado dessa
+   maneira, uma instância do interpretador do PHP é criada e destruída
+   para cada requisição de página (por uma página PHP) para o seu servidor web.
+   Como ela é destruída após cada requisição, quaisquer recursos que ela
+   adquirir (como uma conexão para um banco de dados) são fechados quando
+   ela é destruída. Nesse caso, não há nenhum ganho ao tentar
+   usar conexões persistentes -- elas simplesmente não persistem.
+  </p>
+  <p class="simpara">
+   O segundo método, o mais popular, é rodar o PHP como um módulo em um
+   servidor com multi-processos, que atualmente só inclue o Apache. Um
+   servidor com multi-processos tipicamente tem um processo (pai) que
+   coordena uma série de processos (filhos) que são os que realmente fazem
+   o trabalho de servir as páginas. Quando uma requisição chega de um
+   cliente, ela é entregue à um dos filhos que não estiver ocupado
+   servindo outro cliente. Isso significa que quando o mesmo cliente
+   faz uma segunda requisição ao servidor, ele pode ser servido por um processo
+   filho diferente do da primeira vez. Quando abre-se uma conexão persistente,
+   cada página que requisitar serviços de SQL pode reusar a mesma
+   conexão estabelecida ao servidor SQL.
+  </p>
+  <p class="simpara">
+   O último método é usar o PHP como um plug-in para um servidor web
+   multithreaded. Atualmente, o PHP4 tem suporte para ISAPI, WSAPI, e NSAPI (no
+   Windows), todos permitindo PHP ser usado como um plug-in em servidores
+   multithreaded como Netscape FastTrack (iPlanet), Internet Information Server 
+   (IIS) da Microsoft, e O&#039;Reilly&#039;s WebSite Pro. O comportamento é essencialmente
+   o mesmo do modelo multiprocessado descrito anteriormente.
+  </p>
+  <p class="simpara">
+   Se conexões persistentes não tem nenhuma funcionalidade a mais, para
+   que elas servem?
+  </p>
+  <p class="simpara">
+   A resposta é extremamente simples -- eficiência. Conexôes
+   persistentes são boas se o sobrecarga (overhead) de criar uma conexão ao seu 
+   servidor SQL for alta. Saber se essa sobrecarga é alta depende de
+   vários fatores. Como que tipo de banco de dados é, se está ou não
+   na mesma máquina onde o servidor web está, o quão carregada de trabalho 
+   está a máquina hospedando o servidor SQL e assim por diante. O
+   ponto é que se a sobrecarga de conexão for alta, conexões 
+   persistentes ajudam consideravelmente. Elas fazem com que os processos filhos
+   simplesmente conectam-se uma vez só durante toda sua duração, ao invés de
+   cada vez que eles processam uma página que requer uma conexão ao servidor
+   SQL. Isso significa que cada filho que abriu uma conexão
+   persistente terá sua própria conexão aberta ao 
+   servidor. Por exemplo, se você tiver 20 processos filhos diferentes que
+   rodassem um script que fizesse uma conexão persistente à um servidor SQL,
+   você teria 20 conexões diferentes ao banco, uma de
+   cada filho.
+  </p>
+  <p class="simpara">
+   Perceba, no entanto, que isso pode ter algumas desvantagens se você estiver
+   usando um banco com limite de conexões que é excedido pela conexões
+   persistentes filhas. Se seu banco tem um limite de 16 conexões
+   simultâneas, e durante um momento de pico de acessos, 17 processos
+   filhos tentam fazer a conexão, um deles não será capaz. Se houver 
+   bugs no seus scripts que não permitem que as conexões se fechem
+   (como loops infinitos) o banco de dados com apenas 16 conexões
+   pode rapidamente ficar sobrecarregado. Procure na documentação do seu banco
+   por informações sobre como lidar com conexões ociosas ou abandonadas.
+  </p>
+  <div class="warning"><strong class="warning">Aviso</strong>
+   <p class="simpara">
+    Existem mais alguns cuidados a se tomar quando usando
+    conexões persistentes. Um deles é que, quando usando travamento de
+    tabela em uma conexão persistente, se o script por qualquer
+    razão não pode destravar a mesma, então scripts subsequentes usando a
+    mesma conexão serão bloqueados indefinidamente e pode ser preciso
+    reiniciar o servidor http ou o banco de dados. Outro cuidado a se ter é,
+    quando usando transações, um bloco de transação também será carregado
+    para o próximo script que usar a conexão se a execução do script
+    terminar primeiro que o bloco de transação. Em ambos os casos, você pode
+    usar  <span class="function"><a href="function.register-shutdown-function.html" class="function">register_shutdown_function()</a></span> para registrar uma
+    função simples de limpeza para destravar suas tabelas e fazer roll back de
+    suas transação. O ideal é evitar o problema completamente não usando
+    conexões persistentes em scripts que usam travamento de tabelas ou
+    transações (você ainda pode usar elas nos outros casos).
+   </p>
+  </div>
+  <p class="simpara">
+   Um resumo importante. Conexões persistente foram feitas para ter
+   um mapeamento de um-para-um com conexões normais. Isso significa que você
+   deve <em class="emphasis">sempre</em> ser capaz de substituir conexões
+   persistentes com conexões não-persistentes e isso não mudará
+   a maneira como seu script se comporta. <em class="emphasis">Pode</em> (e
+   provavelmente irá) mudar a eficiência do mesmo, mas não o seu
+   comportamento!
+  </p>
+  <p class="para">
+   Veja também  <span class="function"><a href="function.fbsql-pconnect.html" class="function">fbsql_pconnect()</a></span>,
+    <span class="function"><a href="function.ibase-pconnect.html" class="function">ibase_pconnect()</a></span>,  <span class="function"><a href="function.ifx-pconnect.html" class="function">ifx_pconnect()</a></span>,
+    <span class="function"><a href="function.ingres-pconnect.html" class="function">ingres_pconnect()</a></span>,
+    <span class="function"><a href="function.msql-pconnect.html" class="function">msql_pconnect()</a></span>,  <span class="function"><a href="function.mssql-pconnect.html" class="function">mssql_pconnect()</a></span>,
+    <span class="function"><a href="function.mysql-pconnect.html" class="function">mysql_pconnect()</a></span>,  <span class="function"><strong>ociplogon()</strong></span>,
+    <span class="function"><a href="function.odbc-pconnect.html" class="function">odbc_pconnect()</a></span>,  <span class="function"><strong>ora_plogon()</strong></span>,
+    <span class="function"><a href="function.pfsockopen.html" class="function">pfsockopen()</a></span>,  <span class="function"><a href="function.pg-pconnect.html" class="function">pg_pconnect()</a></span>, e
+    <span class="function"><a href="function.sybase-pconnect.html" class="function">sybase_pconnect()</a></span>.
+  </p>
+ </div>
+<hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="features.connection-handling.html">Tratamento de Conex&otilde;es</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="features.safe-mode.html">Safe Mode</a></div>
+ <div class="up"><a href="features.html">Caracter&iacute;sticas</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

@@ -1,0 +1,319 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to work with Scopes &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Service Container" href="index.html" />
+    <link rel="next" title="How to work with Compiler Passes in Bundles" href="compiler_passes.html" />
+    <link rel="prev" title="How to create an Event Listener" href="event_listener.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="compiler_passes.html" title="How to work with Compiler Passes in Bundles"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="event_listener.html" title="How to create an Event Listener"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Service Container</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-work-with-scopes">
+<span id="index-0"></span><h1>How to work with Scopes<a class="headerlink" href="#how-to-work-with-scopes" title="Permalink to this headline">¶</a></h1>
+<p>This entry is all about scopes, a somewhat advanced topic related to the
+<a class="reference internal" href="../../book/service_container.html"><em>Service Container</em></a>. If you&#8217;ve ever gotten an error mentioning
+&#8220;scopes&#8221; when creating services, or need to create a service that depends
+on the <cite>request</cite> service, then this entry is for you.</p>
+<div class="section" id="understanding-scopes">
+<h2>Understanding Scopes<a class="headerlink" href="#understanding-scopes" title="Permalink to this headline">¶</a></h2>
+<p>The scope of a service controls how long an instance of a service is used
+by the container. The Dependency Injection component provides two generic
+scopes:</p>
+<ul class="simple">
+<li><cite>container</cite> (the default one): The same instance is used each time you
+request it from this container.</li>
+<li><cite>prototype</cite>: A new instance is created each time you request the service.</li>
+</ul>
+<p>The FrameworkBundle also defines a third scope: <cite>request</cite>. This scope is
+tied to the request, meaning a new instance is created for each subrequest
+and is unavailable outside the request (for instance in the CLI).</p>
+<p>Scopes add a constraint on the dependencies of a service: a service cannot
+depend on services from a narrower scope. For example, if you create a generic
+<cite>my_foo</cite> service, but try to inject the <cite>request</cite> component, you&#8217;ll receive
+a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Exception/ScopeWideningInjectionException.html" title="Symfony\Component\DependencyInjection\Exception\ScopeWideningInjectionException"><span class="pre">ScopeWideningInjectionException</span></a></tt>
+when compiling the container. Read the sidebar below for more details.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Scopes and Dependencies</p>
+<p>Imagine you&#8217;ve configured a <cite>my_mailer</cite> service. You haven&#8217;t configured
+the scope of the service, so it defaults to <cite>container</cite>. In other words,
+everytime you ask the container for the <cite>my_mailer</cite> service, you get
+the same object back. This is usually how you want your services to work.</p>
+<p>Imagine, however, that you need the <cite>request</cite> service in your <cite>my_mailer</cite>
+service, maybe because you&#8217;re reading the URL of the current request.
+So, you add it as a constructor argument. Let&#8217;s look at why this presents
+a problem:</p>
+<ul class="last">
+<li><p class="first">When requesting <cite>my_mailer</cite>, an instance of <cite>my_mailer</cite> (let&#8217;s call
+it <em>MailerA</em>) is created and the <cite>request</cite> service (let&#8217;s call it
+<em>RequestA</em>) is passed to it. Life is good!</p>
+</li>
+<li><p class="first">You&#8217;ve now made a subrequest in Symfony, which is a fancy way of saying
+that you&#8217;ve called, for example, the <cite>{% render ... %}</cite> Twig function,
+which executes another controller. Internally, the old <cite>request</cite> service
+(<em>RequestA</em>) is actually replaced by a new request instance (<em>RequestB</em>).
+This happens in the background, and it&#8217;s totally normal.</p>
+</li>
+<li><p class="first">In your embedded controller, you once again ask for the <cite>my_mailer</cite>
+service. Since your service is in the <cite>container</cite> scope, the same
+instance (<em>MailerA</em>) is just re-used. But here&#8217;s the problem: the
+<em>MailerA</em> instance still contains the old <em>RequestA</em> object, which
+is now <strong>not</strong> the correct request object to have (<em>RequestB</em> is now
+the current <cite>request</cite> service). This is subtle, but the mis-match could
+cause major problems, which is why it&#8217;s not allowed.</p>
+<p>So, that&#8217;s the reason <em>why</em> scopes exist, and how they can cause
+problems. Keep reading to find out the common solutions.</p>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A service can of course depend on a service from a wider scope without
+any issue.</p>
+</div>
+</div>
+<div class="section" id="setting-the-scope-in-the-definition">
+<h2>Setting the Scope in the Definition<a class="headerlink" href="#setting-the-scope-in-the-definition" title="Permalink to this headline">¶</a></h2>
+<p>The scope of a service is set in the definition of the service:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/HelloBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">greeting_card_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\HelloBundle\Mail\GreetingCardManager</span>
+        <span class="l-Scalar-Plain">scope</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">request</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/HelloBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;greeting_card_manager&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Mail\GreetingCardManager&quot;</span> <span class="na">scope=</span><span class="s">&quot;request&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span>
+    <span class="s1">&#39;greeting_card_manager&#39;</span><span class="p">,</span>
+    <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\HelloBundle\Mail\GreetingCardManager&#39;</span><span class="p">)</span>
+<span class="p">)</span><span class="o">-&gt;</span><span class="na">setScope</span><span class="p">(</span><span class="s1">&#39;request&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>If you don&#8217;t specify the scope, it defaults to <cite>container</cite>, which is what
+you want most of the time. Unless your service depends on another service
+that&#8217;s scoped to a narrower scope (most commonly, the <cite>request</cite> service),
+you probably don&#8217;t need to set the scope.</p>
+</div>
+<div class="section" id="using-a-service-from-a-narrower-scope">
+<h2>Using a Service from a narrower Scope<a class="headerlink" href="#using-a-service-from-a-narrower-scope" title="Permalink to this headline">¶</a></h2>
+<p>If your service depends on a scoped service, the best solution is to put
+it in the same scope (or a narrower one). Usually, this means putting your
+new service in the <cite>request</cite> scope.</p>
+<p>But this is not always possible (for instance, a twig extension must be in
+the <cite>container</cite> scope as the Twig environment needs it as a dependency).
+In these cases, you should pass the entire container into your service and
+retrieve your dependency from the container each time we need it to be sure
+you have the right instance:</p>
+<div class="highlight-python"><pre>// src/Acme/HelloBundle/Mail/Mailer.php
+namespace Acme\HelloBundle\Mail;
+
+use Symfony\Component\DependencyInjection\ContainerInterface;
+
+class Mailer
+{
+    protected $container;
+
+    public function __construct(ContainerInterface $container)
+    {
+        $this-&gt;container = $container;
+    }
+
+    public function sendEmail()
+    {
+        $request = $this-&gt;container-&gt;get('request');
+        // ... do something using the request here
+    }
+}</pre>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Take care not to store the request in a property of the object for a
+future call of the service as it would cause the same issue described
+in the first section (except that Symfony cannot detect that you are
+wrong).</p>
+</div>
+<p>The service config for this class would look something like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><pre># src/Acme/HelloBundle/Resources/config/services.yml
+parameters:
+    # ...
+    my_mailer.class: Acme\HelloBundle\Mail\Mailer
+services:
+    my_mailer:
+        class:     %my_mailer.class%
+        arguments:
+            - "@service_container"
+        # scope: container can be omitted as it is the default</pre>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/HelloBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;my_mailer.class&quot;</span><span class="nt">&gt;</span>Acme\HelloBundle\Mail\Mailer<span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="na">class=</span><span class="s">&quot;%my_mailer.class%&quot;</span><span class="nt">&gt;</span>
+         <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;service_container&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;my_mailer.class&#39;</span><span class="p">,</span> <span class="s1">&#39;Acme\HelloBundle\Mail\Mailer&#39;</span><span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;%my_mailer.class%&#39;</span><span class="p">,</span>
+    <span class="k">array</span><span class="p">(</span><span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;service_container&#39;</span><span class="p">))</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Injecting the whole container into a service is generally not a good
+idea (only inject what you need). In some rare cases, it&#8217;s necessary
+when you have a service in the <tt class="docutils literal"><span class="pre">container</span></tt> scope that needs a service
+in the <tt class="docutils literal"><span class="pre">request</span></tt> scope.</p>
+</div>
+<p>If you define a controller as a service then you can get the <tt class="docutils literal"><span class="pre">Request</span></tt> object
+without injecting the container by having it passed in as an argument of your
+action method. See <a class="reference internal" href="../../book/controller.html#book-controller-request-argument"><em>The Request as a Controller Argument</em></a> for details.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to work with Scopes</a><ul>
+<li><a class="reference internal" href="#understanding-scopes">Understanding Scopes</a></li>
+<li><a class="reference internal" href="#setting-the-scope-in-the-definition">Setting the Scope in the Definition</a></li>
+<li><a class="reference internal" href="#using-a-service-from-a-narrower-scope">Using a Service from a narrower Scope</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="event_listener.html"
+                        title="previous chapter">How to create an Event Listener</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="compiler_passes.html"
+                        title="next chapter">How to work with Compiler Passes in Bundles</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/service_container/scopes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="compiler_passes.html" title="How to work with Compiler Passes in Bundles"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="event_listener.html" title="How to create an Event Listener"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Service Container</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

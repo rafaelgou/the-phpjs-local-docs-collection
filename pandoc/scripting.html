@@ -1,0 +1,291 @@
+<html>
+<head>
+  <title>Pandoc - Scripting with pandoc</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <link rel="stylesheet" type="text/css" href="css/screen.css" />
+  <link rel="stylesheet" type="text/css" media="print" href="css/print.css" />
+  <script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-2234613-4']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+  </script>
+  <script type="text/javascript">
+  /* <![CDATA[ */
+    (function() {
+        var s = document.createElement('script'), t = document.getElementsByTagName('script')[0];
+        s.type = 'text/javascript';
+        s.async = true;
+        s.src = 'http://api.flattr.com/js/0.6/load.js?mode=auto';
+        t.parentNode.insertBefore(s, t);
+    })();
+  /* ]]> */
+  </script>
+</head>
+<body>
+  <div id="doc" class="yui-t2">
+    <div id="hd" role="banner">
+        <div id="flattr"><a class="FlattrButton" style="display:none;" rev="flattr;button:compact;" href="http://johnmacfarlane.net/pandoc"></a>
+<noscript><a href="http://flattr.com/thing/936364/Pandoc" target="_blank">
+    <img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript></div>
+
+        <span class="big">Pandoc</span>
+        &nbsp;
+        <span class="small">a universal document converter</span>
+    </div>
+    <div id="bd">
+      <div id="yui-main">
+        <div class="yui-b">
+          <h1 class="title">Scripting with pandoc</h1>
+<h2 id="a-simple-example"><a href="#a-simple-example">A simple example</a></h2>
+<p>Suppose you wanted to replace all level 2+ headers in a markdown document with regular paragraphs, with text in italics. How would you go about doing this?</p>
+<p>A first thought would be to use regular expressions. Something like this:</p>
+<pre><code>perl -pe &#39;s/^##+ (.*)$/\*\1\*/&#39; source.txt</code></pre>
+<p>This should work most of the time. But don’t forget that ATX style headers can end with a sequence of <code>#</code>s that is not part of the header text:</p>
+<pre><code>## My header ##</code></pre>
+<p>And what if your document contains a line starting with <code>##</code> in an HTML comment or delimited code block?</p>
+<pre><code>&lt;!--
+## This is just a comment
+--&gt;
+
+~~~~
+### A third level header in standard markdown
+~~~~</code></pre>
+<p>We don’t want to touch <em>these</em> lines. Moreover, what about setext style second-level headers?</p>
+<pre><code>A header
+--------</code></pre>
+<p>We need to handle those too. Finally, can we be sure that adding asterisks to each side of our string will put it in italics? What if the string already contains asterisks around it? Then we’ll end up with bold text, which is not what we want. And what if it contains a regular unescaped asterisk?</p>
+<p>How would you modify your regular expression to handle these cases? It would be hairy, to say the least. What we need is a real parser.</p>
+<p>Well, pandoc has a real markdown parser, the library function <code>readMarkdown</code>. This transforms markdown text to an abstract syntax tree (AST) that represents the document structure. Why not manipulate the AST directly in a short Haskell script, then convert the result back to markdown using <code>writeMarkdown</code>?</p>
+<p>First, let’s see what this AST looks like. We can use pandoc’s <code>native</code> output format:</p>
+<pre><code>% cat test.txt
+### my header
+
+text with *italics*
+% pandoc -t native test.txt
+Pandoc (Meta {docTitle = [], docAuthors = [], docDate = []})
+[ Header 3 (&quot;my-header&quot;,[],[]) [Str &quot;my&quot;,Space,Str &quot;header&quot;]
+, Para [Str &quot;text&quot;,Space,Str &quot;with&quot;,Space,Emph [Str &quot;italics&quot;]] ]</code></pre>
+<p>A <code>Pandoc</code> document consists of a <code>Meta</code> block (with title, authors, and date) and a list of <code>Block</code> elements. In this case, we have two <code>Block</code>s, a <code>Header</code> and a <code>Para</code>. Each has as its content a list of <code>Inline</code> elements. For more details on the pandoc AST, see the <a href="http://hackage.haskell.org/package/pandoc-types">haddock documentation for <code>Text.Pandoc.Definition</code></a>.</p>
+<p>Here’s a short Haskell script that reads markdown, changes level 2+ headers to regular paragraphs, and writes the result as markdown. If you save it as <code>behead.hs</code>, you can run it using <code>runhaskell behead.hs</code>. It will act like a unix pipe, reading from <code>stdin</code> and writing to <code>stdout</code>. Or, if you want, you can compile it, using <code>ghc --make behead</code>, then run the resulting executable <code>behead</code>.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- behead.hs</span>
+<span class="kw">import</span> Text.Pandoc
+
+<span class="ot">behead ::</span> <span class="dt">Block</span> <span class="ot">-&gt;</span> <span class="dt">Block</span>
+behead (<span class="dt">Header</span> n _ xs) <span class="fu">|</span> n <span class="fu">&gt;=</span> <span class="dv">2</span> <span class="fu">=</span> <span class="dt">Para</span> [<span class="dt">Emph</span> xs]
+behead x <span class="fu">=</span> x
+
+<span class="ot">transformDoc ::</span> <span class="dt">Pandoc</span> <span class="ot">-&gt;</span> <span class="dt">Pandoc</span>
+transformDoc <span class="fu">=</span> bottomUp behead
+
+<span class="ot">readDoc ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Pandoc</span>
+readDoc <span class="fu">=</span> readMarkdown def
+
+<span class="ot">writeDoc ::</span> <span class="dt">Pandoc</span> <span class="ot">-&gt;</span> <span class="dt">String</span>
+writeDoc <span class="fu">=</span> writeMarkdown def
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="fu">interact</span> (writeDoc <span class="fu">.</span> transformDoc <span class="fu">.</span> readDoc)</code></pre>
+<p>The magic here is the <code>bottomUp</code> function, which converts our <code>behead</code> function (a function from <code>Block</code> to <code>Block</code>) to a transformation on whole <code>Pandoc</code> documents.</p>
+<p>(<code>bottomUp</code> is so named because it operates on the AST from the bottom up, starting at the leaves and working up the branches to the trunk. Suppose you have a <code>BulletList</code> than contains another <code>BulletList</code> in one of its items. Then <code>bottomUp f</code> will operate first on the nested list, and only later on the containing list. <code>topDown f</code> would operate first on the containing list, and then on the nested list.)</p>
+<h2 id="digression-reader-and-writer-options"><a href="#digression-reader-and-writer-options">Digression: reader and writer options</a></h2>
+<p>The <code>behead.hs</code> script uses default options for the reader and writer. If you want more control, you can modify these defaults. (See the definitions for <a href="http://johnmacfarlane.net/pandoc/doc/pandoc/Text-Pandoc-Options.html#t%3AReaderOptions"><code>ReaderOptions</code></a> and <a href="http://johnmacfarlane.net/pandoc/doc/pandoc/Text-Pandoc-Options.html#t%3AWriterOptions"><code>WriterOptions</code></a> in the <a href="http://johnmacfarlane.net/pandoc/doc/pandoc/Text-Pandoc-Options.html">haddock documentation for <code>Text.Pandoc.Options</code></a>.)</p>
+<p>For example, the following variants will disable pandoc markdown extensions (“strict mode”) and write markdown using reference-style links instead of inline links:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell">readDoc <span class="fu">=</span> readMarkdown def{ readerExtensions <span class="fu">=</span> strictExtensions }
+
+writeDoc <span class="fu">=</span> writeMarkdown def{ writerExtensions <span class="fu">=</span> strictExtensions,
+                            , writerReferenceLinks <span class="fu">=</span> <span class="kw">True</span> <span class="co">-- use ref-style links</span>
+                            }</code></pre>
+<h2 id="queries-listing-urls"><a href="#queries-listing-urls">Queries: listing URLs</a></h2>
+<p>We can use this same technique to do much more complex transformations and queries. Here’s how we could extract all the URLs linked to in a markdown document (again, not an easy task with regular expressions):</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- extracturls.hs</span>
+<span class="kw">import</span> Text.Pandoc
+
+<span class="ot">extractURL ::</span> <span class="dt">Inline</span> <span class="ot">-&gt;</span> [<span class="dt">String</span>]
+extractURL (<span class="dt">Link</span> _ (u,_)) <span class="fu">=</span> [u]
+extractURL (<span class="dt">Image</span> _ (u,_)) <span class="fu">=</span> [u]
+extractURL _ <span class="fu">=</span> []
+
+<span class="ot">extractURLs ::</span> <span class="dt">Pandoc</span> <span class="ot">-&gt;</span> [<span class="dt">String</span>]
+extractURLs <span class="fu">=</span> queryWith extractURL
+
+<span class="ot">readDoc ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Pandoc</span>
+readDoc <span class="fu">=</span> readMarkdown def
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="fu">interact</span> (<span class="fu">unlines</span> <span class="fu">.</span> extractURLs <span class="fu">.</span> readDoc)</code></pre>
+<p><code>queryWith</code> is the query counterpart of <code>bottomUp</code>: it lifts a function that operates on <code>Inline</code> elements to one that operates on the whole <code>Pandoc</code> AST.</p>
+<h2 id="latex-for-wordpress"><a href="#latex-for-wordpress">LaTeX for WordPress</a></h2>
+<p>Another easy example. WordPress blogs require a special format for LaTeX math. Instead of <code>$e=mc^2$</code>, you need: <code>$LaTeX e=mc^2$</code>. How can we convert a markdown document accordingly?</p>
+<p>Again, it’s difficult to do the job reliably with regexes. A <code>$</code> might be a regular currency indicator, or it might occur in a comment or code block or inline code span. We just want to find the <code>$</code>s that begin LaTeX math. If only we had a parser…</p>
+<p>We do. Pandoc already extracts LaTeX math, so:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- wordpressify.hs</span>
+<span class="kw">import</span> Text.Pandoc
+
+main <span class="fu">=</span> <span class="fu">interact</span> (writeMarkdown def <span class="fu">.</span>
+                 bottomUp wordpressify <span class="fu">.</span>
+                 readMarkdown def)
+  <span class="kw">where</span> wordpressify (<span class="dt">Math</span> x y) <span class="fu">=</span> <span class="dt">Math</span> x (<span class="st">&quot;LaTeX &quot;</span> <span class="fu">++</span> y)
+        wordpressify x <span class="fu">=</span> x</code></pre>
+<p>Mission accomplished. (I’ve omitted type signatures here, just to show it can be done.)</p>
+<h2 id="include-files"><a href="#include-files">Include files</a></h2>
+<p>So none of our transforms have involved IO. How about a script that reads a markdown document, finds all the inline code blocks with attribute <code>include</code>, and replaces their contents with the contents of the file given?</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- includes.hs</span>
+<span class="kw">import</span> Text.Pandoc
+
+<span class="ot">doInclude ::</span> <span class="dt">Block</span> <span class="ot">-&gt;</span> <span class="dt">IO</span> <span class="dt">Block</span>
+doInclude cb<span class="fu">@</span>(<span class="dt">CodeBlock</span> (<span class="fu">id</span>, classes, namevals) contents) <span class="fu">=</span>
+  <span class="kw">case</span> <span class="fu">lookup</span> <span class="st">&quot;include&quot;</span> namevals <span class="kw">of</span>
+       <span class="kw">Just</span> f     <span class="ot">-&gt;</span> <span class="fu">return</span> <span class="fu">.</span> (<span class="dt">CodeBlock</span> (<span class="fu">id</span>, classes, namevals)) <span class="fu">=&lt;&lt;</span> <span class="fu">readFile</span> f
+       <span class="kw">Nothing</span>    <span class="ot">-&gt;</span> <span class="fu">return</span> cb
+doInclude x <span class="fu">=</span> <span class="fu">return</span> x
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="fu">getContents</span> <span class="fu">&gt;&gt;=</span> bottomUpM doInclude <span class="fu">.</span> readMarkdown def
+                   <span class="fu">&gt;&gt;=</span> <span class="fu">putStrLn</span> <span class="fu">.</span> writeMarkdown def</code></pre>
+<p>Try this on the following:</p>
+<pre><code>Here&#39;s the pandoc README:
+
+~~~~ {include=&quot;README&quot;}
+this will be replaced by contents of README
+~~~~</code></pre>
+<p>The trick here is <code>bottomUpM</code>, which is just a monadic version of <code>bottomUp</code>, and lifts <code>doInclude</code> from <code>Block -&gt; IO Block</code> to <code>Pandoc -&gt; IO Pandoc</code>.</p>
+<p>Documentation on <code>bottomUp</code>, <code>queryWith</code>, <code>bottomUpM</code>, and <code>queryWithM</code> can be found in the <a href="http://hackage.haskell.org/package/pandoc-types">haddock documentation for <code>Text.Pandoc.Definition</code></a>.</p>
+<h2 id="removing-links"><a href="#removing-links">Removing links</a></h2>
+<p>What if we want to remove every link from a document, retaining the link’s text?</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="co">-- delink.hs</span>
+<span class="kw">import</span> Text.Pandoc
+
+<span class="ot">delink ::</span> [<span class="dt">Inline</span>] <span class="ot">-&gt;</span> [<span class="dt">Inline</span>]
+delink ((<span class="dt">Link</span> txt _) <span class="fu">:</span> xs) <span class="fu">=</span> txt <span class="fu">++</span> delink xs
+delink (x <span class="fu">:</span> xs)            <span class="fu">=</span> x <span class="fu">:</span> delink xs
+delink []                  <span class="fu">=</span> []
+
+main <span class="fu">=</span> <span class="fu">interact</span> (writeMarkdown def <span class="fu">.</span> bottomUp delink <span class="fu">.</span> readMarkdown def)</code></pre>
+<p>Note that <code>delink</code> can’t be a function of type <code>Inline -&gt; Inline</code>, because the thing we want to replace the link with is not a single <code>Inline</code> element, but a list of them. So we make <code>delink</code> a function from <em>lists</em> of <code>Inline</code> elements to lists of <code>Inline</code> elements. <code>bottomUp</code> can still lift this function to a transformation of type <code>Pandoc -&gt; Pandoc</code>.</p>
+<h2 id="json-reader-and-writer"><a href="#json-reader-and-writer">JSON reader and writer</a></h2>
+<p>Starting with version 1.8, the pandoc command-line tool has a <code>json</code> reader and writer. Both are very fast (especially compared to the <code>native</code> reader and writer). So, instead of writing a script (as shown above) that converts from one format to another, you may want to write a general purpose script that accepts JSON and produces JSON. This can then be used in a pipe with <code>pandoc</code>.</p>
+<p>Here is an example, using the convenience function <code>toJsonFilter</code> from <code>Text.Pandoc</code>. <code>toJsonFilter</code> converts a function into a program that reads pandoc’s JSON output from standard input, transforms it by walking the AST and applying the specified function, and writes the result as JSON to standard output.</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import</span> Text.Pandoc
+
+main <span class="fu">=</span> toJsonFilter removeLink
+
+<span class="ot">removeLink ::</span> <span class="dt">Inline</span> <span class="ot">-&gt;</span> <span class="dt">Inline</span>
+removeLink (<span class="dt">Link</span> xs _) <span class="fu">=</span> <span class="dt">Emph</span> xs
+removeLink x <span class="fu">=</span> x</code></pre>
+<p>To use it to remove the links from a rst document:</p>
+<pre><code>pandoc -f rst -t json | runghc myscript.hs | pandoc -f json -t rst</code></pre>
+<p>If you need more speed, you can compile the script:</p>
+<pre><code>ghc --make myscript.hs
+pandoc -f rst -t json | ./myscript | pandoc -f json -t rst</code></pre>
+<p>Note that the argument of <code>toJsonFilter</code> can be any type <code>(a -&gt; a)</code>, <code>(a -&gt; IO a)</code>, <code>(a -&gt; [a])</code>, or <code>(a -&gt; IO [a])</code>, where <code>a</code> is an instance of <code>Data</code>. So, for example, <code>a</code> can be <code>Pandoc</code>, <code>Inline</code>, <code>Block</code>, <code>[Inline]</code>, <code>[Block]</code>, <code>Meta</code>, <code>ListNumberStyle</code>, <code>Alignment</code>, <code>ListNumberDelim</code>, <code>QuoteType</code>, etc. Here’s a filter that left-aligns all table cells:</p>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import</span> Text.Pandoc
+
+main <span class="fu">=</span> toJsonFilter leftAlign
+
+<span class="ot">leftAlign ::</span> <span class="dt">Alignment</span> <span class="ot">-&gt;</span> <span class="dt">Alignment</span>
+leftAlign _ <span class="fu">=</span> <span class="dt">AlignLeft</span></code></pre>
+<h2 id="a-filter-for-ruby-text"><a href="#a-filter-for-ruby-text">A filter for ruby text</a></h2>
+<p>Finally, here’s a nice real-world example, developed on the <a href="http://groups.google.com/group/pandoc-discuss/browse_thread/thread/7baea325565878c8">pandoc-discuss</a> list. Qubyte wrote:</p>
+<blockquote>
+<p>I’m interested in using pandoc to turn my markdown notes on Japanese into nicely set HTML and (Xe)LaTeX. With HTML5, ruby (typically used to phonetically read chinese characters by placing text above or to the side) is standard, and support from browsers is emerging (Webkit based browsers appear to fully support it). For those browsers that don’t support it yet (notably Firefox) the feature falls back in a nice way by placing the phonetic reading inside brackets to the side of each Chinese character, which is suitable for other output formats too. As for (Xe)LaTeX, ruby is not an issue.</p>
+<p>At the moment, I use inline HTML to achieve the result when the conversion is to HTML, but it’s ugly and uses a lot of keystrokes, for example</p>
+<pre class="sourceCode xml"><code class="sourceCode xml"><span class="kw">&lt;ruby&gt;</span>ご<span class="er">&lt;</span>rt&gt;<span class="kw">&lt;/rt&gt;</span>飯<span class="er">&lt;</span>rp&gt;（<span class="er">&lt;</span>/rp&gt;<span class="kw">&lt;rt&gt;</span>はん<span class="er">&lt;</span>/rt&gt;<span class="kw">&lt;rp&gt;</span>）<span class="er">&lt;</span>/rp&gt;<span class="kw">&lt;/ruby&gt;</span></code></pre>
+<p>sets ご飯 “gohan” with “han” spelt phonetically above the second character, or to the right of it in brackets if the browser does not support ruby. I’d like to have something more like</p>
+<pre><code>r[はん](飯)</code></pre>
+<p>or any keystroke saving convention would be welcome.</p>
+</blockquote>
+<p>We came up with the following script, which uses the convention that a markdown link with a URL beginning with a hyphen is interpreted as ruby:</p>
+<pre><code>[はん](-飯)</code></pre>
+<pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">import</span> Text.Pandoc
+<span class="kw">import</span> System.Environment (getArgs)
+
+<span class="ot">handleRuby ::</span> <span class="dt">String</span> <span class="ot">-&gt;</span> <span class="dt">Inline</span> <span class="ot">-&gt;</span> <span class="dt">Inline</span>
+handleRuby format (<span class="dt">Link</span> [<span class="dt">Str</span> ruby] (<span class="ch">&#39;-&#39;</span><span class="fu">:</span>kanji,_)) <span class="fu">=</span>
+  <span class="kw">case</span> format <span class="kw">of</span>
+       <span class="st">&quot;html&quot;</span>   <span class="ot">-&gt;</span> <span class="dt">RawInline</span> <span class="st">&quot;html&quot;</span> <span class="fu">$</span> <span class="st">&quot;&lt;ruby&gt;&quot;</span> <span class="fu">++</span> kanji <span class="fu">++</span> <span class="st">&quot;&lt;rp&gt;(&lt;/rp&gt;&lt;rt&gt;&quot;</span>
+                     <span class="fu">++</span> ruby <span class="fu">++</span> <span class="st">&quot;&lt;/rt&gt;&lt;rp&gt;)&lt;/rp&gt;&lt;/ruby&gt;&quot;</span>
+       <span class="st">&quot;latex&quot;</span>  <span class="ot">-&gt;</span> <span class="dt">RawInline</span> <span class="st">&quot;latex&quot;</span> <span class="fu">$</span> <span class="st">&quot;\\ruby{&quot;</span> <span class="fu">++</span> kanji <span class="fu">++</span> <span class="st">&quot;}{&quot;</span>
+                     <span class="fu">++</span> ruby <span class="fu">++</span> <span class="st">&quot;}&quot;</span>
+       <span class="st">&quot;kanji&quot;</span>  <span class="ot">-&gt;</span> <span class="dt">Str</span> kanji
+       <span class="st">&quot;kana&quot;</span>   <span class="ot">-&gt;</span> <span class="dt">Str</span> ruby
+       _        <span class="ot">-&gt;</span> <span class="dt">Str</span> ruby  <span class="co">-- default</span>
+handleRuby _ x <span class="fu">=</span> x
+
+<span class="ot">main ::</span> <span class="dt">IO</span> ()
+main <span class="fu">=</span> <span class="kw">do</span>
+ args <span class="ot">&lt;-</span> getArgs
+ toJsonFilter <span class="fu">$</span> handleRuby <span class="fu">$</span> <span class="kw">case</span> args <span class="kw">of</span>
+                              [f] <span class="ot">-&gt;</span> f
+                              _   <span class="ot">-&gt;</span> <span class="st">&quot;kana&quot;</span> <span class="co">-- default</span></code></pre>
+<p>We compile our script:</p>
+<pre><code>ghc --make handleRuby</code></pre>
+<p>Then run it:</p>
+<pre><code>% pandoc -t json | ./handleRuby html | pandoc -f json -t html
+[はん](-飯)
+^D
+&lt;p&gt;&lt;ruby&gt;飯&lt;rp&gt;(&lt;/rp&gt;&lt;rt&gt;はん&lt;/rt&gt;&lt;rp&gt;)&lt;/rp&gt;&lt;/ruby&gt;&lt;/p&gt;
+% pandoc -t json | ./handleRuby latex | pandoc -f json -t latex
+[はん](-飯)
+^D
+\ruby{飯}{はん}</code></pre>
+<h2 id="exercises"><a href="#exercises">Exercises</a></h2>
+<ol style="list-style-type: decimal">
+<li><p>Put all the regular text in a markdown document in ALL CAPS (without touching text in URLs or link titles).</p></li>
+<li><p>Remove all horizontal rules from a document.</p></li>
+<li><p>Renumber all enumerated lists with roman numerals.</p></li>
+<li><p>Replace each delimited code block with class <code>dot</code> with an image generated by running <code>dot -Tpng</code> (from graphviz) on the contents of the code block.</p></li>
+<li><p>Find all code blocks with class <code>python</code> and run them using the python interpreter, printing the results to the console.</p></li>
+</ol>
+        </div>
+      </div>
+      <div id="nav" class="yui-b">
+        <ul class="nav">
+                <li><a href="index.html">About</a></li>
+                <li><a href="installing.html">Installing</a></li>
+                <li>Demos
+                <ul>
+                  <li><a href="/pandoc/try">Try pandoc online</a></li>
+                  <li><a href="demos.html">Examples</a></li>
+                </ul>
+                </li>
+                <li>Documentation
+                <ul>
+                  <li><a href="README.html">User's Guide</a></li>
+                  <li><a href="faqs.html">FAQ</a></li>
+                  <li><a href="http://hackage.haskell.org/package/pandoc">API documentation</a></li>
+                  <li><a href="CONTRIBUTING.html">Contributing</a></li>
+                  <li><a href="lists.html">Mailing lists</a></li>
+                  <li><a href="scripting.html">Scripting</a></li>
+                  <li><a href="epub.html">Making an ebook</a></li>
+                </ul>
+                </li>
+                <li><a href="https://github.com/jgm/pandoc/wiki/Pandoc-Extras">Extras</a></li>
+                <li><a href="releases.html">Releases</a></li>
+                </ul>
+        <div id="toc">
+<ul>
+<li><a href="#a-simple-example">A simple example</a></li>
+<li><a href="#digression-reader-and-writer-options">Digression: reader and writer options</a></li>
+<li><a href="#queries-listing-urls">Queries: listing URLs</a></li>
+<li><a href="#latex-for-wordpress">LaTeX for WordPress</a></li>
+<li><a href="#include-files">Include files</a></li>
+<li><a href="#removing-links">Removing links</a></li>
+<li><a href="#json-reader-and-writer">JSON reader and writer</a></li>
+<li><a href="#a-filter-for-ruby-text">A filter for ruby text</a></li>
+<li><a href="#exercises">Exercises</a></li>
+</ul>
+        </div>
+      </div>
+    </div>
+    <div id="ft">
+    </div>
+  </div>
+</body>
+</html>

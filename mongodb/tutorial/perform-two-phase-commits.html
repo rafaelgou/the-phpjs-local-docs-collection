@@ -1,0 +1,666 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Perform Two Phase Commits &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/tutorial/perform-two-phase-commits.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/tutorial/perform-two-phase-commits" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Application Development" href="../applications.html" />
+<link rel="next" title="Create Tailable Cursor" href="create-tailable-cursor.html" />
+<link rel="prev" title="Store a JavaScript Function on the Server" href="store-javascript-function-on-server.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../applications.html">Application Development</a><span class="bcpoint"> > </span></li>
+          <li>Perform Two Phase Commits</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="perform-two-phase-commits">
+<h1>Perform Two Phase Commits<a class="headerlink" href="#perform-two-phase-commits" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="synopsis">
+<h2>Synopsis<a class="headerlink" href="#synopsis" title="Permalink to this headline">¶</a></h2>
+<p>This document provides a pattern for doing multi-document updates or
+&#8220;transactions&#8221; using a two-phase commit approach for writing data to
+multiple documents. Additionally, you can extend this process to
+provide a <a class="reference internal" href="#phase-commits-rollback"><em>rollback</em></a> like
+functionality.</p>
+</div>
+<div class="section" id="background">
+<h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">¶</a></h2>
+<p>Operations on a single <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a> are always atomic with MongoDB
+databases; however, operations that involve multiple documents, which
+are often referred to as &#8220;transactions,&#8221; are not atomic. Since
+documents can be fairly complex and contain multiple &#8220;nested&#8221;
+documents, single-document atomicity provides necessary support for
+many practical use cases.</p>
+<p>Thus, without precautions, success or failure of the database
+operation cannot be &#8220;all or nothing,&#8221; and without support for
+multi-document transactions it&#8217;s possible for an operation to succeed
+for some operations and fail with others. When executing a transaction
+composed of several sequential operations the following issues arise:</p>
+<ul class="simple">
+<li>Atomicity: if one operation fails, the previous operation within the
+transaction must &#8220;rollback&#8221; to the previous state (i.e. the
+&#8220;nothing,&#8221; in &#8220;all or nothing.&#8221;)</li>
+<li>Isolation: operations that run concurrently with the transaction
+operation set must &#8220;see&#8221; a consistent view of the data throughout
+the transaction process.</li>
+<li>Consistency: if a major failure (i.e. network, hardware) interrupts
+the transaction, the database must be able to recover a consistent
+state.</li>
+</ul>
+<p>Despite the power of single-document atomic operations, there are
+cases that require multi-document transactions. For these situations,
+you can use a two-phase commit, to provide support for these kinds of
+multi-document updates.</p>
+<p>Because documents can represent both pending data and states, you can
+use a two-phase commit to ensure that data is consistent, and that in
+the case of an error, the state that preceded the transaction is
+<a class="reference internal" href="#phase-commits-rollback"><em>recoverable</em></a>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Because only single-document operations are atomic with MongoDB,
+two-phase commits can only offer transaction-<em>like</em> semantics. It&#8217;s
+possible for applications to return intermediate data at
+intermediate points during the two-phase commit or rollback.</p>
+</div>
+</div>
+<div class="section" id="pattern">
+<h2>Pattern<a class="headerlink" href="#pattern" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h3>
+<p>The most common example of transaction is to transfer funds from
+account A to B in a reliable way, and this pattern uses this operation
+as an example. In a relational database system, this operation would
+encapsulate subtracting funds from the source (<tt class="docutils literal"><span class="pre">A</span></tt>) account and
+adding them to the destination (<tt class="docutils literal"><span class="pre">B</span></tt>) within a single atomic
+transaction. For MongoDB, you can use a two-phase commit in these
+situations to achieve a compatible response.</p>
+<p>All of the examples in this document use the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell to
+interact with the database, and assume that you have two collections:
+First, a collection named <tt class="docutils literal"><span class="pre">accounts</span></tt> that will store data about
+accounts with one account per document, and a collection named
+<tt class="docutils literal"><span class="pre">transactions</span></tt> which will store the transactions themselves.</p>
+<p>Begin by creating two accounts named <tt class="docutils literal"><span class="pre">A</span></tt> and <tt class="docutils literal"><span class="pre">B</span></tt>, with the
+following command:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">save</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="nx">balance</span><span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="p">[]})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">save</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="nx">balance</span><span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="p">[]})</span>
+</pre></div>
+</div>
+<p>To verify that these operations succeeded, use <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> will return two <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> that
+resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc66cb8a04f512696151f&quot;</span><span class="p">),</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc67bb8a04f5126961520&quot;</span><span class="p">),</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="transaction-description">
+<h3>Transaction Description<a class="headerlink" href="#transaction-description" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="set-transaction-state-to-initial">
+<span id="phase-commits-step-1"></span><h4>Set Transaction State to Initial<a class="headerlink" href="#set-transaction-state-to-initial" title="Permalink to this headline">¶</a></h4>
+<p>Create the <tt class="docutils literal"><span class="pre">transaction</span></tt> collection by inserting the following
+document. The transaction document holds the <tt class="docutils literal"><span class="pre">source</span></tt> and
+<tt class="docutils literal"><span class="pre">destination</span></tt>, which refer to the <tt class="docutils literal"><span class="pre">name</span></tt> fields of the
+<tt class="docutils literal"><span class="pre">accounts</span></tt> collection, as well as the <tt class="docutils literal"><span class="pre">value</span></tt> field that
+represents the amount of data change to the <tt class="docutils literal"><span class="pre">balance</span></tt>
+field. Finally, the <tt class="docutils literal"><span class="pre">state</span></tt> field reflects the current state of the
+transaction.</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">save</span><span class="p">({</span><span class="nx">source</span><span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="nx">destination</span><span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="nx">value</span><span class="o">:</span> <span class="mi">100</span><span class="p">,</span> <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;initial&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>To verify that these operations succeeded, use <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This will return a document similar to the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">),</span> <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;initial&quot;</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="switch-transaction-state-to-pending">
+<span id="phase-commits-step-2"></span><h4>Switch Transaction State to Pending<a class="headerlink" href="#switch-transaction-state-to-pending" title="Permalink to this headline">¶</a></h4>
+<p>Before modifying either records in the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection, set
+the transaction state to <tt class="docutils literal"><span class="pre">pending</span></tt> from <tt class="docutils literal"><span class="pre">initial</span></tt>.</p>
+<p>Set the local variable <tt class="docutils literal"><span class="pre">t</span></tt> in your shell session, to the transaction
+document using <a class="reference internal" href="../reference/method/db.collection.findOne.html#db.collection.findOne" title="db.collection.findOne()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">findOne()</span></tt></a>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">t</span> <span class="o">=</span> <span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">findOne</span><span class="p">({</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;initial&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>After assigning this variable <tt class="docutils literal"><span class="pre">t</span></tt>, the shell will return the value
+of <tt class="docutils literal"><span class="pre">t</span></tt>, you will see the following output:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+     <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">),</span>
+     <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">100</span><span class="p">,</span>
+     <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;initial&quot;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Use <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> to change the value of
+<tt class="docutils literal"><span class="pre">state</span></tt> to <tt class="docutils literal"><span class="pre">pending</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">_id</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">transactions</span></tt> collection, which should resemble the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">),</span> <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">100</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;pending&quot;</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="apply-transaction-to-both-accounts">
+<span id="phase-commits-step-3"></span><h4>Apply Transaction to Both Accounts<a class="headerlink" href="#apply-transaction-to-both-accounts" title="Permalink to this headline">¶</a></h4>
+<p>Continue by applying the transaction to both accounts. The
+<a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> query will prevent you from
+applying the transaction <em>if</em> the transaction is <em>not</em> already
+pending. Use the following <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a>
+operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">source</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="p">{</span><span class="nx">$ne</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}},</span> <span class="p">{</span><span class="nx">$inc</span><span class="o">:</span> <span class="p">{</span><span class="nx">balance</span><span class="o">:</span> <span class="o">-</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">},</span> <span class="nx">$push</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">destination</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="p">{</span><span class="nx">$ne</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}},</span> <span class="p">{</span><span class="nx">$inc</span><span class="o">:</span> <span class="p">{</span><span class="nx">balance</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">},</span> <span class="nx">$push</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection, which should now resemble the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc97fb8a04f5126961523&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">900</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">)</span> <span class="p">]</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc984b8a04f5126961524&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1100</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">)</span> <span class="p">]</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="set-transaction-state-to-committed">
+<span id="phase-commits-step-4"></span><h4>Set Transaction State to Committed<a class="headerlink" href="#set-transaction-state-to-committed" title="Permalink to this headline">¶</a></h4>
+<p>Use the following <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation
+to set the transaction&#8217;s state to <tt class="docutils literal"><span class="pre">committed</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">_id</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;committed&quot;</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">transactions</span></tt> collection, which should now resemble
+the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">),</span> <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;committed&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">100</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="remove-pending-transaction">
+<span id="phase-commits-step-5"></span><h4>Remove Pending Transaction<a class="headerlink" href="#remove-pending-transaction" title="Permalink to this headline">¶</a></h4>
+<p>Use the following <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation
+to set remove the pending transaction from the <a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">documents</em></a> in the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">source</span><span class="p">},</span> <span class="p">{</span><span class="nx">$pull</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">destination</span><span class="p">},</span> <span class="p">{</span><span class="nx">$pull</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection, which should now resemble
+the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc97fb8a04f5126961523&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">900</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc984b8a04f5126961524&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1100</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="set-transaction-state-to-done">
+<span id="phase-commits-step-6"></span><h4>Set Transaction State to Done<a class="headerlink" href="#set-transaction-state-to-done" title="Permalink to this headline">¶</a></h4>
+<p>Complete the transaction by setting the <tt class="docutils literal"><span class="pre">state</span></tt> of the transaction
+<a class="reference internal" href="../reference/glossary.html#term-document"><em class="xref std std-term">document</em></a> to <tt class="docutils literal"><span class="pre">done</span></tt>:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">_id</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;done&quot;</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">transactions</span></tt> collection, which should now resemble
+the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc7a8b8a04f5126961522&quot;</span><span class="p">),</span> <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;done&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">100</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="recovering-from-failure-scenarios">
+<span id="phase-commits-recovery"></span><h3>Recovering from Failure Scenarios<a class="headerlink" href="#recovering-from-failure-scenarios" title="Permalink to this headline">¶</a></h3>
+<p>The most important part of the transaction procedure is not, the
+prototypical example above, but rather the possibility for recovering
+from the various failure scenarios when transactions do not complete
+as intended. This section will provide an overview of possible
+failures and provide methods to recover from these kinds of events.</p>
+<p>There are two classes of failures:</p>
+<ul>
+<li><p class="first">all failures that occur after the first step (i.e. &#8220;<a class="reference internal" href="#phase-commits-step-1"><em>setting
+the transaction set to initial</em></a>&#8221;) but
+before the third step (i.e. &#8220;<a class="reference internal" href="#phase-commits-step-3"><em>applying the transaction to both
+accounts</em></a>.&#8221;)</p>
+<p>To recover, applications should get a list of transactions in the
+<tt class="docutils literal"><span class="pre">pending</span></tt> state and resume from the second step
+(i.e. &#8220;<a class="reference internal" href="#phase-commits-step-2"><em>switching the transaction state to pending</em></a>.&#8221;)</p>
+</li>
+<li><p class="first">all failures that occur after the third step (i.e. &#8220;<a class="reference internal" href="#phase-commits-step-3"><em>applying
+the transaction to both accounts</em></a>&#8221;) but
+before the fifth step (i.e. &#8220;<a class="reference internal" href="#phase-commits-step-5"><em>setting the transaction state to
+done</em></a>.&#8221;)</p>
+<p>To recover, application should get a list of transactions in the
+<tt class="docutils literal"><span class="pre">committed</span></tt> state and resume from the fourth step
+(i.e. &#8220;<a class="reference internal" href="#phase-commits-step-5"><em>remove the pending transaction</em></a>.&#8221;)</p>
+</li>
+</ul>
+<p>Thus, the application will always be able to resume the transaction
+and eventually arrive at a consistent state. Run the following
+recovery operations every time the application starts to catch any
+unfinished transactions. You may also wish run the recovery operation
+at regular intervals to ensure that your data remains consistent.</p>
+<p>The time required to reach a consistent state depends, on how long the
+application needs to recover each transaction.</p>
+<div class="section" id="rollback">
+<span id="phase-commits-rollback"></span><h4>Rollback<a class="headerlink" href="#rollback" title="Permalink to this headline">¶</a></h4>
+<p>In some cases you may need to &#8220;rollback&#8221; or undo a transaction when
+the application needs to &#8220;cancel&#8221; the transaction, or because it can
+never recover as in cases where one of the accounts doesn&#8217;t exist, or
+stops existing during the transaction.</p>
+<p>There are two possible rollback operations:</p>
+<ol class="arabic simple">
+<li>After you <a class="reference internal" href="#phase-commits-step-3"><em>apply the transaction</em></a>
+(i.e. the third step,) you have fully committed the transaction and
+you should not roll back the transaction. Instead, create a new
+transaction and switch the values in the source and destination
+fields.</li>
+<li>After you <a class="reference internal" href="#phase-commits-step-1"><em>create the transaction</em></a>
+(i.e. the first step,) but before you <a class="reference internal" href="#phase-commits-step-3"><em>apply the transaction</em></a> (i.e the third step,) use the following
+process:</li>
+</ol>
+<div class="section" id="set-transaction-state-to-canceling">
+<span id="phase-commits-rollback-step-1"></span><h5>Set Transaction State to Canceling<a class="headerlink" href="#set-transaction-state-to-canceling" title="Permalink to this headline">¶</a></h5>
+<p>Begin by setting the transaction&#8217;s state to <tt class="docutils literal"><span class="pre">canceling</span></tt> using the
+following <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">_id</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;canceling&quot;</span><span class="p">}})</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="undo-the-transaction">
+<span id="phase-commits-rollback-step-2"></span><h5>Undo the Transaction<a class="headerlink" href="#undo-the-transaction" title="Permalink to this headline">¶</a></h5>
+<p>Use the following sequence of operations to undo the transaction
+operation from both accounts:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">source</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$inc</span><span class="o">:</span> <span class="p">{</span><span class="nx">balance</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">},</span> <span class="nx">$pull</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">name</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">destination</span><span class="p">,</span> <span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$inc</span><span class="o">:</span> <span class="p">{</span><span class="nx">balance</span><span class="o">:</span> <span class="o">-</span><span class="nx">t</span><span class="p">.</span><span class="nx">value</span><span class="p">},</span> <span class="nx">$pull</span><span class="o">:</span> <span class="p">{</span><span class="nx">pendingTransactions</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">}})</span>
+<span class="nx">db</span><span class="p">.</span><span class="nx">accounts</span><span class="p">.</span><span class="nx">find</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="../reference/method/db.collection.find.html#db.collection.find" title="db.collection.find()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">find()</span></tt></a> operation will return the
+contents of the <tt class="docutils literal"><span class="pre">accounts</span></tt> collection, which should resemble the
+following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc97fb8a04f5126961523&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+<span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7bc984b8a04f5126961524&quot;</span><span class="p">),</span> <span class="s2">&quot;balance&quot;</span> <span class="o">:</span> <span class="mi">1000</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;pendingTransactions&quot;</span> <span class="o">:</span> <span class="p">[</span> <span class="p">]</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="set-transaction-state-to-canceled">
+<span id="phase-commits-rollback-step-3"></span><h5>Set Transaction State to Canceled<a class="headerlink" href="#set-transaction-state-to-canceled" title="Permalink to this headline">¶</a></h5>
+<p>Finally, use the following <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation to set the transaction&#8217;s state to
+<tt class="docutils literal"><span class="pre">canceled</span></tt>:</p>
+<p><strong>Step 3:</strong> set the transaction&#8217;s state to &#8220;canceled&#8221;:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">update</span><span class="p">({</span><span class="nx">_id</span><span class="o">:</span> <span class="nx">t</span><span class="p">.</span><span class="nx">_id</span><span class="p">},</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;canceled&quot;</span><span class="p">}})</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="multiple-applications">
+<span id="phase-commits-concurrency"></span><h4>Multiple Applications<a class="headerlink" href="#multiple-applications" title="Permalink to this headline">¶</a></h4>
+<p>Transactions exist, in part, so that several applications can create
+and run operations concurrently without causing data inconsistency or
+conflicts. As a result, it is crucial that only one 1 application can
+handle a given transaction at any point in time.</p>
+<p>Consider the following example, with a single transaction
+(i.e. <tt class="docutils literal"><span class="pre">T1</span></tt>) and two applications (i.e. <tt class="docutils literal"><span class="pre">A1</span></tt> and <tt class="docutils literal"><span class="pre">A2</span></tt>). If both
+applications begin processing the transaction which is still in the
+<tt class="docutils literal"><span class="pre">initial</span></tt> state (i.e. <a class="reference internal" href="#phase-commits-step-1"><em>step 1</em></a>), then:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">A1</span></tt> can apply the entire whole transaction before <tt class="docutils literal"><span class="pre">A2</span></tt> starts.</li>
+<li><tt class="docutils literal"><span class="pre">A2</span></tt> will then apply <tt class="docutils literal"><span class="pre">T1</span></tt> for the second time, because the
+transaction does not appear as pending in the <tt class="docutils literal"><span class="pre">accounts</span></tt>
+documents.</li>
+</ul>
+<p>To handle multiple applications, create a marker in the transaction
+document itself to identify the application that is handling the
+transaction. Use <a class="reference internal" href="../reference/method/db.collection.findAndModify.html#db.collection.findAndModify" title="db.collection.findAndModify()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">findAndModify()</span></tt></a>
+method to modify the transaction:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">t</span> <span class="o">=</span> <span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">findAndModify</span><span class="p">({</span><span class="nx">query</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;initial&quot;</span><span class="p">,</span> <span class="nx">application</span><span class="o">:</span> <span class="p">{</span><span class="nx">$exists</span><span class="o">:</span> <span class="mi">0</span><span class="p">}},</span>
+                                   <span class="nx">update</span><span class="o">:</span> <span class="p">{</span><span class="nx">$set</span><span class="o">:</span> <span class="p">{</span><span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span> <span class="nx">application</span><span class="o">:</span> <span class="s2">&quot;A1&quot;</span><span class="p">}},</span>
+                                   <span class="k">new</span><span class="o">:</span> <span class="kc">true</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>When you modify and reassign the local shell variable <tt class="docutils literal"><span class="pre">t</span></tt>, the
+<a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell will return the <tt class="docutils literal"><span class="pre">t</span></tt> object, which should
+resemble the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span>
+     <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7be8af2c10315c0847fc85&quot;</span><span class="p">),</span>
+     <span class="s2">&quot;application&quot;</span> <span class="o">:</span> <span class="s2">&quot;A1&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span>
+     <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">150</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Amend the transaction operations to ensure that only applications
+that match the identifier in the value of the <tt class="docutils literal"><span class="pre">application</span></tt> field
+before applying the transaction.</p>
+<p>If the application <tt class="docutils literal"><span class="pre">A1</span></tt> fails during transaction execution, you can
+use the <a class="reference internal" href="#phase-commits-recovery"><em>recovery procedures</em></a>, but
+applications should ensure that they &#8220;owns&#8221; the transaction before
+applying the transaction. For example to resume pending jobs, use a
+query that resembles the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="nx">db</span><span class="p">.</span><span class="nx">transactions</span><span class="p">.</span><span class="nx">find</span><span class="p">({</span><span class="nx">application</span><span class="o">:</span> <span class="s2">&quot;A1&quot;</span><span class="p">,</span> <span class="nx">state</span><span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>This will (or may) return a document from the <tt class="docutils literal"><span class="pre">transactions</span></tt>
+document that resembles the following:</p>
+<div class="highlight-javascript"><div class="highlight"><pre><span class="p">{</span> <span class="s2">&quot;_id&quot;</span> <span class="o">:</span> <span class="nx">ObjectId</span><span class="p">(</span><span class="s2">&quot;4d7be8af2c10315c0847fc85&quot;</span><span class="p">),</span> <span class="s2">&quot;application&quot;</span> <span class="o">:</span> <span class="s2">&quot;A1&quot;</span><span class="p">,</span> <span class="s2">&quot;destination&quot;</span> <span class="o">:</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span> <span class="o">:</span> <span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;state&quot;</span> <span class="o">:</span> <span class="s2">&quot;pending&quot;</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span> <span class="o">:</span> <span class="mi">150</span> <span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="using-two-phase-commits-in-production-applications">
+<span id="phase-commits-in-production"></span><h2>Using Two-Phase Commits in Production Applications<a class="headerlink" href="#using-two-phase-commits-in-production-applications" title="Permalink to this headline">¶</a></h2>
+<p>The example transaction above is intentionally simple. For example, it
+assumes that:</p>
+<ul class="simple">
+<li>it is always possible roll back operations an account.</li>
+<li>account balances can hold negative values.</li>
+</ul>
+<p>Production implementations would likely be more complex. Typically
+accounts need to information about current balance, pending credits,
+pending debits. Then:</p>
+<ul class="simple">
+<li>when your application <a class="reference internal" href="#phase-commits-step-2"><em>switches the transaction state to
+pending</em></a> (i.e. step 2) it would also make
+sure that the accounts has sufficient funds for the
+transaction. During this update operation, the application would
+also modify the values of the credits and debits as well as adding
+the transaction as pending.</li>
+<li>when your application <a class="reference internal" href="#phase-commits-step-4"><em>removes the pending transaction</em></a> (i.e. step 4) the application would apply
+the transaction on balance, modify the credits and debits as well as
+removing the transaction from the <tt class="docutils literal"><span class="pre">pending</span></tt> field., all in one update.</li>
+</ul>
+<p>Because all of the changes in the above two operations occur within a
+single <a class="reference internal" href="../reference/method/db.collection.update.html#db.collection.update" title="db.collection.update()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">update()</span></tt></a> operation, these
+changes are all atomic.</p>
+<p>Additionally, for most important transactions, ensure that:</p>
+<ul class="simple">
+<li>the database interface (i.e. client library or <a class="reference internal" href="../reference/glossary.html#term-driver"><em class="xref std std-term">driver</em></a>) has a
+reasonable <a class="reference internal" href="../reference/glossary.html#term-write-concern"><em class="xref std std-term">write concern</em></a> configured to ensure that
+operations return a response on the success or failure of a write
+operation.</li>
+<li>your <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance has <a class="reference internal" href="../reference/glossary.html#term-journal"><em class="xref std std-term">journaling</em></a>
+enabled to ensure that your data is always in a recoverable state,
+in the event of an unclean <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> shutdown.</li>
+</ul>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="store-javascript-function-on-server.html" title="Previous Section: Store a JavaScript Function on the Server">&lt; &nbsp; Store a JavaScript Function on the Server</a></li>
+              <li id="btnvup"><a href="../applications.html" title="Parent Section: Application Development" >&#47;&#92;&nbsp; Application Development</a></li>
+              <li id="btnvnx"><a href="create-tailable-cursor.html" title="Next Section: Create Tailable Cursor">Create Tailable Cursor &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../replication.html">Replication</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../applications.html">Application Development</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../applications/drivers.html">MongoDB Drivers and Client Libraries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../applications/optimization.html">Optimization Strategies for MongoDB</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/capped-collections.html">Capped Collections</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../core/server-side-javascript.html">Server-side JavaScript</a></li>
+<li class="toctree-l2"><a class="reference internal" href="store-javascript-function-on-server.html">Store a JavaScript Function on the Server</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="">Perform Two Phase Commits</a><ul class="simple">
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="create-tailable-cursor.html">Create Tailable Cursor</a></li>
+<li class="toctree-l2"><a class="reference internal" href="isolate-sequence-of-operations.html">Isolate Sequence of Operations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="create-an-auto-incrementing-field.html">Create an Auto-Incrementing Sequence Field</a></li>
+<li class="toctree-l2"><a class="reference internal" href="limit-number-of-elements-in-updated-array.html">Limit Number of Elements in an Array after an Update</a></li>
+<li class="toctree-l2"><a class="reference internal" href="expire-data.html">Expire Data from Collections by Setting TTL</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/tutorial/perform-two-phase-commits.txt" target="_blank" title="Edit tutorial/perform-two-phase-commits.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22tutorial/perform-two-phase-commits%2Etxt%22" target="_blank" title="Report a problem with tutorial/perform-two-phase-commits.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/tutorial/perform-two-phase-commits.txt"'},
+		environment: {'repo': 'docs','source': 'tutorial/perform-two-phase-commits'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'tutorial/perform-two-phase-commits'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

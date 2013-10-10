@@ -1,0 +1,753 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+
+<head><title>Read Preference &mdash; MongoDB Manual 2.4.3</title><link rel="shortcut icon" href="http://media.mongodb.org/favicon.ico" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="robots" content="index" />
+  <meta name="release" content="2.4.3"/>
+  <meta name="DC.Source" content="https://github.com/mongodb/docs/blob/master/source/core/read-preference.txt"/>
+      <link rel="canonical" href="http://docs.mongodb.org/manual/core/read-preference" />
+  
+   <link rel="stylesheet" href="../_static/mongodb-docs.css" type="text/css" />
+   <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      
+   <script type="text/javascript">
+     var DOCUMENTATION_OPTIONS = {
+         URL_ROOT:    '../',
+         VERSION:     '2.4',
+         COLLAPSE_INDEX: false,
+         FILE_SUFFIX: '.html',
+         HAS_SOURCE:  false,
+     };
+   </script>
+       <script type="text/javascript" src="../_static/jquery.js"></script>
+       <script type="text/javascript" src="../_static/underscore.js"></script>
+       <script type="text/javascript" src="../_static/doctools.js"></script>
+          <link rel="search" type="application/opensearchdescription+xml" href="http://docs.mongodb.org/osd.xml" title="MongoDB Help"/>
+<link rel="author" title="About these documents" href="../about.html" />
+<link rel="top" title="MongoDB Manual" href="../index.html" />
+<link rel="up" title="Replica Set Considerations and Behaviors for Applications and Development" href="../applications/replication.html" />
+<link rel="next" title="Replica Set Internals and Behaviors" href="replication-internals.html" />
+<link rel="prev" title="Write Concern" href="write-concern.html" />
+          <script>
+            (function() {
+               var cx = '017213726194841070573:WMX6838984';
+               var gcse = document.createElement('script'); gcse.type = 'text/javascript'; gcse.async = true;
+               gcse.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//www.google.com/cse/cse.js?cx=' + cx;
+               var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(gcse, s);
+            })();
+          </script></head>
+<body>
+      <div id="header-db" class="spread">
+        <div class="split">
+          <div id="logo">
+            <div><a href="http://www.mongodb.org/"><img class="logo" src="http://media.mongodb.org/logo-mongodb.png" alt="MongoDB Logo"/></a></div>
+          </div>
+        </div>
+      </div>  
+      <div class="document">
+           <div class="documentwrapper"><div class="bodywrapper">
+               <div class="body">
+                 
+    <div class="bc">
+      <ul>
+          <li><a href="../replication.html">Replication</a><span class="bcpoint"> > </span></li>
+          
+          <li><a href="../applications/replication.html">Replica Set Considerations and Behaviors for Applications and Development</a><span class="bcpoint"> > </span></li>
+          <li>Read Preference</li> 
+      </ul>
+    </div>
+                 <div id="cse-results">
+                   <gcse:searchresults linkTarget="_top"></gcse:searchresults>
+                 </div>
+                 
+  <div class="section" id="read-preference">
+<h1>Read Preference<a class="headerlink" href="#read-preference" title="Permalink to this headline">¶</a></h1>
+<p>Read preference describes how MongoDB clients route read operations to
+members of a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>.</p>
+<span class="target" id="index-0"></span><span class="target" id="index-1"></span><div class="section" id="background">
+<span id="replica-set-read-preference-background"></span><span id="replica-set-read-preference"></span><span id="index-2"></span><h2>Background<a class="headerlink" href="#background" title="Permalink to this headline">¶</a></h2>
+<p>By default, an application directs its read operations to the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>
+member in a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>. Reading from the primary guarantees that
+read operations reflect the latest version of a document. However,
+for an application that does not require fully up-to-date data, you
+can improve read throughput, or reduce latency, by distributing some or all
+reads to secondary members of the replica set.</p>
+<p>The following are use cases where you might use secondary reads:</p>
+<ul class="simple">
+<li>Running systems operations that do not affect the front-end
+application, operations such as backups and reports.</li>
+<li>Providing low-latency queries for geographically distributed
+deployments. If one secondary is closer to an application server
+than the primary, you may see better
+performance for that application if you use secondary reads.</li>
+<li>Providing graceful degradation in <a class="reference internal" href="replication.html#replica-set-failover"><em>failover</em></a> situations where a set has <em>no</em> primary for 10
+seconds or more. In this use case, you should give the application the
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> read preference, which prevents the
+application from performing reads if the set has no primary.</li>
+</ul>
+<p>MongoDB <a class="reference internal" href="../reference/glossary.html#term-driver"><em class="xref std std-term">drivers</em></a> allow client applications to
+configure a <a class="reference internal" href="../reference/glossary.html#term-read-preference"><em class="xref std std-term">read preference</em></a> on a per-connection,
+per-collection, or per-operation basis. For more information about
+secondary read operations in the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell, see the
+<tt class="xref mongodb mongodb-method docutils literal"><span class="pre">readPref()</span></tt> method. For more information about a driver&#8217;s
+read preference configuration, see the appropriate <a class="reference internal" href="../applications/drivers.html#driver"><em>MongoDB Drivers and Client Libraries</em></a> API
+documentation.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Read preferences affect how an application selects which member
+to use for read operations. As a result read
+preferences dictate if the application receives stale or
+current data from MongoDB. Use appropriate <a class="reference internal" href="../reference/glossary.html#term-write-concern"><em class="xref std std-term">write concern</em></a>
+policies to ensure proper data
+replication and consistency.</p>
+<p class="last">If read operations account for a large percentage of your
+application&#8217;s traffic, distributing reads to secondary members can
+improve read throughput. However, in most cases <a class="reference internal" href="sharded-clusters.html"><em>sharding</em></a> provides better support for larger scale
+operations, as clusters can distribute read and write
+operations across a group of machines.</p>
+</div>
+<span class="target" id="replica-set-read-preference-semantics"><span id="index-3"></span></span><div class="section" id="read-preference-modes">
+<span id="replica-set-read-preference-modes"></span><span id="index-4"></span><h3>Read Preference Modes<a class="headerlink" href="#read-preference-modes" title="Permalink to this headline">¶</a></h3>
+<p class="versionadded">
+<span class="versionmodified">New in version 2.2.</span></p>
+<p>MongoDB <a class="reference internal" href="../applications/drivers.html"><em>drivers</em></a> support five
+read preference modes:</p>
+<ul class="simple">
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt></li>
+</ul>
+<p>You can specify a read preference mode on connection objects, database
+object, collection object, or per-operation. The syntax for specifying
+the read preference mode is <a class="reference external" href="http://api.mongodb.org/">specific to the driver and to the
+idioms of the host language</a>.</p>
+<p>Read preference modes are also available to clients connecting to a
+<a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded cluster</em></a> through a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>. The
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance obeys specified read preferences when
+connecting to the <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> that provides each <a class="reference internal" href="../reference/glossary.html#term-shard"><em class="xref std std-term">shard</em></a>
+in the cluster.</p>
+<p>In the <a class="reference internal" href="../reference/program/mongo.html#bin.mongo" title="mongo"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongo</span></tt></a> shell, the
+<a class="reference internal" href="../reference/method/cursor.readPref.html#cursor.readPref" title="cursor.readPref()"><tt class="xref mongodb mongodb-method docutils literal"><span class="pre">readPref()</span></tt></a> cursor method
+provides access to read preferences.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>All read preference modes except <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> may return
+stale data as <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondaries</em></a> replicate operations
+from the primary with some delay.</p>
+<p class="last">Ensure that your application can tolerate stale data if you choose
+to use a non-<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> mode.</p>
+</div>
+<p>For more information, see <a class="reference internal" href="#replica-set-read-preference-background"><em>read preference background</em></a> and <a class="reference internal" href="#replica-set-read-preference-behavior"><em>read preference
+behavior</em></a>. See also the
+<a class="reference external" href="http://api.mongodb.org/">documentation for your driver</a>.</p>
+<dl class="readmode">
+<dt id="primary">
+<tt class="descname">primary</tt><a class="headerlink" href="#primary" title="Permalink to this definition">¶</a></dt>
+<dd><p>All read operations use only the current replica set <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>.
+This is the default. If the primary is unavailable,
+read operations produce an error or throw an exception.</p>
+<p>The <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> read preference mode is not compatible with
+read preference modes that use <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag sets</em></a>. If you specify a tag set
+with <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt>, the driver will produce an error.</p>
+</dd></dl>
+
+<dl class="readmode">
+<dt id="primaryPreferred">
+<tt class="descname">primaryPreferred</tt><a class="headerlink" href="#primaryPreferred" title="Permalink to this definition">¶</a></dt>
+<dd><p>In most situations, operations read from the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> member
+of the set. However, if the primary is unavailable, as is the case
+during <a class="reference internal" href="../reference/glossary.html#term-failover"><em class="xref std std-term">failover</em></a> situations, operations read from secondary
+members.</p>
+<p>When the read preference includes a <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag set</em></a>, the client reads first from
+the primary, if available, and then from <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondaries</em></a> that match the specified tags. If no secondaries have
+matching tags, the read operation produces an error.</p>
+<p>Since the application may receive data from a secondary, read
+operations using the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> mode may return
+stale data in some situations.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span><a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> added full support for read preferences.</p>
+<p class="last">When connecting to a <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instance older than 2.2,
+using a client that supports read preference modes,
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> will send queries to secondaries.</p>
+</div>
+</dd></dl>
+
+<dl class="readmode">
+<dt id="secondary">
+<tt class="descname">secondary</tt><a class="headerlink" href="#secondary" title="Permalink to this definition">¶</a></dt>
+<dd><p>Operations read <em>only</em> from the <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members of the set.
+If no secondaries are available, then this read operation produces an
+error or exception.</p>
+<p>Most sets have at least one secondary, but there are situations
+where there may be no available secondary. For example, a set with
+a primary, a secondary, and an <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiter</em></a> may not have any
+secondaries if a member is in recovering state or unavailable.</p>
+<p>When the read preference includes a <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag set</em></a>, the client attempts to
+find secondary members that match the specified tag set and directs
+reads to a random secondary from among the <a class="reference internal" href="#replica-set-read-preference-behavior-nearest"><em>nearest group</em></a>. If no secondaries
+have matching tags, the read operation produces an
+error. <a class="footnote-reference" href="#capacity-planning" id="id1">[1]</a></p>
+<p>Read operations using the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt> mode may return stale data.</p>
+</dd></dl>
+
+<dl class="readmode">
+<dt id="secondaryPreferred">
+<tt class="descname">secondaryPreferred</tt><a class="headerlink" href="#secondaryPreferred" title="Permalink to this definition">¶</a></dt>
+<dd><p>In most situations, operations read from <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members,
+but in situations where the set consists of a single
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> (and no other members,) the read operation will use
+the set&#8217;s primary.</p>
+<p>When the read preference includes a <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag set</em></a>, the client attempts to find
+a secondary member that matches the specified tag set and directs
+reads to a random secondary from among the <a class="reference internal" href="#replica-set-read-preference-behavior-nearest"><em>nearest group</em></a>. If no secondaries
+have matching tags, the read operation produces an error.</p>
+<p>Read operations using the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt> mode may
+return stale data.</p>
+</dd></dl>
+
+<dl class="readmode">
+<dt id="nearest">
+<tt class="descname">nearest</tt><a class="headerlink" href="#nearest" title="Permalink to this definition">¶</a></dt>
+<dd><p>The driver reads from the <em>nearest</em> member of the <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">set</em></a> according to the <a class="reference internal" href="#replica-set-read-preference-behavior-nearest"><em>member selection</em></a> process. Reads in
+the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> mode do not consider the member&#8217;s
+<em>type</em>. Reads in <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> mode may read from both
+primaries and secondaries.</p>
+<p>Set this mode to minimize the effect of network latency
+on read operations without preference for current or stale data.</p>
+<p>If you specify a <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag set</em></a>, the client attempts to
+find a replica set member that matches the specified tag set and
+directs reads to an arbitrary member from among the <a class="reference internal" href="#replica-set-read-preference-behavior-nearest"><em>nearest
+group</em></a>.</p>
+<p>Read operations using the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> mode may return stale
+data.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>All operations read from a member of the nearest group of the
+replica set that matches the specified read preference mode. The
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> mode prefers low latency reads over a
+member&#8217;s <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a> or <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> status.</p>
+<p class="last">For <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt>, the client assembles a list of
+acceptable hosts based on tag set and then narrows that list to
+the host with the shortest ping time and all other members of
+the set that are within the &#8220;local threshold,&#8221; or acceptable
+latency. See <a class="reference internal" href="#replica-set-read-preference-behavior-nearest"><em>Member Selection</em></a>
+for more information.</p>
+</div>
+</dd></dl>
+
+<table class="docutils footnote" frame="void" id="capacity-planning" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[1]</a></td><td>If your set has more than one secondary, and
+you use the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt> read preference mode, consider
+the following effect. If you have a <a class="reference internal" href="replica-set-architectures.html#replica-set-three-members"><em>three member replica set</em></a> with a primary and two secondaries,
+and if one secondary becomes unavailable, all <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt>
+queries must target the remaining secondary. This will double the
+load on this secondary. Plan and provide capacity to support this
+as needed.</td></tr>
+</tbody>
+</table>
+<span class="target" id="index-5"></span></div>
+<div class="section" id="tag-sets">
+<span id="replica-set-read-preference-tag-sets"></span><span id="index-6"></span><h3>Tag Sets<a class="headerlink" href="#tag-sets" title="Permalink to this headline">¶</a></h3>
+<p>Tag sets allow you to specify custom <a class="reference internal" href=""><em>read preferences</em></a>
+and <a class="reference internal" href="write-operations.html#write-operations-write-concern"><em>write concerns</em></a>
+so that your application can target
+operations to specific members, based on custom parameters.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Consider the following properties of read preferences:</p>
+<ul class="last simple">
+<li>Custom read preferences and write concerns evaluate tags sets in
+different ways.</li>
+<li>Read preferences consider the value of a tag when selecting a
+member to read from.</li>
+<li>Write concerns ignore the value of a tag to when selecting a
+member <em>except</em> to consider whether or not the value is unique.</li>
+</ul>
+</div>
+<p>You can specify tag sets with the following read preference modes:</p>
+<ul class="simple">
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt></li>
+<li><tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt></li>
+</ul>
+<p>You cannot specify tag sets with the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> read preference mode.</p>
+<p>Tags are not compatible with <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> and only apply when
+<a class="reference internal" href="#replica-set-read-preference-behavior-member-selection"><em>selecting</em></a>
+a <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> member of a set for a read operation. However, the
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> read mode, when combined with a tag set will
+select the nearest member that matches the specified tag set, which
+may be a primary or secondary.</p>
+<p>All interfaces use the same <a class="reference internal" href="#replica-set-read-preference-behavior-member-selection"><em>member selection logic</em></a> to choose the
+member to which to direct read operations, basing the choice on read
+preference mode and tag sets.</p>
+<p>For information on configuring tag sets, see
+<a class="reference internal" href="../tutorial/configure-replica-set-tag-sets.html"><em>Configure Replica Set Tag Sets</em></a>.</p>
+<p>For more information on how read preference <a class="reference internal" href="#replica-set-read-preference-modes"><em>modes</em></a> interact with tag sets, see the
+documentation for each read preference mode.</p>
+</div>
+<div class="section" id="behavior">
+<span id="replica-set-read-preference-behavior"></span><span id="index-7"></span><h3>Behavior<a class="headerlink" href="#behavior" title="Permalink to this headline">¶</a></h3>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2.</span></p>
+</div>
+</div>
+<div class="section" id="auto-retry">
+<span id="replica-set-read-preference-behavior-retry"></span><h2>Auto-Retry<a class="headerlink" href="#auto-retry" title="Permalink to this headline">¶</a></h2>
+<p>Connection between MongoDB drivers and <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances in
+a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> must balance two concerns:</p>
+<ol class="arabic simple">
+<li>The client should attempt to prefer current results, and any
+connection should read from the same member of the replica set as
+much as possible.</li>
+<li>The client should minimize the amount of time that the database is
+inaccessible as the result of a connection issue, networking
+problem, or <a class="reference internal" href="../reference/glossary.html#term-failover"><em class="xref std std-term">failover</em></a> in a replica set.</li>
+</ol>
+<p>As a result, MongoDB drivers and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>:</p>
+<ul>
+<li><p class="first">Reuse a connection to specific <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> for as long as
+possible after establishing a connection to that instance. This
+connection is <em>pinned</em> to this <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>.</p>
+</li>
+<li><p class="first">Attempt to reconnect to a new member, obeying existing <a class="reference internal" href="#replica-set-read-preference-modes"><em>read
+preference modes</em></a>, if the connection
+to <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> is lost.</p>
+<p>Reconnections are transparent to the application itself. If
+the connection permits reads from <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members, after
+reconnecting, the application can receive two sequential reads
+returning from different secondaries. Depending on the state of the
+individual secondary member&#8217;s replication, the documents can reflect
+the state of your database at different moments.</p>
+</li>
+<li><p class="first">Return an error <em>only</em> after attempting to connect to three members
+of the set that match the <a class="reference internal" href="#replica-set-read-preference-modes"><em>read preference mode</em></a> and <a class="reference internal" href="#replica-set-read-preference-tag-sets"><em>tag set</em></a>.  If there are fewer than
+three members of the set, the client will error after connecting to
+all existing members of the set.</p>
+<p>After this error, the driver selects a new member using the
+specified read preference mode. In the absence of a specified read
+preference, the driver uses <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt>.</p>
+</li>
+<li><p class="first">After detecting a failover situation, <a class="footnote-reference" href="#fn-failover" id="id2">[2]</a> the driver
+attempts to refresh the state of the replica set as quickly as
+possible.</p>
+</li>
+</ul>
+<table class="docutils footnote" frame="void" id="fn-failover" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[2]</a></td><td>When a <a class="reference internal" href="../reference/glossary.html#term-failover"><em class="xref std std-term">failover</em></a> occurs, all members of the set
+close all client connections that produce a socket error in the
+driver. This behavior prevents or minimizes <a class="reference internal" href="../reference/glossary.html#term-rollback"><em class="xref std std-term">rollback</em></a>.</td></tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="request-association">
+<span id="replica-set-read-preference-behavior-requests"></span><h2>Request Association<a class="headerlink" href="#request-association" title="Permalink to this headline">¶</a></h2>
+<p>Reads from <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> may reflect the state of the data set at
+different points in time because <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> members of a
+<a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a> may lag behind the current state of the primary by
+different amounts. To prevent subsequent reads from jumping around in
+time, the driver can associate application threads to a specific member
+of the set after the first read. The thread will continue to read from
+the same member until:</p>
+<ul class="simple">
+<li>The application performs a read with a different read preference.</li>
+<li>The thread terminates.</li>
+<li>The client receives a socket exception, as is
+the case when there&#8217;s a network error or when
+the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> closes connections during a <a class="reference internal" href="../reference/glossary.html#term-failover"><em class="xref std std-term">failover</em></a>.
+This triggers a <a class="reference internal" href="#replica-set-read-preference-behavior-retry"><em>retry</em></a>, which may be
+transparent to the application.</li>
+</ul>
+<p>If an application thread issues a query with the
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> mode while the primary is inaccessible,
+the thread will carry the association with that secondary for the
+lifetime of the thread. The thread will associate with the primary, if
+available, only after issuing a query with a different read
+preference, even if a primary becomes available. By extension, if a
+thread issues a read with the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt> when all
+secondaries are down, it will carry an association with the
+primary. This application thread will continue to read from the
+primary even if a secondary becomes available later in the thread&#8217;s
+lifetime.</p>
+<span class="target" id="index-8"></span><span class="target" id="index-9"></span></div>
+<div class="section" id="member-selection">
+<span id="replica-set-read-preference-behavior-member-selection"></span><span id="replica-set-read-preference-behavior-nearest"></span><span id="replica-set-read-preference-behavior-ping-time"></span><span id="index-10"></span><h2>Member Selection<a class="headerlink" href="#member-selection" title="Permalink to this headline">¶</a></h2>
+<p>Clients, by way of their drivers, and <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances for
+sharded clusters periodically update their view of the replica set&#8217;s state:
+which members are up or down, which member is primary, and the latency to each
+<a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instance.</p>
+<p>For any operation that targets a member <em>other</em> than the
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>, the driver:</p>
+<ol class="arabic simple">
+<li>Assembles a list of suitable members, taking into account member type
+(i.e. secondary, primary, or all members.)</li>
+<li>Excludes members not matching the tag sets, if specified.</li>
+<li>Determines which suitable member is the closest to the
+client in absolute terms.</li>
+<li>Builds a list of members that are within a defined ping distance
+(in milliseconds) of the &#8220;absolute nearest&#8221;
+member. <a class="footnote-reference" href="#acceptable-secondary-latency" id="id3">[3]</a></li>
+<li>Selects a member from these hosts at random. The member receives
+the read operation.</li>
+</ol>
+<p>Once the application selects a member of the set to use for read
+operations, the driver continues to use this connection for read
+preference until the application specifies a new read preference or
+something interrupts the connection. See
+<a class="reference internal" href="#replica-set-read-preference-behavior-requests"><em>Request Association</em></a> for more
+information.</p>
+<table class="docutils footnote" frame="void" id="acceptable-secondary-latency" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[3]</a></td><td>Applications can configure the
+threshold used in this stage. The default &#8220;acceptable latency&#8221; is
+15 milliseconds, which you can override in the drivers with their
+own <tt class="docutils literal"><span class="pre">secondaryAcceptableLatencyMS</span></tt> option.  For <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+you can use the <a class="reference internal" href="../reference/program/mongos.html#cmdoption-mongos--localThreshold"><em class="xref std std-option">--localThreshold</em></a>
+or <a class="reference internal" href="../reference/configuration-options.html#localThreshold" title="localThreshold"><tt class="xref mongodb mongodb-setting docutils literal"><span class="pre">localThreshold</span></tt></a> runtime options to set this value.</td></tr>
+</tbody>
+</table>
+<span class="target" id="index-11"></span></div>
+<div class="section" id="sharding-and-mongos">
+<span id="replica-set-read-preference-behavior-mongos"></span><span id="replica-set-read-preference-behavior-sharding"></span><span id="index-12"></span><h2>Sharding and <tt class="docutils literal"><span class="pre">mongos</span></tt><a class="headerlink" href="#sharding-and-mongos" title="Permalink to this headline">¶</a></h2>
+<p class="versionchanged">
+<span class="versionmodified">Changed in version 2.2: </span>Before version 2.2, <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> did not support the
+<a class="reference internal" href="#replica-set-read-preference-modes"><em>read preference mode semantics</em></a>.</p>
+<p>In most <a class="reference internal" href="../reference/glossary.html#term-sharded-cluster"><em class="xref std std-term">sharded clusters</em></a>, a <a class="reference internal" href="../reference/glossary.html#term-replica-set"><em class="xref std std-term">replica set</em></a>
+provides each shard where read preferences are also applicable. Read
+operations in a sharded cluster, with regard to read preference, are
+identical to unsharded replica sets.</p>
+<p>Unlike simple replica sets, in sharded clusters, all interactions with
+the shards pass from the clients to the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> instances
+that are actually connected to the set members. <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> is
+responsible for the application of the read preferences, which is
+transparent to applications.</p>
+<p>There are no configuration changes required for full support of read
+preference modes in sharded environments, as long as the
+<a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> is at least version 2.2. All <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+maintain their own connection pool to the replica set members. As a
+result:</p>
+<ul>
+<li><p class="first">A request without a specified preference has
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt>, the default, unless, the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a>
+reuses an existing connection that has a different mode set.</p>
+<p>Always explicitly set your read preference mode to prevent
+confusion.</p>
+</li>
+<li><p class="first">All <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> and latency calculations reflect the
+connection between the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> and the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a>
+instances, not the client and the <a class="reference internal" href="../reference/program/mongod.html#bin.mongod" title="mongod"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongod</span></tt></a> instances.</p>
+<p>This produces the desired result, because all results must pass
+through the <a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> before returning to the client.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="database-commands">
+<h2>Database Commands<a class="headerlink" href="#database-commands" title="Permalink to this headline">¶</a></h2>
+<p>Because some <a class="reference internal" href="../reference/glossary.html#term-database-command"><em class="xref std std-term">database commands</em></a> read and
+return data from the database, all of the official drivers support
+full <a class="reference internal" href="#replica-set-read-preference-modes"><em>read preference mode semantics</em></a>
+for the following commands:</p>
+<ul class="simple">
+<li><a class="reference internal" href="../reference/command/group.html#dbcmd.group" title="group"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">group</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/mapReduce.html#dbcmd.mapReduce" title="mapReduce"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">mapReduce</span></tt></a> <a class="footnote-reference" href="#inline-map-reduce" id="id4">[4]</a></li>
+<li><a class="reference internal" href="../reference/command/aggregate.html#dbcmd.aggregate" title="aggregate"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">aggregate</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/collStats.html#dbcmd.collStats" title="collStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">collStats</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/dbStats.html#dbcmd.dbStats" title="dbStats"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">dbStats</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/count.html#dbcmd.count" title="count"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">count</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/distinct.html#dbcmd.distinct" title="distinct"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">distinct</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/geoNear.html#dbcmd.geoNear" title="geoNear"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoNear</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/geoSearch.html#dbcmd.geoSearch" title="geoSearch"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoSearch</span></tt></a></li>
+<li><a class="reference internal" href="../reference/command/geoWalk.html#dbcmd.geoWalk" title="geoWalk"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">geoWalk</span></tt></a></li>
+</ul>
+<table class="docutils footnote" frame="void" id="inline-map-reduce" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[4]</a></td><td>Only &#8220;inline&#8221; <a class="reference internal" href="../reference/command/mapReduce.html#dbcmd.mapReduce" title="mapReduce"><tt class="xref mongodb mongodb-dbcommand docutils literal"><span class="pre">mapReduce</span></tt></a>
+operations that do not write data support read preference,
+otherwise these operations must run on the <a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>
+members.</td></tr>
+</tbody>
+</table>
+<p><a class="reference internal" href="../reference/program/mongos.html#bin.mongos" title="mongos"><tt class="xref mongodb mongodb-program docutils literal"><span class="pre">mongos</span></tt></a> currently does not route commands using read
+preferences; clients send all commands to shards&#8217; primaries. See
+<a class="reference external" href="https://jira.mongodb.org/browse/SERVER-7423">SERVER-7423</a>.</p>
+<div class="section" id="uses-for-non-primary-read-preferences">
+<h3>Uses for non-Primary Read Preferences<a class="headerlink" href="#uses-for-non-primary-read-preferences" title="Permalink to this headline">¶</a></h3>
+<p>You must exercise care when specifying read preferences: modes other
+than <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> can <em>and will</em> return stale data. These
+secondary queries will not
+include the most recent write operations to the replica set&#8217;s
+<a class="reference internal" href="../reference/glossary.html#term-primary"><em class="xref std std-term">primary</em></a>. Nevertheless, there are several common use cases for
+using non-<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> read preference modes:</p>
+<ul>
+<li><p class="first">Reporting and analytics workloads.</p>
+<p>Having these queries target a <a class="reference internal" href="../reference/glossary.html#term-secondary"><em class="xref std std-term">secondary</em></a> helps distribute
+load and prevent these operations from affecting the main workload
+of the primary.</p>
+<p>Also consider using <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt> in conjunction with a
+direct connection to a <a class="reference internal" href="replication.html#replica-set-hidden-members"><em>hidden member</em></a> of the set.</p>
+</li>
+<li><p class="first">Providing local reads for geographically distributed applications.</p>
+<p>If you have application servers in multiple data centers, you may
+consider having a <a class="reference internal" href="replica-set-architectures.html#replica-set-geographical-distribution"><em>geographically distributed replica set</em></a> and using a non primary
+read preference or the <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">nearest</span></tt> to avoid network
+latency.</p>
+</li>
+<li><p class="first">Maintaining availability during a failover.</p>
+<p>Use <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> if you want your application to do
+consistent reads from the primary under normal circumstances, but to
+allow stale reads from secondaries in an emergency. This provides a
+&#8220;read-only mode&#8221; for your application during a failover.</p>
+</li>
+</ul>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p>In some situations using <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt> to
+distribute read load to replica sets may carry significant
+operational risk: if all secondaries are unavailable and your set
+has enough <a class="reference internal" href="../reference/glossary.html#term-arbiter"><em class="xref std std-term">arbiters</em></a> to prevent the primary from
+stepping down, then the primary will receive all traffic from
+clients.</p>
+<p class="last">For this reason, use <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondary</span></tt> to distribute read load
+to replica sets, not <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">secondaryPreferred</span></tt>.</p>
+</div>
+<p>Using read modes other than <tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> and
+<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primaryPreferred</span></tt> to provide extra capacity is not in and
+of itself justification for non-<tt class="xref mongodb mongodb-readmode docutils literal"><span class="pre">primary</span></tt> in many
+cases. Furthermore, <a class="reference internal" href="../sharding.html"><em>sharding</em></a> increases read and
+write capacity by distributing read and write operations across a
+group of machines.</p>
+</div>
+</div>
+</div>
+
+
+    <div id="btnv">
+        <ul id="btnvl">
+              <li id="btnvpr"><a href="write-concern.html" title="Previous Section: Write Concern">&lt; &nbsp; Write Concern</a></li>
+              <li id="btnvup"><a href="../replication.html" title="Parent Section: Replication" >&#47;&#92;&nbsp; Replication</a></li>
+              <li id="btnvnx"><a href="replication-internals.html" title="Next Section: Replica Set Internals and Behaviors">Replica Set Internals and Behaviors &nbsp;&gt;</a></li>
+        </ul>
+    </div></div></div>
+           </div>
+       <div class="sphinxsidebar">
+         <div class="sphinxsidebarwrapper">
+  <h3>
+    <a href="../index.html">MongoDB Manual</a> <span id="vn">2.4</span>
+  </h3>
+
+
+
+<div class="site-contents"><a href="../contents.html">Contents</a></div>
+
+
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Install MongoDB</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../administration.html">Administration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../security.html">Security</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../crud.html">Core MongoDB Operations (CRUD)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../data-modeling.html">Data Modeling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aggregation.html">Aggregation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexes.html">Indexes</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../replication.html">Replication</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="replication.html">Replica Set Fundamental Concepts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="replica-set-architectures.html">Replica Set Architectures and Deployment Patterns</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../applications/replication.html">Replica Set Considerations and Behaviors for Applications and Development</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="write-concern.html">Write Concern</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="">Read Preference</a><ul class="simple">
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="replication-internals.html">Replica Set Internals and Behaviors</a></li>
+<li class="toctree-l2"><a class="reference internal" href="master-slave.html">Master Slave Replication</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../administration/replica-sets.html">Replica Set Administration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-configuration.html">Replica Set Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/replica-commands.html">Replica Set Commands</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../release-notes/replica-set-features.html">Replica Set Features and Version Compatibility</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../sharding.html">Sharding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../applications.html">Application Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../mongo.html">The <tt class="docutils literal"><span class="pre">mongo</span></tt> Shell</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../use-cases.html">Use Cases</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../faq.html">Frequently Asked Questions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release-notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About MongoDB Documentation</a></li>
+</ul>
+
+
+
+<div class="site-index"><a href="../genindex.html">Index</a></div>
+<h3>Formats</h3>
+<ul class="this-page-menu">
+  <li><a href="/manual/single/">MongoDB Manual, Single HTML Page</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.pdf" rel="nofollow">MongoDB Manual, PDF Format</a></li>
+  <li><a href="http://docs.mongodb.org/master/MongoDB-Manual-master.epub" rel="nofollow">MongoDB Manual, ePub Format</a></li>
+</ul>
+<h3><a href="http://www.mongodb.org/about/">About MongoDB</a></h3>
+<ul>
+  <li><a href="http://www.mongodb.org/about/introduction">Introduction</a></li>
+  <li><a href="http://www.mongodb.org/about/community">User Community</a></li>
+  <li><a href="http://mongodb.org/about/community/masters">MongoDB Masters</a></li>
+  <li><a href="http://planet.mongodb.org">Planet MongoDB</a></li>
+</ul>
+<h3><a href="http://docs.mongodb.org/ecosystem/">MongoDB Ecosystem</a></h3>
+<ul>
+ <li><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers and Client libraries</a>
+   <ul>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/c">C</a> (<a href="http://api.mongodb.org/c/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/cpp">C++</a> (<a href="http://api.mongodb.org/cplusplus/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/csharp">C#</a> (<a href="http://api.mongodb.org/csharp/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/erlang">Erlang</a> (<a href="http://api.mongodb.org/erlang">docs</a>)</li>
+     <li><a href="http://hackage.haskell.org/package/mongoDB">Haskell</a> (<a href="http://api.mongodb.org/haskell">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/java">Java</a> (<a href="http://api.mongodb.org/java/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/javascript">JavaScript</a> (<a href="http://api.mongodb.org/js/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/perl">Perl</a> (<a href="http://api.mongodb.org/perl/current/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/php">PHP</a> (<a href="http://php.net/mongo/">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/python">Python</a> (<a href="http://api.mongodb.org/python/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/ruby">Ruby</a> (<a href="http://api.mongodb.org/ruby/current">docs</a>)</li>
+     <li><a href="http://docs.mongodb.org/ecosystem/drivers/scala">Scala</a> (<a href="http://api.mongodb.org/scala/casbah/current/">docs</a>)</li>
+   </ul>
+ </li>
+ <li><a href="http://docs.mongodb.org/ecosystem/tools/">Tools and Integration</a></li>
+ <li><a href="http://docs.mongodb.org/ecosystem/platforms/">Platform Integration</a></li>
+</ul><h3>MongoDB Resources</h3>
+<ul>
+  <li><a href="http://www.mongodb.org/downloads">Downloads</a></li>
+  <li><a href="http://www.10gen.com/events">MongoDB Events</a></li>
+  <li><a href="http://www.10gen.com/presentations">Slides and Video</a></li>
+  <li><a href="http://www.10gen.com/products/mms/">MongoDB Monitoring Service</a> (<a href="http://mms.10gen.com/help/">docs</a>)</li>
+</ul>
+         </div>
+       </div>
+        <div class="clearer"></div>
+      </div><div id="top-right">
+        <div class="user-right">
+          <ul id="header-menu-bar" class="ajs-menu-bar">
+            <li class="normal"><a target="_blank" href="http://groups.google.com/group/mongodb-user">Forums</a></li>
+            <li class="normal"><a target="_blank" href="http://blog.mongodb.org/">Blog</a></li>
+            <li class="normal"><a href="http://www.mongodb.org/downloads">Download</a></li>
+            <li class="normal"><a href="http://docs.mongodb.org/ecosystem/drivers/">Drivers</a></li>
+            <li class="normal"><a href="http://www.10gen.com/events">Events</a></li>
+            <li class="normal last"><a class="last" href="http://docs.mongodb.org/manual/meta/translation">Translations</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="search-db"><gcse:searchbox></gcse:searchbox></div>
+          <div id="etp">
+            <ul>
+              <li><a href="https://github.com/mongodb/docs/blob/master/source/core/read-preference.txt" target="_blank" title="Edit core/read-preference.txt on GitHub">Edit this Page</a></li>
+              <li><a href="http://github.com/mongodb/docs" target="_blank" title="Fork the documentation on GitHub and contribute.">GitHub</a></li>
+              <li><a id="jirafeedback" href="https://jira.mongodb.org/secure/CreateIssueDetails!init.jspa?pid=10380&issuetype=4&priority=4&summary=Comment+on%3a+%22core/read-preference%2Etxt%22" target="_blank" title="Report a problem with core/read-preference.txt on Jira">Report a Problem</a></li>
+            </ul>
+          </div>
+      <div class="footer">
+        <p>
+          &copy; <a href="">Copyright</a> 2011-2013, 10gen, Inc. 
+          MongoDB&reg;, Mongo&reg;, and the leaf logo are registered trademarks of <a href="http://www.10gen.com/">10gen, Inc.</a>
+        </p>
+      </div><script type="text/javascript">
+var _gaq = _gaq || [];
+var pluginUrl = (('https:' == document.location.protocol) ? 'https://ssl.' : 'http://www.') + 'google-analytics.com/plugins/ga/inpage_linkid.js';
+_gaq.push(['_require', 'inpage_linkid', pluginUrl]);
+_gaq.push(['_setAccount', 'UA-7301842-8']);
+_gaq.push(['_setDomainName', 'docs.mongodb.org']);
+_gaq.push(['_trackPageview']);
+(function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0];
+        s.parentNode.insertBefore(ga, s);
+        })();
+</script>
+
+<script type="text/javascript">var _kiq = _kiq || [];</script>
+<script type="text/javascript">
+(function(){
+setTimeout(function(){ var d = document, f = d.getElementsByTagName('script')[0], s = d.createElement('script'); s.type = 'text/javascript'; s.async = true; s.src = '//s3.amazonaws.com/ki.js/49119/a7n.js'; f.parentNode.insertBefore(s, f); }, 1);
+})();
+</script>
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){ (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+ga('create', 'UA-7301842-14', 'mongodb.org');
+ga('send', 'pageview');
+</script>
+
+<script type="text/javascript">
+document.write(unescape("%3Cscript src='" + document.location.protocol + "//munchkin.marketo.net/munchkin.js' type='text/javascript'%3E%3C/script%3E"));
+</script>
+<script>try { mktoMunchkin("017-HGS-593"); } catch(e) {}</script><script type="text/javascript">
+jQuery.ajax({
+	 url: "https://jira.mongodb.org/s/en_UScn8g8x/782/6/1.2.5/_/download/batch/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs/com.atlassian.jira.collector.plugin.jira-issue-collector-plugin:issuecollector-embededjs.js?collectorId=298ba4e7",
+	 type: "get",
+	 cache: true,
+	 dataType: "script"
+	});
+window.ATL_JQ_PAGE_PROPS =  {
+	"triggerFunction": function(showCollectorDialog) {
+		jQuery("#jirafeedback").click(function(e) {e.preventDefault();showCollectorDialog();});},
+		fieldValues: {component: 'mongodb-manual', summary: 'Comment on: "manual/core/read-preference.txt"'},
+		environment: {'repo': 'docs','source': 'core/read-preference'}
+		};
+</script><script type="text/javascript">
+var versions = [{'t': '2.4 (current)', 'v': 'v2.4'}, {'t': '2.2', 'v': 'v2.2'}]
+var pagename = 'core/read-preference'
+var stable = 'v2.4'
+
+function vfnav() {
+    if ( pagename=='index' ) {
+        pn = ''
+    }
+    else {
+        pn = pagename
+    }
+
+    v = $(this).children("option:selected").attr('value')
+
+    if ( (v==0) || (v==stable) ) {
+        uri = '/manual/' + pn
+    }
+    else {
+        uri = '/' + v + '/' + pn
+    }
+    window.location.href= uri;
+}
+
+$(document).ready(function(){
+    $("#vn").html(function(){
+        s=$("<select/>");
+        o='<option/>';
+
+        $.each(versions,function(index, version) {
+            if ( version.v==stable ) {
+                dv=true;
+            }
+            $(o,{value:version.v,text: version.t}).appendTo(s);
+        });
+
+        if ( dv==false ) {
+            $(o, {value:0,text:'(stable)'}).appendTo(s);
+        }
+        return(s);
+    });
+
+    $("#vn select").bind('change', vfnav);
+    $('#vn select').val('v2.4');
+});
+</script>
+</body>
+</html>

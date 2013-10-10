@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+ <head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <title>Lighttpd 1.4 on Unix systems</title>
+
+ </head>
+ <body><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="install.unix.apache2.html">Apache 2.x on Unix systems</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="install.unix.sun.html">Sun, iPlanet and Netscape servers on Sun Solaris</a></div>
+ <div class="up"><a href="install.unix.html">Installation on Unix systems</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div><hr /><div id="install.unix.lighttpd-14" class="sect1">
+ <h2 class="title">Lighttpd 1.4 on Unix systems</h2>
+
+ <p class="para">
+  This section contains notes and hints specific to Lighttpd 1.4 installs
+  of PHP on Unix systems.
+ </p>
+
+ <p class="para">
+  Please use the <a href="http://trac.lighttpd.net/trac/" class="link external">&raquo;&nbsp;Lighttpd trac</a>
+  to learn how to install Lighttpd properly before continuing.
+ </p>
+ 
+ <p class="para">
+  Fastcgi is the preferred SAPI to connect PHP and Lighttpd. Fastcgi is
+  automagically enabled in php-cgi in PHP 5.3, but for older versions configure
+  PHP with --enable-fastcgi.  To confirm that PHP has fastcgi enabled,
+  <em>php -v</em> should contain <em>PHP 5.2.5 (cgi-fcgi)</em>
+  Before PHP 5.2.3, fastcgi was enabled on the php binary (there was no php-cgi).
+ </p>
+ 
+ <div class="sect2" id="install.unix.lighttpd-14.lighttpd-spawn">
+  <h3 class="title">Letting Lighttpd spawn php processes</h3>
+
+  <p class="para">
+   To configure Lighttpd to connect to php and spawn fastcgi processes, edit
+   lighttpd.conf. Sockets are preferred to connect to fastcgi processes on
+   the local system.
+  </p>
+
+  <div class="example" id="example-27">
+   <p><strong>Example #1 Partial lighttpd.conf</strong></p>
+   <div class="example-contents screen">
+<div class="cdata"><pre>
+server.modules += ( &quot;mod_fastcgi&quot; )
+
+fastcgi.server = ( &quot;.php&quot; =&gt;
+  ((
+    &quot;socket&quot; =&gt; &quot;/tmp/php.socket&quot;,
+    &quot;bin-path&quot; =&gt; &quot;/usr/local/bin/php-cgi&quot;,
+    &quot;bin-environment&quot; =&gt; (
+      &quot;PHP_FCGI_CHILDREN&quot; =&gt; &quot;16&quot;,
+      &quot;PHP_FCGI_MAX_REQUESTS&quot; =&gt; &quot;10000&quot;
+    ),
+    &quot;min-procs&quot; =&gt; 1,
+    &quot;max-procs&quot; =&gt; 1,
+    &quot;idle-timeout&quot; =&gt; 20
+  ))
+)
+</pre></div>
+
+   </div>
+  </div>
+
+  <p class="para">
+   The bin-path directive allows lighttpd to spawn fastcgi processes dynamically.
+   PHP will spawn children according to the PHP_FCGI_CHILDREN environment
+   variable.  The &quot;bin-environment&quot; directive sets the environment for the
+   spawned processes. PHP will kill a child process after the number of
+   requests specified by PHP_FCGI_MAX_REQUESTS is reached. The directives
+   &quot;min-procs&quot; and &quot;max-procs&quot; should generally be avoided with PHP. PHP
+   manages its own children and opcode caches like APC will only share among
+   children managed by PHP. If &quot;min-procs&quot; is set to something greater than 1,
+   the total number of php responders will be multiplied PHP_FCGI_CHILDREN
+   (2 min-procs * 16 children gives 32 responders).
+  </p>
+ </div>
+
+ <div class="sect2" id="install.unix.lighttpd-14.spawn-fcgi">
+  <h3 class="title">Spawning with spawn-fcgi</h3>  
+
+  <p class="para">
+   Lighttpd provides a program called spawn-fcgi to ease the process of
+   spawning fastcgi processes easier.
+  </p>
+ </div>
+
+ <div class="sect2" id="install.unix.lighttpd-14.spawn-php">
+  <h3 class="title">Spawning php-cgi</h3>
+
+  <p class="para">
+   It is possible to spawn processes without spawn-fcgi, though a bit of
+   heavy-lifting is required. Setting the PHP_FCGI_CHILDREN environment var
+   controls how many children PHP will spawn to handle incoming requests.
+   Setting PHP_FCGI_MAX_REQUESTS will determine how long (in requests) each
+   child will live. Here&#039;s a simple bash script to help spawn php responders.
+  </p>
+     
+  <div class="example" id="example-28">
+   <p><strong>Example #2 Spawning FastCGI Responders</strong></p>
+   <div class="example-contents screen">
+<div class="cdata"><pre>
+#!/bin/sh
+
+# Location of the php-cgi binary
+PHP=/usr/local/bin/php-cgi
+
+# PID File location
+PHP_PID=/tmp/php.pid
+
+# Binding to an address
+#FCGI_BIND_ADDRESS=10.0.1.1:10000
+# Binding to a domain socket
+FCGI_BIND_ADDRESS=/tmp/php.sock
+
+PHP_FCGI_CHILDREN=16
+PHP_FCGI_MAX_REQUESTS=10000
+
+env -i PHP_FCGI_CHILDREN=$PHP_FCGI_CHILDREN \
+       PHP_FCGI_MAX_REQUESTS=$PHP_FCGI_MAX_REQUESTS \
+       $PHP -b $FCGI_BIND_ADDRESS &amp;
+
+echo $! &gt; &quot;$PHP_PID&quot;
+
+</pre></div>
+   </div>
+  </div>
+ </div>
+
+ <div class="sect2" id="install.unix.lighttpd-14.remote-fcgi">
+  <h3 class="title">Connecting to remote FCGI instances</h3>
+
+  <p class="para">
+   Fastcgi instances can be spawned on multiple remote machines in order to
+   scale applications.
+  </p>
+   
+  <div class="example" id="example-29">
+   <p><strong>Example #3 Connecting to remote php-fastcgi instances</strong></p>
+   <div class="example-contents screen">
+<div class="cdata"><pre>
+fastcgi.server = ( &quot;.php&quot; =&gt;
+   (( &quot;host&quot; =&gt; &quot;10.0.0.2&quot;, &quot;port&quot; =&gt; 1030 ),
+    ( &quot;host&quot; =&gt; &quot;10.0.0.3&quot;, &quot;port&quot; =&gt; 1030 ))
+)
+</pre></div>
+   </div>
+  </div>
+ </div>
+</div><hr /><div class="manualnavbar" style="text-align: center;">
+ <div class="prev" style="text-align: left; float: left;"><a href="install.unix.apache2.html">Apache 2.x on Unix systems</a></div>
+ <div class="next" style="text-align: right; float: right;"><a href="install.unix.sun.html">Sun, iPlanet and Netscape servers on Sun Solaris</a></div>
+ <div class="up"><a href="install.unix.html">Installation on Unix systems</a></div>
+ <div class="home"><a href="index.html">PHP Manual</a></div>
+</div></body></html>

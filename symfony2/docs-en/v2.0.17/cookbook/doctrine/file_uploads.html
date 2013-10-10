@@ -1,0 +1,508 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to handle File Uploads with Doctrine &mdash; Symfony2Docs v.2.0.17 2.0.17 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.0.17',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2Docs v.2.0.17 2.0.17 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine" href="index.html" />
+    <link rel="next" title="How to use Doctrine Extensions: Timestampable, Sluggable, Translatable, etc." href="common_extensions.html" />
+    <link rel="prev" title="Doctrine" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="common_extensions.html" title="How to use Doctrine Extensions: Timestampable, Sluggable, Translatable, etc."
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Doctrine"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-handle-file-uploads-with-doctrine">
+<span id="index-0"></span><h1>How to handle File Uploads with Doctrine<a class="headerlink" href="#how-to-handle-file-uploads-with-doctrine" title="Permalink to this headline">¶</a></h1>
+<p>Handling file uploads with Doctrine entities is no different than handling
+any other file upload. In other words, you&#8217;re free to move the file in your
+controller after handling a form submission. For examples of how to do this,
+see the <a class="reference internal" href="../../reference/forms/types/file.html"><em>file type reference</em></a> page.</p>
+<p>If you choose to, you can also integrate the file upload into your entity
+lifecycle (i.e. creation, update and removal). In this case, as your entity
+is created, updated, and removed from Doctrine, the file uploading and removal
+processing will take place automatically (without needing to do anything in
+your controller);</p>
+<p>To make this work, you&#8217;ll need to take care of a number of details, which
+will be covered in this cookbook entry.</p>
+<div class="section" id="basic-setup">
+<h2>Basic Setup<a class="headerlink" href="#basic-setup" title="Permalink to this headline">¶</a></h2>
+<p>First, create a simple Doctrine Entity class to work with:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Entity/Document.php
+namespace Acme\DemoBundle\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
+
+/**
+ * @ORM\Entity
+ */
+class Document
+{
+    /**
+     * @ORM\Id
+     * @ORM\Column(type="integer")
+     * @ORM\GeneratedValue(strategy="AUTO")
+     */
+    public $id;
+
+    /**
+     * @ORM\Column(type="string", length=255)
+     * @Assert\NotBlank
+     */
+    public $name;
+
+    /**
+     * @ORM\Column(type="string", length=255, nullable=true)
+     */
+    public $path;
+
+    public function getAbsolutePath()
+    {
+        return null === $this-&gt;path ? null : $this-&gt;getUploadRootDir().'/'.$this-&gt;path;
+    }
+
+    public function getWebPath()
+    {
+        return null === $this-&gt;path ? null : $this-&gt;getUploadDir().'/'.$this-&gt;path;
+    }
+
+    protected function getUploadRootDir()
+    {
+        // the absolute directory path where uploaded documents should be saved
+        return __DIR__.'/../../../../web/'.$this-&gt;getUploadDir();
+    }
+
+    protected function getUploadDir()
+    {
+        // get rid of the __DIR__ so it doesn't screw when displaying uploaded doc/image in the view.
+        return 'uploads/documents';
+    }
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">Document</span></tt> entity has a name and it is associated with a file. The <tt class="docutils literal"><span class="pre">path</span></tt>
+property stores the relative path to the file and is persisted to the database.
+The <tt class="docutils literal"><span class="pre">getAbsolutePath()</span></tt> is a convenience method that returns the absolute
+path to the file while the <tt class="docutils literal"><span class="pre">getWebPath()</span></tt> is a convenience method that
+returns the web path, which can be used in a template to link to the uploaded
+file.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">If you have not done so already, you should probably read the
+<a class="reference internal" href="../../reference/forms/types/file.html"><em>file</em></a> type documentation first to
+understand how the basic upload process works.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you&#8217;re using annotations to specify your validation rules (as shown
+in this example), be sure that you&#8217;ve enabled validation by annotation
+(see <a class="reference internal" href="../../book/validation.html#book-validation-configuration"><em>validation configuration</em></a>).</p>
+</div>
+<p>To handle the actual file upload in the form, use a &#8220;virtual&#8221; <tt class="docutils literal"><span class="pre">file</span></tt> field.
+For example, if you&#8217;re building your form directly in a controller, it might
+look like this:</p>
+<div class="highlight-python"><pre>public function uploadAction()
+{
+    // ...
+
+    $form = $this-&gt;createFormBuilder($document)
+        -&gt;add('name')
+        -&gt;add('file')
+        -&gt;getForm();
+
+    // ...
+}</pre>
+</div>
+<p>Next, create this property on your <tt class="docutils literal"><span class="pre">Document</span></tt> class and add some validation
+rules:</p>
+<div class="highlight-python"><pre>// src/Acme/DemoBundle/Entity/Document.php
+
+// ...
+class Document
+{
+    /**
+     * @Assert\File(maxSize="6000000")
+     */
+    public $file;
+
+    // ...
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">As you are using the <tt class="docutils literal"><span class="pre">File</span></tt> constraint, Symfony2 will automatically guess
+that the form field is a file upload input. That&#8217;s why you did not have
+to set it explicitly when creating the form above (<tt class="docutils literal"><span class="pre">-&gt;add('file')</span></tt>).</p>
+</div>
+<p>The following controller shows you how to handle the entire process:</p>
+<div class="highlight-python"><pre>use Acme\DemoBundle\Entity\Document;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+// ...
+
+/**
+ * @Template()
+ */
+public function uploadAction()
+{
+    $document = new Document();
+    $form = $this-&gt;createFormBuilder($document)
+        -&gt;add('name')
+        -&gt;add('file')
+        -&gt;getForm()
+    ;
+
+    if ($this-&gt;getRequest()-&gt;getMethod() === 'POST') {
+        $form-&gt;bindRequest($this-&gt;getRequest());
+        if ($form-&gt;isValid()) {
+            $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+
+            $em-&gt;persist($document);
+            $em-&gt;flush();
+
+            $this-&gt;redirect($this-&gt;generateUrl(...));
+        }
+    }
+
+    return array('form' =&gt; $form-&gt;createView());
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>When writing the template, don&#8217;t forget to set the <tt class="docutils literal"><span class="pre">enctype</span></tt> attribute:</p>
+<div class="last highlight-html+php"><pre>&lt;h1&gt;Upload File&lt;/h1&gt;
+
+&lt;form action="#" method="post" {{ form_enctype(form) }}&gt;
+    {{ form_widget(form) }}
+
+    &lt;input type="submit" value="Upload Document" /&gt;
+&lt;/form&gt;</pre>
+</div>
+</div>
+<p>The previous controller will automatically persist the <tt class="docutils literal"><span class="pre">Document</span></tt> entity
+with the submitted name, but it will do nothing about the file and the <tt class="docutils literal"><span class="pre">path</span></tt>
+property will be blank.</p>
+<p>An easy way to handle the file upload is to move it just before the entity is
+persisted and then set the <tt class="docutils literal"><span class="pre">path</span></tt> property accordingly. Start by calling
+a new <tt class="docutils literal"><span class="pre">upload()</span></tt> method on the <tt class="docutils literal"><span class="pre">Document</span></tt> class, which you&#8217;ll create
+in a moment to handle the file upload:</p>
+<div class="highlight-python"><pre>if ($form-&gt;isValid()) {
+    $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+
+    $document-&gt;upload();
+
+    $em-&gt;persist($document);
+    $em-&gt;flush();
+
+    $this-&gt;redirect(...);
+}</pre>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">upload()</span></tt> method will take advantage of the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/File/UploadedFile.html" title="Symfony\Component\HttpFoundation\File\UploadedFile"><span class="pre">UploadedFile</span></a></tt>
+object, which is what&#8217;s returned after a <tt class="docutils literal"><span class="pre">file</span></tt> field is submitted:</p>
+<div class="highlight-python"><pre>public function upload()
+{
+    // the file property can be empty if the field is not required
+    if (null === $this-&gt;file) {
+        return;
+    }
+
+    // we use the original file name here but you should
+    // sanitize it at least to avoid any security issues
+
+    // move takes the target directory and then the target filename to move to
+    $this-&gt;file-&gt;move($this-&gt;getUploadRootDir(), $this-&gt;file-&gt;getClientOriginalName());
+
+    // set the path property to the filename where you'ved saved the file
+    $this-&gt;path = $this-&gt;file-&gt;getClientOriginalName();
+
+    // clean up the file property as you won't need it anymore
+    $this-&gt;file = null;
+}</pre>
+</div>
+</div>
+<div class="section" id="using-lifecycle-callbacks">
+<h2>Using Lifecycle Callbacks<a class="headerlink" href="#using-lifecycle-callbacks" title="Permalink to this headline">¶</a></h2>
+<p>Even if this implementation works, it suffers from a major flaw: What if there
+is a problem when the entity is persisted? The file would have already moved
+to its final location even though the entity&#8217;s <tt class="docutils literal"><span class="pre">path</span></tt> property didn&#8217;t
+persist correctly.</p>
+<p>To avoid these issues, you should change the implementation so that the database
+operation and the moving of the file become atomic: if there is a problem
+persisting the entity or if the file cannot be moved, then <em>nothing</em> should
+happen.</p>
+<p>To do this, you need to move the file right as Doctrine persists the entity
+to the database. This can be accomplished by hooking into an entity lifecycle
+callback:</p>
+<div class="highlight-python"><pre>/**
+ * @ORM\Entity
+ * @ORM\HasLifecycleCallbacks
+ */
+class Document
+{
+}</pre>
+</div>
+<p>Next, refactor the <tt class="docutils literal"><span class="pre">Document</span></tt> class to take advantage of these callbacks:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpFoundation\File\UploadedFile;
+
+/**
+ * @ORM\Entity
+ * @ORM\HasLifecycleCallbacks
+ */
+class Document
+{
+    /**
+     * @ORM\PrePersist()
+     * @ORM\PreUpdate()
+     */
+    public function preUpload()
+    {
+        if (null !== $this-&gt;file) {
+            // do whatever you want to generate a unique name
+            $this-&gt;path = uniqid().'.'.$this-&gt;file-&gt;guessExtension();
+        }
+    }
+
+    /**
+     * @ORM\PostPersist()
+     * @ORM\PostUpdate()
+     */
+    public function upload()
+    {
+        if (null === $this-&gt;file) {
+            return;
+        }
+
+        // if there is an error when moving the file, an exception will
+        // be automatically thrown by move(). This will properly prevent
+        // the entity from being persisted to the database on error
+        $this-&gt;file-&gt;move($this-&gt;getUploadRootDir(), $this-&gt;path);
+
+        unset($this-&gt;file);
+    }
+
+    /**
+     * @ORM\PostRemove()
+     */
+    public function removeUpload()
+    {
+        if ($file = $this-&gt;getAbsolutePath()) {
+            unlink($file);
+        }
+    }
+}</pre>
+</div>
+<p>The class now does everything you need: it generates a unique filename before
+persisting, moves the file after persisting, and removes the file if the
+entity is ever deleted.</p>
+<p>Now that the moving of the file is handled atomically by the entity, the
+call to <tt class="docutils literal"><span class="pre">$document-&gt;upload()</span></tt> should be removed from the controller:</p>
+<div class="highlight-python"><pre>if ($form-&gt;isValid()) {
+    $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+
+    $em-&gt;persist($document);
+    $em-&gt;flush();
+
+    $this-&gt;redirect(...);
+}</pre>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">&#64;ORM\PrePersist()</span></tt> and <tt class="docutils literal"><span class="pre">&#64;ORM\PostPersist()</span></tt> event callbacks are
+triggered before and after the entity is persisted to the database. On the
+other hand, the <tt class="docutils literal"><span class="pre">&#64;ORM\PreUpdate()</span></tt> and <tt class="docutils literal"><span class="pre">&#64;ORM\PostUpdate()</span></tt> event
+callbacks are called when the entity is updated.</p>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">PreUpdate</span></tt> and <tt class="docutils literal"><span class="pre">PostUpdate</span></tt> callbacks are only triggered if there
+is a change in one of the entity&#8217;s field that are persisted. This means
+that, by default, if you modify only the <tt class="docutils literal"><span class="pre">$file</span></tt> property, these events
+will not be triggered, as the property itself is not directly persisted
+via Doctrine. One solution would be to use an <tt class="docutils literal"><span class="pre">updated</span></tt> field that&#8217;s
+persisted to Doctrine, and to modify it manually when changing the file.</p>
+</div>
+</div>
+<div class="section" id="using-the-id-as-the-filename">
+<h2>Using the <tt class="docutils literal"><span class="pre">id</span></tt> as the filename<a class="headerlink" href="#using-the-id-as-the-filename" title="Permalink to this headline">¶</a></h2>
+<p>If you want to use the <tt class="docutils literal"><span class="pre">id</span></tt> as the name of the file, the implementation is
+slightly different as you need to save the extension under the <tt class="docutils literal"><span class="pre">path</span></tt>
+property, instead of the actual filename:</p>
+<div class="highlight-python"><pre>use Symfony\Component\HttpFoundation\File\UploadedFile;
+
+/**
+ * @ORM\Entity
+ * @ORM\HasLifecycleCallbacks
+ */
+class Document
+{
+    // a property used temporarily while deleting
+    private $filenameForRemove;
+
+    /**
+     * @ORM\PrePersist()
+     * @ORM\PreUpdate()
+     */
+    public function preUpload()
+    {
+        if (null !== $this-&gt;file) {
+            $this-&gt;path = $this-&gt;file-&gt;guessExtension();
+        }
+    }
+
+    /**
+     * @ORM\PostPersist()
+     * @ORM\PostUpdate()
+     */
+    public function upload()
+    {
+        if (null === $this-&gt;file) {
+            return;
+        }
+
+        // you must throw an exception here if the file cannot be moved
+        // so that the entity is not persisted to the database
+        // which the UploadedFile move() method does
+        $this-&gt;file-&gt;move($this-&gt;getUploadRootDir(), $this-&gt;id.'.'.$this-&gt;file-&gt;guessExtension());
+
+        unset($this-&gt;file);
+    }
+
+    /**
+     * @ORM\PreRemove()
+     */
+    public function storeFilenameForRemove()
+    {
+        $this-&gt;filenameForRemove = $this-&gt;getAbsolutePath();
+    }
+
+    /**
+     * @ORM\PostRemove()
+     */
+    public function removeUpload()
+    {
+        if ($this-&gt;filenameForRemove) {
+            unlink($this-&gt;filenameForRemove);
+        }
+    }
+
+    public function getAbsolutePath()
+    {
+        return null === $this-&gt;path ? null : $this-&gt;getUploadRootDir().'/'.$this-&gt;id.'.'.$this-&gt;path;
+    }
+}</pre>
+</div>
+<p>You&#8217;ll notice in this case that you need to do a little bit more work in
+order to remove the file. Before it&#8217;s removed, you must store the file path
+(since it depends on the id). Then, once the object has been fully removed
+from the database, you can safely delete the file (in <tt class="docutils literal"><span class="pre">PostRemove</span></tt>).</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to handle File Uploads with Doctrine</a><ul>
+<li><a class="reference internal" href="#basic-setup">Basic Setup</a></li>
+<li><a class="reference internal" href="#using-lifecycle-callbacks">Using Lifecycle Callbacks</a></li>
+<li><a class="reference internal" href="#using-the-id-as-the-filename">Using the <tt class="docutils literal"><span class="pre">id</span></tt> as the filename</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Doctrine</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="common_extensions.html"
+                        title="next chapter">How to use Doctrine Extensions: Timestampable, Sluggable, Translatable, etc.</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/doctrine/file_uploads.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="common_extensions.html" title="How to use Doctrine Extensions: Timestampable, Sluggable, Translatable, etc."
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Doctrine"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2Docs v.2.0.17 2.0.17 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,361 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Minify CSS/JS Files (using UglifyJs and UglifyCss) &mdash; Symfony Docs 2.3 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony Docs 2.3 documentation" href="../../index.html" />
+    <link rel="up" title="Assetic" href="index.html" />
+    <link rel="next" title="How to Minify JavaScripts and Stylesheets with YUI Compressor" href="yuicompressor.html" />
+    <link rel="prev" title="How to Use Assetic for Asset Management" href="asset_management.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="yuicompressor.html" title="How to Minify JavaScripts and Stylesheets with YUI Compressor"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="asset_management.html" title="How to Use Assetic for Asset Management"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Assetic</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-minify-css-js-files-using-uglifyjs-and-uglifycss">
+<span id="index-0"></span><h1>How to Minify CSS/JS Files (using UglifyJs and UglifyCss)<a class="headerlink" href="#how-to-minify-css-js-files-using-uglifyjs-and-uglifycss" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="https://github.com/mishoo/UglifyJS">UglifyJs</a> is a javascript parser/compressor/beautifier toolkit. It can be used
+to combine and minify javascript assets so that they require less HTTP requests
+and make your site load faster. <a class="reference external" href="https://github.com/fmarcia/UglifyCSS">UglifyCss</a> is a css compressor/beautifier
+that is very similar to UglifyJs.</p>
+<p>In this cookbook, the installation, configuration and usage of UglifyJs is
+shown in detail. <tt class="docutils literal"><span class="pre">UglifyCss</span></tt> works pretty much the same way and is only
+talked about briefly.</p>
+<div class="section" id="install-uglifyjs">
+<h2>Install UglifyJs<a class="headerlink" href="#install-uglifyjs" title="Permalink to this headline">¶</a></h2>
+<p>UglifyJs is available as an <a class="reference external" href="http://nodejs.org/">Node.js</a> npm module and can be installed using
+npm. First, you need to <a class="reference external" href="http://nodejs.org/">install node.js</a>. Afterwards you can install UglifyJs
+using npm:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>npm install -g uglify-js
+</pre></div>
+</div>
+<p>This command will install UglifyJs globally and you may need to run it as
+a root user.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>It&#8217;s also possible to install UglifyJs inside your project only. To do
+this, install it without the <tt class="docutils literal"><span class="pre">-g</span></tt> option and specify the path where
+to put the module:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">cd</span> /path/to/symfony
+<span class="nv">$ </span>mkdir app/Resources/node_modules
+<span class="nv">$ </span>npm install uglify-js --prefix app/Resources
+</pre></div>
+</div>
+<p class="last">It is recommended that you install UglifyJs in your <tt class="docutils literal"><span class="pre">app/Resources</span></tt> folder
+and add the <tt class="docutils literal"><span class="pre">node_modules</span></tt> folder to version control. Alternatively,
+you can create an npm <a class="reference external" href="http://package.json.nodejitsu.com/">package.json</a> file and specify your dependencies
+there.</p>
+</div>
+<p>Depending on your installation method, you should either be able to execute
+the <tt class="docutils literal"><span class="pre">uglifyjs</span></tt> executable globally, or execute the physical file that lives
+in the <tt class="docutils literal"><span class="pre">node_modules</span></tt> directory:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>uglifyjs --help
+
+<span class="nv">$ </span>./app/Resources/node_modules/.bin/uglifyjs --help
+</pre></div>
+</div>
+</div>
+<div class="section" id="configure-the-uglifyjs2-filter">
+<h2>Configure the uglifyjs2 Filter<a class="headerlink" href="#configure-the-uglifyjs2-filter" title="Permalink to this headline">¶</a></h2>
+<p>Now we need to configure Symfony2 to use the <tt class="docutils literal"><span class="pre">uglifyjs2</span></tt> filter when processing
+your javascripts:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">assetic</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">filters</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">uglifyjs2</span><span class="p-Indicator">:</span>
+            <span class="c1"># the path to the uglifyjs executable</span>
+            <span class="l-Scalar-Plain">bin</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/usr/local/bin/uglifyjs</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;assetic:config&gt;</span>
+    <span class="nt">&lt;assetic:filter</span>
+        <span class="na">name=</span><span class="s">&quot;uglifyjs2&quot;</span>
+        <span class="na">bin=</span><span class="s">&quot;/usr/local/bin/uglifyjs&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/assetic:config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;assetic&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;filters&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;uglifyjs2&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;bin&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;/usr/local/bin/uglifyjs&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>The path where UglifyJs is installed may vary depending on your system.
+To find out where npm stores the <tt class="docutils literal"><span class="pre">bin</span></tt> folder, you can use the following
+command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>npm bin -g
+</pre></div>
+</div>
+<p>It should output a folder on your system, inside which you should find
+the UglifyJs executable.</p>
+<p class="last">If you installed UglifyJs locally, you can find the bin folder inside
+the <tt class="docutils literal"><span class="pre">node_modules</span></tt> folder. It&#8217;s called <tt class="docutils literal"><span class="pre">.bin</span></tt> in this case.</p>
+</div>
+<p>You now have access to the <tt class="docutils literal"><span class="pre">uglifyjs2</span></tt> filter in your application.</p>
+</div>
+<div class="section" id="minify-your-assets">
+<h2>Minify your Assets<a class="headerlink" href="#minify-your-assets" title="Permalink to this headline">¶</a></h2>
+<p>In order to use UglifyJs on your assets, you need to apply it to them. Since
+your assets are a part of the view layer, this work is done in your templates:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">javascripts</span> <span class="s1">&#39;@AcmeFooBundle/Resources/public/js/*&#39;</span> <span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;uglifyjs2&#39;</span> <span class="cp">%}</span>
+    <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">asset_url</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="cp">{%</span> <span class="k">endjavascripts</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><div class="highlight"><pre><span class="cp">&lt;?php</span> <span class="k">foreach</span> <span class="p">(</span><span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;assetic&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">javascripts</span><span class="p">(</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;@AcmeFooBundle/Resources/public/js/*&#39;</span><span class="p">),</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;uglifyj2s&#39;</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">as</span> <span class="nv">$url</span><span class="p">)</span><span class="o">:</span> <span class="cp">?&gt;</span>
+    <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;</span><span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="o">-&gt;</span><span class="na">escape</span><span class="p">(</span><span class="nv">$url</span><span class="p">)</span> <span class="cp">?&gt;</span><span class="s">&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">endforeach</span><span class="p">;</span> <span class="cp">?&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The above example assumes that you have a bundle called <tt class="docutils literal"><span class="pre">AcmeFooBundle</span></tt>
+and your JavaScript files are in the <tt class="docutils literal"><span class="pre">Resources/public/js</span></tt> directory under
+your bundle. This isn&#8217;t important however - you can include your JavaScript
+files no matter where they are.</p>
+</div>
+<p>With the addition of the <tt class="docutils literal"><span class="pre">uglifyjs2</span></tt> filter to the asset tags above, you
+should now see minified JavaScripts coming over the wire much faster.</p>
+<div class="section" id="disable-minification-in-debug-mode">
+<h3>Disable Minification in Debug Mode<a class="headerlink" href="#disable-minification-in-debug-mode" title="Permalink to this headline">¶</a></h3>
+<p>Minified JavaScripts are very difficult to read, let alone debug. Because of
+this, Assetic lets you disable a certain filter when your application is in
+debug (e.g. <tt class="docutils literal"><span class="pre">app_dev.php</span></tt>) mode. You can do this by prefixing the filter name
+in your template with a question mark: <tt class="docutils literal"><span class="pre">?</span></tt>. This tells Assetic to only
+apply this filter when debug mode is off (e.g. <tt class="docutils literal"><span class="pre">app.php</span></tt>):</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">javascripts</span> <span class="s1">&#39;@AcmeFooBundle/Resources/public/js/*&#39;</span> <span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;?uglifyjs2&#39;</span> <span class="cp">%}</span>
+    <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">asset_url</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="cp">{%</span> <span class="k">endjavascripts</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><div class="highlight"><pre><span class="cp">&lt;?php</span> <span class="k">foreach</span> <span class="p">(</span><span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;assetic&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">javascripts</span><span class="p">(</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;@AcmeFooBundle/Resources/public/js/*&#39;</span><span class="p">),</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;?uglifyjs2&#39;</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">as</span> <span class="nv">$url</span><span class="p">)</span><span class="o">:</span> <span class="cp">?&gt;</span>
+    <span class="nt">&lt;script </span><span class="na">src=</span><span class="s">&quot;</span><span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="o">-&gt;</span><span class="na">escape</span><span class="p">(</span><span class="nv">$url</span><span class="p">)</span> <span class="cp">?&gt;</span><span class="s">&quot;</span><span class="nt">&gt;&lt;/script&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">endforeach</span><span class="p">;</span> <span class="cp">?&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>To try this out, switch to your <tt class="docutils literal"><span class="pre">prod</span></tt> environment (<tt class="docutils literal"><span class="pre">app.php</span></tt>). But before
+you do, don&#8217;t forget to <a class="reference internal" href="../../book/page_creation.html#book-page-creation-prod-cache-clear"><em>clear your cache</em></a>
+and <a class="reference internal" href="asset_management.html#cookbook-asetic-dump-prod"><em>dump your assetic assets</em></a>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Instead of adding the filter to the asset tags, you can also globally
+enable it by adding the apply-to attribute to the filter configuration, for
+example in the <tt class="docutils literal"><span class="pre">uglifyjs2</span></tt> filter <tt class="docutils literal"><span class="pre">apply_to:</span> <span class="pre">&quot;\.js$&quot;</span></tt>. To only have
+the filter applied in production, add this to the <tt class="docutils literal"><span class="pre">config_prod</span></tt> file
+rather than the common config file. For details on applying filters by
+file extension, see <a class="reference internal" href="apply_to_option.html#cookbook-assetic-apply-to"><em>Filtering based on a File Extension</em></a>.</p>
+</div>
+</div>
+</div>
+<div class="section" id="install-configure-and-use-uglifycss">
+<h2>Install, configure and use UglifyCss<a class="headerlink" href="#install-configure-and-use-uglifycss" title="Permalink to this headline">¶</a></h2>
+<p>The usage of UglifyCss works the same way as UglifyJs. First, make sure
+the node package is installed:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>npm install -g uglifycss
+</pre></div>
+</div>
+<p>Next, add the configuration for this filter:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">assetic</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">filters</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">uglifycss</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">bin</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/usr/local/bin/uglifycss</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;assetic:config&gt;</span>
+    <span class="nt">&lt;assetic:filter</span>
+        <span class="na">name=</span><span class="s">&quot;uglifycss&quot;</span>
+        <span class="na">bin=</span><span class="s">&quot;/usr/local/bin/uglifycss&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/assetic:config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;assetic&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;filters&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;uglifycss&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;bin&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;/usr/local/bin/uglifycss&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>To use the filter for your css files, add the filter to the Assetic <tt class="docutils literal"><span class="pre">stylesheets</span></tt>
+helper:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="cp">{%</span> <span class="k">javascripts</span> <span class="s1">&#39;@AcmeFooBundle/Resources/public/css/*&#39;</span> <span class="nv">filter</span><span class="o">=</span><span class="s1">&#39;uglifycss&#39;</span> <span class="cp">%}</span>
+     <span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">asset_url</span> <span class="cp">}}</span><span class="s">&quot;</span> <span class="nt">/&gt;</span>
+<span class="cp">{%</span> <span class="k">endjavascripts</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><div class="highlight"><pre><span class="cp">&lt;?php</span> <span class="k">foreach</span> <span class="p">(</span><span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;assetic&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">javascripts</span><span class="p">(</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;@AcmeFooBundle/Resources/public/css/*&#39;</span><span class="p">),</span>
+    <span class="k">array</span><span class="p">(</span><span class="s1">&#39;uglifycss&#39;</span><span class="p">)</span>
+<span class="p">)</span> <span class="k">as</span> <span class="nv">$url</span><span class="p">)</span><span class="o">:</span> <span class="cp">?&gt;</span>
+    <span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">&quot;stylesheet&quot;</span> <span class="na">href=</span><span class="s">&quot;</span><span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="o">-&gt;</span><span class="na">escape</span><span class="p">(</span><span class="nv">$url</span><span class="p">)</span> <span class="cp">?&gt;</span><span class="s">&quot;</span> <span class="nt">/&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">endforeach</span><span class="p">;</span> <span class="cp">?&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Just like with the <tt class="docutils literal"><span class="pre">uglifyjs2</span></tt> filter, if you prefix the filter name with
+<tt class="docutils literal"><span class="pre">?</span></tt> (i.e. <tt class="docutils literal"><span class="pre">?uglifycss</span></tt>), the minification will only happen when you&#8217;re
+not in debug mode.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Minify CSS/JS Files (using UglifyJs and UglifyCss)</a><ul>
+<li><a class="reference internal" href="#install-uglifyjs">Install UglifyJs</a></li>
+<li><a class="reference internal" href="#configure-the-uglifyjs2-filter">Configure the uglifyjs2 Filter</a></li>
+<li><a class="reference internal" href="#minify-your-assets">Minify your Assets</a><ul>
+<li><a class="reference internal" href="#disable-minification-in-debug-mode">Disable Minification in Debug Mode</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#install-configure-and-use-uglifycss">Install, configure and use UglifyCss</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="asset_management.html"
+                        title="previous chapter">How to Use Assetic for Asset Management</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="yuicompressor.html"
+                        title="next chapter">How to Minify JavaScripts and Stylesheets with YUI Compressor</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/assetic/uglifyjs.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="yuicompressor.html" title="How to Minify JavaScripts and Stylesheets with YUI Compressor"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="asset_management.html" title="How to Use Assetic for Asset Management"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony Docs 2.3 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Assetic</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Symfony Team.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>

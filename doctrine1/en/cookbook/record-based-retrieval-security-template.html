@@ -1,0 +1,415 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Record-based Retrieval Security Template &mdash; Doctrine 1.2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Doctrine 1.2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Japanese Documentation" href="../../ja/index.html" />
+    <link rel="prev" title="Writing a Unit of Work in PHP Doctrine" href="creating-a-unit-of-work-using-doctrine.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../ja/index.html" title="Japanese Documentation"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="creating-a-unit-of-work-using-doctrine.html" title="Writing a Unit of Work in PHP Doctrine"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="record-based-retrieval-security-template">
+<h1>Record-based Retrieval Security Template<a class="headerlink" href="#record-based-retrieval-security-template" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>This is a tutorial &amp; how-to on using a security template and listener to
+restrict a user to specific records, or a range of specific records
+based on credentials and a user table association. Basically fine
+grained user access control.</p>
+<p>This template was created for a project which had a few credentials,
+division_manager, district_manager, branch_manager, and salesperson.
+We have a list of accounts, their related sales and all sorts of
+sensitive information for each account. Each logged in user should be
+allowed to only view the accounts and related information based off
+their credentials + either the division, district, branch or salesperson
+they are allowed to view.</p>
+<p>So a division manager can view all info for all accounts within his
+division. A salesperson can only view the accounts they are assign.</p>
+<p>The template has been a work in progress so the code below may not
+actually be the final code I&#8217;m using today. But since it is now working
+for all situations I&#8217;m asking of it, I thought I would post it as is.</p>
+</div>
+<div class="section" id="template">
+<h2>Template<a class="headerlink" href="#template" title="Permalink to this headline">¶</a></h2>
+<blockquote>
+<div>class gsSecurityTemplate extends Doctrine_Template { protected</div></blockquote>
+<p>$_options = array();</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="sd">/**</span>
+<span class="sd"> * __construct</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $options</span>
+<span class="sd"> * @return void</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="k">array</span> <span class="nv">$options</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nb">isset</span><span class="p">(</span><span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;conditions&#39;</span><span class="p">])</span> <span class="o">||</span> <span class="k">empty</span><span class="p">(</span><span class="nv">$options</span><span class="p">[</span><span class="s1">&#39;conditions&#39;</span><span class="p">]))</span> <span class="p">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nx">Doctrine_Exception</span><span class="p">(</span><span class="s1">&#39;Unable to create security template without conditions&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span> <span class="o">=</span> <span class="nv">$options</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span><span class="k">new</span> <span class="nx">gsSecurityListener</span><span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span><span class="p">));</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+<p>class gsSecurityListener extends Doctrine_Record_Listener { private
+static $*user_id = 0, $*credentials = array(), $_alias_count = 30;</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">protected</span> <span class="nv">$_options</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+
+<span class="sd">/**</span>
+<span class="sd"> * __construct</span>
+<span class="sd"> *</span>
+<span class="sd"> * @param string $options</span>
+<span class="sd"> * @return void</span>
+<span class="sd"> */</span>
+<span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="k">array</span> <span class="nv">$options</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span> <span class="o">=</span> <span class="nv">$options</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">public</span> <span class="k">function</span> <span class="nf">preDqlSelect</span><span class="p">(</span><span class="nx">Doctrine_Event</span> <span class="nv">$event</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nv">$invoker</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getInvoker</span><span class="p">();</span>
+    <span class="nv">$class</span>   <span class="o">=</span> <span class="nb">get_class</span><span class="p">(</span><span class="nv">$invoker</span><span class="p">);</span>
+    <span class="nv">$params</span>  <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getParams</span><span class="p">();</span>
+
+    <span class="k">if</span><span class="p">(</span><span class="nv">$class</span> <span class="o">==</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">])</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="nv">$q</span>       <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getQuery</span><span class="p">();</span>
+
+    <span class="c1">// only apply to the main protected table not chained tables... may break some situations</span>
+    <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="nv">$q</span><span class="o">-&gt;</span><span class="na">contains</span><span class="p">(</span><span class="s1">&#39;FROM &#39;</span><span class="o">.</span><span class="nv">$class</span><span class="p">))</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="nv">$wheres</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+    <span class="nv">$pars</span>   <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+
+    <span class="nv">$from</span> <span class="o">=</span> <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">getDqlPart</span><span class="p">(</span><span class="s1">&#39;from&#39;</span><span class="p">);</span>
+
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">_options</span><span class="p">[</span><span class="s1">&#39;conditions&#39;</span><span class="p">]</span> <span class="k">as</span> <span class="nv">$rel_name</span> <span class="o">=&gt;</span> <span class="nv">$conditions</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$apply</span> <span class="o">=</span> <span class="k">false</span><span class="p">;</span>
+        <span class="k">foreach</span> <span class="p">(</span><span class="nv">$conditions</span><span class="p">[</span><span class="s1">&#39;apply_to&#39;</span><span class="p">]</span> <span class="k">as</span> <span class="nv">$val</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">in_array</span><span class="p">(</span><span class="nv">$val</span><span class="p">,</span><span class="nx">self</span><span class="o">::</span><span class="nv">$_credentials</span><span class="p">))</span> <span class="p">{</span>
+                <span class="nv">$apply</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+                <span class="k">break</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$apply</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$alias</span> <span class="o">=</span> <span class="nv">$params</span><span class="p">[</span><span class="s1">&#39;alias&#39;</span><span class="p">];</span>
+            <span class="nv">$aliases</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+            <span class="nv">$aliases</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$alias</span><span class="p">;</span>
+
+            <span class="k">foreach</span> <span class="p">(</span><span class="nv">$conditions</span><span class="p">[</span><span class="s1">&#39;through&#39;</span><span class="p">]</span> <span class="k">as</span> <span class="nv">$key</span> <span class="o">=&gt;</span> <span class="nv">$table</span><span class="p">)</span> <span class="p">{</span>
+                <span class="nv">$index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+                <span class="nv">$found</span> <span class="o">=</span> <span class="k">false</span><span class="p">;</span>
+                <span class="k">foreach</span> <span class="p">(</span><span class="nv">$from</span> <span class="k">as</span> <span class="nv">$index</span> <span class="o">=&gt;</span> <span class="nv">$val</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nb">strpos</span><span class="p">(</span><span class="nv">$val</span><span class="p">,</span><span class="nv">$table</span><span class="p">)</span> <span class="o">!==</span> <span class="k">false</span><span class="p">)</span> <span class="p">{</span>
+                        <span class="nv">$found</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+                        <span class="k">break</span><span class="p">;</span>
+                    <span class="p">}</span>
+
+                <span class="p">}</span>
+
+                <span class="k">if</span> <span class="p">(</span><span class="nv">$found</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nv">$vals</span> <span class="o">=</span> <span class="nb">explode</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="nx">substr</span><span class="p">(</span><span class="nv">$from</span><span class="p">[</span><span class="nv">$index</span><span class="p">],</span><span class="nb">strpos</span><span class="p">(</span><span class="nv">$from</span><span class="p">[</span><span class="nv">$index</span><span class="p">],</span><span class="nv">$table</span><span class="p">)));</span>
+                    <span class="nv">$alias</span> <span class="o">=</span> <span class="p">(</span><span class="nb">count</span><span class="p">(</span><span class="nv">$vals</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="o">?</span> <span class="nv">$vals</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">:</span><span class="nv">$vals</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+                    <span class="nv">$aliases</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$alias</span><span class="p">;</span>
+                <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+                    <span class="nv">$newalias</span> <span class="o">=</span> <span class="nx">strtolower</span><span class="p">(</span><span class="nx">substr</span><span class="p">(</span><span class="nv">$table</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span><span class="o">.</span><span class="nx">self</span><span class="o">::</span><span class="nv">$_alias_count</span><span class="o">++</span><span class="p">;</span>
+                    <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">leftJoin</span><span class="p">(</span><span class="nb">end</span><span class="p">(</span><span class="nv">$aliases</span><span class="p">)</span><span class="o">.</span><span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="nv">$table</span><span class="o">.</span><span class="s1">&#39; &#39;</span><span class="o">.</span><span class="nv">$newalias</span><span class="p">);</span>
+                    <span class="nv">$aliases</span><span class="p">[]</span> <span class="o">=</span> <span class="nv">$newalias</span><span class="p">;</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+
+            <span class="nv">$wheres</span><span class="p">[]</span> <span class="o">=</span> <span class="s1">&#39;(&#39;</span><span class="o">.</span><span class="nb">end</span><span class="p">(</span><span class="nv">$aliases</span><span class="p">)</span><span class="o">.</span><span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="nv">$conditions</span><span class="p">[</span><span class="s1">&#39;field&#39;</span><span class="p">]</span><span class="o">.</span><span class="s1">&#39; = ? )&#39;</span><span class="p">;</span>
+            <span class="nv">$pars</span><span class="p">[]</span> <span class="o">=</span> <span class="nx">self</span><span class="o">::</span><span class="nv">$_user_id</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span><span class="p">(</span><span class="o">!</span><span class="k">empty</span><span class="p">(</span><span class="nv">$wheres</span><span class="p">))</span> <span class="p">{</span>
+        <span class="nv">$q</span><span class="o">-&gt;</span><span class="na">addWhere</span><span class="p">(</span> <span class="s1">&#39;(&#39;</span><span class="o">.</span><span class="nb">implode</span><span class="p">(</span><span class="s1">&#39; OR &#39;</span><span class="p">,</span><span class="nv">$wheres</span><span class="p">)</span><span class="o">.</span><span class="s1">&#39;)&#39;</span><span class="p">,</span><span class="nv">$pars</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">static</span> <span class="k">public</span> <span class="k">function</span> <span class="nf">setUserId</span><span class="p">(</span><span class="nv">$id</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nx">self</span><span class="o">::</span><span class="nv">$_user_id</span> <span class="o">=</span> <span class="nv">$id</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">static</span> <span class="k">public</span> <span class="k">function</span> <span class="nf">setCredentials</span><span class="p">(</span><span class="nv">$vals</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nx">self</span><span class="o">::</span><span class="nv">$_credentials</span> <span class="o">=</span> <span class="nv">$vals</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>}</p>
+</div>
+<div class="section" id="yaml-schema-syntax">
+<h2>YAML schema syntax<a class="headerlink" href="#yaml-schema-syntax" title="Permalink to this headline">¶</a></h2>
+<p>Here is the schema I used this template with. I&#8217;ve removed lots of extra
+options, other templates I was using, indexes and table names. It may
+not work out of the box without the indexes - YMMV.</p>
+<p>Account: actAs: gsSecurityTemplate: conditions: Division: through: [
+Division, UserDivision ] field: user_id apply_to: [ division_manager
+] Branch: through: [ Branch, UserBranch ] field: user_id apply_to: [
+branch_manager ] Salesperson: through: [ Salesperson, UserSalesperson ]
+field: user_id apply_to: [ salesperson ] District: through: [ Branch,
+District, UserDistrict ] field: user_id apply_to: [ district_manager
+] columns: id: { type: integer(4), primary: true, autoincrement: true,
+unsigned: true } parent_id: { type: integer(4), primary: false,
+autoincrement: false, unsigned: true} business_class_id: { type:
+integer(2), unsigned: true } salesperson_id: { type: integer(4),
+unsigned: true } branch_id: { type: integer(4), unsigned: true }
+division_id: { type: integer(1), unsigned: true } sold_to: { type:
+integer(4), unsigned: true }</p>
+<p>Division: columns: id: { type: integer(1), autoincrement: true, primary:
+true, unsigned: true } name: { type: string(32) } code: { type:
+string(4) }</p>
+<p>District: actAs: gsSecurityTemplate: conditions: Division: through: [
+Division, UserDivision ] field: user_id apply_to: [ division_manager
+] relations: Division: foreignAlias: Districts local: division_id
+onDelete: RESTRICT columns: id: { type: integer(4), autoincrement: true,
+primary: true, unsigned: true } name: { type: string(64) } code: { type:
+string(4) } division_id: { type: integer(1), unsigned: true }</p>
+<p>Branch: actAs: gsSecurityTemplate: conditions: Division: through: [
+Division, UserDivision ] field: user_id apply_to: [ division_manager
+] District: through: [ District, UserDistrict ] field: user_id
+apply_to: [ district_manager ] relations: Division: local:
+division_id foreignAlias: Branches onDelete: CASCADE District:
+foreignAlias: Branches local: district_id onDelete: RESTRICT columns:
+id: { type: integer(4), primary: true, autoincrement: true, unsigned:
+true } name: { type: string(64) } code: { type: string(4) }
+district_id: { type: integer(4), unsigned: true } division_id: { type:
+integer(1), unsigned: true } is_active: { type: boolean, default: true
+}</p>
+<p>User: relations: Divisions: class: Division refClass: UserDivision
+local: user_id foreign: division_id Districts: class: District
+refClass: UserDistrict local: user_id foreign: district_id Branches:
+class: Branch refClass: UserBranch local: user_id foreign: branch_id
+Salespersons: class: Salesperson refClass: UserSalesperson local:
+user_id foreign: salespersons_id columns: id: { type: integer(4),
+autoincrement: true, primary: true, unsigned: true } name: { type:
+string(128) } is_admin: { type: boolean, default: false } is_active: {
+type: boolean, default: true } is_division_manager: { type: boolean,
+default: false } is_district_manager: { type: boolean, default: false
+} is_branch_manager: { type: boolean, default: false }
+is_salesperson: { type: boolean, default: false } last_login: { type:
+timestamp }</p>
+<p>UserDivision: tableName: user_divisions columns: id: { type:
+integer(4), autoincrement: true, primary: true, unsigned: true }
+user_id: { type: integer(4), primary: true, unsigned: true }
+division_id: { type: integer(1), primary: true, unsigned: true }</p>
+<p>UserDistrict: tableName: user_districts columns: id: { type:
+integer(4), autoincrement: true, primary: true, unsigned: true }
+user_id: { type: integer(4), primary: true, unsigned: true }
+district_id: { type: integer(4), primary: true, unsigned: true }</p>
+<p>UserBranch: tableName: user_branches columns: id: { type: integer(4),
+autoincrement: true, primary: true, unsigned: true } user_id: { type:
+integer(4), primary: true, unsigned: true } branch_id: { type:
+integer(4), primary: true, unsigned: true }</p>
+<p>UserSalesperson: tableName: user_salespersons columns: id: { type:
+integer(4), autoincrement: true, primary: true, unsigned: true }
+user_id: { type: integer(4), primary: true, unsigned: true }
+salespersons_id: { type: integer(4), primary: true, unsigned: true }</p>
+<p>You can see from the User model that the credentials are set within the
+db. All hardcoded in this situation.</p>
+</div>
+<div class="section" id="using-the-template">
+<h2>Using the template<a class="headerlink" href="#using-the-template" title="Permalink to this headline">¶</a></h2>
+<p>Once you&#8217;ve built your models from the schema, you should see something
+like the following in your model&#8217;s setUp function.</p>
+<blockquote>
+<div>$gssecuritytemplate0 = new gsSecurityTemplate(array(&#8216;conditions&#8217; =&gt;</div></blockquote>
+<p>array(&#8216;Division&#8217; =&gt; array( &#8216;through&#8217; =&gt; array( 0 =&gt; &#8216;Division&#8217;, 1 =&gt;
+&#8216;UserDivision&#8217;, ), &#8216;field&#8217; =&gt; &#8216;user_id&#8217;, &#8216;apply_to&#8217; =&gt; array( 0 =&gt;
+&#8216;division_manager&#8217;, ), &#8216;exclude_for&#8217; =&gt; array( 0 =&gt; &#8216;admin&#8217;, ), ),
+&#8216;Branch&#8217; =&gt; array( &#8216;through&#8217; =&gt; array( 0 =&gt; &#8216;Branch&#8217;, 1 =&gt; &#8216;UserBranch&#8217;,
+), &#8216;field&#8217; =&gt; &#8216;user_id&#8217;, &#8216;apply_to&#8217; =&gt; array( 0 =&gt; &#8216;branch_manager&#8217;,
+), &#8216;exclude_for&#8217; =&gt; array( 0 =&gt; &#8216;admin&#8217;, 1 =&gt; &#8216;division_manager&#8217;, 2 =&gt;
+&#8216;district_manager&#8217;, ), ), &#8216;Salesperson&#8217; =&gt; array( &#8216;through&#8217; =&gt; array( 0
+=&gt; &#8216;Salesperson&#8217;, 1 =&gt; &#8216;UserSalesperson&#8217;, ), &#8216;field&#8217; =&gt; &#8216;user_id&#8217;,
+&#8216;apply_to&#8217; =&gt; array( 0 =&gt; &#8216;salesperson&#8217;, ), &#8216;exclude_for&#8217; =&gt; array( 0
+=&gt; &#8216;admin&#8217;, 1 =&gt; &#8216;division_manager&#8217;, 2 =&gt; &#8216;district_manager&#8217;, 3 =&gt;
+&#8216;branch_manager&#8217;, ), ), &#8216;District&#8217; =&gt; array( &#8216;through&#8217; =&gt; array( 0 =&gt;
+&#8216;Branch&#8217;, 1 =&gt; &#8216;District&#8217;, 2 =&gt; &#8216;UserDistrict&#8217;, ), &#8216;field&#8217; =&gt;
+&#8216;user_id&#8217;, &#8216;apply_to&#8217; =&gt; array( 0 =&gt; &#8216;district_manager&#8217;, ),
+&#8216;exclude_for&#8217; =&gt; array( 0 =&gt; &#8216;admin&#8217;, 1 =&gt; &#8216;division_manager&#8217;, ),
+)))); <tt class="code docutils literal"><span class="pre">this-&gt;actAs(</span></tt>gssecuritytemplate0);</p>
+<p>The last part you need to use is to provide the template with the
+running user&#8217;s credentials and id. In my project&#8217;s session bootstrapping
+I have the following ( I use the symfony MVC framework ).</p>
+<blockquote>
+<div>public function initialize($context,</div></blockquote>
+<p><tt class="code docutils literal"><span class="pre">parameters</span> <span class="pre">=</span> <span class="pre">null)</span> <span class="pre">{</span> <span class="pre">parent::initialize(</span></tt>context,
+<tt class="code docutils literal"><span class="pre">parameters</span> <span class="pre">=</span> <span class="pre">null);</span> <span class="pre">gsSecurityListener::setUserId(</span></tt>this-&gt;getAttribute(&#8216;user_id&#8217;));
+gsSecurityListener::setCredentials($this-&gt;listCredentials());</p>
+<p>}</p>
+<p>This provides the credentials the user was given when they logged in as
+well as their id.</p>
+</div>
+<div class="section" id="user-setup">
+<h2>User setup<a class="headerlink" href="#user-setup" title="Permalink to this headline">¶</a></h2>
+<p>In my case, I create users and provide a checkbox for their credentials,
+one for each type I have. Lets take Division Manager as an example. In
+my case we have 3 divisions, East, Central, West. When I create a user I
+assign it the West division, and check off that they are a division
+manager. I can then proceed to login, and my account listing page will
+restrict the accounts I see automatically to my division.</p>
+</div>
+<div class="section" id="querying">
+<h2>Querying<a class="headerlink" href="#querying" title="Permalink to this headline">¶</a></h2>
+<p>Now if you query the Account model, the template is triggered and based
+on your credentials the results will be restricted.</p>
+<p>The query below</p>
+<blockquote>
+<div>$accounts = Doctrine_Query::create()-&gt;from(&#8216;Account</div></blockquote>
+<p>a&#8217;)-&gt;leftJoin(&#8216;a.Branches b&#8217;)-&gt;where(&#8216;a.company_name LIKE
+?&#8217;,&#8217;A%&#8217;)-&gt;execute();</p>
+<p>produces the resulting sql.</p>
+<blockquote>
+<div>SELECT ... FROM accounts a2 LEFT JOIN branches b2 ON a2.branch_id =</div></blockquote>
+<p>b2.id LEFT JOIN divisions d2 ON a2.division_id = d2.id LEFT JOIN
+user_divisions u2 ON d2.id = u2.division_id WHERE a2.company_name
+LIKE ? AND u2.user_id = ? ORDER BY a2.company_name</p>
+<p>The results you get back will always be restricted to the division you
+have been assigned. Since in our schema we&#8217;ve defined restrictions on
+the Branch and Districts as well if I were to want to provide a user
+with a drop down of potential branches, I can simply query the branches
+as I normally would, and only the ones in my division would be returned
+to choose from.</p>
+</div>
+<div class="section" id="restrictions">
+<h2>Restrictions<a class="headerlink" href="#restrictions" title="Permalink to this headline">¶</a></h2>
+<p>For the time being, this module only protects tables in the FROM clause,
+since doctrine currently runs the query listener for the new tables
+added to the query by the template, and thus we get a pretty nasty query
+in the end that doesn&#8217;t work. If I can figure out how to detect such
+situations reliably I&#8217;ll update the article.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Record-based Retrieval Security Template</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#template">Template</a></li>
+<li><a class="reference internal" href="#yaml-schema-syntax">YAML schema syntax</a></li>
+<li><a class="reference internal" href="#using-the-template">Using the template</a></li>
+<li><a class="reference internal" href="#user-setup">User setup</a></li>
+<li><a class="reference internal" href="#querying">Querying</a></li>
+<li><a class="reference internal" href="#restrictions">Restrictions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="creating-a-unit-of-work-using-doctrine.html"
+                        title="previous chapter">Writing a Unit of Work in PHP Doctrine</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../../ja/index.html"
+                        title="next chapter">Japanese Documentation</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/en/cookbook/record-based-retrieval-security-template.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../ja/index.html" title="Japanese Documentation"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="creating-a-unit-of-work-using-doctrine.html" title="Writing a Unit of Work in PHP Doctrine"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Doctrine 1.2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >English Documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2012, Jonathan Wage and Contributors.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.3.
+    </div>
+  </body>
+</html>
