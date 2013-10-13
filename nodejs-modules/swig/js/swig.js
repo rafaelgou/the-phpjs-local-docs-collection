@@ -1,4 +1,4 @@
-/*! Swig v1.0.0-rc2 | https://paularmstrong.github.com/swig | @license https://github.com/paularmstrong/swig/blob/master/LICENSE */
+/*! Swig v1.1.0 | https://paularmstrong.github.com/swig | @license https://github.com/paularmstrong/swig/blob/master/LICENSE */
 /*! DateZ (c) 2011 Tomo Universalis | @license https://github.com/TomoUniversalis/DateZ/blob/master/LISENCE */
 ;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var swig = require('../lib/swig');
@@ -216,6 +216,32 @@ var utils = require('./utils'),
   dateFormatter = require('./dateformatter');
 
 /**
+ * Helper method to recursively run a filter across an object/array and apply it to all of the object/array's values.
+ * @param  {*} input
+ * @return {*}
+ * @private
+ */
+function iterateFilter(input) {
+  var self = this,
+    out = {};
+
+  if (utils.isArray(input)) {
+    return utils.map(input, function (value) {
+      return self.apply(null, arguments);
+    });
+  }
+
+  if (typeof input === 'object') {
+    utils.each(input, function (value, key) {
+      out[key] = self.apply(null, arguments);
+    });
+    return out;
+  }
+
+  return;
+}
+
+/**
  * Backslash-escape characters that need to be escaped.
  *
  * @example
@@ -226,12 +252,11 @@ var utils = require('./utils'),
  * @return {*}        Backslash-escaped string.
  */
 exports.addslashes = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.addslashes(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.addslashes, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.replace(/\\/g, '\\\\').replace(/\'/g, "\\'").replace(/\"/g, '\\"');
 };
 
@@ -246,12 +271,11 @@ exports.addslashes = function (input) {
  * @return {*}        Returns the same type as the input.
  */
 exports.capitalize = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.capitalize(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.capitalize, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.toString().charAt(0).toUpperCase() + input.toString().substr(1).toLowerCase();
 };
 
@@ -326,32 +350,32 @@ exports.default = function (input, def) {
  * @return {string}         Escaped string.
  */
 exports.escape = function (input, type) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.escape(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.escape, arguments),
+    inp = input,
+    i = 0,
+    code;
+
+  if (out !== undefined) {
+    return out;
   }
 
   if (typeof input !== 'string') {
     return input;
   }
 
-  var i = 0,
-    out = '',
-    code;
+  out = '';
 
   switch (type) {
   case 'js':
-    input = input.replace(/\\/g, '\\u005C');
-    for (i; i < input.length; i += 1) {
-      code = input.charCodeAt(i);
+    inp = inp.replace(/\\/g, '\\u005C');
+    for (i; i < inp.length; i += 1) {
+      code = inp.charCodeAt(i);
       if (code < 32) {
         code = code.toString(16).toUpperCase();
         code = (code.length < 2) ? '0' + code : code;
         out += '\\u00' + code;
       } else {
-        out += input[i];
+        out += inp[i];
       }
     }
     return out.replace(/&/g, '\\u0026')
@@ -364,7 +388,7 @@ exports.escape = function (input, type) {
       .replace(/;/g, '\\u003B');
 
   default:
-    return input.replace(/&(?!amp;|lt;|gt;|quot;|#39;)/g, '&amp;')
+    return inp.replace(/&(?!amp;|lt;|gt;|quot;|#39;)/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
@@ -505,12 +529,11 @@ exports.last = function (input) {
  * @return {*}          Returns the same type as the input.
  */
 exports.lower = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.lower(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.lower, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.toString().toLowerCase();
 };
 
@@ -644,12 +667,11 @@ exports.sort = function (input, reverse) {
  * @return {*}        Returns the same object as the input, but with all string values stripped of tags.
  */
 exports.striptags = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.striptags(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.striptags, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.toString().replace(/(<([^>]+)>)/ig, '');
 };
 
@@ -670,12 +692,11 @@ exports.striptags = function (input) {
  * @return {*}        Returns the same object as the input, but with all words in strings title-cased.
  */
 exports.title = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.title(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.title, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.toString().replace(/\w\S*/g, function (str) {
     return str.charAt(0).toUpperCase() + str.substr(1).toLowerCase();
   });
@@ -725,12 +746,11 @@ exports.uniq = function (input) {
  * @return {*}        Returns the same type as the input, with all strings upper-cased.
  */
 exports.upper = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.upper(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.upper, arguments);
+  if (out !== undefined) {
+    return out;
   }
+
   return input.toString().toUpperCase();
 };
 
@@ -746,11 +766,9 @@ exports.upper = function (input) {
  * @return {*}       URL-encoded string.
  */
 exports.url_encode = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.url_encode(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.url_encode, arguments);
+  if (out !== undefined) {
+    return out;
   }
   return encodeURIComponent(input);
 };
@@ -767,11 +785,9 @@ exports.url_encode = function (input) {
  * @return {*}       URL-decoded string.
  */
 exports.url_decode = function (input) {
-  if (typeof input === 'object') {
-    utils.each(input, function (value, key) {
-      input[key] = exports.url_decode(value);
-    });
-    return input;
+  var out = iterateFilter.apply(exports.url_decode, arguments);
+  if (out !== undefined) {
+    return out;
   }
   return decodeURIComponent(input);
 };
@@ -917,7 +933,8 @@ var TYPES = {
     {
       type: TYPES.LOGIC,
       regex: [
-        /^(&&|\|\||and|or)\s*/
+        /^(&&|\|\|)\s*/,
+        /^(and|or)\s+/
       ],
       idx: 1,
       replace: {
@@ -947,9 +964,9 @@ var TYPES = {
     {
       type: TYPES.NOT,
       regex: [
-        /^(not|\!)\s*/
+        /^\!\s*/,
+        /^not\s+/
       ],
-      idx: 1,
       replace: {
         'not': '!'
       }
@@ -957,8 +974,10 @@ var TYPES = {
     {
       type: TYPES.BOOL,
       regex: [
-        /^(true|false)/
-      ]
+        /^(true|false)\s+/,
+        /^(true|false)$/
+      ],
+      idx: 1
     },
     {
       type: TYPES.VAR,
@@ -1261,6 +1280,7 @@ TokenParser.prototype = {
       break;
 
     case _t.NUMBER:
+    case _t.BOOL:
       self.filterApplyIdx.push(self.out.length);
       self.out.push(match);
       break;
@@ -1331,15 +1351,37 @@ TokenParser.prototype = {
           lastState !== _t.FILTER &&
           lastState !== _t.ARRAYOPEN &&
           lastState !== _t.CURLYOPEN &&
-          lastState !== _t.PARENOPEN) {
+          lastState !== _t.PARENOPEN &&
+          lastState !== _t.COLON) {
         utils.throwError('Unexpected comma', self.line, self.filename);
+      }
+      if (lastState === _t.COLON) {
+        self.state.pop();
       }
       self.out.push(', ');
       self.filterApplyIdx.pop();
       break;
 
+    case _t.LOGIC:
+    case _t.COMPARATOR:
+      if (!prevToken ||
+          prevToken.type === _t.COMMA ||
+          prevToken.type === token.type ||
+          prevToken.type === _t.BRACKETOPEN ||
+          prevToken.type === _t.CURLYOPEN ||
+          prevToken.type === _t.PARENOPEN ||
+          prevToken.type === _t.FUNCTION) {
+        utils.throwError('Unexpected logic', self.line, self.filename);
+      }
+      self.out.push(token.match);
+      break;
+
+    case _t.NOT:
+      self.out.push(token.match);
+      break;
+
     case _t.VAR:
-      self.parseVar(token, match, lastState, prevToken);
+      self.parseVar(token, match, lastState);
       break;
 
     case _t.BRACKETOPEN:
@@ -1374,11 +1416,15 @@ TokenParser.prototype = {
       if (lastState !== _t.CURLYOPEN) {
         utils.throwError('Unexpected colon', self.line, self.filename);
       }
+      self.state.push(token.type);
       self.out.push(':');
       self.filterApplyIdx.pop();
       break;
 
     case _t.CURLYCLOSE:
+      if (lastState === _t.COLON) {
+        self.state.pop();
+      }
       if (self.state.pop() !== _t.CURLYOPEN) {
         utils.throwError('Unexpected closing curly brace', self.line, self.filename);
       }
@@ -1406,13 +1452,11 @@ TokenParser.prototype = {
    * @param  {{match: string, type: number, line: number}} token      Lexer token object.
    * @param  {string} match       Shortcut for token.match
    * @param  {number} lastState   Lexer token type state.
-   * @param  {{match: string, type: number, line: number}} prevToken  Lexer token object.
    * @return {undefined}
    * @private
    */
-  parseVar: function (token, match, lastState, prevToken) {
-    var self = this,
-      isReserved;
+  parseVar: function (token, match, lastState) {
+    var self = this;
 
     match = match.split('.');
 
@@ -1756,7 +1800,7 @@ exports.compile = function (template, parents, options, blockName) {
   var out = '',
     tokens = utils.isArray(template) ? template : template.tokens;
 
-  utils.each(tokens, function (token, index) {
+  utils.each(tokens, function (token) {
     var o;
     if (typeof token === 'string') {
       out += '_output += "' + token.replace(/\\/g, '\\\\').replace(/\n|\r/g, '\\n').replace(/"/g, '\\"') + '";\n';
@@ -1801,11 +1845,11 @@ var fs = require('fs'),
 /**
  * Swig version number as a string.
  * @example
- * if (swig.version === "1.0.0-rc2") { ... }
+ * if (swig.version === "1.1.0") { ... }
  *
  * @type {String}
  */
-exports.version = "1.0.0-rc2";
+exports.version = "1.1.0";
 
 /**
  * Swig Options Object. This object can be passed to many of the API-level Swig methods to control various aspects of the engine. All keys are optional.
@@ -2187,8 +2231,7 @@ exports.Swig = function (opts) {
    * @private
    */
   function getParents(tokens, options) {
-    var blocks = {},
-      parentName = tokens.parent,
+    var parentName = tokens.parent,
       parentFiles = [],
       parents = [],
       parentFile,
@@ -2303,7 +2346,6 @@ exports.Swig = function (opts) {
    * @return {string}             Rendered output.
    */
   this.renderFile = function (pathName, locals, cb) {
-    var out;
     if (cb) {
       exports.compileFile(pathName, {}, function (err, fn) {
         if (err) {
@@ -2343,8 +2385,7 @@ exports.Swig = function (opts) {
       cached = key ? cacheGet(key) : null,
       context,
       contextLength,
-      pre,
-      tpl;
+      pre;
 
     if (cached) {
       return cached;
@@ -2454,10 +2495,9 @@ exports.Swig = function (opts) {
    *
    * @param  {function} tpl       Pre-compiled Swig template function. Use the Swig CLI to compile your templates.
    * @param  {object} [locals={}] Template variable context.
-   * @param  {string} [pathName]  Path of the file. Used for relative include lookups.
    * @return {string}             Rendered output.
    */
-  this.run = function (tpl, locals, pathName) {
+  this.run = function (tpl, locals) {
     var context = getLocals({ locals: locals });
     return tpl(self, context, filters, utils, efn);
   };
@@ -2499,7 +2539,6 @@ exports.spaceless = require('./tags/spaceless');
 
 },{"./tags/autoescape":8,"./tags/block":9,"./tags/else":10,"./tags/elseif":11,"./tags/extends":12,"./tags/filter":13,"./tags/for":14,"./tags/if":15,"./tags/import":16,"./tags/include":17,"./tags/macro":18,"./tags/parent":19,"./tags/raw":20,"./tags/set":21,"./tags/spaceless":22}],8:[function(require,module,exports){
 var utils = require('../utils'),
-  bools = ['false', 'true'],
   strings = ['html', 'js'];
 
 /**
@@ -2516,8 +2555,8 @@ var utils = require('../utils'),
  *
  * @param {boolean|string} control One of `true`, `false`, `"js"` or `"html"`.
  */
-exports.compile = function (compiler, args, content) {
-  return compiler(content);
+exports.compile = function (compiler, args, content, parents, options, blockName) {
+  return compiler(content, parents, options, blockName);
 };
 exports.parse = function (str, line, parser, types, stack, opts) {
   var matched;
@@ -2557,7 +2596,7 @@ exports.compile = function (compiler, args, content, parents, options) {
   return compiler(content, parents, options, args.join(''));
 };
 
-exports.parse = function (str, line, parser, types) {
+exports.parse = function (str, line, parser) {
   parser.on('*', function (token) {
     this.out.push(token.match);
   });
@@ -2582,7 +2621,7 @@ exports.block = true;
  * // => statement2
  *
  */
-exports.compile = function (compiler, args, content) {
+exports.compile = function () {
   return '} else {\n';
 };
 
@@ -2615,7 +2654,7 @@ var ifparser = require('./if').parse;
  *
  * @param {...mixed} conditional  Conditional statement that returns a truthy or falsy value.
  */
-exports.compile = function (compiler, args, content) {
+exports.compile = function (compiler, args) {
   return '} else if (' + args.join(' ') + ') {\n';
 };
 
@@ -2664,11 +2703,11 @@ var filters = require('../filters');
  * @param {function} filter  The filter that should be applied to the contents of the tag.
  */
 
-exports.compile = function (compiler, args, content, parents, options) {
+exports.compile = function (compiler, args, content, parents, options, blockName) {
   var filter = args.shift().replace(/\($/, ''),
     val = '(function () {\n' +
       '  var _output = "";\n' +
-      compiler(content, parents, options) +
+      compiler(content, parents, options, blockName) +
       '  return _output;\n' +
       '})()';
 
@@ -2756,7 +2795,7 @@ exports.ends = true;
  * @return {loop.first} True if the current object is the first in the object or array.
  * @return {loop.last} True if the current object is the last in the object or array.
  */
-exports.compile = function (compiler, args, content) {
+exports.compile = function (compiler, args, content, parents, options, blockName) {
   var val = args.shift(),
     key = '__k',
     last;
@@ -2778,14 +2817,14 @@ exports.compile = function (compiler, args, content) {
     '    loop.key = ' + key + ';\n',
     '    loop.first = (loop.index0 === 0);\n',
     '    loop.last = (loop.revindex0 === 0);\n',
-    '    ' + compiler(content),
+    '    ' + compiler(content, parents, options, blockName),
     '    loop.index += 1; loop.index0 += 1; loop.revindex -= 1; loop.revindex0 -= 1;\n',
     '  });\n',
     '})();\n'
   ].join('');
 };
 
-exports.parse = function (str, line, parser, types, stack) {
+exports.parse = function (str, line, parser, types) {
   var firstVar, ready;
 
   parser.on(types.NUMBER, function (token) {
@@ -2877,9 +2916,9 @@ exports.ends = true;
  *
  * @param {...mixed} conditional Conditional statement that returns a truthy or falsy value.
  */
-exports.compile = function (compiler, args, content) {
+exports.compile = function (compiler, args, content, parents, options, blockName) {
   return 'if (' + args.join(' ') + ') { \n' +
-    compiler(content) + '\n' +
+    compiler(content, parents, options, blockName) + '\n' +
     '}';
 };
 
@@ -2924,7 +2963,6 @@ var utils = require('../utils');
 /**
  * Allows you to import macros from another file directly into your current context.
  * The import tag is specifically designed for importing macros into your template with a specific context scope. This is very useful for keeping your macros from overriding template context that is being injected by your server-side page generation.
- * It is highly recommended to import your macros directly into the template that they will be used in and <strong>not</strong> from the template's parent. Doing so may have unexpected escaping effects.
  *
  * @alias import
  *
@@ -2942,12 +2980,11 @@ var utils = require('../utils');
  * @param {literal}     as        Literally, "as".
  * @param {literal}     varname   Local-accessible object name to assign the macros to.
  */
-exports.compile = function (compiler, args, content, parents, options) {
+exports.compile = function (compiler, args) {
   var ctx = args.pop(),
     out = 'var ' + ctx + ' = {};\n' +
       '(function (exports) {\n' +
-      '  var _output = "";\n',
-    tokens;
+      '  var _output = "";\n';
 
   out += args.join('');
   out += '}(' + ctx + '));\n';
@@ -3035,7 +3072,7 @@ var ignore = 'ignore',
  * @param {literal}     [only]    Restricts to <strong>only</strong> passing the <code>with context</code> as local variables–the included template will not be aware of any other local variables in the parent template. For best performance, usage of this option is recommended if possible.
  * @param {literal}     [ignore missing] Will output empty string if not found instead of throwing an error.
  */
-exports.compile = function (compiler, args, content, parents, options) {
+exports.compile = function (compiler, args) {
   var file = args.shift(),
     onlyIdx = args.indexOf(only),
     onlyCtx = onlyIdx !== -1 ? args.splice(onlyIdx, 1) : false,
@@ -3110,7 +3147,6 @@ exports.parse = function (str, line, parser, types, stack, opts) {
 /**
  * Create custom, reusable snippets within your templates.
  * Can be imported from one template to another using the <a href="#import"><code data-language="swig">{% import ... %}</code></a> tag.
- * While macros may appear to work in child templates after having been defined in a parent template, they may not get properly escaped. It is recommended to always <a href="#import"><code data-language="swig">{% import ... %}</code></a> your macros directly into the template they'll be used in.
  *
  * @alias macro
  *
@@ -3137,7 +3173,7 @@ exports.compile = function (compiler, args, content, parents, options, blockName
     fnName + '.safe = true;\n';
 };
 
-exports.parse = function (str, line, parser, types, stack) {
+exports.parse = function (str, line, parser, types) {
   var name;
 
   parser.on(types.VAR, function (token) {
@@ -3162,18 +3198,18 @@ exports.parse = function (str, line, parser, types, stack) {
     }
   });
 
-  parser.on(types.PARENCLOSE, function (token) {
+  parser.on(types.PARENCLOSE, function () {
     if (this.isLast) {
       return;
     }
     throw new Error('Unexpected parenthesis close on line ' + line + '.');
   });
 
-  parser.on(types.COMMA, function (token) {
+  parser.on(types.COMMA, function () {
     return true;
   });
 
-  parser.on('*', function (token) {
+  parser.on('*', function () {
     return;
   });
 
@@ -3217,7 +3253,7 @@ exports.compile = function (compiler, args, content, parents, options, blockName
       continue;
     }
     // Silly JSLint "Strange Loop" requires return to be in a conditional
-    if (breaker) {
+    if (breaker && parentFile !== parent.name) {
       block = parent.blocks[blockName];
       return block.compile(compiler, [blockName], block.content, parents.slice(i + 1), options) + '\n';
     }
@@ -3250,10 +3286,10 @@ exports.parse = function (str, line, parser, types, stack, opts) {
  * // => {{ foobar }}
  *
  */
-exports.compile = function (compiler, args, content) {
-  return compiler(content);
+exports.compile = function (compiler, args, content, parents, options, blockName) {
+  return compiler(content, parents, options, blockName);
 };
-exports.parse = function (str, line, parser, types, stack) {
+exports.parse = function (str, line, parser) {
   parser.on('*', function (token) {
     throw new Error('Unexpected token "' + token.match + '" in raw tag on line ' + line + '.');
   });
@@ -3282,11 +3318,11 @@ exports.ends = true;
  * @param {literal} assignement   Any valid JavaScript assignement. <code data-language="js">=, +=, *=, /=, -=</code>
  * @param {*}   value     Valid variable output.
  */
-exports.compile = function (compiler, args, content) {
+exports.compile = function (compiler, args) {
   return args.join(' ') + ';\n';
 };
 
-exports.parse = function (str, line, parser, types, stack) {
+exports.parse = function (str, line, parser, types) {
   var nameSet;
   parser.on(types.VAR, function (token) {
     if (!this.out.length) {
@@ -3331,10 +3367,10 @@ var utils = require('../utils');
  * // => <li>1</li><li>2</li><li>3</li>
  *
  */
-exports.compile = function (compiler, args, content, parents, options) {
+exports.compile = function (compiler, args, content, parents, options, blockName) {
   function stripWhitespace(tokens) {
     return utils.map(tokens, function (token) {
-      if (token.content) {
+      if (token.content || typeof token !== 'string') {
         token.content = stripWhitespace(token.content);
         return token;
       }
@@ -3345,10 +3381,10 @@ exports.compile = function (compiler, args, content, parents, options) {
     });
   }
 
-  return compiler(stripWhitespace(content), parents, options);
+  return compiler(stripWhitespace(content), parents, options, blockName);
 };
 
-exports.parse = function (str, line, parser, types) {
+exports.parse = function (str, line, parser) {
   parser.on('*', function (token) {
     throw new Error('Unexpected token "' + token.match + '" on line ' + line + '.');
   });
@@ -3449,7 +3485,7 @@ exports.some = function (obj, fn) {
       }
     }
   } else {
-    exports.each(obj, function (value, index, collection) {
+    exports.each(obj, function (value, index) {
       result = fn(value, index, obj);
       return !(result);
     });
