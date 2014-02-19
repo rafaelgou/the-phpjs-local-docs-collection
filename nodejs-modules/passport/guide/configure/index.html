@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Passport  | Configure </title>    <link rel="stylesheet" href="../../vendor/bootstrap/2.2.1/css/bootstrap.css">
+    <link rel="stylesheet" href="../../vendor/highlight/gc5f3dbd/styles/github.css">
+    <link rel="stylesheet" href="../../assets/css/site.css">
+    <script type="text/javascript">
+
+      var _gaq = _gaq || [];
+      _gaq.push(['_setAccount', 'UA-104798-10']);
+      _gaq.push(['_trackPageview']);
+
+      (function() {
+        var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+        ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+        var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+      })();
+
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="masthead">
+  <ul class="nav nav-pills pull-right">
+    <li><a href="../../index.html">Home</a></li>    <li class="active"><a href="../index.html">Guide</a></li>  </ul>
+  <h3><a href="../../index.html"><img src="../../assets/images/logo-90px.png" class="logo"> Passport</a></h3>
+</div>
+
+      
+<div class="row guide">
+  <div class="span3 toc">
+    <ul class="unstyled">
+  <li><a href="../index.html">Overview</a></li>
+  <li><a href="../authenticate/index.html">Authenticate</a></li>
+  <li><a href="index.html">Configure</a></li>
+  <li><a href="../username-password/index.html">Username &amp; Password</a></li>
+  <li><a href="../openid/index.html">OpenID</a></li>
+  <li><a href="../oauth/index.html">OAuth</a></li>
+  <li><strong>Providers</strong></li>
+  <ul>
+    <li><a href="../facebook/index.html">Facebook</a></li>
+    <li><a href="../twitter/index.html">Twitter</a></li>
+    <li><a href="../google/index.html">Google</a></li>
+    <li><a href="../providers/index.html">Other</a></li>
+  </ul>
+  <li><strong>APIs</strong></li>
+  <ul>
+    <li><a href="../basic-digest/index.html">Basic &amp; Digest</a></li>
+    <li><a href="../oauth-api/index.html">OAuth</a></li>
+    <li><a href="../oauth2-api/index.html">OAuth 2.0</a></li>
+    <li><a href="../other-api/index.html">Other</a></li>
+  </ul>
+  <li><strong>Operations</strong></li>
+  <ul>
+    <li><a href="../login/index.html">Log In</a></li>
+    <li><a href="../logout/index.html">Log Out</a></li>
+    <li><a href="../authorize/index.html">Authorize</a></li>
+  </ul>
+  <li><a href="../profile/index.html">User Profile</a></li>
+</ul>
+
+  </div>
+  <div class="span9 content">
+    <h3>Configure</h3>
+<p>Three pieces need to be configured to use Passport for authentication:</p>
+<ol>
+<li>Authentication strategies</li>
+<li>Application middleware</li>
+<li>Sessions (<em>optional</em>)</li>
+</ol>
+<h4>Strategies</h4>
+<p>Passport uses what are termed <em>strategies</em> to authenticate requests.  Strategies
+range from verifying a username and password, delegated authentication using <a href="http://oauth.net/">OAuth</a>
+or federated authentication using <a href="http://openid.net/">OpenID</a>.</p>
+<p>Before asking Passport to authenticate a request, the strategy (or strategies)
+used by an application must be configured.</p>
+<p>Strategies, and their configuration, are supplied via the <code>use()</code> function.  For
+example, the following uses the <code>LocalStrategy</code> for username/password
+authentication.</p>
+<pre><code class="undefinedjavascript"><span class="keyword">var</span> passport = require(<span class="string">'passport'</span>)
+  , LocalStrategy = require(<span class="string">'passport-local'</span>).Strategy;
+
+passport.use(<span class="keyword">new</span> LocalStrategy(
+  <span class="keyword">function</span>(username, password, done) {
+    User.findOne({ username: username }, <span class="function"><span class="keyword">function</span> <span class="params">(err, user)</span> {</span>
+      <span class="keyword">if</span> (err) { <span class="keyword">return</span> done(err); }
+      <span class="keyword">if</span> (!user) {
+        <span class="keyword">return</span> done(<span class="literal">null</span>, <span class="literal">false</span>, { message: <span class="string">'Incorrect username.'</span> });
+      }
+      <span class="keyword">if</span> (!user.validPassword(password)) {
+        <span class="keyword">return</span> done(<span class="literal">null</span>, <span class="literal">false</span>, { message: <span class="string">'Incorrect password.'</span> });
+      }
+      <span class="keyword">return</span> done(<span class="literal">null</span>, user);
+    });
+  }
+));</code></pre>
+<h5>Verify Callback</h5>
+<p>This example introduces an important concept.  Strategies require what is known
+as a <em>verify callback</em>.  The purpose of a verify callback is to find the user
+that possesses a set of credentials.</p>
+<p>When Passport authenticates a request, it parses the credentials contained in
+the request.  It then invokes the verify callback with those credentials as
+arguments, in this case <code>username</code> and <code>password</code>.  If the credentials are
+valid, the verify callback invokes <code>done</code> to supply Passport with the user that
+authenticated.</p>
+<pre><code class="undefinedjavascript"><span class="keyword">return</span> done(<span class="literal">null</span>, user);</code></pre>
+<p>If the credentials are not valid (for example, if the password is incorrect),
+<code>done</code> should be invoked with <code>false</code> instead of a user to indicate an
+authentication failure.</p>
+<pre><code class="undefinedjavascript"><span class="keyword">return</span> done(<span class="literal">null</span>, <span class="literal">false</span>);</code></pre>
+<p>An additional info message can be supplied to indicate the reason for the
+failure.  This is useful for displaying a flash message prompting the user to
+try again.</p>
+<pre><code class="undefinedjavascript"><span class="keyword">return</span> done(<span class="literal">null</span>, <span class="literal">false</span>, { message: <span class="string">'Incorrect password.'</span> });</code></pre>
+<p>Finally, if an exception occurred while verifying the credentials (for example,
+if the database is not available), <code>done</code> should be invoked with an error, in
+conventional Node style.</p>
+<pre><code class="undefinedjavascript"><span class="keyword">return</span> done(err);</code></pre>
+<p>Note that it is important to distinguish the two failure cases that can occur.
+The latter is a server exception, in which <code>err</code> is set to a non-<code>null</code> value.
+Authentication failures are natural conditions, in which the server is operating
+normally.  Ensure that <code>err</code> remains <code>null</code>, and use the final argument to pass
+additional details.</p>
+<p>By delegating in this manner, the verify callback keeps Passport database
+agnostic.  Applications are free to choose how user information is stored,
+without any assumptions imposed by the authentication layer.</p>
+<h4>Middleware</h4>
+<p>In a <a href="http://senchalabs.github.com/connect/">Connect</a> or
+<a href="http://expressjs.com/">Express</a>-based application, <code>passport.initialize()</code>
+middleware is required to initialize Passport.  If your application uses
+persistent login sessions, <code>passport.session()</code> middleware must also be used.</p>
+<pre><code class="undefinedjavascript">app.configure(<span class="keyword">function</span>() {
+  app.use(express.static(<span class="string">'public'</span>));
+  app.use(express.cookieParser());
+  app.use(express.bodyParser());
+  app.use(express.session({ secret: <span class="string">'keyboard cat'</span> }));
+  app.use(passport.initialize());
+  app.use(passport.session());
+  app.use(app.router);
+});</code></pre>
+<p>Note that enabling session support is entirely optional, though it is
+recommended for most applications.  If enabled, be sure to use <code>express.session()</code>
+<em>before</em>  <code>passport.session()</code> to ensure that the login session is restored in
+the correct order.</p>
+<h4>Sessions</h4>
+<p>In a typical web application, the credentials used to authenticate a user will
+only be transmitted during the login request.  If authentication succeeds, a
+session will be established and maintained via a cookie set in the user&#39;s
+browser.</p>
+<p>Each subsequent request will not contain credentials, but rather the unique
+cookie that identifies the session.  In order to support login sessions,
+Passport will serialize and deserialize <code>user</code> instances to and from the
+session.</p>
+<pre><code class="undefinedjavascript">passport.serializeUser(<span class="keyword">function</span>(user, done) {
+  done(<span class="literal">null</span>, user.id);
+});
+
+passport.deserializeUser(<span class="keyword">function</span>(id, done) {
+  User.findById(id, <span class="keyword">function</span>(err, user) {
+    done(err, user);
+  });
+});</code></pre>
+<p>In this example, only the user ID is serialized to the session, keeping the
+amount of data stored within the session small.  When subsequent requests are
+received, this ID is used to find the user, which will be restored to
+<code>req.user</code>.</p>
+<p>The serialization and deserialization logic is supplied by the application,
+allowing the application to choose an appropriate database and/or object mapper,
+without imposition by the authentication layer.</p>
+  </div>
+</div>
+      <div class="footer">
+  <p>&copy; 2011-2013 Jared Hanson<br/><a href="https://github.com/stuartpb/passport-logo">Logo</a> by <a href="https://github.com/stuartpb">Stuart P. Bentley</a>, <a href="http://creativecommons.org/licenses/by-sa/3.0/">CC BY-SA 3.0</a></p>
+</div>
+
+    </div>
+  </body>
+</html>
