@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en" id="tests">
+ <head>
+  <meta charset="utf-8">
+  <title>Lo-Dash test suite</title>
+  <meta name="viewport" content="width=device-width">
+  <link rel="stylesheet" href="_css/qunit.css">
+  <link rel="feed alternate" type="application/atom+xml" href="https://github.com/lodash/lodash/commits/master.atom">
+  <style>
+   #exports {
+    display: none;
+   }
+  </style>
+ </head>
+ <body>
+  <script src="_js/qunit.js"></script>
+  <script src="_js/qunit-extras.js"></script>
+  <script src="_js/platform.js"></script>
+  <script src="_js/test-ui.js"></script>
+  <div id="qunit"></div>
+  <div id="exports"></div>
+  <script>
+   var setProperty = (function() {
+    var _defineProperty = Object.defineProperty;
+    return function(object, key, value) {
+     try {
+      _defineProperty(object, key, {
+       'configurable': true,
+       'enumerable': false,
+       'writable': true,
+       'value': value
+      });
+     } catch(e) {
+      object[key] = value;
+     }
+    };
+   }());
+
+   function addBizarroMethods() {
+    // allow bypassing native checks
+    setProperty(Function.prototype, 'toString', (function() {
+     function fnToString() {
+      setProperty(Function.prototype, 'toString', _fnToString);
+      var result = this === Set ? this.toString() : _fnToString.call(this);
+      setProperty(Function.prototype, 'toString', fnToString);
+      return result;
+     }
+     var _fnToString = Function.prototype.toString;
+     setProperty(Function.prototype, '_toString', _fnToString);
+     return fnToString;
+    }()));
+
+    // add extensions
+    Function.prototype._method = function() {};
+
+    // set bad shims
+    setProperty(Array, '_isArray', Array.isArray);
+    setProperty(Array, 'isArray', function() {});
+
+    setProperty(Date, '_now', Date.now);
+    setProperty(Date, 'now', function() {});
+
+    setProperty(Object, '_create', Object.create);
+    setProperty(Object, 'create', function() {});
+
+    setProperty(Object, '_defineProperty', Object.defineProperty);
+    setProperty(Object, 'defineProperty', function() {});
+
+    setProperty(Object, '_getPrototypeOf', Object.getPrototypeOf);
+    setProperty(Object, 'getPrototypeOf', function() {});
+
+    setProperty(Object, '_keys', Object.keys);
+    setProperty(Object, 'keys', function() {});
+
+    setProperty(String.prototype, '_contains', String.prototype.contains);
+    setProperty(String.prototype, 'contains', String.prototype._contains ? function() {} : Boolean);
+
+    setProperty(String.prototype, '_trim', String.prototype.trim);
+    setProperty(String.prototype, 'trim', String.prototype._trim ? function() {} : String);
+
+    setProperty(String.prototype, '_trimLeft', String.prototype.trimLeft);
+    setProperty(String.prototype, 'trimLeft', String.prototype._trimLeft ? function() {} : String);
+
+    setProperty(String.prototype, '_trimRight', String.prototype.trimRight);
+    setProperty(String.prototype, 'trimRight', String.prototype._trimRight ? function() {} : String);
+
+    setProperty(window, 'WinRTError', Error);
+
+    setProperty(document, '_createDocumentFragment', document.createDocumentFragment);
+    document.createDocumentFragment = function() {};
+   }
+
+   function removeBizarroMethods() {
+    if (Array._isArray) {
+     setProperty(Array, 'isArray', Array._isArray);
+    } else {
+     delete Array.isArray;
+    }
+    if (Date._now) {
+     setProperty(Date, 'now', Date._now);
+    } else {
+     delete Date.now;
+    }
+    if (Object._create) {
+     setProperty(Object, 'create', Object._create);
+    } else {
+     delete Object.create;
+    }
+    if (Object._defineProperty) {
+     setProperty(Object, 'defineProperty', Object._defineProperty);
+    } else {
+     delete Object.defineProperty;
+    }
+    if (Object._getPrototypeOf) {
+     setProperty(Object, 'getPrototypeOf', Object._getPrototypeOf);
+    } else {
+     delete Object.getPrototypeOf;
+    }
+    if (Object._keys) {
+     setProperty(Object, 'keys', Object._keys);
+    } else {
+     delete Object.keys;
+    }
+    for (var key in {
+     'contains': true,
+     'trim': true,
+     'trimLeft': true,
+     'trimRight': true
+    }) {
+     var func = String.prototype['_' + key];
+     if (func) {
+      setProperty(String.prototype, key, func);
+     } else {
+      delete String.prototype[key];
+     }
+     delete String.prototype['_' + key];
+    }
+    setProperty(window, 'WinRTError', undefined);
+    setProperty(Function.prototype, 'toString', Function.prototype._toString);
+
+    document.createDocumentFragment = document._createDocumentFragment;
+    setProperty(document, '_createDocumentFragment', undefined);
+
+    delete Array._isArray;
+    delete Date._now;
+    delete Function.prototype._method;
+    delete Function.prototype._toString;
+    delete Object._create;
+    delete Object._defineProperty;
+    delete Object._getPrototypeOf;
+    delete Object._keys;
+   }
+
+   // load Lo-Dash and expose it to the bad extensions/shims
+   if (!ui.isModularize) {
+    addBizarroMethods();
+    document.write('<script src="http://lodash.com/'&#32;+&#32;ui.buildPath&#32;+&#32;'"><\/script>');
+   }
+  </script>
+  <script>
+   QUnit.config.hidepassed = true;
+
+   // store Lo-Dash to test for bad extensions/shims
+   if (!ui.isModularize) {
+    var lodashBizarro = window._;
+    window._ = undefined;
+    removeBizarroMethods();
+   }
+   // load Lo-Dash and test scripts
+   document.write(ui.urlParams.loader == 'none'
+    ? '<script src="http://lodash.com/'&#32;+&#32;ui.buildPath&#32;+&#32;'"><\/script><script src="_js/test.js"><\/script>'
+    : '<script data-dojo-config="async:1" src="http://lodash.com/'&#32;+&#32;ui.loaderPath&#32;+&#32;'"><\/script>'
+   );
+  </script>
+  <script>
+   var lodashModule,
+       shimmedModule,
+       underscoreModule;
+
+   (function() {
+    if (window.curl) {
+     curl.config({ 'apiName': 'require' });
+    }
+    if (!window.require) {
+     return;
+    }
+    var reBasename = /[\w.-]+$/,
+        basePath = ('//' + location.host + location.pathname.replace(reBasename, '')).replace(/\btests\/$/, ''),
+        modulePath = ui.buildPath.replace(/\.js$/, ''),
+        moduleMain = modulePath.match(reBasename)[0],
+        locationPath = modulePath.replace(reBasename, '').replace(/^\/|\/$/g, ''),
+        shimmedLocationPath = './abc/../' + locationPath,
+	underscoreLocationPath = './xyz/../' + locationPath,
+        uid = +new Date;
+
+    function getConfig() {
+     var result = {
+      'baseUrl': './',
+      'urlArgs': 't=' + uid++,
+      'waitSeconds': 0,
+      'paths': {},
+      'packages': [{
+       'name': 'test',
+       'location': basePath + '_js',
+       'main': 'test',
+       'config': {
+        // work around no global being exported
+        'exports': 'QUnit',
+        'loader': 'curl/loader/legacy'
+       }
+      }],
+      'shim': {
+       'shimmed': {
+        'exports': '_'
+       }
+      }
+     };
+
+     if (ui.isModularize) {
+      result.packages.push({
+       'name': 'lodash',
+       'location': locationPath,
+       'main': moduleMain
+      }, {
+       'name': 'shimmed',
+       'location': shimmedLocationPath,
+       'main': moduleMain
+      }, {
+       'name': 'underscore',
+       'location': underscoreLocationPath,
+       'main': moduleMain
+      });
+     } else {
+      result.paths.lodash = modulePath;
+      result.paths.shimmed = shimmedLocationPath + '/' + moduleMain;
+      result.paths.underscore = underscoreLocationPath + '/' + moduleMain;
+     }
+     return result;
+    }
+
+    function loadTests() {
+     require(getConfig(), ['test'], function() {
+      QUnit.start();
+     });
+    }
+
+    function loadModulesAndTests() {
+     require(getConfig(), ['lodash', 'shimmed', 'underscore'], function(lodash, shimmed, underscore) {
+      var oldDash = window._;
+
+      if (shimmed && shimmed.noConflict) {
+       shimmedModule = shimmed.noConflict();
+       shimmedModule.moduleName = 'shimmed';
+      }
+      if (underscore && underscore.noConflict) {
+       underscoreModule = underscore.noConflict();
+       underscoreModule.moduleName = 'underscore';
+      }
+      if (lodash) {
+       lodashModule = lodash;
+       lodashModule.moduleName = 'lodash';
+      }
+      if (oldDash || ui.isModularize) {
+       window._ = lodash;
+      }
+      if (ui.isModularize) {
+       require(getConfig(), ['lodash/internals/baseEach'], function(baseEach) {
+        lodash._baseEach = baseEach;
+        loadTests();
+       });
+      } else {
+       loadTests();
+      }
+     });
+    }
+
+    QUnit.config.autostart = false;
+
+    if (window.requirejs) {
+     addBizarroMethods();
+     require(getConfig(), ['lodash'], function(lodash) {
+      lodashBizarro = lodash.noConflict();
+      delete requirejs.s.contexts._;
+
+      removeBizarroMethods();
+      loadModulesAndTests();
+     });
+    } else {
+     loadModulesAndTests();
+    }
+   }());
+
+   // set a more readable browser name
+   window.onload = function() {
+    var timeoutId = setInterval(function() {
+     var ua = document.getElementById('qunit-userAgent');
+     if (ua) {
+      ua.innerHTML = platform;
+      clearInterval(timeoutId);
+     }
+    }, 16);
+   };
+  </script>
+  <script>window._gaq=[['_setAccount','UA-6065217-64'],['_trackPageview']];(function(d,t){var g=d.createElement(t),s=d.getElementsByTagName(t)[0];g.src='//www.google-analytics.com/ga.js';s.parentNode.insertBefore(g,s)}(document,'script'))</script>
+ </body>
+</html>
