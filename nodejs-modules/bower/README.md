@@ -22,9 +22,9 @@ etc.).
 Bower depends on [Node](http://nodejs.org/) and [npm](http://npmjs.org/). It's
 installed globally using npm:
 
-```
+~~~
 npm install -g bower
-```
+~~~
 
 Also make sure that [git](http://git-scm.com/) is installed as some bower
 packages require it to be fetched and installed.
@@ -40,31 +40,31 @@ is just enough to get you started.
 Bower offers several ways to install packages:
 
 #####Using the dependencies listed in the current directory's bower.json
-```
+~~~
 bower install
-```
+~~~
 ##### Using a local or remote package
-```
+~~~
 bower install <package>
-```
+~~~
 ##### Using a specific version of a package
-```
+~~~
 bower install <package>#<version>
-```
+~~~
 ##### Using a different name and a specific version of a package
-```
+~~~
 bower install <name>=<package>#<version>
-```
+~~~
 
 Where `<package>` can be any one of the following:
 
 * A name that maps to a package registered with Bower, e.g, `jquery`. ‡
-* A public remote Git endpoint, e.g., ```git://github.com/someone/some-package.git```. ‡
-* A private Git repository, e.g., ```https://github.com/someone/some-package.git```. If the protocol is https, a prompt will ask for the credentials. ssh can also be used, e.g., ```git@github.com:someone/some-package.git``` and can authenticate with the user's ssh public/private keys. ‡
+* A public remote Git endpoint, e.g., ~~~git://github.com/someone/some-package.git~~~. ‡
+* A private Git repository, e.g., ~~~https://github.com/someone/some-package.git~~~. If the protocol is https, a prompt will ask for the credentials. ssh can also be used, e.g., ~~~git@github.com:someone/some-package.git~~~ and can authenticate with the user's ssh public/private keys. ‡
 * A local endpoint, i.e., a folder that's a Git repository. ‡
-* A public remote Subversion endpoint, e.g., ```svn+http://package.googlecode.com/svn/```. ‡
-* A private Subversion repository, e.g., ```svn+ssh://package.googlecode.com/svn/```. ‡
-* A local endpoint, i.e., a folder that's an Subversion repository, e.g., ```svn+file:///path/to/svn/```. ‡
+* A public remote Subversion endpoint, e.g., ~~~svn+http://package.googlecode.com/svn/~~~. ‡
+* A private Subversion repository, e.g., ~~~svn+ssh://package.googlecode.com/svn/~~~. ‡
+* A local endpoint, i.e., a folder that's an Subversion repository, e.g., ~~~svn+file:///path/to/svn/~~~. ‡
 * A shorthand endpoint, e.g., `someone/some-package` (defaults to GitHub). ‡
 * A URL to a file, including `zip` and `tar` files. Its contents will be
   extracted.
@@ -94,20 +94,20 @@ packages into source control](http://addyosmani.com/blog/checking-in-front-end-d
 
 A custom install location can be set in a `.bowerrc` file using the `directory` property. The .bowerrc file should be a sibling of your project's bower.json.
 
-```json
+~~~json
 {
   "directory": "public/bower_components"
 }
-```
+~~~
 
 
 ### Finding packages
 
 To search for packages registered with Bower:
 
-```
+~~~
 bower search [<name>]
-```
+~~~
 
 Using just `bower search` will list all packages in the registry.
 
@@ -116,9 +116,9 @@ Using just `bower search` will list all packages in the registry.
 The easiest approach is to use Bower statically, just reference the package's
 installed components manually using a `script` tag:
 
-```html
+~~~html
 <script src="/bower_components/jquery/jquery.js"></script>
-```
+~~~
 
 For more complex projects, you'll probably want to concatenate your scripts or
 use a module loader. Bower is just a package manager, but there are plenty of
@@ -129,9 +129,9 @@ and [RequireJS](http://requirejs.org/) -- that will help you do this.
 
 To uninstall a locally installed package:
 
-```
+~~~
 bower uninstall <package-name>
-```
+~~~
 
 
 #### Warning
@@ -159,17 +159,17 @@ path if needed.
 ### Using bower's cache
 
 Bower supports installing packages from its local cache (without internet connection), if the packages were installed before.
-```
+~~~
 bower install <package-name> --offline
-```
+~~~
 The content of the cache can be listed with:
-```
+~~~
 bower cache list
-```
+~~~
 The cache can be cleaned with:
-```
+~~~
 bower cache clean
-```
+~~~
 
 ## Configuration
 
@@ -194,9 +194,9 @@ release.
 
 You can interactively create a `bower.json` with the following command:
 
-```
+~~~
 bower init
-```
+~~~
 
 The `bower.json` defines several options:
 
@@ -210,7 +210,7 @@ The `bower.json` defines several options:
 * `private` [boolean]: Set to true if you want to keep the package private and
   do not want to register the package in future.
 
-```json
+~~~json
 {
   "name": "my-project",
   "version": "1.0.0",
@@ -228,7 +228,7 @@ The `bower.json` defines several options:
     "<test-framework-name>": "<version>"
   }
 }
-```
+~~~
 
 ### Registering packages
 
@@ -241,9 +241,9 @@ To register a new package:
 
 Then use the following command:
 
-```
+~~~
 bower register <my-package-name> <git-endpoint>
-```
+~~~
 
 The Bower registry does not have authentication or user management at this point
 in time. It's on a first come, first served basis. Think of it like a URL
@@ -262,13 +262,13 @@ easily consume Bower packages.
 If you pass the `--paths` option to Bower's `list` command, you will get a
 simple path-to-name mapping:
 
-```json
+~~~json
 {
   "backbone": "bower_components/backbone/index.js",
   "jquery": "bower_components/jquery/index.js",
   "underscore": "bower_components/underscore/index.js"
 }
-```
+~~~
 
 Alternatively, every command supports the `--json` option that makes bower
 output JSON. Command result is outputted to `stdout` and error/logs to
@@ -280,7 +280,7 @@ output JSON. Command result is outputted to `stdout` and error/logs to
 Bower provides a powerful, programmatic API. All commands can be accessed
 through the `bower.commands` object.
 
-```js
+~~~js
 var bower = require('bower');
 
 bower.commands
@@ -294,7 +294,7 @@ bower.commands
 .on('end', function (results) {
     console.log(results);
 });
-```
+~~~
 
 Commands emit four types of events: `log`, `prompt`, `end`, `error`.
 
@@ -309,7 +309,7 @@ file](https://github.com/bower/bower/blob/master/bin/bower).
 When using bower programmatically, prompting is disabled by default. Though you can enable it when calling commands with `interactive: true` in the config.
 This requires you to listen for the `prompt` event and handle the prompting yourself. The easiest way is to use the [inquirer](https://npmjs.org/package/inquirer) npm module like so:
 
-```js
+~~~js
 var inquirer =  require('inquirer');
 
 bower.commands
@@ -318,7 +318,7 @@ bower.commands
 .on('prompt', function (prompts, callback) {
     inquirer.prompt(prompts, callback);
 });
-```
+~~~
 
 
 ## Completion (experimental)
@@ -332,9 +332,9 @@ not available for Windows users.
 This command will output a Bash / ZSH script to put into your `~/.bashrc`,
 `~/.bash_profile`, or `~/.zshrc` file.
 
-```
+~~~
 bower completion >> ~/.bash_profile
-```
+~~~
 
 
 ## Contact
