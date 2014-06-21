@@ -1,6 +1,6 @@
 # Libraries
 
-This chapter will tell you how to make your library installable through composer.
+This chapter will tell you how to make your library installable through Composer.
 
 ## Every project is a package
 
@@ -29,7 +29,7 @@ convention is all lowercase and dashes for word separation.
 ## Platform packages
 
 Composer has platform packages, which are virtual packages for things that are
-installed on the system but are not actually installable by composer. This
+installed on the system but are not actually installable by Composer. This
 includes PHP itself, PHP extensions and some system libraries.
 
 * `php` represents the PHP version of the user, allowing you to apply
@@ -69,8 +69,9 @@ you can just add a `version` field:
 ### Tags
 
 For every tag that looks like a version, a package version of that tag will be
-created. It should match 'X.Y.Z' or 'vX.Y.Z', with an optional suffix for RC,
-beta, alpha or patch.
+created. It should match 'X.Y.Z' or 'vX.Y.Z', with an optional suffix
+of `-patch`, `-alpha`, `-beta` or `-RC`. The suffixes can also be followed by
+a number.
 
 Here are a few examples of valid tag names:
 
@@ -80,6 +81,10 @@ Here are a few examples of valid tag names:
     v4.4.4beta2
     v2.0.0-alpha
     v2.0.4-p1
+
+> **Note:** Even if your tag is prefixed with `v`, a [version constraint](01-basic-usage.md#package-versions)
+> in a `require` statement has to be specified without prefix
+> (e.g. tag `v1.0.0` will result in version `1.0.0`). 
 
 ### Branches
 
@@ -97,7 +102,9 @@ Here are some examples of version branch names:
     1.0 (equals 1.0.x)
     1.1.x
 
-> **Note:** When you install a dev version, it will install it from source.
+> **Note:** When you install a development version, it will be automatically
+> pulled from its `source`. See the [`install`](03-cli.md#install) command
+> for more details.
 
 ### Aliases
 
@@ -161,7 +168,7 @@ We do this by adding a package repository specification to the blog's
 For more details on how package repositories work and what other types are
 available, see [Repositories](05-repositories.md).
 
-That's all. You can now install the dependencies by running composer's
+That's all. You can now install the dependencies by running Composer's
 `install` command!
 
 **Recap:** Any git/svn/hg repository containing a `composer.json` can be added
@@ -177,8 +184,8 @@ The other thing that you may have noticed is that we did not specify a package
 repository for `monolog/monolog`. How did that work? The answer is packagist.
 
 [Packagist](https://packagist.org/) is the main package repository for
-composer, and it is enabled by default. Anything that is published on
-packagist is available automatically through composer. Since monolog
+Composer, and it is enabled by default. Anything that is published on
+packagist is available automatically through Composer. Since monolog
 [is on packagist](https://packagist.org/packages/monolog/monolog), we can depend
 on it without having to specify any additional repositories.
 

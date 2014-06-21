@@ -50,10 +50,12 @@ Required for published packages (libraries).
 
 ### version
 
-The version of the package.
+The version of the package. In most cases this is not required and should
+be omitted (see below).
 
-This must follow the format of `X.Y.Z` with an optional suffix of `-dev`,
-`-alphaN`, `-betaN` or `-RCN`.
+This must follow the format of `X.Y.Z` or `vX.Y.Z` with an optional suffix
+of `-dev`, `-patch`, `-alpha`, `-beta` or `-RC`. The patch, alpha, beta and
+RC suffixes can also be followed by a number.
 
 Examples:
 
@@ -84,7 +86,7 @@ that needs some special logic, you can define a custom type. This could be a
 all be specific to certain projects, and they will need to provide an
 installer capable of installing packages of that type.
 
-Out of the box, composer supports three types:
+Out of the box, composer supports four types:
 
 - **library:** This is the default. It will simply copy the files to `vendor`.
 - **project:** This denotes a project rather than a library. For example
@@ -97,7 +99,7 @@ Out of the box, composer supports three types:
   their installation, but contains no files and will not write anything to the
   filesystem. As such, it does not require a dist or source key to be
   installable.
-- **composer-installer:** A package of type `composer-installer` provides an
+- **composer-plugin:** A package of type `composer-plugin` may provide an
   installer for other packages that have a custom type. Read more in the
   [dedicated article](articles/custom-installers.md).
 
@@ -261,7 +263,7 @@ All links are optional fields.
 These allow you to further restrict or expand the stability of a package beyond
 the scope of the [minimum-stability](#minimum-stability) setting. You can apply
 them to a constraint, or just apply them to an empty constraint if you want to
-allow unstable packages of a dependency's dependency for example.
+allow unstable packages of a dependency for example.
 
 Example:
 
@@ -272,13 +274,22 @@ Example:
         }
     }
 
+If one of your dependencies has a dependency on an unstable package you need to
+explicitly require it as well, along with its sufficient stability flag.
+
+Example:
+
+    {
+        "require": {
+            "doctrine/doctrine-fixtures-bundle": "dev-master",
+            "doctrine/data-fixtures": "@dev"
+        }
+    }
+
 `require` and `require-dev` additionally support explicit references (i.e.
 commit) for dev versions to make sure they are locked to a given state, even
 when you run update. These only work if you explicitly require a dev version
-and append the reference with `#<ref>`. Note that while this is convenient at
-times, it should not really be how you use packages in the long term. You
-should always try to switch to tagged releases as soon as you can, especially
-if the project you work on will not be touched for a while.
+and append the reference with `#<ref>`.
 
 Example:
 
@@ -289,8 +300,15 @@ Example:
         }
     }
 
-It is possible to inline-alias a package constraint so that it matches a
-constraint that it otherwise would not. For more information [see the
+> **Note:** While this is convenient at times, it should not be how you use
+> packages in the long term because it comes with a technical limitation. The
+> composer.json metadata will still be read from the branch name you specify
+> before the hash. Because of that in some cases it will not be a practical
+> workaround, and you should always try to switch to tagged releases as soon
+> as you can.
+
+It is also possible to inline-alias a package constraint so that it matches
+a constraint that it otherwise would not. For more information [see the
 aliases article](articles/aliases.md).
 
 #### require
@@ -301,13 +319,19 @@ unless those requirements can be met.
 #### require-dev <span>(root-only)</span>
 
 Lists packages required for developing this package, or running
-tests, etc. The dev requirements of the root package only will be installed
-if `install` is run with `--dev` or if `update` is run without `--no-dev`.
+tests, etc. The dev requirements of the root package are installed by default.
+Both `install` or `update` support the `--no-dev` option that prevents dev
+dependencies from being installed.
 
 #### conflict
 
 Lists packages that conflict with this version of this package. They
 will not be allowed to be installed together with your package.
+
+Note that when specifying ranges like `<1.0, >= 1.1` in a `conflict` link,
+this will state a conflict with all versions that are less than 1.0 *and* equal
+or newer than 1.1 at the same time, which is probably not what you want. You
+probably want to go for `<1.0 | >= 1.1` in this case.
 
 #### replace
 
@@ -356,10 +380,55 @@ Example:
 
 Autoload mapping for a PHP autoloader.
 
-Currently [`PSR-0`](https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-0.md)
-autoloading, `classmap` generation and `files` are supported. PSR-0 is the recommended way though
-since it offers greater flexibility (no need to regenerate the autoloader when you add
-classes).
+Currently [`PSR-0`](http://www.php-fig.org/psr/psr-0/) autoloading,
+[`PSR-4`](http://www.php-fig.org/psr/psr-4/) autoloading, `classmap` generation and
+`files` includes are supported. PSR-4 is the recommended way though since it offers
+greater ease of use (no need to regenerate the autoloader when you add classes).
+
+#### PSR-4
+
+Under the `psr-4` key you define a mapping from namespaces to paths, relative to the
+package root. When autoloading a class like `Foo\\Bar\\Baz` a namespace prefix
+`Foo\\` pointing to a directory `src/` means that the autoloader will look for a
+file named `src/Bar/Baz.php` and include it if present. Note that as opposed to
+the older PSR-0 style, the prefix (`Foo\\`) is **not** present in the file path.
+
+Namespace prefixes must end in `\\` to avoid conflicts between similar prefixes.
+For example `Foo` would match classes in the `FooBar` namespace so the trailing
+backslashes solve the problem: `Foo\\` and `FooBar\\` are distinct.
+
+The PSR-4 references are all combined, during install/update, into a single
+key => value array which may be found in the generated file
+`vendor/composer/autoload_psr4.php`.
+
+Example:
+
+    {
+        "autoload": {
+            "psr-4": {
+                "Monolog\\": "src/",
+                "Vendor\\Namespace\\": "",
+            }
+        }
+    }
+
+If you need to search for a same prefix in multiple directories,
+you can specify them as an array as such:
+
+    {
+        "autoload": {
+            "psr-4": { "Monolog\\": ["src/", "lib/"] }
+        }
+    }
+
+If you want to have a fallback directory where any namespace will be looked for,
+you can use an empty prefix like:
+
+    {
+        "autoload": {
+            "psr-4": { "": "src/" }
+        }
+    }
 
 #### PSR-0
 
@@ -422,7 +491,7 @@ key => value array which may be found in the generated file
 classes in all `.php` and `.inc` files in the given directories/files.
 
 You can use the classmap generation support to define autoloading for all libraries
-that do not follow PSR-0. To configure this you specify all directories or files
+that do not follow PSR-0/4. To configure this you specify all directories or files
 to search for classes.
 
 Example:
@@ -464,6 +533,10 @@ Example:
 Optional.
 
 ### target-dir
+
+> **DEPRECATED**: This is only present to support legacy PSR-0 style autoloading,
+> and all new code should preferably use PSR-4 without target-dir and projects
+> using PSR-0 with PHP namespaces are encouraged to migrate to PSR-4 instead.
 
 Defines the installation target.
 
@@ -509,6 +582,8 @@ When this is enabled, Composer will prefer more stable packages over unstable
 ones when finding compatible stable packages is possible. If you require a
 dev version or only alphas are available for a package, those will still be
 selected granted that the minimum-stability allows for it.
+
+Use `"prefer-stable": true` to enable.
 
 ### repositories <span>(root-only)</span>
 
@@ -601,9 +676,10 @@ The following options are supported:
 * **preferred-install:** Defaults to `auto` and can be any of `source`, `dist` or
   `auto`. This option allows you to set the install method Composer will prefer to
   use.
-* **github-protocols:** Defaults to `["git", "https", "http"]`. A list of
-  protocols to use for github.com clones, in priority order. Use this if you are
-  behind a proxy or have somehow bad performances with the git protocol.
+* **github-protocols:** Defaults to `["git", "https"]`. A list of protocols to
+  use when cloning from github.com, in priority order. You can reconfigure it to
+  prioritize the https protocol if you are behind a proxy or have somehow bad
+  performances with the git protocol.
 * **github-oauth:** A list of domain names and oauth keys. For example using
   `{"github.com": "oauthtoken"}` as the value of this option will use `oauthtoken`
   to access private repositories on github and to circumvent the low IP-based
@@ -629,6 +705,13 @@ The following options are supported:
   dist (zip, tar, ..) packages that it downloads. When the garbage collection
   is periodically ran, this is the maximum size the cache will be able to use.
   Older (less used) files will be removed first until the cache fits.
+* **prepend-autoloader:** Defaults to `true`. If false, the composer autoloader
+  will not be prepended to existing autoloaders. This is sometimes required to fix
+  interoperability issues with other autoloaders.
+* **autoloader-suffix:** Defaults to `null`. String to be used as a suffix for
+  the generated Composer autoloader. When null a random one will be generated.
+* **github-domains:** Defaults to `["github.com"]`. A list of domains to use in
+  github mode. This is used for GitHub Enterprise setups.
 * **notify-on-install:** Defaults to `true`. Composer allows repositories to
   define a notification URL, so that they get notified whenever a package from
   that repository is installed. This option allows you to disable that behaviour.

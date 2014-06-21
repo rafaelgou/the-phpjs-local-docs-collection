@@ -442,6 +442,14 @@ Here is an example for the smarty template engine:
 
 Typically you would leave the source part off, as you don't really need it.
 
+> **Note**: This repository type has a few limitations and should be avoided
+> whenever possible:
+>
+> - Composer will not update the package unless you change the `version` field.
+> - Composer will not update the commit references, so if you use `master` as
+>   reference you will have to delete the package to force an update, and will
+>   have to deal with an unstable lock file.
+
 ## Hosting your own
 
 While you will probably want to put your packages on packagist most of the time,
@@ -455,8 +463,8 @@ there are some use cases for hosting your own repository.
   might want to keep them separate to packagist. An example of this would be
   wordpress plugins.
 
-When hosting your own package repository it is recommended to use a `composer`
-one. This is type that is native to composer and yields the best performance.
+For hosting your own packages, a native `composer` type of repository is 
+recommended, which provides the best performance.
 
 There are a few tools that can help you create a `composer` repository.
 
@@ -515,7 +523,7 @@ private packages:
 
 Each zip artifact is just a ZIP archive with `composer.json` in root folder:
 
-    $ tar -tf acme-corp-parser-10.3.5.zip
+    $ unzip -l acme-corp-parser-10.3.5.zip
     composer.json
     ...
 

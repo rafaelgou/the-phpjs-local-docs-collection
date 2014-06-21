@@ -19,9 +19,9 @@ The problem that Composer solves is this:
 
 a) You have a project that depends on a number of libraries.
 
-b) Some of those libraries depend on other libraries .
+b) Some of those libraries depend on other libraries.
 
-c) You declare the things you depend on
+c) You declare the things you depend on.
 
 d) Composer finds out which versions of which packages need to be installed, and
    installs them (meaning it downloads them into your project).
@@ -91,6 +91,18 @@ You can run these commands to easily access `composer` from anywhere on your sys
 
 Then, just run `composer` in order to run Composer instead of `php composer.phar`.
 
+#### Globally (on OSX via homebrew)
+
+Composer is part of the homebrew-php project.
+
+1. Tap the homebrew-php repository into your brew installation if you haven't done
+   so yet: `brew tap josegonzalez/homebrew-php`
+2. Run `brew install josegonzalez/php/composer`.
+3. Use Composer with the `composer` command.
+
+> **Note:** If you receive an error saying PHP53 or higher is missing use this command to install php 
+> `brew install php53-intl`
+
 ## Installation - Windows
 
 ### Using the Installer
@@ -108,10 +120,10 @@ composer.phar:
 
     C:\Users\username>cd C:\bin
     C:\bin>php -r "eval('?>'.file_get_contents('https://getcomposer.org/installer'));"
-    
+
 > **Note:** If the above fails due to file_get_contents, use the `http` url or enable php_openssl.dll in php.ini
 
-Create a new `.bat` file alongside composer:
+Create a new `composer.bat` file alongside `composer.phar`:
 
     C:\bin>echo @php "%~dp0composer.phar" %*>composer.bat
 
