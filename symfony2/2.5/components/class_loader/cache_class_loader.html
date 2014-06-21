@@ -1,0 +1,179 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Cache a Class Loader &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="ClassLoader" href="index.html" />
+    <link rel="next" title="Debugging a Class Loader" href="debug_class_loader.html" />
+    <link rel="prev" title="MapClassLoader" href="map_class_loader.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="debug_class_loader.html" title="Debugging a Class Loader"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="map_class_loader.html" title="MapClassLoader"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">ClassLoader</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="cache-a-class-loader">
+<span id="index-0"></span><h1>Cache a Class Loader<a class="headerlink" href="#cache-a-class-loader" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>Finding the file for a particular class can be an expensive task. Luckily,
+the ClassLoader component comes with two classes to cache the mapping
+from a class to its containing file. Both the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ClassLoader/ApcClassLoader.html" title="Symfony\Component\ClassLoader\ApcClassLoader"><span class="pre">ApcClassLoader</span></a></tt>
+and the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ClassLoader/XcacheClassLoader.html" title="Symfony\Component\ClassLoader\XcacheClassLoader"><span class="pre">XcacheClassLoader</span></a></tt> wrap
+around an object which implements a <tt class="docutils literal"><span class="pre">findFile()</span></tt> method to find the file
+for a class.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Both the <tt class="docutils literal"><span class="pre">ApcClassLoader</span></tt> and the <tt class="docutils literal"><span class="pre">XcacheClassLoader</span></tt> can be used
+to cache Composer&#8217;s <a class="reference external" href="http://getcomposer.org/doc/01-basic-usage.md#autoloading">autoloader</a>.</p>
+</div>
+</div>
+<div class="section" id="apcclassloader">
+<h2>ApcClassLoader<a class="headerlink" href="#apcclassloader" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">ApcClassLoader</span></tt> wraps an existing class loader and caches calls to its
+<tt class="docutils literal"><span class="pre">findFile()</span></tt> method using <a class="reference external" href="http://php.net/manual/en/book.apc.php">APC</a>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">require_once</span> <span class="s1">&#39;/path/to/src/Symfony/Component/ClassLoader/ApcClassLoader.php&#39;</span><span class="p">;</span>
+
+<span class="c1">// instance of a class that implements a findFile() method, like the ClassLoader</span>
+<span class="nv">$loader</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+<span class="c1">// sha1(__FILE__) generates an APC namespace prefix</span>
+<span class="nv">$cachedLoader</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ApcClassLoader</span><span class="p">(</span><span class="nb">sha1</span><span class="p">(</span><span class="k">__FILE__</span><span class="p">),</span> <span class="nv">$loader</span><span class="p">);</span>
+
+<span class="c1">// register the cached class loader</span>
+<span class="nv">$cachedLoader</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">();</span>
+
+<span class="c1">// deactivate the original, non-cached loader if it was registered previously</span>
+<span class="nv">$loader</span><span class="o">-&gt;</span><span class="na">unregister</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="xcacheclassloader">
+<h2>XcacheClassLoader<a class="headerlink" href="#xcacheclassloader" title="Permalink to this headline">¶</a></h2>
+<p><tt class="docutils literal"><span class="pre">XcacheClassLoader</span></tt> uses <a class="reference external" href="http://xcache.lighttpd.net">XCache</a> to cache a class loader. Registering
+it is straightforward:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">require_once</span> <span class="s1">&#39;/path/to/src/Symfony/Component/ClassLoader/XcacheClassLoader.php&#39;</span><span class="p">;</span>
+
+<span class="c1">// instance of a class that implements a findFile() method, like the ClassLoader</span>
+<span class="nv">$loader</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+<span class="c1">// sha1(__FILE__) generates an XCache namespace prefix</span>
+<span class="nv">$cachedLoader</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">XcacheClassLoader</span><span class="p">(</span><span class="nb">sha1</span><span class="p">(</span><span class="k">__FILE__</span><span class="p">),</span> <span class="nv">$loader</span><span class="p">);</span>
+
+<span class="c1">// register the cached class loader</span>
+<span class="nv">$cachedLoader</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">();</span>
+
+<span class="c1">// deactivate the original, non-cached loader if it was registered previously</span>
+<span class="nv">$loader</span><span class="o">-&gt;</span><span class="na">unregister</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Cache a Class Loader</a><ul>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#apcclassloader">ApcClassLoader</a></li>
+<li><a class="reference internal" href="#xcacheclassloader">XcacheClassLoader</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="map_class_loader.html"
+                        title="previous chapter">MapClassLoader</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="debug_class_loader.html"
+                        title="next chapter">Debugging a Class Loader</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/class_loader/cache_class_loader.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="debug_class_loader.html" title="Debugging a Class Loader"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="map_class_loader.html" title="MapClassLoader"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >ClassLoader</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

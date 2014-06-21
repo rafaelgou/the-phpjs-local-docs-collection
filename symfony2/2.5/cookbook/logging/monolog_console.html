@@ -1,0 +1,298 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Configure Monolog to Display Console Messages &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Logging" href="index.html" />
+    <link rel="next" title="How to Configure Monolog to Exclude 404 Errors from the Log" href="monolog_regex_based_excludes.html" />
+    <link rel="prev" title="How to Configure Monolog to Email Errors" href="monolog_email.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="monolog_regex_based_excludes.html" title="How to Configure Monolog to Exclude 404 Errors from the Log"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="monolog_email.html" title="How to Configure Monolog to Email Errors"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Logging</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-configure-monolog-to-display-console-messages">
+<span id="index-0"></span><h1>How to Configure Monolog to Display Console Messages<a class="headerlink" href="#how-to-configure-monolog-to-display-console-messages" title="Permalink to this headline">¶</a></h1>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.4: </span>This feature was introduced to the MonologBridge in Symfony 2.4.</p>
+</div>
+<p>It is possible to use the console to print messages for certain
+<a class="reference internal" href="../../components/console/introduction.html#verbosity-levels"><em>verbosity levels</em></a> using the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Output/OutputInterface.html" title="Symfony\Component\Console\Output\OutputInterface"><span class="pre">OutputInterface</span></a></tt> instance that
+is passed when a command gets executed.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">Alternatively, you can use the
+<a class="reference internal" href="../../components/console/logger.html"><em>standalone PSR-3 logger</em></a> provided with
+the console component.</p>
+</div>
+<p>When a lot of logging has to happen, it&#8217;s cumbersome to print information
+depending on the verbosity settings (<tt class="docutils literal"><span class="pre">-v</span></tt>, <tt class="docutils literal"><span class="pre">-vv</span></tt>, <tt class="docutils literal"><span class="pre">-vvv</span></tt>) because the
+calls need to be wrapped in conditions. The code quickly gets verbose or dirty.
+For example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\Console\Input\InputInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Console\Output\OutputInterface</span><span class="p">;</span>
+
+<span class="k">protected</span> <span class="k">function</span> <span class="nf">execute</span><span class="p">(</span><span class="nx">InputInterface</span> <span class="nv">$input</span><span class="p">,</span> <span class="nx">OutputInterface</span> <span class="nv">$output</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$output</span><span class="o">-&gt;</span><span class="na">getVerbosity</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="nx">OutputInterface</span><span class="o">::</span><span class="na">VERBOSITY_DEBUG</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$output</span><span class="o">-&gt;</span><span class="na">writeln</span><span class="p">(</span><span class="s1">&#39;Some info&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nv">$output</span><span class="o">-&gt;</span><span class="na">getVerbosity</span><span class="p">()</span> <span class="o">&gt;=</span> <span class="nx">OutputInterface</span><span class="o">::</span><span class="na">VERBOSITY_VERBOSE</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$output</span><span class="o">-&gt;</span><span class="na">writeln</span><span class="p">(</span><span class="s1">&#39;Some more info&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Instead of using these semantic methods to test for each of the verbosity
+levels, the <a class="reference external" href="https://github.com/symfony/MonologBridge">MonologBridge</a> provides a <a class="reference external" href="https://github.com/symfony/MonologBridge/blob/master/Handler/ConsoleHandler.php">ConsoleHandler</a> that listens to
+console events and writes log messages to the console output depending on the
+current log level and the console verbosity.</p>
+<p>The example above could then be rewritten as:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\Console\Input\InputInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Console\Output\OutputInterface</span><span class="p">;</span>
+
+<span class="k">protected</span> <span class="k">function</span> <span class="nf">execute</span><span class="p">(</span><span class="nx">InputInterface</span> <span class="nv">$input</span><span class="p">,</span> <span class="nx">OutputInterface</span> <span class="nv">$output</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// assuming the Command extends ContainerAwareCommand...</span>
+    <span class="nv">$logger</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getContainer</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;logger&#39;</span><span class="p">);</span>
+    <span class="nv">$logger</span><span class="o">-&gt;</span><span class="na">debug</span><span class="p">(</span><span class="s1">&#39;Some info&#39;</span><span class="p">);</span>
+
+    <span class="nv">$logger</span><span class="o">-&gt;</span><span class="na">notice</span><span class="p">(</span><span class="s1">&#39;Some more info&#39;</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Depending on the verbosity level that the command is run in and the user&#8217;s
+configuration (see below), these messages may or may not be displayed to
+the console. If they are displayed, they are timestamped and colored appropriately.
+Additionally, error logs are written to the error output (php://stderr).
+There is no need to conditionally handle the verbosity settings anymore.</p>
+<p>The Monolog console handler is enabled in the Monolog configuration. This is
+the default in Symfony Standard Edition 2.4 too.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">monolog</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">handlers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">console</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">console</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:monolog=</span><span class="s">&quot;http://symfony.com/schema/dic/monolog&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;monolog:config&gt;</span>
+        <span class="nt">&lt;monolog:handler</span> <span class="na">name=</span><span class="s">&quot;console&quot;</span> <span class="na">type=</span><span class="s">&quot;console&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/monolog:config&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;monolog&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;handlers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;console&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+           <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;console&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>With the <tt class="docutils literal"><span class="pre">verbosity_levels</span></tt> option you can adapt the mapping between
+verbosity and log level. In the given example it will also show notices in
+normal verbosity mode (instead of warnings only). Additionally, it will only
+use messages logged with the custom <tt class="docutils literal"><span class="pre">my_channel</span></tt> channel and it changes the
+display style via a custom formatter (see the
+<a class="reference internal" href="../../reference/configuration/monolog.html"><em>MonologBundle reference</em></a> for more
+information):</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">monolog</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">handlers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">console</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span>   <span class="l-Scalar-Plain">console</span>
+            <span class="l-Scalar-Plain">verbosity_levels</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">VERBOSITY_NORMAL</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">NOTICE</span>
+            <span class="l-Scalar-Plain">channels</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">my_channel</span>
+            <span class="l-Scalar-Plain">formatter</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">my_formatter</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:monolog=</span><span class="s">&quot;http://symfony.com/schema/dic/monolog&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;monolog:config&gt;</span>
+        <span class="nt">&lt;monolog:handler</span> <span class="na">name=</span><span class="s">&quot;console&quot;</span> <span class="na">type=</span><span class="s">&quot;console&quot;</span> <span class="na">formatter=</span><span class="s">&quot;my_formatter&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;monolog:verbosity-level</span> <span class="na">verbosity-normal=</span><span class="s">&quot;NOTICE&quot;</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;monolog:channel&gt;</span>my_channel<span class="nt">&lt;/monolog:channel&gt;</span>
+        <span class="nt">&lt;/monolog:handler&gt;</span>
+    <span class="nt">&lt;/monolog:config&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;monolog&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;handlers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;console&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;type&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;console&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;verbosity_levels&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;VERBOSITY_NORMAL&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;NOTICE&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="s1">&#39;channels&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;my_channel&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;formatter&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;my_formatter&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_formatter</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Symfony\Bridge\Monolog\Formatter\ConsoleFormatter</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="s">&quot;[%%datetime%%]</span><span class="nv"> </span><span class="s">%%start_tag%%%%message%%%%end_tag%%</span><span class="nv"> </span><span class="s">(%%level_name%%)</span><span class="nv"> </span><span class="s">%%context%%</span><span class="nv"> </span><span class="s">%%extra%%\n&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/services.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+           <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+           <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+     <span class="nt">&lt;services&gt;</span>
+        <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_formatter&quot;</span> <span class="na">class=</span><span class="s">&quot;Symfony\Bridge\Monolog\Formatter\ConsoleFormatter&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;argument&gt;</span>[%%datetime%%] %%start_tag%%%%message%%%%end_tag%% (%%level_name%%) %%context%% %%extra%%\n<span class="nt">&lt;/argument&gt;</span>
+        <span class="nt">&lt;/service&gt;</span>
+     <span class="nt">&lt;/services&gt;</span>
+
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/services.php</span>
+<span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;my_formatter&#39;</span><span class="p">,</span> <span class="s1">&#39;Symfony\Bridge\Monolog\Formatter\ConsoleFormatter&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addArgument</span><span class="p">(</span><span class="s1">&#39;[%%datetime%%] %%start_tag%%%%message%%%%end_tag%% (%%level_name%%) %%context%% %%extra%%\n&#39;</span><span class="p">)</span>
+<span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="monolog_email.html"
+                        title="previous chapter">How to Configure Monolog to Email Errors</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="monolog_regex_based_excludes.html"
+                        title="next chapter">How to Configure Monolog to Exclude 404 Errors from the Log</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/logging/monolog_console.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="monolog_regex_based_excludes.html" title="How to Configure Monolog to Exclude 404 Errors from the Log"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="monolog_email.html" title="How to Configure Monolog to Email Errors"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Logging</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

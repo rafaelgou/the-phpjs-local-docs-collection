@@ -1,0 +1,201 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Redirect URLs with a Trailing Slash &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Routing" href="index.html" />
+    <link rel="next" title="Security" href="../security/index.html" />
+    <link rel="prev" title="How to create a custom Route Loader" href="custom_route_loader.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../security/index.html" title="Security"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="custom_route_loader.html" title="How to create a custom Route Loader"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Routing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="redirect-urls-with-a-trailing-slash">
+<span id="index-0"></span><h1>Redirect URLs with a Trailing Slash<a class="headerlink" href="#redirect-urls-with-a-trailing-slash" title="Permalink to this headline">¶</a></h1>
+<p>The goal of this cookbook is to demonstrate how to redirect URLs with a
+trailing slash to the same URL without a trailing slash
+(for example <tt class="docutils literal"><span class="pre">/en/blog/</span></tt> to <tt class="docutils literal"><span class="pre">/en/blog</span></tt>).</p>
+<p>Create a controller that will match any URL with a trailing slash, remove
+the trailing slash (keeping query parameters if any) and redirect to the
+new URL with a 301 response status code:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Controller/RedirectingController.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\DemoBundle\Controller</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Bundle\FrameworkBundle\Controller\Controller</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">RedirectingController</span> <span class="k">extends</span> <span class="nx">Controller</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">removeTrailingSlashAction</span><span class="p">(</span><span class="nx">Request</span> <span class="nv">$request</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$pathInfo</span> <span class="o">=</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getPathInfo</span><span class="p">();</span>
+        <span class="nv">$requestUri</span> <span class="o">=</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getRequestUri</span><span class="p">();</span>
+
+        <span class="nv">$url</span> <span class="o">=</span> <span class="nb">str_replace</span><span class="p">(</span><span class="nv">$pathInfo</span><span class="p">,</span> <span class="nb">rtrim</span><span class="p">(</span><span class="nv">$pathInfo</span><span class="p">,</span> <span class="s1">&#39; /&#39;</span><span class="p">),</span> <span class="nv">$requestUri</span><span class="p">);</span>
+
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">redirect</span><span class="p">(</span><span class="nv">$url</span><span class="p">,</span> <span class="mi">301</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>After that, create a route to this controller that&#8217;s matched whenever a URL
+with a trailing slash is requested. Be sure to put this route last in your
+system, as explained below:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">remove_trailing_slash</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">path</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/{url}</span>
+    <span class="l-Scalar-Plain">defaults</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">_controller</span><span class="p-Indicator">:</span> <span class="nv">AcmeDemoBundle</span><span class="p-Indicator">:</span><span class="nv">Redirecting</span><span class="p-Indicator">:</span><span class="nv">removeTrailingSlash</span> <span class="p-Indicator">}</span>
+    <span class="l-Scalar-Plain">requirements</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">url</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">.*/$</span>
+        <span class="l-Scalar-Plain">_method</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">GET</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;routes</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/routing&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;route</span> <span class="na">id=</span><span class="s">&quot;remove_trailing_slash&quot;</span> <span class="na">path=</span><span class="s">&quot;/{url}&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;default</span> <span class="na">key=</span><span class="s">&quot;_controller&quot;</span><span class="nt">&gt;</span>AcmeDemoBundle:Redirecting:removeTrailingSlash<span class="nt">&lt;/default&gt;</span>
+        <span class="nt">&lt;requirement</span> <span class="na">key=</span><span class="s">&quot;url&quot;</span><span class="nt">&gt;</span>.*/$<span class="nt">&lt;/requirement&gt;</span>
+        <span class="nt">&lt;requirement</span> <span class="na">key=</span><span class="s">&quot;_method&quot;</span><span class="nt">&gt;</span>GET<span class="nt">&lt;/requirement&gt;</span>
+    <span class="nt">&lt;/route&gt;</span>
+<span class="nt">&lt;/routes&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\Routing\RouteCollection</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\Route</span><span class="p">;</span>
+
+<span class="nv">$collection</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">RouteCollection</span><span class="p">();</span>
+<span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">add</span><span class="p">(</span>
+    <span class="s1">&#39;remove_trailing_slash&#39;</span><span class="p">,</span>
+    <span class="k">new</span> <span class="nx">Route</span><span class="p">(</span>
+        <span class="s1">&#39;/{url}&#39;</span><span class="p">,</span>
+        <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;_controller&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;AcmeDemoBundle:Redirecting:removeTrailingSlash&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;url&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;.*/$&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;_method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;GET&#39;</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Redirecting a POST request does not work well in old browsers. A 302
+on a POST request would send a GET request after the redirection for legacy
+reasons. For that reason, the route here only matches GET requests.</p>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Make sure to include this route in your routing configuration at the
+very end of your route listing. Otherwise, you risk redirecting real
+routes (including Symfony2 core routes) that actually <em>do</em> have a trailing
+slash in their path.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="custom_route_loader.html"
+                        title="previous chapter">How to create a custom Route Loader</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../security/index.html"
+                        title="next chapter">Security</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/routing/redirect_trailing_slash.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../security/index.html" title="Security"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="custom_route_loader.html" title="How to create a custom Route Loader"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Routing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

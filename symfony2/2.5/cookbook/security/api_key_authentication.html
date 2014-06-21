@@ -1,0 +1,687 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Authenticate Users with API Keys &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Security" href="index.html" />
+    <link rel="next" title="How to create a custom Authentication Provider" href="custom_authentication_provider.html" />
+    <link rel="prev" title="How to Create a Custom Form Password Authenticator" href="custom_password_authenticator.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="custom_authentication_provider.html" title="How to create a custom Authentication Provider"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="custom_password_authenticator.html" title="How to Create a Custom Form Password Authenticator"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Security</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-authenticate-users-with-api-keys">
+<span id="index-0"></span><h1>How to Authenticate Users with API Keys<a class="headerlink" href="#how-to-authenticate-users-with-api-keys" title="Permalink to this headline">¶</a></h1>
+<p>Nowadays, it&#8217;s quite usual to authenticate the user via an API key (when developing
+a web service for instance). The API key is provided for every request and is
+passed as a query string parameter or via an HTTP header.</p>
+<div class="section" id="the-api-key-authenticator">
+<h2>The API Key Authenticator<a class="headerlink" href="#the-api-key-authenticator" title="Permalink to this headline">¶</a></h2>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.4: </span>The <tt class="docutils literal"><span class="pre">SimplePreAuthenticatorInterface</span></tt> interface was introduced in Symfony 2.4.</p>
+</div>
+<p>Authenticating a user based on the Request information should be done via a
+pre-authentication mechanism. The <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authentication/SimplePreAuthenticatorInterface.html" title="Symfony\Component\Security\Core\Authentication\SimplePreAuthenticatorInterface"><span class="pre">SimplePreAuthenticatorInterface</span></a></tt>
+allows you to implement such a scheme really easily.</p>
+<p>Your exact situation may differ, but in this example, a token is read
+from an <tt class="docutils literal"><span class="pre">apikey</span></tt> query parameter, the proper username is loaded from that
+value and then a User object is created:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Security/ApiKeyAuthenticator.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\HelloBundle\Security</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Authentication\SimplePreAuthenticatorInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Authentication\Token\TokenInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\AuthenticationException</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Authentication\Token\PreAuthenticatedToken</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserProviderInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\UsernameNotFoundException</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\BadCredentialsException</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ApiKeyAuthenticator</span> <span class="k">implements</span> <span class="nx">SimplePreAuthenticatorInterface</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$userProvider</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">ApiKeyUserProvider</span> <span class="nv">$userProvider</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">userProvider</span> <span class="o">=</span> <span class="nv">$userProvider</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">createToken</span><span class="p">(</span><span class="nx">Request</span> <span class="nv">$request</span><span class="p">,</span> <span class="nv">$providerKey</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$request</span><span class="o">-&gt;</span><span class="na">query</span><span class="o">-&gt;</span><span class="na">has</span><span class="p">(</span><span class="s1">&#39;apikey&#39;</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nx">BadCredentialsException</span><span class="p">(</span><span class="s1">&#39;No API key found&#39;</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">PreAuthenticatedToken</span><span class="p">(</span>
+            <span class="s1">&#39;anon.&#39;</span><span class="p">,</span>
+            <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">query</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;apikey&#39;</span><span class="p">),</span>
+            <span class="nv">$providerKey</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">authenticateToken</span><span class="p">(</span><span class="nx">TokenInterface</span> <span class="nv">$token</span><span class="p">,</span> <span class="nx">UserProviderInterface</span> <span class="nv">$userProvider</span><span class="p">,</span> <span class="nv">$providerKey</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$apiKey</span> <span class="o">=</span> <span class="nv">$token</span><span class="o">-&gt;</span><span class="na">getCredentials</span><span class="p">();</span>
+        <span class="nv">$username</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">userProvider</span><span class="o">-&gt;</span><span class="na">getUsernameForApiKey</span><span class="p">(</span><span class="nv">$apiKey</span><span class="p">);</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$username</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nx">AuthenticationException</span><span class="p">(</span>
+                <span class="nb">sprintf</span><span class="p">(</span><span class="s1">&#39;API Key &quot;%s&quot; does not exist.&#39;</span><span class="p">,</span> <span class="nv">$apiKey</span><span class="p">)</span>
+            <span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="nv">$user</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">userProvider</span><span class="o">-&gt;</span><span class="na">loadUserByUsername</span><span class="p">(</span><span class="nv">$username</span><span class="p">);</span>
+
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">PreAuthenticatedToken</span><span class="p">(</span>
+            <span class="nv">$user</span><span class="p">,</span>
+            <span class="nv">$apiKey</span><span class="p">,</span>
+            <span class="nv">$providerKey</span><span class="p">,</span>
+            <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getRoles</span><span class="p">()</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">supportsToken</span><span class="p">(</span><span class="nx">TokenInterface</span> <span class="nv">$token</span><span class="p">,</span> <span class="nv">$providerKey</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$token</span> <span class="nx">instanceof</span> <span class="nx">PreAuthenticatedToken</span> <span class="o">&amp;&amp;</span> <span class="nv">$token</span><span class="o">-&gt;</span><span class="na">getProviderKey</span><span class="p">()</span> <span class="o">===</span> <span class="nv">$providerKey</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Once you&#8217;ve <a class="reference internal" href="#cookbook-security-api-key-config"><em>configured</em></a> everything,
+you&#8217;ll be able to authenticate by adding an apikey parameter to the query
+string, like <tt class="docutils literal"><span class="pre">http://example.com/admin/foo?apikey=37b51d194a7513e45b56f6524f2d51f2</span></tt>.</p>
+<p>The authentication process has several steps, and your implementation will
+probably differ:</p>
+<div class="section" id="createtoken">
+<h3>1. createToken<a class="headerlink" href="#createtoken" title="Permalink to this headline">¶</a></h3>
+<p>Early in the request cycle, Symfony calls <tt class="docutils literal"><span class="pre">createToken()</span></tt>. Your job here
+is to create a token object that contains all of the information from the
+request that you need to authenticate the user (e.g. the <tt class="docutils literal"><span class="pre">apikey</span></tt> query
+parameter). If that information is missing, throwing a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Exception/BadCredentialsException.html" title="Symfony\Component\Security\Core\Exception\BadCredentialsException"><span class="pre">BadCredentialsException</span></a></tt>
+will cause authentication to fail.</p>
+</div>
+<div class="section" id="supportstoken">
+<h3>2. supportsToken<a class="headerlink" href="#supportstoken" title="Permalink to this headline">¶</a></h3>
+<p>After Symfony calls <tt class="docutils literal"><span class="pre">createToken()</span></tt>, it will then call <tt class="docutils literal"><span class="pre">supportsToken()</span></tt>
+on your class (and any other authentication listeners) to figure out who should
+handle the token. This is just a way to allow several authentication mechanisms
+to be used for the same firewall (that way, you can for instance first try
+to authenticate the user via a certificate or an API key and fall back to
+a form login).</p>
+<p>Mostly, you just need to make sure that this method returns <tt class="docutils literal"><span class="pre">true</span></tt> for a
+token that has been created by <tt class="docutils literal"><span class="pre">createToken()</span></tt>. Your logic should probably
+look exactly like this example.</p>
+</div>
+<div class="section" id="authenticatetoken">
+<h3>3. authenticateToken<a class="headerlink" href="#authenticatetoken" title="Permalink to this headline">¶</a></h3>
+<p>If <tt class="docutils literal"><span class="pre">supportsToken()</span></tt> returns <tt class="docutils literal"><span class="pre">true</span></tt>, Symfony will now call <tt class="docutils literal"><span class="pre">authenticateToken()</span></tt>.
+One key part is the <tt class="docutils literal"><span class="pre">$userProvider</span></tt>, which is an external class that helps
+you load information about the user. You&#8217;ll learn more about this next.</p>
+<p>In this specific example, the following things happen in <tt class="docutils literal"><span class="pre">authenticateToken()</span></tt>:</p>
+<ol class="arabic simple">
+<li>First, you use the <tt class="docutils literal"><span class="pre">$userProvider</span></tt> to somehow look up the <tt class="docutils literal"><span class="pre">$username</span></tt> that
+corresponds to the <tt class="docutils literal"><span class="pre">$apiKey</span></tt>;</li>
+<li>Second, you use the <tt class="docutils literal"><span class="pre">$userProvider</span></tt> again to load or create a <tt class="docutils literal"><span class="pre">User</span></tt>
+object for the <tt class="docutils literal"><span class="pre">$username</span></tt>;</li>
+<li>Finally, you create an <em>authenticated token</em> (i.e. a token with at least one
+role) that has the proper roles and the User object attached to it.</li>
+</ol>
+<p>The goal is ultimately to use the <tt class="docutils literal"><span class="pre">$apiKey</span></tt> to find or create a <tt class="docutils literal"><span class="pre">User</span></tt>
+object. <em>How</em> you do this (e.g. query a database) and the exact class for
+your <tt class="docutils literal"><span class="pre">User</span></tt> object may vary. Those differences will be most obvious in your
+user provider.</p>
+</div>
+<div class="section" id="the-user-provider">
+<h3>The User Provider<a class="headerlink" href="#the-user-provider" title="Permalink to this headline">¶</a></h3>
+<p>The <tt class="docutils literal"><span class="pre">$userProvider</span></tt> can be any user provider (see <a class="reference internal" href="custom_provider.html"><em>How to create a custom User Provider</em></a>).
+In this example, the <tt class="docutils literal"><span class="pre">$apiKey</span></tt> is used to somehow find the username for
+the user. This work is done in a <tt class="docutils literal"><span class="pre">getUsernameForApiKey()</span></tt> method, which
+is created entirely custom for this use-case (i.e. this isn&#8217;t a method that&#8217;s
+used by Symfony&#8217;s core user provider system).</p>
+<p>The <tt class="docutils literal"><span class="pre">$userProvider</span></tt> might look something like this:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Security/ApiKeyUserProvider.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\HelloBundle\Security</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserProviderInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\User</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\UnsupportedUserException</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ApiKeyUserProvider</span> <span class="k">implements</span> <span class="nx">UserProviderInterface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getUsernameForApiKey</span><span class="p">(</span><span class="nv">$apiKey</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Look up the username based on the token in the database, via</span>
+        <span class="c1">// an API call, or do something entirely different</span>
+        <span class="nv">$username</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+        <span class="k">return</span> <span class="nv">$username</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">loadUserByUsername</span><span class="p">(</span><span class="nv">$username</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">User</span><span class="p">(</span>
+            <span class="nv">$username</span><span class="p">,</span>
+            <span class="k">null</span><span class="p">,</span>
+            <span class="c1">// the roles for the user - you may choose to determine</span>
+            <span class="c1">// these dynamically somehow based on the user</span>
+            <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ROLE_USER&#39;</span><span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">refreshUser</span><span class="p">(</span><span class="nx">UserInterface</span> <span class="nv">$user</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// this is used for storing authentication in the session</span>
+        <span class="c1">// but in this example, the token is sent in each request,</span>
+        <span class="c1">// so authentication can be stateless. Throwing this exception</span>
+        <span class="c1">// is proper to make things stateless</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nx">UnsupportedUserException</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">supportsClass</span><span class="p">(</span><span class="nv">$class</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s1">&#39;Symfony\Component\Security\Core\User\User&#39;</span> <span class="o">===</span> <span class="nv">$class</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Read the dedicated article to learn
+<a class="reference internal" href="custom_provider.html"><em>how to create a custom user provider</em></a>.</p>
+</div>
+<p>The logic inside <tt class="docutils literal"><span class="pre">getUsernameForApiKey()</span></tt> is up to you. You may somehow transform
+the API key (e.g. <tt class="docutils literal"><span class="pre">37b51d</span></tt>) into a username (e.g. <tt class="docutils literal"><span class="pre">jondoe</span></tt>) by looking
+up some information in a &#8220;token&#8221; database table.</p>
+<p>The same is true for <tt class="docutils literal"><span class="pre">loadUserByUsername()</span></tt>. In this example, Symfony&#8217;s core
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/User.html" title="Symfony\Component\Security\Core\User\User"><span class="pre">User</span></a></tt> class is simply created.
+This makes sense if you don&#8217;t need to store any extra information on your
+User object (e.g. <tt class="docutils literal"><span class="pre">firstName</span></tt>). But if you do, you may instead have your <em>own</em>
+user class which you create and populate here by querying a database. This
+would allow you to have custom data on the <tt class="docutils literal"><span class="pre">User</span></tt> object.</p>
+<p>Finally, just make sure that <tt class="docutils literal"><span class="pre">supportsClass()</span></tt> returns <tt class="docutils literal"><span class="pre">true</span></tt> for User
+objects with the same class as whatever user you return in <tt class="docutils literal"><span class="pre">loadUserByUsername()</span></tt>.
+If your authentication is stateless like in this example (i.e. you expect
+the user to send the API key with every request and so you don&#8217;t save the
+login to the session), then you can simply throw the <tt class="docutils literal"><span class="pre">UnsupportedUserException</span></tt>
+exception in <tt class="docutils literal"><span class="pre">refreshUser()</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you <em>do</em> want to store authentication data in the session so that
+the key doesn&#8217;t need to be sent on every request, see <a class="reference internal" href="#cookbook-security-api-key-session"><em>Storing Authentication in the Session</em></a>.</p>
+</div>
+</div>
+</div>
+<div class="section" id="handling-authentication-failure">
+<h2>Handling Authentication Failure<a class="headerlink" href="#handling-authentication-failure" title="Permalink to this headline">¶</a></h2>
+<p>In order for your <tt class="docutils literal"><span class="pre">ApiKeyAuthentication</span></tt> to correctly display a 403
+http status when either bad credentials or authentication fails you will
+need to implement the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/Authentication/AuthenticationFailureHandlerInterface.html" title="Symfony\Component\Security\Http\Authentication\AuthenticationFailureHandlerInterface"><span class="pre">AuthenticationFailureHandlerInterface</span></a></tt> on your
+Authenticator. This will provide a method <tt class="docutils literal"><span class="pre">onAuthenticationFailure</span></tt> which
+you can use to create an error <tt class="docutils literal"><span class="pre">Response</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Security/ApiKeyAuthenticator.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\HelloBundle\Security</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Authentication\SimplePreAuthenticatorInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\AuthenticationException</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Http\Authentication\AuthenticationFailureHandlerInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Response</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ApiKeyAuthenticator</span> <span class="k">implements</span> <span class="nx">SimplePreAuthenticatorInterface</span><span class="p">,</span> <span class="nx">AuthenticationFailureHandlerInterface</span>
+<span class="p">{</span>
+    <span class="c1">//...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">onAuthenticationFailure</span><span class="p">(</span><span class="nx">Request</span> <span class="nv">$request</span><span class="p">,</span> <span class="nx">AuthenticationException</span> <span class="nv">$exception</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">Response</span><span class="p">(</span><span class="s2">&quot;Authentication Failed.&quot;</span><span class="p">,</span> <span class="mi">403</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="configuration">
+<span id="cookbook-security-api-key-config"></span><h2>Configuration<a class="headerlink" href="#configuration" title="Permalink to this headline">¶</a></h2>
+<p>Once you have your <tt class="docutils literal"><span class="pre">ApiKeyAuthentication</span></tt> all setup, you need to register
+it as a service and use it in your security configuration (e.g. <tt class="docutils literal"><span class="pre">security.yml</span></tt>).
+First, register it as a service. This assumes that you have already setup
+your custom user provider as a service called <tt class="docutils literal"><span class="pre">your_api_key_user_provider</span></tt>
+(see <a class="reference internal" href="custom_provider.html"><em>How to create a custom User Provider</em></a>).</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">apikey_authenticator</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">Acme\HelloBundle\Security\ApiKeyAuthenticator</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@your_api_key_user_provider&quot;</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;services&gt;</span>
+        <span class="c">&lt;!-- ... --&gt;</span>
+
+        <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;apikey_authenticator&quot;</span>
+            <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Security\ApiKeyAuthenticator&quot;</span>
+        <span class="nt">&gt;</span>
+            <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;your_api_key_user_provider&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/service&gt;</span>
+    <span class="nt">&lt;/services&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;apikey_authenticator&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;Acme\HelloBundle\Security\ApiKeyAuthenticator&#39;</span><span class="p">,</span>
+    <span class="k">array</span><span class="p">(</span><span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;your_api_key_user_provider&#39;</span><span class="p">))</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now, activate it in the <tt class="docutils literal"><span class="pre">firewalls</span></tt> section of your security configuration
+using the <tt class="docutils literal"><span class="pre">simple_preauth</span></tt> key:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">firewalls</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">secured_area</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">^/admin</span>
+            <span class="l-Scalar-Plain">stateless</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+            <span class="l-Scalar-Plain">simple_preauth</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">authenticator</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">apikey_authenticator</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span class="nt">&lt;srv:container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/security&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xmlns:srv=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;config&gt;</span>
+        <span class="c">&lt;!-- ... --&gt;</span>
+
+        <span class="nt">&lt;firewall</span> <span class="na">name=</span><span class="s">&quot;secured_area&quot;</span>
+            <span class="na">pattern=</span><span class="s">&quot;^/admin&quot;</span>
+            <span class="na">stateless=</span><span class="s">&quot;true&quot;</span>
+        <span class="nt">&gt;</span>
+            <span class="nt">&lt;simple-preauth</span> <span class="na">authenticator=</span><span class="s">&quot;apikey_authenticator&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/firewall&gt;</span>
+    <span class="nt">&lt;/config&gt;</span>
+<span class="nt">&lt;/srv:container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+
+<span class="c1">// ..</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;firewalls&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;secured_area&#39;</span>       <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;pattern&#39;</span>        <span class="o">=&gt;</span> <span class="s1">&#39;^/admin&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;stateless&#39;</span>      <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+            <span class="s1">&#39;simple_preauth&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;authenticator&#39;</span>  <span class="o">=&gt;</span> <span class="s1">&#39;apikey_authenticator&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>That&#8217;s it! Now, your <tt class="docutils literal"><span class="pre">ApiKeyAuthentication</span></tt> should be called at the beginning
+of each request and your authentication process will take place.</p>
+<p>The <tt class="docutils literal"><span class="pre">stateless</span></tt> configuration parameter prevents Symfony from trying to
+store the authentication information in the session, which isn&#8217;t necessary
+since the client will send the <tt class="docutils literal"><span class="pre">apikey</span></tt> on each request. If you <em>do</em> need
+to store authentication in the session, keep reading!</p>
+</div>
+<div class="section" id="storing-authentication-in-the-session">
+<span id="cookbook-security-api-key-session"></span><h2>Storing Authentication in the Session<a class="headerlink" href="#storing-authentication-in-the-session" title="Permalink to this headline">¶</a></h2>
+<p>So far, this entry has described a situation where some sort of authentication
+token is sent on every request. But in some situations (like an OAuth flow),
+the token may be sent on only <em>one</em> request. In this case, you will want to
+authenticate the user and store that authentication in the session so that
+the user is automatically logged in for every subsequent request.</p>
+<p>To make this work, first remove the <tt class="docutils literal"><span class="pre">stateless</span></tt> key from your firewall
+configuration or set it to <tt class="docutils literal"><span class="pre">false</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">firewalls</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">secured_area</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">^/admin</span>
+            <span class="l-Scalar-Plain">stateless</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+            <span class="l-Scalar-Plain">simple_preauth</span><span class="p-Indicator">:</span>
+                <span class="l-Scalar-Plain">authenticator</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">apikey_authenticator</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;</span>
+<span class="nt">&lt;srv:container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/security&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xmlns:srv=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;config&gt;</span>
+        <span class="c">&lt;!-- ... --&gt;</span>
+
+        <span class="nt">&lt;firewall</span> <span class="na">name=</span><span class="s">&quot;secured_area&quot;</span>
+            <span class="na">pattern=</span><span class="s">&quot;^/admin&quot;</span>
+            <span class="na">stateless=</span><span class="s">&quot;false&quot;</span>
+        <span class="nt">&gt;</span>
+            <span class="nt">&lt;simple-preauth</span> <span class="na">authenticator=</span><span class="s">&quot;apikey_authenticator&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/firewall&gt;</span>
+    <span class="nt">&lt;/config&gt;</span>
+<span class="nt">&lt;/srv:container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+
+<span class="c1">// ..</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;firewalls&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;secured_area&#39;</span>       <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;pattern&#39;</span>        <span class="o">=&gt;</span> <span class="s1">&#39;^/admin&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;stateless&#39;</span>      <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+            <span class="s1">&#39;simple_preauth&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+                <span class="s1">&#39;authenticator&#39;</span>  <span class="o">=&gt;</span> <span class="s1">&#39;apikey_authenticator&#39;</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Storing authentication information in the session works like this:</p>
+<ol class="arabic simple">
+<li>At the end of each request, Symfony serializes the token object (returned
+from <tt class="docutils literal"><span class="pre">authenticateToken()</span></tt>), which also serializes the <tt class="docutils literal"><span class="pre">User</span></tt> object
+(since it&#8217;s set on a property on the token);</li>
+<li>On the next request the token is deserialized and the deserialized <tt class="docutils literal"><span class="pre">User</span></tt>
+object is passed to the <tt class="docutils literal"><span class="pre">refreshUser()</span></tt> function of the user provider.</li>
+</ol>
+<p>The second step is the important one: Symfony calls <tt class="docutils literal"><span class="pre">refreshUser()</span></tt> and passes
+you the user object that was serialized in the session. If your users are
+stored in the database, then you may want to re-query for a fresh version
+of the user to make sure it&#8217;s not out-of-date. But regardless of your requirements,
+<tt class="docutils literal"><span class="pre">refreshUser()</span></tt> should now return the User object:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Security/ApiKeyUserProvider.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">class</span> <span class="nc">ApiKeyUserProvider</span> <span class="k">implements</span> <span class="nx">UserProviderInterface</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">refreshUser</span><span class="p">(</span><span class="nx">UserInterface</span> <span class="nv">$user</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// $user is the User that you set in the token inside authenticateToken()</span>
+        <span class="c1">// after it has been deserialized from the session</span>
+
+        <span class="c1">// you might use $user to query the database for a fresh user</span>
+        <span class="c1">// $id = $user-&gt;getId();</span>
+        <span class="c1">// use $id to make a query</span>
+
+        <span class="c1">// if you are *not* reading from a database and are just creating</span>
+        <span class="c1">// a User object (like in this example), you can just return it</span>
+        <span class="k">return</span> <span class="nv">$user</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">You&#8217;ll also want to make sure that your <tt class="docutils literal"><span class="pre">User</span></tt> object is being serialized
+correctly. If your <tt class="docutils literal"><span class="pre">User</span></tt> object has private properties, PHP can&#8217;t serialize
+those. In this case, you may get back a User object that has a <tt class="docutils literal"><span class="pre">null</span></tt>
+value for each property. For an example, see <a class="reference internal" href="entity_provider.html"><em>How to load Security Users from the Database (the Entity Provider)</em></a>.</p>
+</div>
+</div>
+<div class="section" id="only-authenticating-for-certain-urls">
+<h2>Only Authenticating for Certain URLs<a class="headerlink" href="#only-authenticating-for-certain-urls" title="Permalink to this headline">¶</a></h2>
+<p>This entry has assumed that you want to look for the <tt class="docutils literal"><span class="pre">apikey</span></tt> authentication
+on <em>every</em> request. But in some situations (like an OAuth flow), you only
+really need to look for authentication information once the user has reached
+a certain URL (e.g. the redirect URL in OAuth).</p>
+<p>Fortunately, handling this situation is easy: just check to see what the
+current URL is before creating the token in <tt class="docutils literal"><span class="pre">createToken()</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Security/ApiKeyAuthenticator.php</span>
+
+<span class="c1">// ...</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Http\HttpUtils</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ApiKeyAuthenticator</span> <span class="k">implements</span> <span class="nx">SimplePreAuthenticatorInterface</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$userProvider</span><span class="p">;</span>
+
+    <span class="k">protected</span> <span class="nv">$httpUtils</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">ApiKeyUserProviderInterface</span> <span class="nv">$userProvider</span><span class="p">,</span> <span class="nx">HttpUtils</span> <span class="nv">$httpUtils</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">userProvider</span> <span class="o">=</span> <span class="nv">$userProvider</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">httpUtils</span> <span class="o">=</span> <span class="nv">$httpUtils</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">createToken</span><span class="p">(</span><span class="nx">Request</span> <span class="nv">$request</span><span class="p">,</span> <span class="nv">$providerKey</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// set the only URL where we should look for auth information</span>
+        <span class="c1">// and only return the token if we&#39;re at that URL</span>
+        <span class="nv">$targetUrl</span> <span class="o">=</span> <span class="s1">&#39;/login/check&#39;</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">httpUtils</span><span class="o">-&gt;</span><span class="na">checkRequestPath</span><span class="p">(</span><span class="nv">$request</span><span class="p">,</span> <span class="nv">$targetUrl</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// ...</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This uses the handy <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Http/HttpUtils.html" title="Symfony\Component\Security\Http\HttpUtils"><span class="pre">HttpUtils</span></a></tt>
+class to check if the current URL matches the URL you&#8217;re looking for. In this
+case, the URL (<tt class="docutils literal"><span class="pre">/login/check</span></tt>) has been hardcoded in the class, but you
+could also inject it as the third constructor argument.</p>
+<p>Next, just update your service configuration to inject the <tt class="docutils literal"><span class="pre">security.http_utils</span></tt>
+service:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">apikey_authenticator</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">Acme\HelloBundle\Security\ApiKeyAuthenticator</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@your_api_key_user_provider&quot;</span><span class="p-Indicator">,</span> <span class="s">&quot;@security.http_utils&quot;</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;services&gt;</span>
+        <span class="c">&lt;!-- ... --&gt;</span>
+
+        <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;apikey_authenticator&quot;</span>
+            <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Security\ApiKeyAuthenticator&quot;</span>
+        <span class="nt">&gt;</span>
+            <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;your_api_key_user_provider&quot;</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;security.http_utils&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/service&gt;</span>
+    <span class="nt">&lt;/services&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;apikey_authenticator&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;Acme\HelloBundle\Security\ApiKeyAuthenticator&#39;</span><span class="p">,</span>
+    <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;your_api_key_user_provider&#39;</span><span class="p">),</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;security.http_utils&#39;</span><span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>That&#8217;s it! Have fun!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Authenticate Users with API Keys</a><ul>
+<li><a class="reference internal" href="#the-api-key-authenticator">The API Key Authenticator</a><ul>
+<li><a class="reference internal" href="#createtoken">1. createToken</a></li>
+<li><a class="reference internal" href="#supportstoken">2. supportsToken</a></li>
+<li><a class="reference internal" href="#authenticatetoken">3. authenticateToken</a></li>
+<li><a class="reference internal" href="#the-user-provider">The User Provider</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#handling-authentication-failure">Handling Authentication Failure</a></li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#storing-authentication-in-the-session">Storing Authentication in the Session</a></li>
+<li><a class="reference internal" href="#only-authenticating-for-certain-urls">Only Authenticating for Certain URLs</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="custom_password_authenticator.html"
+                        title="previous chapter">How to Create a Custom Form Password Authenticator</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="custom_authentication_provider.html"
+                        title="next chapter">How to create a custom Authentication Provider</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/api_key_authentication.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="custom_authentication_provider.html" title="How to create a custom Authentication Provider"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="custom_password_authenticator.html" title="How to Create a Custom Form Password Authenticator"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Security</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,535 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Managing common Dependencies with parent Services &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="DependencyInjection" href="index.html" />
+    <link rel="next" title="Advanced Container Configuration" href="advanced.html" />
+    <link rel="prev" title="Configuring Services with a Service Configurator" href="configurators.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="advanced.html" title="Advanced Container Configuration"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="configurators.html" title="Configuring Services with a Service Configurator"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">DependencyInjection</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="managing-common-dependencies-with-parent-services">
+<span id="index-0"></span><h1>Managing common Dependencies with parent Services<a class="headerlink" href="#managing-common-dependencies-with-parent-services" title="Permalink to this headline">¶</a></h1>
+<p>As you add more functionality to your application, you may well start to have
+related classes that share some of the same dependencies. For example you
+may have a Newsletter Manager which uses setter injection to set its dependencies:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">NewsletterManager</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setMailer</span><span class="p">(</span><span class="nx">Mailer</span> <span class="nv">$mailer</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">mailer</span> <span class="o">=</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setEmailFormatter</span><span class="p">(</span><span class="nx">EmailFormatter</span> <span class="nv">$emailFormatter</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">emailFormatter</span> <span class="o">=</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and also a Greeting Card class which shares the same dependencies:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">GreetingCardManager</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setMailer</span><span class="p">(</span><span class="nx">Mailer</span> <span class="nv">$mailer</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">mailer</span> <span class="o">=</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setEmailFormatter</span><span class="p">(</span><span class="nx">EmailFormatter</span> <span class="nv">$emailFormatter</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">emailFormatter</span> <span class="o">=</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The service config for these classes would look something like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">newsletter_manager.class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">NewsletterManager</span>
+    <span class="l-Scalar-Plain">greeting_card_manager.class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">GreetingCardManager</span>
+
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_mailer</span><span class="p-Indicator">:</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">my_email_formatter</span><span class="p-Indicator">:</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">newsletter_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="s">&quot;%newsletter_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setEmailFormatter</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_email_formatter&quot;</span><span class="p-Indicator">]]</span>
+
+    <span class="l-Scalar-Plain">greeting_card_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="s">&quot;%greeting_card_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setEmailFormatter</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_email_formatter&quot;</span><span class="p-Indicator">]]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;parameters&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;newsletter_manager.class&quot;</span><span class="nt">&gt;</span>NewsletterManager<span class="nt">&lt;/parameter&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;greeting_card_manager.class&quot;</span><span class="nt">&gt;</span>GreetingCardManager<span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span><span class="nt">&gt;</span>
+      <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_email_formatter&quot;</span><span class="nt">&gt;</span>
+      <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;newsletter_manager&quot;</span> <span class="na">class=</span><span class="s">&quot;%newsletter_manager.class%&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setMailer&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setEmailFormatter&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_email_formatter&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;greeting_card_manager&quot;</span> <span class="na">class=</span><span class="s">&quot;%greeting_card_manager.class%&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setMailer&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setEmailFormatter&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_email_formatter&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;newsletter_manager.class&#39;</span><span class="p">,</span> <span class="s1">&#39;NewsletterManager&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;greeting_card_manager.class&#39;</span><span class="p">,</span> <span class="s1">&#39;GreetingCardManager&#39;</span><span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;my_email_formatter&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+
+<span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;newsletter_manager&#39;</span><span class="p">,</span> <span class="s1">&#39;%newsletter_manager.class%&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setEmailFormatter&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_email_formatter&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">;</span>
+
+<span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="s1">&#39;greeting_card_manager&#39;</span><span class="p">,</span> <span class="s1">&#39;%greeting_card_manager.class%&#39;</span><span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setEmailFormatter&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_email_formatter&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>There is a lot of repetition in both the classes and the configuration. This
+means that if you changed, for example, the <tt class="docutils literal"><span class="pre">Mailer</span></tt> of <tt class="docutils literal"><span class="pre">EmailFormatter</span></tt>
+classes to be injected via the constructor, you would need to update the config
+in two places. Likewise if you needed to make changes to the setter methods
+you would need to do this in both classes. The typical way to deal with the
+common methods of these related classes would be to extract them to a super class:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">abstract</span> <span class="k">class</span> <span class="nc">MailManager</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setMailer</span><span class="p">(</span><span class="nx">Mailer</span> <span class="nv">$mailer</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">mailer</span> <span class="o">=</span> <span class="nv">$mailer</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setEmailFormatter</span><span class="p">(</span><span class="nx">EmailFormatter</span> <span class="nv">$emailFormatter</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">emailFormatter</span> <span class="o">=</span> <span class="nv">$emailFormatter</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt> and <tt class="docutils literal"><span class="pre">GreetingCardManager</span></tt> can then extend this
+super class:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">NewsletterManager</span> <span class="k">extends</span> <span class="nx">MailManager</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>and:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">GreetingCardManager</span> <span class="k">extends</span> <span class="nx">MailManager</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>In a similar fashion, the Symfony2 service container also supports extending
+services in the configuration so you can also reduce the repetition by specifying
+a parent for a service.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># ...</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">mail_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">abstract</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">true</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setEmailFormatter</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_email_formatter&quot;</span><span class="p-Indicator">]]</span>
+
+    <span class="l-Scalar-Plain">newsletter_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>  <span class="s">&quot;%newsletter_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">parent</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mail_manager</span>
+
+    <span class="l-Scalar-Plain">greeting_card_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>  <span class="s">&quot;%greeting_card_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">parent</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mail_manager</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- ... --&gt;</span>
+<span class="nt">&lt;services&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;mail_manager&quot;</span> <span class="na">abstract=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setMailer&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setEmailFormatter&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_email_formatter&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;newsletter_manager&quot;</span>
+        <span class="na">class=</span><span class="s">&quot;%newsletter_manager.class%&quot;</span>
+        <span class="na">parent=</span><span class="s">&quot;mail_manager&quot;</span>
+    <span class="nt">/&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;greeting_card_manager&quot;</span>
+        <span class="na">class=</span><span class="s">&quot;%greeting_card_manager.class%&quot;</span>
+        <span class="na">parent=</span><span class="s">&quot;mail_manager&quot;</span>
+    <span class="nt">/&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\DefinitionDecorator</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+
+<span class="nv">$mailManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">();</span>
+<span class="nv">$mailManager</span>
+    <span class="o">-&gt;</span><span class="na">setAbstract</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setEmailFormatter&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_email_formatter&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">;</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">,</span> <span class="nv">$mailManager</span><span class="p">);</span>
+
+<span class="nv">$newsletterManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">DefinitionDecorator</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">);</span>
+<span class="nv">$newsletterManager</span><span class="o">-&gt;</span><span class="na">setClass</span><span class="p">(</span><span class="s1">&#39;%newsletter_manager.class%&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;newsletter_manager&#39;</span><span class="p">,</span> <span class="nv">$newsletterManager</span><span class="p">);</span>
+
+<span class="nv">$greetingCardManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">DefinitionDecorator</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">);</span>
+<span class="nv">$greetingCardManager</span><span class="o">-&gt;</span><span class="na">setClass</span><span class="p">(</span><span class="s1">&#39;%greeting_card_manager.class%&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;greeting_card_manager&#39;</span><span class="p">,</span> <span class="nv">$greetingCardManager</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>In this context, having a <tt class="docutils literal"><span class="pre">parent</span></tt> service implies that the arguments and
+method calls of the parent service should be used for the child services.
+Specifically, the setter methods defined for the parent service will be called
+when the child services are instantiated.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you remove the <tt class="docutils literal"><span class="pre">parent</span></tt> config key, the services will still be instantiated
+and they will still of course extend the <tt class="docutils literal"><span class="pre">MailManager</span></tt> class. The difference
+is that omitting the <tt class="docutils literal"><span class="pre">parent</span></tt> config key will mean that the <tt class="docutils literal"><span class="pre">calls</span></tt>
+defined on the <tt class="docutils literal"><span class="pre">mail_manager</span></tt> service will not be executed when the
+child services are instantiated.</p>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The <tt class="docutils literal"><span class="pre">scope</span></tt>, <tt class="docutils literal"><span class="pre">abstract</span></tt> and <tt class="docutils literal"><span class="pre">tags</span></tt> attributes are always taken from
+the child service.</p>
+</div>
+<p>The parent service is abstract as it should not be directly retrieved from the
+container or passed into another service. It exists merely as a &#8220;template&#8221; that
+other services can use. This is why it can have no <tt class="docutils literal"><span class="pre">class</span></tt> configured which
+would cause an exception to be raised for a non-abstract service.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">In order for parent dependencies to resolve, the <tt class="docutils literal"><span class="pre">ContainerBuilder</span></tt> must
+first be compiled. See <a class="reference internal" href="compilation.html"><em>Compiling the Container</em></a>
+for more details.</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">In the examples shown, the classes sharing the same configuration also
+extend from the same parent class in PHP. This isn&#8217;t necessary at all.
+You can just extract common parts of similar service definitions into
+a parent service without also extending a parent class in PHP.</p>
+</div>
+<div class="section" id="overriding-parent-dependencies">
+<h2>Overriding parent Dependencies<a class="headerlink" href="#overriding-parent-dependencies" title="Permalink to this headline">¶</a></h2>
+<p>There may be times where you want to override what class is passed in for
+a dependency of one child service only. Fortunately, by adding the method
+call config for the child service, the dependencies set by the parent class
+will be overridden. So if you needed to pass a different dependency just
+to the <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt> class, the config would look like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># ...</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">my_alternative_mailer</span><span class="p-Indicator">:</span>
+        <span class="c1"># ...</span>
+
+    <span class="l-Scalar-Plain">mail_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">abstract</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_mailer&quot;</span><span class="p-Indicator">]]</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setEmailFormatter</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_email_formatter&quot;</span><span class="p-Indicator">]]</span>
+
+    <span class="l-Scalar-Plain">newsletter_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>  <span class="s">&quot;%newsletter_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">parent</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mail_manager</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setMailer</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@my_alternative_mailer&quot;</span><span class="p-Indicator">]]</span>
+
+    <span class="l-Scalar-Plain">greeting_card_manager</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>  <span class="s">&quot;%greeting_card_manager.class%&quot;</span>
+        <span class="l-Scalar-Plain">parent</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mail_manager</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- ... --&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_alternative_mailer&quot;</span><span class="nt">&gt;</span>
+      <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;mail_manager&quot;</span> <span class="na">abstract=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setMailer&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setEmailFormatter&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_email_formatter&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;newsletter_manager&quot;</span>
+        <span class="na">class=</span><span class="s">&quot;%newsletter_manager.class%&quot;</span>
+        <span class="na">parent=</span><span class="s">&quot;mail_manager&quot;</span>
+    <span class="nt">&gt;</span>
+         <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setMailer&quot;</span><span class="nt">&gt;</span>
+             <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;my_alternative_mailer&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;greeting_card_manager&quot;</span>
+        <span class="na">class=</span><span class="s">&quot;%greeting_card_manager.class%&quot;</span>
+        <span class="na">parent=</span><span class="s">&quot;mail_manager&quot;</span>
+    <span class="nt">/&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\DefinitionDecorator</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;my_alternative_mailer&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+
+<span class="nv">$mailManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">();</span>
+<span class="nv">$mailManager</span>
+    <span class="o">-&gt;</span><span class="na">setAbstract</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setEmailFormatter&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_email_formatter&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">;</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">,</span> <span class="nv">$mailManager</span><span class="p">);</span>
+
+<span class="nv">$newsletterManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">DefinitionDecorator</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">);</span>
+<span class="nv">$newsletterManager</span><span class="o">-&gt;</span><span class="na">setClass</span><span class="p">(</span><span class="s1">&#39;%newsletter_manager.class%&#39;</span><span class="p">);</span>
+    <span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setMailer&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;my_alternative_mailer&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">;</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;newsletter_manager&#39;</span><span class="p">,</span> <span class="nv">$newsletterManager</span><span class="p">);</span>
+
+<span class="nv">$greetingCardManager</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">DefinitionDecorator</span><span class="p">(</span><span class="s1">&#39;mail_manager&#39;</span><span class="p">);</span>
+<span class="nv">$greetingCardManager</span><span class="o">-&gt;</span><span class="na">setClass</span><span class="p">(</span><span class="s1">&#39;%greeting_card_manager.class%&#39;</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;greeting_card_manager&#39;</span><span class="p">,</span> <span class="nv">$greetingCardManager</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">GreetingCardManager</span></tt> will receive the same dependencies as before,
+but the <tt class="docutils literal"><span class="pre">NewsletterManager</span></tt> will be passed the <tt class="docutils literal"><span class="pre">my_alternative_mailer</span></tt>
+instead of the <tt class="docutils literal"><span class="pre">my_mailer</span></tt> service.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">You can&#8217;t override method calls. When you defined new method calls in the child
+service, it&#8217;ll be added to the current set of configured method calls. This means
+it works perfectly when the setter overrides the current property, but it doesn&#8217;t
+work as expected when the setter appends it to the existing data (e.g. an
+<tt class="docutils literal"><span class="pre">addFilters()</span></tt> method).
+In those cases, the only solution is to <em>not</em> extend the parent service and configuring
+the service just like you did before knowing this feature.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Managing common Dependencies with parent Services</a><ul>
+<li><a class="reference internal" href="#overriding-parent-dependencies">Overriding parent Dependencies</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="configurators.html"
+                        title="previous chapter">Configuring Services with a Service Configurator</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="advanced.html"
+                        title="next chapter">Advanced Container Configuration</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/dependency_injection/parentservices.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="advanced.html" title="Advanced Container Configuration"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="configurators.html" title="Configuring Services with a Service Configurator"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >DependencyInjection</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

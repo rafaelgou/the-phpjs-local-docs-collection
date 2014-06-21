@@ -1,0 +1,170 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to simulate Authentication with a Token in a Functional Test &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Testing" href="index.html" />
+    <link rel="next" title="How to test the Interaction of several Clients" href="insulating_clients.html" />
+    <link rel="prev" title="How to simulate HTTP Authentication in a Functional Test" href="http_authentication.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="http_authentication.html" title="How to simulate HTTP Authentication in a Functional Test"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Testing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-simulate-authentication-with-a-token-in-a-functional-test">
+<span id="index-0"></span><h1>How to simulate Authentication with a Token in a Functional Test<a class="headerlink" href="#how-to-simulate-authentication-with-a-token-in-a-functional-test" title="Permalink to this headline">¶</a></h1>
+<p>Authenticating requests in functional tests might slow down the suite.
+It could become an issue especially when <tt class="docutils literal"><span class="pre">form_login</span></tt> is used, since
+it requires additional requests to fill in and submit the form.</p>
+<p>One of the solutions is to configure your firewall to use <tt class="docutils literal"><span class="pre">http_basic</span></tt> in
+the test environment as explained in
+<a class="reference internal" href="http_authentication.html"><em>How to simulate HTTP Authentication in a Functional Test</em></a>.
+Another way would be to create a token yourself and store it in a session.
+While doing this, you have to make sure that an appropriate cookie is sent
+with a request. The following example demonstrates this technique:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Tests/Controller/DemoControllerTest.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\DemoBundle\Tests\Controller</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Bundle\FrameworkBundle\Test\WebTestCase</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\BrowserKit\Cookie</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">DemoControllerTest</span> <span class="k">extends</span> <span class="nx">WebTestCase</span>
+<span class="p">{</span>
+    <span class="k">private</span> <span class="nv">$client</span> <span class="o">=</span> <span class="k">null</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">client</span> <span class="o">=</span> <span class="k">static</span><span class="o">::</span><span class="na">createClient</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">testSecuredHello</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">logIn</span><span class="p">();</span>
+
+        <span class="nv">$crawler</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">client</span><span class="o">-&gt;</span><span class="na">request</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;/demo/secured/hello/Fabien&#39;</span><span class="p">);</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertTrue</span><span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">client</span><span class="o">-&gt;</span><span class="na">getResponse</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">isSuccessful</span><span class="p">());</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertGreaterThan</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nv">$crawler</span><span class="o">-&gt;</span><span class="na">filter</span><span class="p">(</span><span class="s1">&#39;html:contains(&quot;Hello Fabien&quot;)&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">count</span><span class="p">());</span>
+    <span class="p">}</span>
+
+    <span class="k">private</span> <span class="k">function</span> <span class="nf">logIn</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$session</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">client</span><span class="o">-&gt;</span><span class="na">getContainer</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;session&#39;</span><span class="p">);</span>
+
+        <span class="nv">$firewall</span> <span class="o">=</span> <span class="s1">&#39;secured_area&#39;</span><span class="p">;</span>
+        <span class="nv">$token</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">UsernamePasswordToken</span><span class="p">(</span><span class="s1">&#39;admin&#39;</span><span class="p">,</span> <span class="k">null</span><span class="p">,</span> <span class="nv">$firewall</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;ROLE_ADMIN&#39;</span><span class="p">));</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="na">set</span><span class="p">(</span><span class="s1">&#39;_security_&#39;</span><span class="o">.</span><span class="nv">$firewall</span><span class="p">,</span> <span class="nb">serialize</span><span class="p">(</span><span class="nv">$token</span><span class="p">));</span>
+        <span class="nv">$session</span><span class="o">-&gt;</span><span class="na">save</span><span class="p">();</span>
+
+        <span class="nv">$cookie</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Cookie</span><span class="p">(</span><span class="nv">$session</span><span class="o">-&gt;</span><span class="na">getName</span><span class="p">(),</span> <span class="nv">$session</span><span class="o">-&gt;</span><span class="na">getId</span><span class="p">());</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">client</span><span class="o">-&gt;</span><span class="na">getCookieJar</span><span class="p">()</span><span class="o">-&gt;</span><span class="na">set</span><span class="p">(</span><span class="nv">$cookie</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The technique described in <a class="reference internal" href="http_authentication.html"><em>How to simulate HTTP Authentication in a Functional Test</em></a>
+is cleaner and therefore the preferred way.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="http_authentication.html"
+                        title="previous chapter">How to simulate HTTP Authentication in a Functional Test</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="insulating_clients.html"
+                        title="next chapter">How to test the Interaction of several Clients</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/testing/simulating_authentication.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="http_authentication.html" title="How to simulate HTTP Authentication in a Functional Test"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Testing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

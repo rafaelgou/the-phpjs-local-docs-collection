@@ -1,0 +1,185 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Caching Expressions Using Parser Caches &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Expression Language" href="index.html" />
+    <link rel="next" title="The Filesystem Component" href="../filesystem.html" />
+    <link rel="prev" title="Extending the ExpressionLanguage" href="extending.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../filesystem.html" title="The Filesystem Component"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="extending.html" title="Extending the ExpressionLanguage"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Expression Language</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="caching-expressions-using-parser-caches">
+<span id="index-0"></span><h1>Caching Expressions Using Parser Caches<a class="headerlink" href="#caching-expressions-using-parser-caches" title="Permalink to this headline">¶</a></h1>
+<p>The ExpressionLanguage component already provides a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ExpressionLanguage.html#method_compile" title="Symfony\Component\ExpressionLanguage\ExpressionLanguage::compile()"><span class="pre">compile()</span></a></tt>
+method to be able to cache the expressions in plain PHP. But internally, the
+component also caches the parsed expressions, so duplicated expressions can be
+compiled/evaluated quicker.</p>
+<div class="section" id="the-workflow">
+<h2>The Workflow<a class="headerlink" href="#the-workflow" title="Permalink to this headline">¶</a></h2>
+<p>Both <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ExpressionLanguage.html#method_evaluate" title="Symfony\Component\ExpressionLanguage\ExpressionLanguage::evaluate()"><span class="pre">evaluate()</span></a></tt>
+and <tt class="docutils literal"><span class="pre">compile()</span></tt> need to do some things before each can provide the return
+values. For <tt class="docutils literal"><span class="pre">evaluate()</span></tt>, this overhead is even bigger.</p>
+<p>Both methods need to tokenize and parse the expression. This is done by the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ExpressionLanguage.html#method_parse" title="Symfony\Component\ExpressionLanguage\ExpressionLanguage::parse()"><span class="pre">parse()</span></a></tt>
+method. It  returns a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ParsedExpression.html" title="Symfony\Component\ExpressionLanguage\ParsedExpression"><span class="pre">ParsedExpression</span></a></tt>.
+Now, the <tt class="docutils literal"><span class="pre">compile()</span></tt> method just returns the string conversion of this object.
+The <tt class="docutils literal"><span class="pre">evaluate()</span></tt> method needs to loop through the &#8220;nodes&#8221; (pieces of an
+expression saved in the <tt class="docutils literal"><span class="pre">ParsedExpression</span></tt>) and evaluate them on the fly.</p>
+<p>To save time, the <tt class="docutils literal"><span class="pre">ExpressionLanguage</span></tt> caches the <tt class="docutils literal"><span class="pre">ParsedExpression</span></tt> so
+it can skip the tokenize and parse steps with duplicate expressions.
+The caching is done by a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ParserCache/ParserCacheInterface.html" title="Symfony\Component\ExpressionLanguage\ParserCache\ParserCacheInterface"><span class="pre">ParserCacheInterface</span></a></tt>
+instance (by default, it uses an
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/ExpressionLanguage/ParserCache/ArrayParserCache.html" title="Symfony\Component\ExpressionLanguage\ParserCache\ArrayParserCache"><span class="pre">ArrayParserCache</span></a></tt>).
+You can customize this by creating a custom <tt class="docutils literal"><span class="pre">ParserCache</span></tt> and injecting this
+in the object using the constructor:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\ExpressionLanguage\ExpressionLanguage</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Acme\ExpressionLanguage\ParserCache\MyDatabaseParserCache</span><span class="p">;</span>
+
+<span class="nv">$cache</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">MyDatabaseParserCache</span><span class="p">(</span><span class="o">...</span><span class="p">);</span>
+<span class="nv">$language</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ExpressionLanguage</span><span class="p">(</span><span class="nv">$cache</span><span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The <a class="reference external" href="https://github.com/symfony/DoctrineBridge">DoctrineBridge</a> provides a Parser Cache implementation using the
+<a class="reference external" href="http://docs.doctrine-project.org/projects/doctrine-common/en/latest/reference/caching.html">doctrine cache library</a>, which gives you caching for all sorts of cache
+strategies, like Apc, Filesystem and Memcached.</p>
+</div>
+</div>
+<div class="section" id="using-parsed-and-serialized-expressions">
+<h2>Using Parsed and Serialized Expressions<a class="headerlink" href="#using-parsed-and-serialized-expressions" title="Permalink to this headline">¶</a></h2>
+<p>Both <tt class="docutils literal"><span class="pre">evaluate()</span></tt> and <tt class="docutils literal"><span class="pre">compile()</span></tt> can handle <tt class="docutils literal"><span class="pre">ParsedExpression</span></tt> and
+<tt class="docutils literal"><span class="pre">SerializedParsedExpression</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\ExpressionLanguage\ParsedExpression</span><span class="p">;</span>
+<span class="c1">// ...</span>
+
+<span class="nv">$expression</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ParsedExpression</span><span class="p">(</span><span class="nv">$language</span><span class="o">-&gt;</span><span class="na">parse</span><span class="p">(</span><span class="s1">&#39;1 + 4&#39;</span><span class="p">));</span>
+
+<span class="k">echo</span> <span class="nv">$language</span><span class="o">-&gt;</span><span class="na">evaluate</span><span class="p">(</span><span class="nv">$expression</span><span class="p">);</span> <span class="c1">// prints 5</span>
+</pre></div>
+</div>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\ExpressionLanguage\SerializedParsedExpression</span><span class="p">;</span>
+<span class="c1">// ...</span>
+
+<span class="nv">$expression</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">SerializedParsedExpression</span><span class="p">(</span>
+    <span class="nb">serialize</span><span class="p">(</span><span class="nv">$language</span><span class="o">-&gt;</span><span class="na">parse</span><span class="p">(</span><span class="s1">&#39;1 + 4&#39;</span><span class="p">))</span>
+<span class="p">);</span>
+
+<span class="k">echo</span> <span class="nv">$language</span><span class="o">-&gt;</span><span class="na">evaluate</span><span class="p">(</span><span class="nv">$expression</span><span class="p">);</span> <span class="c1">// prints 5</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Caching Expressions Using Parser Caches</a><ul>
+<li><a class="reference internal" href="#the-workflow">The Workflow</a></li>
+<li><a class="reference internal" href="#using-parsed-and-serialized-expressions">Using Parsed and Serialized Expressions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="extending.html"
+                        title="previous chapter">Extending the ExpressionLanguage</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../filesystem.html"
+                        title="next chapter">The Filesystem Component</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/expression_language/caching.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../filesystem.html" title="The Filesystem Component"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="extending.html" title="Extending the ExpressionLanguage"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Expression Language</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

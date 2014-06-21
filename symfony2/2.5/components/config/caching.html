@@ -1,0 +1,166 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Caching Based on Resources &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Config" href="index.html" />
+    <link rel="next" title="Defining and Processing Configuration Values" href="definition.html" />
+    <link rel="prev" title="Loading Resources" href="resources.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="definition.html" title="Defining and Processing Configuration Values"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="resources.html" title="Loading Resources"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Config</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="caching-based-on-resources">
+<span id="index-0"></span><h1>Caching Based on Resources<a class="headerlink" href="#caching-based-on-resources" title="Permalink to this headline">¶</a></h1>
+<p>When all configuration resources are loaded, you may want to process the configuration
+values and combine them all in one file. This file acts like a cache. Its
+contents don’t have to be regenerated every time the application runs – only
+when the configuration resources are modified.</p>
+<p>For example, the Symfony Routing component allows you to load all routes,
+and then dump a URL matcher or a URL generator based on these routes. In
+this case, when one of the resources is modified (and you are working in a
+development environment), the generated file should be invalidated and regenerated.
+This can be accomplished by making use of the <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/ConfigCache.html" title="Symfony\Component\Config\ConfigCache"><span class="pre">ConfigCache</span></a></tt>
+class.</p>
+<p>The example below shows you how to collect resources, then generate some code
+based on the resources that were loaded, and write this code to the cache. The
+cache also receives the collection of resources that were used for generating
+the code. By looking at the &#8220;last modified&#8221; timestamp of these resources,
+the cache can tell if it is still fresh or that its contents should be regenerated:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\Config\ConfigCache</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Config\Resource\FileResource</span><span class="p">;</span>
+
+<span class="nv">$cachePath</span> <span class="o">=</span> <span class="nx">__DIR__</span><span class="o">.</span><span class="s1">&#39;/cache/appUserMatcher.php&#39;</span><span class="p">;</span>
+
+<span class="c1">// the second argument indicates whether or not you want to use debug mode</span>
+<span class="nv">$userMatcherCache</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">ConfigCache</span><span class="p">(</span><span class="nv">$cachePath</span><span class="p">,</span> <span class="k">true</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$userMatcherCache</span><span class="o">-&gt;</span><span class="na">isFresh</span><span class="p">())</span> <span class="p">{</span>
+    <span class="c1">// fill this with an array of &#39;users.yml&#39; file paths</span>
+    <span class="nv">$yamlUserFiles</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+    <span class="nv">$resources</span> <span class="o">=</span> <span class="k">array</span><span class="p">();</span>
+
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$yamlUserFiles</span> <span class="k">as</span> <span class="nv">$yamlUserFile</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// see the previous article &quot;Loading resources&quot; to</span>
+        <span class="c1">// see where $delegatingLoader comes from</span>
+        <span class="nv">$delegatingLoader</span><span class="o">-&gt;</span><span class="na">load</span><span class="p">(</span><span class="nv">$yamlUserFile</span><span class="p">);</span>
+        <span class="nv">$resources</span><span class="p">[]</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">FileResource</span><span class="p">(</span><span class="nv">$yamlUserFile</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// the code for the UserMatcher is generated elsewhere</span>
+    <span class="nv">$code</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+    <span class="nv">$userMatcherCache</span><span class="o">-&gt;</span><span class="na">write</span><span class="p">(</span><span class="nv">$code</span><span class="p">,</span> <span class="nv">$resources</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// you may want to require the cached code:</span>
+<span class="k">require</span> <span class="nv">$cachePath</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>In debug mode, a <tt class="docutils literal"><span class="pre">.meta</span></tt> file will be created in the same directory as the
+cache file itself. This <tt class="docutils literal"><span class="pre">.meta</span></tt> file contains the serialized resources,
+whose timestamps are used to determine if the cache is still fresh. When not
+in debug mode, the cache is considered to be &#8220;fresh&#8221; as soon as it exists,
+and therefore no <tt class="docutils literal"><span class="pre">.meta</span></tt> file will be generated.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="resources.html"
+                        title="previous chapter">Loading Resources</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="definition.html"
+                        title="next chapter">Defining and Processing Configuration Values</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/config/caching.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="definition.html" title="Defining and Processing Configuration Values"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="resources.html" title="Loading Resources"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Components</a> &raquo;</li>
+          <li><a href="index.html" >Config</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

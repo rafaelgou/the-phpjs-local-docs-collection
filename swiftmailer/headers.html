@@ -1,0 +1,774 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Message Headers &mdash; Swiftmailer 5.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '5.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Swiftmailer 5.2.1 documentation" href="index.html" />
+    <link rel="next" title="Sending Messages" href="sending.html" />
+    <link rel="prev" title="Creating Messages" href="messages.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="sending.html" title="Sending Messages"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="messages.html" title="Creating Messages"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Swiftmailer 5.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="message-headers">
+<h1>Message Headers<a class="headerlink" href="#message-headers" title="Permalink to this headline">¶</a></h1>
+<p>Sometimes you&#8217;ll want to add your own headers to a message or modify/remove
+headers that are already present. You work with the message&#8217;s HeaderSet to do
+this.</p>
+<div class="section" id="header-basics">
+<h2>Header Basics<a class="headerlink" href="#header-basics" title="Permalink to this headline">¶</a></h2>
+<p>All MIME entities in Swift Mailer &#8211; including the message itself &#8211;
+store their headers in a single object called a HeaderSet. This HeaderSet is
+retrieved with the <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</p>
+<p>As mentioned in the previous chapter, everything that forms a part of a message
+in Swift Mailer is a MIME entity that is represented by an instance of
+<tt class="docutils literal"><span class="pre">Swift_Mime_MimeEntity</span></tt>. This includes &#8211; most notably &#8211; the message object
+itself, attachments, MIME parts and embedded images. Each of these MIME entities
+consists of a body and a set of headers that describe the body.</p>
+<p>For all of the &#8220;standard&#8221; headers in these MIME entities, such as the
+<tt class="docutils literal"><span class="pre">Content-Type</span></tt>, there are named methods for working with them, such as
+<tt class="docutils literal"><span class="pre">setContentType()</span></tt> and <tt class="docutils literal"><span class="pre">getContentType()</span></tt>. This is because headers are a
+moderately complex area of the library. Each header has a slightly different
+required structure that it must meet in order to comply with the standards that
+govern email (and that are checked by spam blockers etc).</p>
+<p>You fetch the HeaderSet from a MIME entity like so:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">// Fetch the HeaderSet from a Message object</span>
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$attachment = Swift_Attachment::fromPath(&#39;document.pdf&#39;);</span>
+
+<span class="x">// Fetch the HeaderSet from an attachment object</span>
+<span class="x">$headers = $attachment-&gt;getHeaders();</span>
+</pre></div>
+</div>
+<p>The job of the HeaderSet is to contain and manage instances of Header objects.
+Depending upon the MIME entity the HeaderSet came from, the contents of the
+HeaderSet will be different, since an attachment for example has a different
+set of headers to those in a message.</p>
+<p>You can find out what the HeaderSet contains with a quick loop, dumping out
+the names of the headers:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">foreach ($headers-&gt;getAll() as $header) {</span>
+<span class="x">  printf(&quot;%s&lt;br /&gt;\n&quot;, $header-&gt;getFieldName());</span>
+<span class="x">}</span>
+
+<span class="x">/*</span>
+<span class="x">Content-Transfer-Encoding</span>
+<span class="x">Content-Type</span>
+<span class="x">MIME-Version</span>
+<span class="x">Date</span>
+<span class="x">Message-ID</span>
+<span class="x">From</span>
+<span class="x">Subject</span>
+<span class="x">To</span>
+<span class="x">*/</span>
+</pre></div>
+</div>
+<p>You can also dump out the rendered HeaderSet by calling its <tt class="docutils literal"><span class="pre">toString()</span></tt>
+method:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">echo $headers-&gt;toString();</span>
+
+<span class="x">/*</span>
+<span class="x">Message-ID: &lt;1234869991.499a9ee7f1d5e@swift.generated&gt;</span>
+<span class="x">Date: Tue, 17 Feb 2009 22:26:31 +1100</span>
+<span class="x">Subject: Awesome subject!</span>
+<span class="x">From: sender@example.org</span>
+<span class="x">To: recipient@example.org</span>
+<span class="x">MIME-Version: 1.0</span>
+<span class="x">Content-Type: text/plain; charset=utf-8</span>
+<span class="x">Content-Transfer-Encoding: quoted-printable</span>
+<span class="x">*/</span>
+</pre></div>
+</div>
+<p>Where the complexity comes in is when you want to modify an existing header.
+This complexity comes from the fact that each header can be of a slightly
+different type (such as a Date header, or a header that contains email
+addresses, or a header that has key-value parameters on it!). Each header in the
+HeaderSet is an instance of <tt class="docutils literal"><span class="pre">Swift_Mime_Header</span></tt>. They all have common
+functionality, but knowing exactly what type of header you&#8217;re working with will
+allow you a little more control.</p>
+<p>You can determine the type of header by comparing the return value of its
+<tt class="docutils literal"><span class="pre">getFieldType()</span></tt> method with the constants <tt class="docutils literal"><span class="pre">TYPE_TEXT</span></tt>,
+<tt class="docutils literal"><span class="pre">TYPE_PARAMETERIZED</span></tt>, <tt class="docutils literal"><span class="pre">TYPE_DATE</span></tt>, <tt class="docutils literal"><span class="pre">TYPE_MAILBOX</span></tt>, <tt class="docutils literal"><span class="pre">TYPE_ID</span></tt> and
+<tt class="docutils literal"><span class="pre">TYPE_PATH</span></tt> which are defined in <tt class="docutils literal"><span class="pre">Swift_Mime_Header</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">foreach ($headers-&gt;getAll() as $header) {</span>
+<span class="x">  switch ($header-&gt;getFieldType()) {</span>
+<span class="x">    case Swift_Mime_Header::TYPE_TEXT: $type = &#39;text&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">    case Swift_Mime_Header::TYPE_PARAMETERIZED: $type = &#39;parameterized&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">    case Swift_Mime_Header::TYPE_MAILBOX: $type = &#39;mailbox&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">    case Swift_Mime_Header::TYPE_DATE: $type = &#39;date&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">    case Swift_Mime_Header::TYPE_ID: $type = &#39;ID&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">    case Swift_Mime_Header::TYPE_PATH: $type = &#39;path&#39;;</span>
+<span class="x">      break;</span>
+<span class="x">  }</span>
+<span class="x">  printf(&quot;%s: is a %s header&lt;br /&gt;\n&quot;, $header-&gt;getFieldName(), $type);</span>
+<span class="x">}</span>
+
+<span class="x">/*</span>
+<span class="x">Content-Transfer-Encoding: is a text header</span>
+<span class="x">Content-Type: is a parameterized header</span>
+<span class="x">MIME-Version: is a text header</span>
+<span class="x">Date: is a date header</span>
+<span class="x">Message-ID: is a ID header</span>
+<span class="x">From: is a mailbox header</span>
+<span class="x">Subject: is a text header</span>
+<span class="x">To: is a mailbox header</span>
+<span class="x">*/</span>
+</pre></div>
+</div>
+<p>Headers can be removed from the set, modified within the set, or added to the
+set.</p>
+<p>The following sections show you how to work with the HeaderSet and explain the
+details of each implementation of <tt class="docutils literal"><span class="pre">Swift_Mime_Header</span></tt> that may
+exist within the HeaderSet.</p>
+</div>
+<div class="section" id="header-types">
+<h2>Header Types<a class="headerlink" href="#header-types" title="Permalink to this headline">¶</a></h2>
+<p>Because all headers are modeled on different data (dates, addresses, text!)
+there are different types of Header in Swift Mailer. Swift Mailer attempts to
+categorize all possible MIME headers into more general groups, defined by a
+small number of classes.</p>
+<div class="section" id="text-headers">
+<h3>Text Headers<a class="headerlink" href="#text-headers" title="Permalink to this headline">¶</a></h3>
+<p>Text headers are the simplest type of Header. They contain textual information
+with no special information included within it &#8211; for example the Subject
+header in a message.</p>
+<p>There&#8217;s nothing particularly interesting about a text header, though it is
+probably the one you&#8217;d opt to use if you need to add a custom header to a
+message. It represents text just like you&#8217;d think it does. If the text
+contains characters that are not permitted in a message header (such as new
+lines, or non-ascii characters) then the header takes care of encoding the
+text so that it can be used.</p>
+<p>No header &#8211; including text headers &#8211; in Swift Mailer is vulnerable to
+header-injection attacks. Swift Mailer breaks any attempt at header injection by
+encoding the dangerous data into a non-dangerous form.</p>
+<p>It&#8217;s easy to add a new text header to a HeaderSet. You do this by calling the
+HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">addTextHeader()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addTextHeader(&#39;Your-Header-Name&#39;, &#39;the header value&#39;);</span>
+</pre></div>
+</div>
+<p>Changing the value of an existing text header is done by calling it&#8217;s
+<tt class="docutils literal"><span class="pre">setValue()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$subject = $message-&gt;getHeaders()-&gt;get(&#39;Subject&#39;);</span>
+
+<span class="x">$subject-&gt;setValue(&#39;new subject&#39;);</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, a text header produces something like the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$subject = $message-&gt;getHeaders()-&gt;get(&#39;Subject&#39;);</span>
+
+<span class="x">$subject-&gt;setValue(&#39;amazing subject line&#39;);</span>
+
+<span class="x">echo $subject-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Subject: amazing subject line</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+<p>If the header contains any characters that are outside of the US-ASCII range
+however, they will be encoded. This is nothing to be concerned about since
+mail clients will decode them back.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$subject = $message-&gt;getHeaders()-&gt;get(&#39;Subject&#39;);</span>
+
+<span class="x">$subject-&gt;setValue(&#39;contains – dash&#39;);</span>
+
+<span class="x">echo $subject-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Subject: contains =?utf-8?Q?=E2=80=93?= dash</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="parameterized-headers">
+<h3>Parameterized Headers<a class="headerlink" href="#parameterized-headers" title="Permalink to this headline">¶</a></h3>
+<p>Parameterized headers are text headers that contain key-value parameters
+following the textual content. The Content-Type header of a message is a
+parameterized header since it contains charset information after the content
+type.</p>
+<p>The parameterized header type is a special type of text header. It extends the
+text header by allowing additional information to follow it. All of the methods
+from text headers are available in addition to the methods described here.</p>
+<p>Adding a parameterized header to a HeaderSet is done by using the
+<tt class="docutils literal"><span class="pre">addParameterizedHeader()</span></tt> method which takes a text value like
+<tt class="docutils literal"><span class="pre">addTextHeader()</span></tt> but it also accepts an associative array of
+key-value parameters.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addParameterizedHeader(</span>
+<span class="x">  &#39;Header-Name&#39;, &#39;header value&#39;,</span>
+<span class="x">  array(&#39;foo&#39; =&gt; &#39;bar&#39;)</span>
+<span class="x">  );</span>
+</pre></div>
+</div>
+<p>To change the text value of the header, call it&#8217;s <tt class="docutils literal"><span class="pre">setValue()</span></tt> method just as
+you do with text headers.</p>
+<p>To change the parameters in the header, call the header&#8217;s <tt class="docutils literal"><span class="pre">setParameters()</span></tt>
+method or the <tt class="docutils literal"><span class="pre">setParameter()</span></tt> method (note the pluralization).</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$type = $message-&gt;getHeaders()-&gt;get(&#39;Content-Type&#39;);</span>
+
+<span class="x">// setParameters() takes an associative array</span>
+<span class="x">$type-&gt;setParameters(array(</span>
+<span class="x">  &#39;name&#39; =&gt; &#39;file.txt&#39;,</span>
+<span class="x">  &#39;charset&#39; =&gt; &#39;iso-8859-1&#39;</span>
+<span class="x">  ));</span>
+
+<span class="x">// setParameter() takes two args for $key and $value</span>
+<span class="x">$type-&gt;setParameter(&#39;charset&#39;, &#39;iso-8859-1&#39;);</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, a parameterized header produces something like
+the following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$type = $message-&gt;getHeaders()-&gt;get(&#39;Content-Type&#39;);</span>
+
+<span class="x">$type-&gt;setValue(&#39;text/html&#39;);</span>
+<span class="x">$type-&gt;setParameter(&#39;charset&#39;, &#39;utf-8&#39;);</span>
+
+<span class="x">echo $type-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Content-Type: text/html; charset=utf-8</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+<p>If the header contains any characters that are outside of the US-ASCII range
+however, they will be encoded, just like they are for text headers. This is
+nothing to be concerned about since mail clients will decode them back.
+Likewise, if the parameters contain any non-ascii characters they will be
+encoded so that they can be transmitted safely.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$attachment = Swift_Attachment::newInstance();</span>
+
+<span class="x">$disp = $attachment-&gt;getHeaders()-&gt;get(&#39;Content-Disposition&#39;);</span>
+
+<span class="x">$disp-&gt;setValue(&#39;attachment&#39;);</span>
+<span class="x">$disp-&gt;setParameter(&#39;filename&#39;, &#39;report–may.pdf&#39;);</span>
+
+<span class="x">echo $disp-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Content-Disposition: attachment; filename*=utf-8&#39;&#39;report%E2%80%93may.pdf</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="date-headers">
+<h3>Date Headers<a class="headerlink" href="#date-headers" title="Permalink to this headline">¶</a></h3>
+<p>Date headers contains an RFC 2822 formatted date (i.e. what PHP&#8217;s <tt class="docutils literal"><span class="pre">date('r')</span></tt>
+returns). They are used anywhere a date or time is needed to be presented as a
+message header.</p>
+<p>The data on which a date header is modeled is simply a UNIX timestamp such as
+that returned by <tt class="docutils literal"><span class="pre">time()</span></tt> or <tt class="docutils literal"><span class="pre">strtotime()</span></tt>.  The timestamp is used to create
+a correctly structured RFC 2822 formatted date such as
+<tt class="docutils literal"><span class="pre">Tue,</span> <span class="pre">17</span> <span class="pre">Feb</span> <span class="pre">2009</span> <span class="pre">22:26:31</span> <span class="pre">+1100</span></tt>.</p>
+<p>The obvious place this header type is used is in the <tt class="docutils literal"><span class="pre">Date:</span></tt> header of the
+message itself.</p>
+<p>It&#8217;s easy to add a new date header to a HeaderSet.  You do this by calling
+the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">addDateHeader()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addDateHeader(&#39;Your-Header-Name&#39;, strtotime(&#39;3 days ago&#39;));</span>
+</pre></div>
+</div>
+<p>Changing the value of an existing date header is done by calling it&#8217;s
+<tt class="docutils literal"><span class="pre">setTimestamp()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$date = $message-&gt;getHeaders()-&gt;get(&#39;Date&#39;);</span>
+
+<span class="x">$date-&gt;setTimestamp(time());</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, a date header produces something like the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$date = $message-&gt;getHeaders()-&gt;get(&#39;Date&#39;);</span>
+
+<span class="x">echo $date-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Date: Wed, 18 Feb 2009 13:35:02 +1100</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="mailbox-e-mail-address-headers">
+<h3>Mailbox (e-mail address) Headers<a class="headerlink" href="#mailbox-e-mail-address-headers" title="Permalink to this headline">¶</a></h3>
+<p>Mailbox headers contain one or more email addresses, possibly with
+personalized names attached to them. The data on which they are modeled is
+represented by an associative array of email addresses and names.</p>
+<p>Mailbox headers are probably the most complex header type to understand in
+Swift Mailer because they accept their input as an array which can take various
+forms, as described in the previous chapter.</p>
+<p>All of the headers that contain e-mail addresses in a message &#8211; with the
+exception of <tt class="docutils literal"><span class="pre">Return-Path:</span></tt> which has a stricter syntax &#8211; use this header
+type. That is, <tt class="docutils literal"><span class="pre">To:</span></tt>, <tt class="docutils literal"><span class="pre">From:</span></tt> etc.</p>
+<p>You add a new mailbox header to a HeaderSet by calling the HeaderSet&#8217;s
+<tt class="docutils literal"><span class="pre">addMailboxHeader()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addMailboxHeader(&#39;Your-Header-Name&#39;, array(</span>
+<span class="x">  &#39;person1@example.org&#39; =&gt; &#39;Person Name One&#39;,</span>
+<span class="x">  &#39;person2@example.org&#39;,</span>
+<span class="x">  &#39;person3@example.org&#39;,</span>
+<span class="x">  &#39;person4@example.org&#39; =&gt; &#39;Another named person&#39;</span>
+<span class="x">  ));</span>
+</pre></div>
+</div>
+<p>Changing the value of an existing mailbox header is done by calling it&#8217;s
+<tt class="docutils literal"><span class="pre">setNameAddresses()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$to = $message-&gt;getHeaders()-&gt;get(&#39;To&#39;);</span>
+
+<span class="x">$to-&gt;setNameAddresses(array(</span>
+<span class="x">  &#39;joe@example.org&#39; =&gt; &#39;Joe Bloggs&#39;,</span>
+<span class="x">  &#39;john@example.org&#39; =&gt; &#39;John Doe&#39;,</span>
+<span class="x">  &#39;no-name@example.org&#39;</span>
+<span class="x">  ));</span>
+</pre></div>
+</div>
+<p>If you don&#8217;t wish to concern yourself with the complicated accepted input
+formats accepted by <tt class="docutils literal"><span class="pre">setNameAddresses()</span></tt> as described in the previous chapter
+and you only want to set one or more addresses (not names) then you can just
+use the <tt class="docutils literal"><span class="pre">setAddresses()</span></tt> method instead.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$to = $message-&gt;getHeaders()-&gt;get(&#39;To&#39;);</span>
+
+<span class="x">$to-&gt;setAddresses(array(</span>
+<span class="x">  &#39;joe@example.org&#39;,</span>
+<span class="x">  &#39;john@example.org&#39;,</span>
+<span class="x">  &#39;no-name@example.org&#39;</span>
+<span class="x">  ));</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Both methods will accept the above input format in practice.</p>
+</div>
+<p>If all you want to do is set a single address in the header, you can use a
+string as the input parameter to <tt class="docutils literal"><span class="pre">setAddresses()</span></tt> and/or
+<tt class="docutils literal"><span class="pre">setNameAddresses()</span></tt>.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$to = $message-&gt;getHeaders()-&gt;get(&#39;To&#39;);</span>
+
+<span class="x">$to-&gt;setAddresses(&#39;joe-bloggs@example.org&#39;);</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, a mailbox header produces something like the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$to = $message-&gt;getHeaders()-&gt;get(&#39;To&#39;);</span>
+
+<span class="x">$to-&gt;setNameAddresses(array(</span>
+<span class="x">  &#39;person1@example.org&#39; =&gt; &#39;Name of Person&#39;,</span>
+<span class="x">  &#39;person2@example.org&#39;,</span>
+<span class="x">  &#39;person3@example.org&#39; =&gt; &#39;Another Person&#39;</span>
+<span class="x">));</span>
+
+<span class="x">echo $to-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">To: Name of Person &lt;person1@example.org&gt;, person2@example.org, Another Person</span>
+<span class="x"> &lt;person3@example.org&gt;</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="id-headers">
+<h3>ID Headers<a class="headerlink" href="#id-headers" title="Permalink to this headline">¶</a></h3>
+<p>ID headers contain identifiers for the entity (or the message). The most
+notable ID header is the Message-ID header on the message itself.</p>
+<p>An ID that exists inside an ID header looks more-or-less less like an email
+address.  For example, <tt class="docutils literal"><span class="pre">&lt;1234955437.499becad62ec2&#64;example.org&gt;</span></tt>.
+The part to the left of the &#64; sign is usually unique, based on the current time
+and some random factor. The part on the right is usually a domain name.</p>
+<p>Any ID passed to the header&#8217;s <tt class="docutils literal"><span class="pre">setId()</span></tt> method absolutely MUST conform to
+this structure, otherwise you&#8217;ll get an Exception thrown at you by Swift Mailer
+(a <tt class="docutils literal"><span class="pre">Swift_RfcComplianceException</span></tt>).  This is to ensure that the generated
+email complies with relevant RFC documents and therefore is less likely to be
+blocked as spam.</p>
+<p>It&#8217;s easy to add a new ID header to a HeaderSet.  You do this by calling
+the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">addIdHeader()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addIdHeader(&#39;Your-Header-Name&#39;, &#39;123456.unqiue@example.org&#39;);</span>
+</pre></div>
+</div>
+<p>Changing the value of an existing date header is done by calling its
+<tt class="docutils literal"><span class="pre">setId()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$msgId = $message-&gt;getHeaders()-&gt;get(&#39;Message-ID&#39;);</span>
+
+<span class="x">$msgId-&gt;setId(time() . &#39;.&#39; . uniqid(&#39;thing&#39;) . &#39;@example.org&#39;);</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, an ID header produces something like the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$msgId = $message-&gt;getHeaders()-&gt;get(&#39;Message-ID&#39;);</span>
+
+<span class="x">echo $msgId-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Message-ID: &lt;1234955437.499becad62ec2@example.org&gt;</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="path-headers">
+<h3>Path Headers<a class="headerlink" href="#path-headers" title="Permalink to this headline">¶</a></h3>
+<p>Path headers are like very-restricted mailbox headers. They contain a single
+email address with no associated name. The Return-Path header of a message is
+a path header.</p>
+<p>You add a new path header to a HeaderSet by calling the HeaderSet&#8217;s
+<tt class="docutils literal"><span class="pre">addPathHeader()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$message = Swift_Message::newInstance();</span>
+
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">$headers-&gt;addPathHeader(&#39;Your-Header-Name&#39;, &#39;person@example.org&#39;);</span>
+</pre></div>
+</div>
+<p>Changing the value of an existing path header is done by calling its
+<tt class="docutils literal"><span class="pre">setAddress()</span></tt> method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$return = $message-&gt;getHeaders()-&gt;get(&#39;Return-Path&#39;);</span>
+
+<span class="x">$return-&gt;setAddress(&#39;my-address@example.org&#39;);</span>
+</pre></div>
+</div>
+<p>When output via <tt class="docutils literal"><span class="pre">toString()</span></tt>, a path header produces something like the
+following:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$return = $message-&gt;getHeaders()-&gt;get(&#39;Return-Path&#39;);</span>
+
+<span class="x">$return-&gt;setAddress(&#39;person@example.org&#39;);</span>
+
+<span class="x">echo $return-&gt;toString();</span>
+
+<span class="x">/*</span>
+
+<span class="x">Return-Path: &lt;person@example.org&gt;</span>
+
+<span class="x">*/</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="header-operations">
+<h2>Header Operations<a class="headerlink" href="#header-operations" title="Permalink to this headline">¶</a></h2>
+<p>Working with the headers in a message involves knowing how to use the methods
+on the HeaderSet and on the individual Headers within the HeaderSet.</p>
+<div class="section" id="adding-new-headers">
+<h3>Adding new Headers<a class="headerlink" href="#adding-new-headers" title="Permalink to this headline">¶</a></h3>
+<p>New headers can be added to the HeaderSet by using one of the provided
+<tt class="docutils literal"><span class="pre">add..Header()</span></tt> methods.</p>
+<p>To add a header to a MIME entity (such as the message):</p>
+<p>Get the HeaderSet from the entity by via its <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</p>
+<ul class="simple">
+<li>Add the header to the HeaderSet by calling one of the <tt class="docutils literal"><span class="pre">add..Header()</span></tt>
+methods.</li>
+</ul>
+<p>The added header will appear in the message when it is sent.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">// Adding a custom header to a message</span>
+<span class="x">$message = Swift_Message::newInstance();</span>
+<span class="x">$headers = $message-&gt;getHeaders();</span>
+<span class="x">$headers-&gt;addTextHeader(&#39;X-Mine&#39;, &#39;something here&#39;);</span>
+
+<span class="x">// Adding a custom header to an attachment</span>
+<span class="x">$attachment = Swift_Attachment::fromPath(&#39;/path/to/doc.pdf&#39;);</span>
+<span class="x">$attachment-&gt;getHeaders()-&gt;addDateHeader(&#39;X-Created-Time&#39;, time());</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="retrieving-headers">
+<h3>Retrieving Headers<a class="headerlink" href="#retrieving-headers" title="Permalink to this headline">¶</a></h3>
+<p>Headers are retrieved through the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">get()</span></tt> and <tt class="docutils literal"><span class="pre">getAll()</span></tt>
+methods.</p>
+<p>To get a header, or several headers from a MIME entity:</p>
+<ul class="simple">
+<li>Get the HeaderSet from the entity by via its <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</li>
+<li>Get the header(s) from the HeaderSet by calling either <tt class="docutils literal"><span class="pre">get()</span></tt> or
+<tt class="docutils literal"><span class="pre">getAll()</span></tt>.</li>
+</ul>
+<p>When using <tt class="docutils literal"><span class="pre">get()</span></tt> a single header is returned that matches the name (case
+insensitive) that is passed to it. When using <tt class="docutils literal"><span class="pre">getAll()</span></tt> with a header name,
+an array of headers with that name are returned. Calling <tt class="docutils literal"><span class="pre">getAll()</span></tt> with no
+arguments returns an array of all headers present in the entity.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">It&#8217;s valid for some headers to appear more than once in a message (e.g.
+the Received header). For this reason <tt class="docutils literal"><span class="pre">getAll()</span></tt> exists to fetch all
+headers with a specified name. In addition, <tt class="docutils literal"><span class="pre">get()</span></tt> accepts an optional
+numerical index, starting from zero to specify which header you want more
+specifically.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>If you want to modify the contents of the header and you don&#8217;t know for
+sure what type of header it is then you may need to check the type by
+calling its <tt class="docutils literal"><span class="pre">getFieldType()</span></tt> method.</p>
+<div class="last highlight-php"><div class="highlight"><pre><span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">// Get the To: header</span>
+<span class="x">$toHeader = $headers-&gt;get(&#39;To&#39;);</span>
+
+<span class="x">// Get all headers named &quot;X-Foo&quot;</span>
+<span class="x">$fooHeaders = $headers-&gt;getAll(&#39;X-Foo&#39;);</span>
+
+<span class="x">// Get the second header named &quot;X-Foo&quot;</span>
+<span class="x">$foo = $headers-&gt;get(&#39;X-Foo&#39;, 1);</span>
+
+<span class="x">// Get all headers that are present</span>
+<span class="x">$all = $headers-&gt;getAll();</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="check-if-a-header-exists">
+<h3>Check if a Header Exists<a class="headerlink" href="#check-if-a-header-exists" title="Permalink to this headline">¶</a></h3>
+<p>You can check if a named header is present in a HeaderSet by calling its
+<tt class="docutils literal"><span class="pre">has()</span></tt> method.</p>
+<p>To check if a header exists:</p>
+<ul class="simple">
+<li>Get the HeaderSet from the entity by via its <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</li>
+<li>Call the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">has()</span></tt> method specifying the header you&#8217;re looking
+for.</li>
+</ul>
+<p>If the header exists, <tt class="docutils literal"><span class="pre">true</span></tt> will be returned or <tt class="docutils literal"><span class="pre">false</span></tt> if not.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>It&#8217;s valid for some headers to appear more than once in a message (e.g.
+the Received header). For this reason <tt class="docutils literal"><span class="pre">has()</span></tt> accepts an optional
+numerical index, starting from zero to specify which header you want to
+check more specifically.</p>
+<div class="last highlight-php"><div class="highlight"><pre><span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">// Check if the To: header exists</span>
+<span class="x">if ($headers-&gt;has(&#39;To&#39;)) {</span>
+<span class="x">  echo &#39;To: exists&#39;;</span>
+<span class="x">}</span>
+
+<span class="x">// Check if an X-Foo header exists twice (i.e. check for the 2nd one)</span>
+<span class="x">if ($headers-&gt;has(&#39;X-Foo&#39;, 1)) {</span>
+<span class="x">  echo &#39;Second X-Foo header exists&#39;;</span>
+<span class="x">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="removing-headers">
+<h3>Removing Headers<a class="headerlink" href="#removing-headers" title="Permalink to this headline">¶</a></h3>
+<p>Removing a Header from the HeaderSet is done by calling the HeaderSet&#8217;s
+<tt class="docutils literal"><span class="pre">remove()</span></tt> or <tt class="docutils literal"><span class="pre">removeAll()</span></tt> methods.</p>
+<p>To remove an existing header:</p>
+<ul class="simple">
+<li>Get the HeaderSet from the entity by via its <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</li>
+<li>Call the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">remove()</span></tt> or <tt class="docutils literal"><span class="pre">removeAll()</span></tt> methods specifying the
+header you want to remove.</li>
+</ul>
+<p>When calling <tt class="docutils literal"><span class="pre">remove()</span></tt> a single header will be removed. When calling
+<tt class="docutils literal"><span class="pre">removeAll()</span></tt> all headers with the given name will be removed. If no headers
+exist with the given name, no errors will occur.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>It&#8217;s valid for some headers to appear more than once in a message (e.g.
+the Received header). For this reason <tt class="docutils literal"><span class="pre">remove()</span></tt> accepts an optional
+numerical index, starting from zero to specify which header you want to
+check more specifically. For the same reason, <tt class="docutils literal"><span class="pre">removeAll()</span></tt> exists to
+remove all headers that have the given name.</p>
+<div class="last highlight-php"><div class="highlight"><pre><span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">// Remove the Subject: header</span>
+<span class="x">$headers-&gt;remove(&#39;Subject&#39;);</span>
+
+<span class="x">// Remove all X-Foo headers</span>
+<span class="x">$headers-&gt;removeAll(&#39;X-Foo&#39;);</span>
+
+<span class="x">// Remove only the second X-Foo header</span>
+<span class="x">$headers-&gt;remove(&#39;X-Foo&#39;, 1);</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="modifying-a-header-s-content">
+<h3>Modifying a Header&#8217;s Content<a class="headerlink" href="#modifying-a-header-s-content" title="Permalink to this headline">¶</a></h3>
+<p>To change a Header&#8217;s content you should know what type of header it is and then
+call it&#8217;s appropriate setter method. All headers also have a
+<tt class="docutils literal"><span class="pre">setFieldBodyModel()</span></tt> method that accepts a mixed parameter and delegates to
+the correct setter.</p>
+<p>To modify an existing header:</p>
+<ul class="simple">
+<li>Get the HeaderSet from the entity by via its <tt class="docutils literal"><span class="pre">getHeaders()</span></tt> method.</li>
+<li>Get the Header by using the HeaderSet&#8217;s <tt class="docutils literal"><span class="pre">get()</span></tt>.</li>
+<li>Call the Header&#8217;s appropriate setter method or call the header&#8217;s
+<tt class="docutils literal"><span class="pre">setFieldBodyModel()</span></tt> method.</li>
+</ul>
+<p>The header will be updated inside the HeaderSet and the changes will be seen
+when the message is sent.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="x">$headers = $message-&gt;getHeaders();</span>
+
+<span class="x">// Change the Subject: header</span>
+<span class="x">$subj = $headers-&gt;get(&#39;Subject&#39;);</span>
+<span class="x">$subj-&gt;setValue(&#39;new subject here&#39;);</span>
+
+<span class="x">// Change the To: header</span>
+<span class="x">$to = $headers-&gt;get(&#39;To&#39;);</span>
+<span class="x">$to-&gt;setNameAddresses(array(</span>
+<span class="x">  &#39;person@example.org&#39; =&gt; &#39;Person&#39;,</span>
+<span class="x">  &#39;thing@example.org&#39;</span>
+<span class="x">));</span>
+
+<span class="x">// Using the setFieldBodyModel() just delegates to the correct method</span>
+<span class="x">// So here to calls setNameAddresses()</span>
+<span class="x">$to-&gt;setFieldBodyModel(array(</span>
+<span class="x">  &#39;person@example.org&#39; =&gt; &#39;Person&#39;,</span>
+<span class="x">  &#39;thing@example.org&#39;</span>
+<span class="x">));</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Message Headers</a><ul>
+<li><a class="reference internal" href="#header-basics">Header Basics</a></li>
+<li><a class="reference internal" href="#header-types">Header Types</a><ul>
+<li><a class="reference internal" href="#text-headers">Text Headers</a></li>
+<li><a class="reference internal" href="#parameterized-headers">Parameterized Headers</a></li>
+<li><a class="reference internal" href="#date-headers">Date Headers</a></li>
+<li><a class="reference internal" href="#mailbox-e-mail-address-headers">Mailbox (e-mail address) Headers</a></li>
+<li><a class="reference internal" href="#id-headers">ID Headers</a></li>
+<li><a class="reference internal" href="#path-headers">Path Headers</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#header-operations">Header Operations</a><ul>
+<li><a class="reference internal" href="#adding-new-headers">Adding new Headers</a></li>
+<li><a class="reference internal" href="#retrieving-headers">Retrieving Headers</a></li>
+<li><a class="reference internal" href="#check-if-a-header-exists">Check if a Header Exists</a></li>
+<li><a class="reference internal" href="#removing-headers">Removing Headers</a></li>
+<li><a class="reference internal" href="#modifying-a-header-s-content">Modifying a Header&#8217;s Content</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="messages.html"
+                        title="previous chapter">Creating Messages</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="sending.html"
+                        title="next chapter">Sending Messages</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/headers.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="sending.html" title="Sending Messages"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="messages.html" title="Creating Messages"
+             >previous</a> |</li>
+        <li><a href="index.html">Swiftmailer 5.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Swiftmailer Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to test Doctrine Repositories &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Testing" href="index.html" />
+    <link rel="next" title="How to customize the Bootstrap Process before running Tests" href="bootstrap.html" />
+    <link rel="prev" title="How to test code that interacts with the Database" href="database.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="bootstrap.html" title="How to customize the Bootstrap Process before running Tests"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="database.html" title="How to test code that interacts with the Database"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Testing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-test-doctrine-repositories">
+<span id="index-0"></span><h1>How to test Doctrine Repositories<a class="headerlink" href="#how-to-test-doctrine-repositories" title="Permalink to this headline">¶</a></h1>
+<p>Unit testing Doctrine repositories in a Symfony project is not recommended.
+When you&#8217;re dealing with a repository, you&#8217;re really dealing with something
+that&#8217;s meant to be tested against a real database connection.</p>
+<p>Fortunately, you can easily test your queries against a real database, as
+described below.</p>
+<div class="section" id="functional-testing">
+<span id="cookbook-doctrine-repo-functional-test"></span><h2>Functional Testing<a class="headerlink" href="#functional-testing" title="Permalink to this headline">¶</a></h2>
+<p>If you need to actually execute a query, you will need to boot the kernel
+to get a valid connection. In this case, you&#8217;ll extend the <tt class="docutils literal"><span class="pre">KernelTestCase</span></tt>,
+which makes all of this quite easy:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/StoreBundle/Tests/Entity/ProductRepositoryFunctionalTest.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\StoreBundle\Tests\Entity</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Bundle\FrameworkBundle\Test\KernelTestCase</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ProductRepositoryFunctionalTest</span> <span class="k">extends</span> <span class="nx">KernelTestCase</span>
+<span class="p">{</span>
+    <span class="sd">/**</span>
+<span class="sd">     * @var \Doctrine\ORM\EntityManager</span>
+<span class="sd">     */</span>
+    <span class="k">private</span> <span class="nv">$em</span><span class="p">;</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * {@inheritDoc}</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setUp</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nx">self</span><span class="o">::</span><span class="na">bootKernel</span><span class="p">();</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">em</span> <span class="o">=</span> <span class="k">static</span><span class="o">::</span><span class="nv">$kernel</span><span class="o">-&gt;</span><span class="na">getContainer</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;doctrine&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">getManager</span><span class="p">()</span>
+        <span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">testSearchByCategoryName</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$products</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">em</span>
+            <span class="o">-&gt;</span><span class="na">getRepository</span><span class="p">(</span><span class="s1">&#39;AcmeStoreBundle:Product&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">searchByCategoryName</span><span class="p">(</span><span class="s1">&#39;foo&#39;</span><span class="p">)</span>
+        <span class="p">;</span>
+
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertCount</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nv">$products</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * {@inheritDoc}</span>
+<span class="sd">     */</span>
+    <span class="k">protected</span> <span class="k">function</span> <span class="nf">tearDown</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">parent</span><span class="o">::</span><span class="na">tearDown</span><span class="p">();</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">em</span><span class="o">-&gt;</span><span class="na">close</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to test Doctrine Repositories</a><ul>
+<li><a class="reference internal" href="#functional-testing">Functional Testing</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="database.html"
+                        title="previous chapter">How to test code that interacts with the Database</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="bootstrap.html"
+                        title="next chapter">How to customize the Bootstrap Process before running Tests</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/testing/doctrine.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="bootstrap.html" title="How to customize the Bootstrap Process before running Tests"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="database.html" title="How to test code that interacts with the Database"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Testing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

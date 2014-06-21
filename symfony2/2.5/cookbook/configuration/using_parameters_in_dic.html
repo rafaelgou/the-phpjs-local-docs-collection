@@ -1,0 +1,270 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Using Parameters within a Dependency Injection Class &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Configuration" href="index.html" />
+    <link rel="next" title="Understanding how the Front Controller, Kernel and Environments work together" href="front_controllers_and_kernel.html" />
+    <link rel="prev" title="How to override Symfony’s Default Directory Structure" href="override_dir_structure.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="front_controllers_and_kernel.html" title="Understanding how the Front Controller, Kernel and Environments work together"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="override_dir_structure.html" title="How to override Symfony’s Default Directory Structure"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Configuration</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="using-parameters-within-a-dependency-injection-class">
+<span id="index-0"></span><h1>Using Parameters within a Dependency Injection Class<a class="headerlink" href="#using-parameters-within-a-dependency-injection-class" title="Permalink to this headline">¶</a></h1>
+<p>You have seen how to use configuration parameters within
+<a class="reference internal" href="../../book/service_container.html#book-service-container-parameters"><em>Symfony service containers</em></a>.
+There are special cases such as when you want, for instance, to use the
+<tt class="docutils literal"><span class="pre">%kernel.debug%</span></tt> parameter to make the services in your bundle enter
+debug mode. For this case there is more work to do in order
+to make the system understand the parameter value. By default
+your parameter <tt class="docutils literal"><span class="pre">%kernel.debug%</span></tt> will be treated as a
+simple string. Consider this example with the AcmeDemoBundle:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// Inside Configuration class</span>
+<span class="nv">$rootNode</span>
+    <span class="o">-&gt;</span><span class="na">children</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">booleanNode</span><span class="p">(</span><span class="s1">&#39;logging&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">defaultValue</span><span class="p">(</span><span class="s1">&#39;%kernel.debug%&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+        <span class="c1">// ...</span>
+    <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+<span class="p">;</span>
+
+<span class="c1">// Inside the Extension class</span>
+<span class="nv">$config</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">processConfiguration</span><span class="p">(</span><span class="nv">$configuration</span><span class="p">,</span> <span class="nv">$configs</span><span class="p">);</span>
+<span class="nb">var_dump</span><span class="p">(</span><span class="nv">$config</span><span class="p">[</span><span class="s1">&#39;logging&#39;</span><span class="p">]);</span>
+</pre></div>
+</div>
+<p>Now, examine the results to see this closely:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre>my_bundle:
+    logging: true
+    # true, as expected
+
+my_bundle:
+    logging: %kernel.debug%
+    # true/false (depends on 2nd parameter of AppKernel),
+    # as expected, because %kernel.debug% inside configuration
+    # gets evaluated before being passed to the extension
+
+my_bundle: ~
+# passes the string &quot;%kernel.debug%&quot;.
+# Which is always considered as true.
+# The Configurator does not know anything about
+# &quot;%kernel.debug%&quot; being a parameter.
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:my-bundle=</span><span class="s">&quot;http://example.org/schema/dic/my_bundle&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;my-bundle:config</span> <span class="na">logging=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+    <span class="c">&lt;!-- true, as expected --&gt;</span>
+
+     <span class="nt">&lt;my-bundle:config</span> <span class="na">logging=</span><span class="s">&quot;%kernel.debug%&quot;</span> <span class="nt">/&gt;</span>
+     <span class="c">&lt;!-- true/false (depends on 2nd parameter of AppKernel),</span>
+<span class="c">          as expected, because %kernel.debug% inside configuration</span>
+<span class="c">          gets evaluated before being passed to the extension --&gt;</span>
+
+    <span class="nt">&lt;my-bundle:config</span> <span class="nt">/&gt;</span>
+    <span class="c">&lt;!-- passes the string &quot;%kernel.debug%&quot;.</span>
+<span class="c">         Which is always considered as true.</span>
+<span class="c">         The Configurator does not know anything about</span>
+<span class="c">         &quot;%kernel.debug%&quot; being a parameter. --&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;my_bundle&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;logging&#39;</span> <span class="o">=&gt;</span> <span class="k">true</span><span class="p">,</span>
+        <span class="c1">// true, as expected</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;my_bundle&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;logging&#39;</span> <span class="o">=&gt;</span> <span class="s2">&quot;%kernel.debug%&quot;</span><span class="p">,</span>
+        <span class="c1">// true/false (depends on 2nd parameter of AppKernel),</span>
+        <span class="c1">// as expected, because %kernel.debug% inside configuration</span>
+        <span class="c1">// gets evaluated before being passed to the extension</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;my_bundle&#39;</span><span class="p">);</span>
+<span class="c1">// passes the string &quot;%kernel.debug%&quot;.</span>
+<span class="c1">// Which is always considered as true.</span>
+<span class="c1">// The Configurator does not know anything about</span>
+<span class="c1">// &quot;%kernel.debug%&quot; being a parameter.</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>In order to support this use case, the <tt class="docutils literal"><span class="pre">Configuration</span></tt> class has to
+be injected with this parameter via the extension as follows:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">namespace</span> <span class="nx">Acme\DemoBundle\DependencyInjection</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Config\Definition\Builder\TreeBuilder</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Config\Definition\ConfigurationInterface</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Configuration</span> <span class="k">implements</span> <span class="nx">ConfigurationInterface</span>
+<span class="p">{</span>
+    <span class="k">private</span> <span class="nv">$debug</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span>  <span class="nf">__construct</span><span class="p">(</span><span class="nv">$debug</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">debug</span> <span class="o">=</span> <span class="p">(</span><span class="nx">Boolean</span><span class="p">)</span> <span class="nv">$debug</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getConfigTreeBuilder</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$treeBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">TreeBuilder</span><span class="p">();</span>
+        <span class="nv">$rootNode</span> <span class="o">=</span> <span class="nv">$treeBuilder</span><span class="o">-&gt;</span><span class="na">root</span><span class="p">(</span><span class="s1">&#39;acme_demo&#39;</span><span class="p">);</span>
+
+        <span class="nv">$rootNode</span>
+            <span class="o">-&gt;</span><span class="na">children</span><span class="p">()</span>
+                <span class="c1">// ...</span>
+                <span class="o">-&gt;</span><span class="na">booleanNode</span><span class="p">(</span><span class="s1">&#39;logging&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">defaultValue</span><span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">debug</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+                <span class="c1">// ...</span>
+            <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+        <span class="p">;</span>
+
+        <span class="k">return</span> <span class="nv">$treeBuilder</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>And set it in the constructor of <tt class="docutils literal"><span class="pre">Configuration</span></tt> via the <tt class="docutils literal"><span class="pre">Extension</span></tt> class:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">namespace</span> <span class="nx">Acme\DemoBundle\DependencyInjection</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\ContainerBuilder</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Loader\XmlFileLoader</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\DependencyInjection\Extension</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Config\FileLocator</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">AcmeDemoExtension</span> <span class="k">extends</span> <span class="nx">Extension</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getConfiguration</span><span class="p">(</span><span class="k">array</span> <span class="nv">$config</span><span class="p">,</span> <span class="nx">ContainerBuilder</span> <span class="nv">$container</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">Configuration</span><span class="p">(</span><span class="nv">$container</span><span class="o">-&gt;</span><span class="na">getParameter</span><span class="p">(</span><span class="s1">&#39;kernel.debug&#39;</span><span class="p">));</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="sidebar">
+<p class="first sidebar-title">Setting the Default in the Extension</p>
+<p>There are some instances of <tt class="docutils literal"><span class="pre">%kernel.debug%</span></tt> usage within a <tt class="docutils literal"><span class="pre">Configurator</span></tt>
+class in TwigBundle and AsseticBundle, however this is because the default
+parameter value is set by the Extension class. For example in AsseticBundle,
+you can find:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;assetic.debug&#39;</span><span class="p">,</span> <span class="nv">$config</span><span class="p">[</span><span class="s1">&#39;debug&#39;</span><span class="p">]);</span>
+</pre></div>
+</div>
+<p class="last">The string <tt class="docutils literal"><span class="pre">%kernel.debug%</span></tt> passed here as an argument handles the
+interpreting job to the container which in turn does the evaluation.
+Both ways accomplish similar goals. AsseticBundle will not use
+<tt class="docutils literal"><span class="pre">%kernel.debug%</span></tt> but rather the new <tt class="docutils literal"><span class="pre">%assetic.debug%</span></tt> parameter.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="override_dir_structure.html"
+                        title="previous chapter">How to override Symfony&#8217;s Default Directory Structure</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="front_controllers_and_kernel.html"
+                        title="next chapter">Understanding how the Front Controller, Kernel and Environments work together</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/configuration/using_parameters_in_dic.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="front_controllers_and_kernel.html" title="Understanding how the Front Controller, Kernel and Environments work together"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="override_dir_structure.html" title="How to override Symfony’s Default Directory Structure"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Configuration</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

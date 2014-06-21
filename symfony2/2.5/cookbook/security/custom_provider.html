@@ -1,0 +1,460 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to create a custom User Provider &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Security" href="index.html" />
+    <link rel="next" title="How to Create a Custom Form Password Authenticator" href="custom_password_authenticator.html" />
+    <link rel="prev" title="How to secure any Service or Method in your Application" href="securing_services.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="custom_password_authenticator.html" title="How to Create a Custom Form Password Authenticator"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="securing_services.html" title="How to secure any Service or Method in your Application"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Security</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-create-a-custom-user-provider">
+<span id="index-0"></span><h1>How to create a custom User Provider<a class="headerlink" href="#how-to-create-a-custom-user-provider" title="Permalink to this headline">¶</a></h1>
+<p>Part of Symfony&#8217;s standard authentication process depends on &#8220;user providers&#8221;.
+When a user submits a username and password, the authentication layer asks
+the configured user provider to return a user object for a given username.
+Symfony then checks whether the password of this user is correct and generates
+a security token so the user stays authenticated during the current session.
+Out of the box, Symfony has an &#8220;in_memory&#8221; and an &#8220;entity&#8221; user provider.
+In this entry you&#8217;ll see how you can create your own user provider, which
+could be useful if your users are accessed via a custom database, a file,
+or - as shown in this example - a web service.</p>
+<div class="section" id="create-a-user-class">
+<h2>Create a User Class<a class="headerlink" href="#create-a-user-class" title="Permalink to this headline">¶</a></h2>
+<p>First, regardless of <em>where</em> your user data is coming from, you&#8217;ll need to
+create a <tt class="docutils literal"><span class="pre">User</span></tt> class that represents that data. The <tt class="docutils literal"><span class="pre">User</span></tt> can look
+however you want and contain any data. The only requirement is that the
+class implements <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>.
+The methods in this interface should therefore be defined in the custom user
+class: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getRoles" title="Symfony\Component\Security\Core\User\UserInterface::getRoles()"><span class="pre">getRoles()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getPassword" title="Symfony\Component\Security\Core\User\UserInterface::getPassword()"><span class="pre">getPassword()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getSalt" title="Symfony\Component\Security\Core\User\UserInterface::getSalt()"><span class="pre">getSalt()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getUsername" title="Symfony\Component\Security\Core\User\UserInterface::getUsername()"><span class="pre">getUsername()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_eraseCredentials" title="Symfony\Component\Security\Core\User\UserInterface::eraseCredentials()"><span class="pre">eraseCredentials()</span></a></tt>.
+It may also be useful to implement the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/EquatableInterface.html" title="Symfony\Component\Security\Core\User\EquatableInterface"><span class="pre">EquatableInterface</span></a></tt> interface,
+which defines a method to check if the user is equal to the current user. This
+interface requires an <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/EquatableInterface.html#method_isEqualTo" title="Symfony\Component\Security\Core\User\EquatableInterface::isEqualTo()"><span class="pre">isEqualTo()</span></a></tt>
+method.</p>
+<p>This is how your <tt class="docutils literal"><span class="pre">WebserviceUser</span></tt> class looks in action:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/WebserviceUserBundle/Security/User/WebserviceUser.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\WebserviceUserBundle\Security\User</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\EquatableInterface</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">WebserviceUser</span> <span class="k">implements</span> <span class="nx">UserInterface</span><span class="p">,</span> <span class="nx">EquatableInterface</span>
+<span class="p">{</span>
+    <span class="k">private</span> <span class="nv">$username</span><span class="p">;</span>
+    <span class="k">private</span> <span class="nv">$password</span><span class="p">;</span>
+    <span class="k">private</span> <span class="nv">$salt</span><span class="p">;</span>
+    <span class="k">private</span> <span class="nv">$roles</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nv">$username</span><span class="p">,</span> <span class="nv">$password</span><span class="p">,</span> <span class="nv">$salt</span><span class="p">,</span> <span class="k">array</span> <span class="nv">$roles</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">=</span> <span class="nv">$username</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">=</span> <span class="nv">$password</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">salt</span> <span class="o">=</span> <span class="nv">$salt</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">roles</span> <span class="o">=</span> <span class="nv">$roles</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getRoles</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">roles</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getPassword</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">password</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getSalt</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">salt</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getUsername</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">username</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">eraseCredentials</span><span class="p">()</span>
+    <span class="p">{</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isEqualTo</span><span class="p">(</span><span class="nx">UserInterface</span> <span class="nv">$user</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$user</span> <span class="nx">instanceof</span> <span class="nx">WebserviceUser</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">password</span> <span class="o">!==</span> <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getPassword</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">getSalt</span><span class="p">()</span> <span class="o">!==</span> <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getSalt</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">username</span> <span class="o">!==</span> <span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getUsername</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="k">true</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If you have more information about your users - like a &#8220;first name&#8221; - then
+you can add a <tt class="docutils literal"><span class="pre">firstName</span></tt> field to hold that data.</p>
+</div>
+<div class="section" id="create-a-user-provider">
+<h2>Create a User Provider<a class="headerlink" href="#create-a-user-provider" title="Permalink to this headline">¶</a></h2>
+<p>Now that you have a <tt class="docutils literal"><span class="pre">User</span></tt> class, you&#8217;ll create a user provider, which will
+grab user information from some web service, create a <tt class="docutils literal"><span class="pre">WebserviceUser</span></tt> object,
+and populate it with data.</p>
+<p>The user provider is just a plain PHP class that has to implement the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>,
+which requires three methods to be defined: <tt class="docutils literal"><span class="pre">loadUserByUsername($username)</span></tt>,
+<tt class="docutils literal"><span class="pre">refreshUser(UserInterface</span> <span class="pre">$user)</span></tt>, and <tt class="docutils literal"><span class="pre">supportsClass($class)</span></tt>. For
+more details, see <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>.</p>
+<p>Here&#8217;s an example of how this might look:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/WebserviceUserBundle/Security/User/WebserviceUserProvider.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\WebserviceUserBundle\Security\User</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserProviderInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\User\UserInterface</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\UsernameNotFoundException</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\UnsupportedUserException</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">WebserviceUserProvider</span> <span class="k">implements</span> <span class="nx">UserProviderInterface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">loadUserByUsername</span><span class="p">(</span><span class="nv">$username</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// make a call to your webservice here</span>
+        <span class="nv">$userData</span> <span class="o">=</span> <span class="o">...</span>
+        <span class="c1">// pretend it returns an array on success, false if there is no user</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$userData</span><span class="p">)</span> <span class="p">{</span>
+            <span class="nv">$password</span> <span class="o">=</span> <span class="s1">&#39;...&#39;</span><span class="p">;</span>
+
+            <span class="c1">// ...</span>
+
+            <span class="k">return</span> <span class="k">new</span> <span class="nx">WebserviceUser</span><span class="p">(</span><span class="nv">$username</span><span class="p">,</span> <span class="nv">$password</span><span class="p">,</span> <span class="nv">$salt</span><span class="p">,</span> <span class="nv">$roles</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="k">throw</span> <span class="k">new</span> <span class="nx">UsernameNotFoundException</span><span class="p">(</span>
+            <span class="nb">sprintf</span><span class="p">(</span><span class="s1">&#39;Username &quot;%s&quot; does not exist.&#39;</span><span class="p">,</span> <span class="nv">$username</span><span class="p">)</span>
+        <span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">refreshUser</span><span class="p">(</span><span class="nx">UserInterface</span> <span class="nv">$user</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$user</span> <span class="nx">instanceof</span> <span class="nx">WebserviceUser</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nx">UnsupportedUserException</span><span class="p">(</span>
+                <span class="nb">sprintf</span><span class="p">(</span><span class="s1">&#39;Instances of &quot;%s&quot; are not supported.&#39;</span><span class="p">,</span> <span class="nb">get_class</span><span class="p">(</span><span class="nv">$user</span><span class="p">))</span>
+            <span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">loadUserByUsername</span><span class="p">(</span><span class="nv">$user</span><span class="o">-&gt;</span><span class="na">getUsername</span><span class="p">());</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">supportsClass</span><span class="p">(</span><span class="nv">$class</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$class</span> <span class="o">===</span> <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="create-a-service-for-the-user-provider">
+<h2>Create a Service for the User Provider<a class="headerlink" href="#create-a-service-for-the-user-provider" title="Permalink to this headline">¶</a></h2>
+<p>Now you make the user provider available as a service:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/WebserviceUserBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">webservice_user_provider.class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider</span>
+
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">webservice_user_provider</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="s">&quot;%webservice_user_provider.class%&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/WebserviceUserBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;webservice_user_provider.class&quot;</span><span class="nt">&gt;</span>Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider<span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;webservice_user_provider&quot;</span> <span class="na">class=</span><span class="s">&quot;%webservice_user_provider.class%&quot;</span><span class="nt">&gt;&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/WebserviceUserBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;webservice_user_provider.class&#39;</span><span class="p">,</span> <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider&#39;</span><span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;webservice_user_provider&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;%webservice_user_provider.class%&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">The real implementation of the user provider will probably have some
+dependencies or configuration options or other services. Add these as
+arguments in the service definition.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Make sure the services file is being imported. See <a class="reference internal" href="../../book/service_container.html#service-container-imports-directive"><em>Importing Configuration with imports</em></a>
+for details.</p>
+</div>
+</div>
+<div class="section" id="modify-security-yml">
+<h2>Modify <tt class="docutils literal"><span class="pre">security.yml</span></tt><a class="headerlink" href="#modify-security-yml" title="Permalink to this headline">¶</a></h2>
+<p>Everything comes together in your security configuration. Add the user provider
+to the list of providers in the &#8220;security&#8221; section. Choose a name for the user provider
+(e.g. &#8220;webservice&#8221;) and mention the id of the service you just defined.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">providers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">webservice</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">webservice_user_provider</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;provider</span> <span class="na">name=</span><span class="s">&quot;webservice&quot;</span> <span class="na">id=</span><span class="s">&quot;webservice_user_provider&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;providers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;webservice&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;webservice_user_provider&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Symfony also needs to know how to encode passwords that are supplied by website
+users, e.g. by filling in a login form. You can do this by adding a line to the
+&#8220;encoders&#8221; section in your security configuration:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUser</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">sha512</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;encoder</span> <span class="na">class=</span><span class="s">&quot;Acme\WebserviceUserBundle\Security\User\WebserviceUser&quot;</span><span class="nt">&gt;</span>sha512<span class="nt">&lt;/encoder&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;encoders&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;sha512&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>The value here should correspond with however the passwords were originally
+encoded when creating your users (however those users were created). When
+a user submits their password, the salt value is appended to the password and
+then encoded using this algorithm before being compared to the hashed password
+returned by your <tt class="docutils literal"><span class="pre">getPassword()</span></tt> method. Additionally, depending on your
+options, the password may be encoded multiple times and encoded to base64.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Specifics on how passwords are encoded</p>
+<p>Symfony uses a specific method to combine the salt and encode the password
+before comparing it to your encoded password. If <tt class="docutils literal"><span class="pre">getSalt()</span></tt> returns
+nothing, then the submitted password is simply encoded using the algorithm
+you specify in <tt class="docutils literal"><span class="pre">security.yml</span></tt>. If a salt <em>is</em> specified, then the following
+value is created and <em>then</em> hashed via the algorithm:</p>
+<blockquote>
+<div><tt class="docutils literal"><span class="pre">$password.'{'.$salt.'}';</span></tt></div></blockquote>
+<p>If your external users have their passwords salted via a different method,
+then you&#8217;ll need to do a bit more work so that Symfony properly encodes
+the password. That is beyond the scope of this entry, but would include
+sub-classing <tt class="docutils literal"><span class="pre">MessageDigestPasswordEncoder</span></tt> and overriding the <tt class="docutils literal"><span class="pre">mergePasswordAndSalt</span></tt>
+method.</p>
+<p>Additionally, the hash, by default, is encoded multiple times and encoded
+to base64. For specific details, see <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Security/Core/Encoder/MessageDigestPasswordEncoder.php">MessageDigestPasswordEncoder</a>.
+To prevent this, configure it in your configuration file:</p>
+<div class="last configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUser</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">algorithm</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">sha512</span>
+            <span class="l-Scalar-Plain">encode_as_base64</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+            <span class="l-Scalar-Plain">iterations</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;encoder</span> <span class="na">class=</span><span class="s">&quot;Acme\WebserviceUserBundle\Security\User\WebserviceUser&quot;</span>
+        <span class="na">algorithm=</span><span class="s">&quot;sha512&quot;</span>
+        <span class="na">encode-as-base64=</span><span class="s">&quot;false&quot;</span>
+        <span class="na">iterations=</span><span class="s">&quot;1&quot;</span>
+    <span class="nt">/&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;encoders&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;algorithm&#39;</span>         <span class="o">=&gt;</span> <span class="s1">&#39;sha512&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;encode_as_base64&#39;</span>  <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+            <span class="s1">&#39;iterations&#39;</span>        <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to create a custom User Provider</a><ul>
+<li><a class="reference internal" href="#create-a-user-class">Create a User Class</a></li>
+<li><a class="reference internal" href="#create-a-user-provider">Create a User Provider</a></li>
+<li><a class="reference internal" href="#create-a-service-for-the-user-provider">Create a Service for the User Provider</a></li>
+<li><a class="reference internal" href="#modify-security-yml">Modify <tt class="docutils literal"><span class="pre">security.yml</span></tt></a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="securing_services.html"
+                        title="previous chapter">How to secure any Service or Method in your Application</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="custom_password_authenticator.html"
+                        title="next chapter">How to Create a Custom Form Password Authenticator</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/custom_provider.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="custom_password_authenticator.html" title="How to Create a Custom Form Password Authenticator"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="securing_services.html" title="How to secure any Service or Method in your Application"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Security</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

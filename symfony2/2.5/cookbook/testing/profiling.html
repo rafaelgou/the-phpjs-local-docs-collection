@@ -1,0 +1,184 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to use the Profiler in a Functional Test &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Testing" href="index.html" />
+    <link rel="next" title="How to test code that interacts with the Database" href="database.html" />
+    <link rel="prev" title="How to test the Interaction of several Clients" href="insulating_clients.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="database.html" title="How to test code that interacts with the Database"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Testing</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-use-the-profiler-in-a-functional-test">
+<span id="index-0"></span><h1>How to use the Profiler in a Functional Test<a class="headerlink" href="#how-to-use-the-profiler-in-a-functional-test" title="Permalink to this headline">¶</a></h1>
+<p>It&#8217;s highly recommended that a functional test only tests the Response. But if
+you write functional tests that monitor your production servers, you might
+want to write tests on the profiling data as it gives you a great way to check
+various things and enforce some metrics.</p>
+<p>The Symfony2 <a class="reference internal" href="../../book/internals.html#internals-profiler"><em>Profiler</em></a> gathers a lot of data for
+each request. Use this data to check the number of database calls, the time
+spent in the framework, etc. But before writing assertions, enable the profiler
+and check that the profiler is indeed available (it is enabled by default in
+the <tt class="docutils literal"><span class="pre">test</span></tt> environment):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">HelloControllerTest</span> <span class="k">extends</span> <span class="nx">WebTestCase</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">testIndex</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$client</span> <span class="o">=</span> <span class="k">static</span><span class="o">::</span><span class="na">createClient</span><span class="p">();</span>
+
+        <span class="c1">// Enable the profiler for the next request (it does nothing if the profiler is not available)</span>
+        <span class="nv">$client</span><span class="o">-&gt;</span><span class="na">enableProfiler</span><span class="p">();</span>
+
+        <span class="nv">$crawler</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="na">request</span><span class="p">(</span><span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="s1">&#39;/hello/Fabien&#39;</span><span class="p">);</span>
+
+        <span class="c1">// ... write some assertions about the Response</span>
+
+        <span class="c1">// Check that the profiler is enabled</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">$profile</span> <span class="o">=</span> <span class="nv">$client</span><span class="o">-&gt;</span><span class="na">getProfile</span><span class="p">())</span> <span class="p">{</span>
+            <span class="c1">// check the number of requests</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertLessThan</span><span class="p">(</span>
+                <span class="mi">10</span><span class="p">,</span>
+                <span class="nv">$profile</span><span class="o">-&gt;</span><span class="na">getCollector</span><span class="p">(</span><span class="s1">&#39;db&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getQueryCount</span><span class="p">()</span>
+            <span class="p">);</span>
+
+            <span class="c1">// check the time spent in the framework</span>
+            <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertLessThan</span><span class="p">(</span>
+                <span class="mi">500</span><span class="p">,</span>
+                <span class="nv">$profile</span><span class="o">-&gt;</span><span class="na">getCollector</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getDuration</span><span class="p">()</span>
+            <span class="p">);</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>If a test fails because of profiling data (too many DB queries for instance),
+you might want to use the Web Profiler to analyze the request after the tests
+finish. It&#8217;s easy to achieve if you embed the token in the error message:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$this</span><span class="o">-&gt;</span><span class="na">assertLessThan</span><span class="p">(</span>
+    <span class="mi">30</span><span class="p">,</span>
+    <span class="nv">$profile</span><span class="o">-&gt;</span><span class="na">getCollector</span><span class="p">(</span><span class="s1">&#39;db&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">getQueryCount</span><span class="p">(),</span>
+    <span class="nb">sprintf</span><span class="p">(</span>
+        <span class="s1">&#39;Checks that query count is less than 30 (token %s)&#39;</span><span class="p">,</span>
+        <span class="nv">$profile</span><span class="o">-&gt;</span><span class="na">getToken</span><span class="p">()</span>
+    <span class="p">)</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">The profiler store can be different depending on the environment
+(especially if you use the SQLite store, which is the default configured
+one).</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">The profiler information is available even if you insulate the client or
+if you use an HTTP layer for your tests.</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Read the API for built-in <a class="reference internal" href="../profiler/data_collector.html"><em>data collectors</em></a>
+to learn more about their interfaces.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="insulating_clients.html"
+                        title="previous chapter">How to test the Interaction of several Clients</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="database.html"
+                        title="next chapter">How to test code that interacts with the Database</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/testing/profiling.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="database.html" title="How to test code that interacts with the Database"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="insulating_clients.html" title="How to test the Interaction of several Clients"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Testing</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

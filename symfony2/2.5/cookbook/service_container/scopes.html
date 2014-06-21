@@ -1,0 +1,505 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>How to Work with Scopes &mdash; Symfony2 Framework Documentation  documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2 Framework Documentation  documentation" href="../../index.html" />
+    <link rel="up" title="Service Container" href="index.html" />
+    <link rel="next" title="How to work with Compiler Passes in Bundles" href="compiler_passes.html" />
+    <link rel="prev" title="How to create an Event Listener" href="event_listener.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="compiler_passes.html" title="How to work with Compiler Passes in Bundles"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="event_listener.html" title="How to create an Event Listener"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Service Container</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="how-to-work-with-scopes">
+<span id="index-0"></span><h1>How to Work with Scopes<a class="headerlink" href="#how-to-work-with-scopes" title="Permalink to this headline">¶</a></h1>
+<p>This entry is all about scopes, a somewhat advanced topic related to the
+<a class="reference internal" href="../../book/service_container.html"><em>Service Container</em></a>. If you&#8217;ve ever gotten an error mentioning
+&#8220;scopes&#8221; when creating services, then this entry is for you.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If you are trying to inject the <tt class="docutils literal"><span class="pre">request</span></tt> service, the simple solution
+is to inject the <tt class="docutils literal"><span class="pre">request_stack</span></tt> service instead and access the current
+Request by calling the
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/RequestStack.html#method_getCurrentRequest" title="Symfony\Component\HttpFoundation\RequestStack::getCurrentRequest()"><span class="pre">getCurrentRequest()</span></a></tt>
+method (see <a class="reference internal" href="../../book/service_container.html#book-container-request-stack"><em>Injecting the Request</em></a>). The rest of this entry
+talks about scopes in a theoretical and more advanced way. If you&#8217;re
+dealing with scopes for the <tt class="docutils literal"><span class="pre">request</span></tt> service, simply inject <tt class="docutils literal"><span class="pre">request_stack</span></tt>.</p>
+</div>
+<div class="section" id="understanding-scopes">
+<h2>Understanding Scopes<a class="headerlink" href="#understanding-scopes" title="Permalink to this headline">¶</a></h2>
+<p>The scope of a service controls how long an instance of a service is used
+by the container. The DependencyInjection component provides two generic
+scopes:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">container</span></tt> (the default one): The same instance is used each time you
+request it from this container.</li>
+<li><tt class="docutils literal"><span class="pre">prototype</span></tt>: A new instance is created each time you request the service.</li>
+</ul>
+<p>The
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/DependencyInjection/ContainerAwareHttpKernel.html" title="Symfony\Component\HttpKernel\DependencyInjection\ContainerAwareHttpKernel"><span class="pre">ContainerAwareHttpKernel</span></a></tt>
+also defines a third scope: <tt class="docutils literal"><span class="pre">request</span></tt>. This scope is tied to the request,
+meaning a new instance is created for each subrequest and is unavailable
+outside the request (for instance in the CLI).</p>
+<div class="section" id="an-example-client-scope">
+<h3>An Example: Client Scope<a class="headerlink" href="#an-example-client-scope" title="Permalink to this headline">¶</a></h3>
+<p>Other than the <tt class="docutils literal"><span class="pre">request</span></tt> service (which has a simple solution, see the
+above note), no services in the default Symfony2 container belong to any
+scope other than <tt class="docutils literal"><span class="pre">container</span></tt> and <tt class="docutils literal"><span class="pre">prototype</span></tt>. But for the purposes of
+this entry, imagine there is another scope <tt class="docutils literal"><span class="pre">client</span></tt> and a service <tt class="docutils literal"><span class="pre">client_configuration</span></tt>
+that belongs to it. This is not a common situation, but the idea is that
+you may enter and exit multiple <tt class="docutils literal"><span class="pre">client</span></tt> scopes during a request, and each
+has its own <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service.</p>
+<p>Scopes add a constraint on the dependencies of a service: a service cannot
+depend on services from a narrower scope. For example, if you create a generic
+<tt class="docutils literal"><span class="pre">my_foo</span></tt> service, but try to inject the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service,
+you will receive a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/DependencyInjection/Exception/ScopeWideningInjectionException.html" title="Symfony\Component\DependencyInjection\Exception\ScopeWideningInjectionException"><span class="pre">ScopeWideningInjectionException</span></a></tt>
+when compiling the container. Read the sidebar below for more details.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Scopes and Dependencies</p>
+<p>Imagine you&#8217;ve configured a <tt class="docutils literal"><span class="pre">my_mailer</span></tt> service. You haven&#8217;t configured
+the scope of the service, so it defaults to <tt class="docutils literal"><span class="pre">container</span></tt>. In other words,
+every time you ask the container for the <tt class="docutils literal"><span class="pre">my_mailer</span></tt> service, you get
+the same object back. This is usually how you want your services to work.</p>
+<p>Imagine, however, that you need the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service
+in your <tt class="docutils literal"><span class="pre">my_mailer</span></tt> service, maybe because you&#8217;re reading some details
+from it, such as what the &#8220;sender&#8221; address should be. You add it as a
+constructor argument. There are several reasons why this presents a problem:</p>
+<ul class="last">
+<li><p class="first">When requesting <tt class="docutils literal"><span class="pre">my_mailer</span></tt>, an instance of <tt class="docutils literal"><span class="pre">my_mailer</span></tt> (called
+<em>MailerA</em> here) is created and the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service (
+called <em>ConfigurationA</em> here) is passed to it. Life is good!</p>
+</li>
+<li><p class="first">Your application now needs to do something with another client, and
+you&#8217;ve architected your application in such a way that you handle this
+by entering a new <tt class="docutils literal"><span class="pre">client_configuration</span></tt> scope and setting a new
+<tt class="docutils literal"><span class="pre">client_configuration</span></tt> service into the container. Call this
+<em>ConfigurationB</em>.</p>
+</li>
+<li><p class="first">Somewhere in your application, you once again ask for the <tt class="docutils literal"><span class="pre">my_mailer</span></tt>
+service. Since your service is in the <tt class="docutils literal"><span class="pre">container</span></tt> scope, the same
+instance (<em>MailerA</em>) is just re-used. But here&#8217;s the problem: the
+<em>MailerA</em> instance still contains the old <em>ConfigurationA</em> object, which
+is now <strong>not</strong> the correct configuration object to have (<em>ConfigurationB</em>
+is now the current <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service). This is subtle,
+but the mis-match could cause major problems, which is why it&#8217;s not
+allowed.</p>
+<p>So, that&#8217;s the reason <em>why</em> scopes exist, and how they can cause
+problems. Keep reading to find out the common solutions.</p>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">A service can of course depend on a service from a wider scope without
+any issue.</p>
+</div>
+</div>
+</div>
+<div class="section" id="using-a-service-from-a-narrower-scope">
+<h2>Using a Service from a Narrower Scope<a class="headerlink" href="#using-a-service-from-a-narrower-scope" title="Permalink to this headline">¶</a></h2>
+<p>There are several solutions to the scope problem:</p>
+<ul class="simple">
+<li>A) Use setter injection if the dependency is <tt class="docutils literal"><span class="pre">synchronized</span></tt> (see
+<a class="reference internal" href="#using-synchronized-service"><em>A) Using a Synchronized Service</em></a>);</li>
+<li>B) Put your service in the same scope as the dependency (or a narrower one). If
+you depend on the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service, this means putting your
+new service in the <tt class="docutils literal"><span class="pre">client</span></tt> scope (see <a class="reference internal" href="#changing-service-scope"><em>B) Changing the Scope of your Service</em></a>);</li>
+<li>C) Pass the entire container to your service and retrieve your dependency from
+the container each time you need it to be sure you have the right instance
+&#8211; your service can live in the default <tt class="docutils literal"><span class="pre">container</span></tt> scope (see
+<a class="reference internal" href="#passing-container"><em>C) Passing the Container as a Dependency of your Service</em></a>).</li>
+</ul>
+<p>Each scenario is detailed in the following sections.</p>
+<div class="section" id="a-using-a-synchronized-service">
+<span id="using-synchronized-service"></span><h3>A) Using a Synchronized Service<a class="headerlink" href="#a-using-a-synchronized-service" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.3: </span>Synchronized services were introduced in Symfony 2.3.</p>
+</div>
+<p>Both injecting the container and setting your service to a narrower scope have
+drawbacks. Assume first that the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> service has been
+marked as <tt class="docutils literal"><span class="pre">synchronized</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">client_configuration</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>        <span class="l-Scalar-Plain">Acme\HelloBundle\Client\ClientConfiguration</span>
+        <span class="l-Scalar-Plain">scope</span><span class="p-Indicator">:</span>        <span class="l-Scalar-Plain">client</span>
+        <span class="l-Scalar-Plain">synchronized</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+        <span class="l-Scalar-Plain">synthetic</span><span class="p-Indicator">:</span>    <span class="l-Scalar-Plain">true</span>
+        <span class="c1"># ...</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span>
+    <span class="nt">&gt;</span>
+
+    <span class="nt">&lt;services&gt;</span>
+        <span class="nt">&lt;service</span>
+            <span class="na">id=</span><span class="s">&quot;client_configuration&quot;</span>
+            <span class="na">scope=</span><span class="s">&quot;client&quot;</span>
+            <span class="na">synchronized=</span><span class="s">&quot;true&quot;</span>
+            <span class="na">synthetic=</span><span class="s">&quot;true&quot;</span>
+            <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Client\ClientConfiguration&quot;</span>
+        <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/services&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;Acme\HelloBundle\Client\ClientConfiguration&#39;</span><span class="p">,</span>
+    <span class="k">array</span><span class="p">()</span>
+<span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">setScope</span><span class="p">(</span><span class="s1">&#39;client&#39;</span><span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">setSynchronized</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">setSynthetic</span><span class="p">(</span><span class="k">true</span><span class="p">);</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;client_configuration&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Now, if you inject this service using setter injection, there are no drawbacks
+and everything works without any special code in your service or in your definition:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Mail/Mailer.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\HelloBundle\Mail</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Acme\HelloBundle\Client\ClientConfiguration</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Mailer</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$clientConfiguration</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setClientConfiguration</span><span class="p">(</span><span class="nx">ClientConfiguration</span> <span class="nv">$clientConfiguration</span> <span class="o">=</span> <span class="k">null</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">clientConfiguration</span> <span class="o">=</span> <span class="nv">$clientConfiguration</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">sendEmail</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="k">null</span> <span class="o">===</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">clientConfiguration</span><span class="p">)</span> <span class="p">{</span>
+            <span class="c1">// throw an error?</span>
+        <span class="p">}</span>
+
+        <span class="c1">// ... do something using the client configuration here</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Whenever the <tt class="docutils literal"><span class="pre">client</span></tt> scope is active, the service container will
+automatically call the <tt class="docutils literal"><span class="pre">setClientConfiguration()</span></tt> method when the
+<tt class="docutils literal"><span class="pre">client_configuration</span></tt> service is set in the container.</p>
+<p>You might have noticed that the <tt class="docutils literal"><span class="pre">setClientConfiguration()</span></tt> method accepts
+<tt class="docutils literal"><span class="pre">null</span></tt> as a valid value for the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> argument. That&#8217;s
+because when leaving the <tt class="docutils literal"><span class="pre">client</span></tt> scope, the <tt class="docutils literal"><span class="pre">client_configuration</span></tt> instance
+can be <tt class="docutils literal"><span class="pre">null</span></tt>. Of course, you should take care of this possibility in
+your code. This should also be taken into account when declaring your service:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/HelloBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_mailer</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\HelloBundle\Mail\Mailer</span>
+        <span class="l-Scalar-Plain">calls</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">[</span><span class="nv">setClientConfiguration</span><span class="p-Indicator">,</span> <span class="p-Indicator">[</span><span class="s">&quot;@?client_configuration=&quot;</span><span class="p-Indicator">]]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/HelloBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span>
+        <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Mail\Mailer&quot;</span>
+    <span class="nt">&gt;</span>
+        <span class="nt">&lt;call</span> <span class="na">method=</span><span class="s">&quot;setClientConfiguration&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;argument</span>
+                <span class="na">type=</span><span class="s">&quot;service&quot;</span>
+                <span class="na">id=</span><span class="s">&quot;client_configuration&quot;</span>
+                <span class="na">on-invalid=</span><span class="s">&quot;null&quot;</span>
+                <span class="na">strict=</span><span class="s">&quot;false&quot;</span>
+            <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/call&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\ContainerInterface</span><span class="p">;</span>
+
+<span class="nv">$definition</span> <span class="o">=</span> <span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span>
+    <span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span>
+    <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\HelloBundle\Mail\Mailer&#39;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="o">-&gt;</span><span class="na">addMethodCall</span><span class="p">(</span><span class="s1">&#39;setClientConfiguration&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span>
+        <span class="s1">&#39;client_configuration&#39;</span><span class="p">,</span>
+        <span class="nx">ContainerInterface</span><span class="o">::</span><span class="na">NULL_ON_INVALID_REFERENCE</span><span class="p">,</span>
+        <span class="k">false</span>
+    <span class="p">)</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="b-changing-the-scope-of-your-service">
+<span id="changing-service-scope"></span><h3>B) Changing the Scope of your Service<a class="headerlink" href="#b-changing-the-scope-of-your-service" title="Permalink to this headline">¶</a></h3>
+<p>Changing the scope of a service should be done in its definition. This example
+assumes that the <tt class="docutils literal"><span class="pre">Mailer</span></tt> class has a <tt class="docutils literal"><span class="pre">__construct</span></tt> function whose first
+argument is the <tt class="docutils literal"><span class="pre">ClientConfiguration</span></tt> object:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/HelloBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_mailer</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\HelloBundle\Mail\Mailer</span>
+        <span class="l-Scalar-Plain">scope</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">client</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@client_configuration&quot;</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/HelloBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span>
+            <span class="na">class=</span><span class="s">&quot;Acme\HelloBundle\Mail\Mailer&quot;</span>
+            <span class="na">scope=</span><span class="s">&quot;client&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;client_configuration&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$definition</span> <span class="o">=</span> <span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span>
+    <span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span>
+    <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\HelloBundle\Mail\Mailer&#39;</span><span class="p">,</span>
+        <span class="k">array</span><span class="p">(</span><span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;client_configuration&#39;</span><span class="p">),</span>
+    <span class="p">))</span>
+<span class="p">)</span><span class="o">-&gt;</span><span class="na">setScope</span><span class="p">(</span><span class="s1">&#39;client&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="c-passing-the-container-as-a-dependency-of-your-service">
+<span id="passing-container"></span><h3>C) Passing the Container as a Dependency of your Service<a class="headerlink" href="#c-passing-the-container-as-a-dependency-of-your-service" title="Permalink to this headline">¶</a></h3>
+<p>Setting the scope to a narrower one is not always possible (for instance, a
+twig extension must be in the <tt class="docutils literal"><span class="pre">container</span></tt> scope as the Twig environment
+needs it as a dependency). In these cases, you can pass the entire container
+into your service:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Mail/Mailer.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\HelloBundle\Mail</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\ContainerInterface</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">Mailer</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$container</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">ContainerInterface</span> <span class="nv">$container</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">container</span> <span class="o">=</span> <span class="nv">$container</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">sendEmail</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="nv">$request</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">container</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;client_configuration&#39;</span><span class="p">);</span>
+        <span class="c1">// ... do something using the client configuration here</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Take care not to store the client configuration in a property of the object
+for a future call of the service as it would cause the same issue described
+in the first section (except that Symfony cannot detect that you are
+wrong).</p>
+</div>
+<p>The service config for this class would look something like this:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/HelloBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="c1"># ...</span>
+    <span class="l-Scalar-Plain">my_mailer.class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\HelloBundle\Mail\Mailer</span>
+
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">my_mailer</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>     <span class="s">&quot;%my_mailer.class%&quot;</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@service_container&quot;</span><span class="p-Indicator">]</span>
+        <span class="c1"># scope: container can be omitted as it is the default</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/HelloBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="c">&lt;!-- ... --&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;my_mailer.class&quot;</span><span class="nt">&gt;</span>Acme\HelloBundle\Mail\Mailer<span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;my_mailer&quot;</span> <span class="na">class=</span><span class="s">&quot;%my_mailer.class%&quot;</span><span class="nt">&gt;</span>
+         <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;service_container&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/HelloBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="c1">// ...</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;my_mailer.class&#39;</span><span class="p">,</span> <span class="s1">&#39;Acme\HelloBundle\Mail\Mailer&#39;</span><span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;my_mailer&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span>
+    <span class="s1">&#39;%my_mailer.class%&#39;</span><span class="p">,</span>
+    <span class="k">array</span><span class="p">(</span><span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;service_container&#39;</span><span class="p">))</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Injecting the whole container into a service is generally not a good
+idea (only inject what you need).</p>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">How to Work with Scopes</a><ul>
+<li><a class="reference internal" href="#understanding-scopes">Understanding Scopes</a><ul>
+<li><a class="reference internal" href="#an-example-client-scope">An Example: Client Scope</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#using-a-service-from-a-narrower-scope">Using a Service from a Narrower Scope</a><ul>
+<li><a class="reference internal" href="#a-using-a-synchronized-service">A) Using a Synchronized Service</a></li>
+<li><a class="reference internal" href="#b-changing-the-scope-of-your-service">B) Changing the Scope of your Service</a></li>
+<li><a class="reference internal" href="#c-passing-the-container-as-a-dependency-of-your-service">C) Passing the Container as a Dependency of your Service</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="event_listener.html"
+                        title="previous chapter">How to create an Event Listener</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="compiler_passes.html"
+                        title="next chapter">How to work with Compiler Passes in Bundles</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/service_container/scopes.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="compiler_passes.html" title="How to work with Compiler Passes in Bundles"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="event_listener.html" title="How to create an Event Listener"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2 Framework Documentation  documentation</a> &raquo;</li>
+          <li><a href="../index.html" >The Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Service Container</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright .
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
