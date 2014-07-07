@@ -1,0 +1,399 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como configurar Filtros aplicados antes e após &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Dispatcher de Eventos" href="index.html" />
+    <link rel="next" title="Como estender uma Classe sem usar Herança" href="class_extension.html" />
+    <link rel="prev" title="Dispatcher de Eventos" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="class_extension.html" title="Como estender uma Classe sem usar Herança"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Dispatcher de Eventos"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Dispatcher de Eventos</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-configurar-filtros-aplicados-antes-e-apos">
+<span id="index-0"></span><h1>Como configurar Filtros aplicados antes e após<a class="headerlink" href="#como-configurar-filtros-aplicados-antes-e-apos" title="Permalink to this headline">¶</a></h1>
+<p>É bastante comum, no desenvolvimento de aplicações web, precisar que alguma
+lógica seja executada antes ou após as ações de seu controlador, atuando como filtros
+ou hooks.</p>
+<p>No symfony1, isto era feito através dos métodos PreExecute e postExecute.
+A maioria dos principais frameworks possuem métodos semelhantes, mas isso não existe no Symfony2.
+A boa nova é que há uma forma muito melhor para interferir no processo
+Pedido -&gt; Resposta usando o <tt class="xref doc docutils literal"><span class="pre">componente</span> <span class="pre">EventDispatcher</span></tt>.</p>
+<div class="section" id="exemplo-de-validacao-de-token">
+<h2>Exemplo de validação de token<a class="headerlink" href="#exemplo-de-validacao-de-token" title="Permalink to this headline">¶</a></h2>
+<p>Imagine que você precisa desenvolver uma API onde alguns controladores são públicos
+mas outros são restritos a um ou alguns clientes. Para estas funcionalidades privadas,
+você pode fornecer um token para os clientes identificarem-se.</p>
+<p>Então, antes de executar a ação do controlador, você precisa verificar se a ação
+é restrita ou não. Se for restrita, você precisa validar o token
+informado.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Por favor, note que, por simplicidade, nesta receita os tokens serão definidos na configuração
+e não será usada configuração de banco de dados nem autenticação através do componente de
+Segurança.</p>
+</div>
+</div>
+<div class="section" id="filtros-aplicados-antes-com-o-evento-kernel-controller">
+<h2>Filtros aplicados Antes com o evento <tt class="docutils literal"><span class="pre">kernel.controller</span></tt><a class="headerlink" href="#filtros-aplicados-antes-com-o-evento-kernel-controller" title="Permalink to this headline">¶</a></h2>
+<p>Primeiro, armazene algumas configurações básicas do token usando o <tt class="docutils literal"><span class="pre">config.yml</span></tt> e a
+chave <tt class="docutils literal"><span class="pre">parameters</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">tokens</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">client1</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass1</span>
+        <span class="l-Scalar-Plain">client2</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass2</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;tokens&quot;</span> <span class="na">type=</span><span class="s">&quot;collection&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;client1&quot;</span><span class="nt">&gt;</span>pass1<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;client2&quot;</span><span class="nt">&gt;</span>pass2<span class="nt">&lt;/parameter&gt;</span>
+    <span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;tokens&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;client1&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;pass1&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;client2&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;pass2&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="tags-de-controladores-a-serem-verificadas">
+<h3>Tags de Controladores a serem verificadas<a class="headerlink" href="#tags-de-controladores-a-serem-verificadas" title="Permalink to this headline">¶</a></h3>
+<p>Um ouvinte <tt class="docutils literal"><span class="pre">kernel.controller</span></tt> é notificado em <em>todos</em> os pedidos, mesmo antes do
+controlador ser executado. Então, primeiro, você precisa de alguma forma para identificar
+se o controlador, que coincide com o pedido, precisa de validação do token.</p>
+<p>Uma maneira fácil e limpa é criar uma interface vazia e fazer os controladores
+implementá-la:</p>
+<div class="highlight-python"><div class="highlight"><pre>namespace Acme\DemoBundle\Controller;
+
+interface TokenAuthenticatedController
+{
+    // ...
+}
+</pre></div>
+</div>
+<p>Um controlador que implementa essa interface ficaria assim:</p>
+<div class="highlight-python"><div class="highlight"><pre>namespace Acme\DemoBundle\Controller;
+
+use Acme\DemoBundle\Controller\TokenAuthenticatedController;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+
+class FooController extends Controller implements TokenAuthenticatedController
+{
+    // An action that needs authentication
+    public function barAction()
+    {
+        // ...
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="criando-um-ouvinte-de-evento">
+<h3>Criando um Ouvinte de Evento<a class="headerlink" href="#criando-um-ouvinte-de-evento" title="Permalink to this headline">¶</a></h3>
+<p>Em seguida, você precisa criar um ouvinte de evento, que irá conter a lógica que
+você deseja executar antes de seus controladores. Se você não está familiarizado com
+ouvintes de eventos, você pode aprender mais sobre eles em <tt class="xref doc docutils literal"><span class="pre">/cookbook/service_container/event_listener</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/EventListener/TokenListener.php
+namespace Acme\DemoBundle\EventListener;
+
+use Acme\DemoBundle\Controller\TokenAuthenticatedController;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Event\FilterControllerEvent;
+
+class TokenListener
+{
+    private $tokens;
+
+    public function __construct($tokens)
+    {
+        $this-&gt;tokens = $tokens;
+    }
+
+    public function onKernelController(FilterControllerEvent $event)
+    {
+        $controller = $event-&gt;getController();
+
+        /*
+         * $controller passed can be either a class or a Closure. This is not usual in Symfony2 but it may happen.
+         * If it is a class, it comes in array format
+         */
+        if (!is_array($controller)) {
+            return;
+        }
+
+        if ($controller[0] instanceof TokenAuthenticatedController) {
+            $token = $event-&gt;getRequest()-&gt;query-&gt;get(&#39;token&#39;);
+            if (!in_array($token, $this-&gt;tokens)) {
+                throw new AccessDeniedHttpException(&#39;This action needs a valid token!&#39;);
+            }
+        }
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="registrando-o-ouvinte">
+<h3>Registrando o Ouvinte<a class="headerlink" href="#registrando-o-ouvinte" title="Permalink to this headline">¶</a></h3>
+<p>Finalmente, registre seu ouvinte como um serviço e adicione a ele uma tag de ouvinte de evento.
+Ao ouvir o <tt class="docutils literal"><span class="pre">kernel.controller</span></tt>, você está dizendo ao Symfony que deseja
+que seu ouvinte seja chamado antes que qualquer controlador seja executado.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre># app/config/config.yml (or inside your services.yml)
+services:
+    demo.tokens.action_listener:
+        class: Acme\DemoBundle\EventListener\TokenListener
+        arguments: [ %tokens% ]
+        tags:
+            - { name: kernel.event_listener, event: kernel.controller, method: onKernelController }
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml (or inside your services.xml) --&gt;</span>
+<span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;demo.tokens.action_listener&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\EventListener\TokenListener&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%tokens%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;kernel.event_listener&quot;</span> <span class="na">event=</span><span class="s">&quot;kernel.controller&quot;</span> <span class="na">method=</span><span class="s">&quot;onKernelController&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php (or inside your services.php)</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$listener</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\DemoBundle\EventListener\TokenListener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;%tokens%&#39;</span><span class="p">));</span>
+<span class="nv">$listener</span><span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;kernel.event_listener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;event&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;kernel.controller&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;onKernelController&#39;</span><span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;demo.tokens.action_listener&#39;</span><span class="p">,</span> <span class="nv">$listener</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Com esta configuração, seu método <tt class="docutils literal"><span class="pre">TokenListener</span></tt> <tt class="docutils literal"><span class="pre">onKernelController</span></tt>
+será executado em cada pedido. Se o controlador que está prestes a ser executado
+implementa <tt class="docutils literal"><span class="pre">TokenAuthenticatedController</span></tt>, o token de autenticação é
+aplicado. Isso permite que você tenha um filtro &#8220;antes&#8221; em qualquer controlador que
+desejar.</p>
+</div>
+</div>
+<div class="section" id="filtros-aplicados-apos-com-o-evento-kernel-response">
+<h2>Filtros aplicados &#8220;Após&#8221; com o evento <tt class="docutils literal"><span class="pre">kernel.response</span></tt><a class="headerlink" href="#filtros-aplicados-apos-com-o-evento-kernel-response" title="Permalink to this headline">¶</a></h2>
+<p>Além de ter um &#8220;hook&#8221; que é executado antes de seu controlador, você também pode adicionar
+um hook que será executado <em>após</em> seu controlador. Para este exemplo,
+imagine que você deseja adicionar um hash sha1 (com um salt usando aquele token) para
+todas as respostas que passaram este token de autenticação.</p>
+<p>Outro evento do núcleo do Symfony - chamado <tt class="docutils literal"><span class="pre">kernel.response</span></tt> - é notificado em
+cada pedido, mas depois que o controlador retorna um objeto de Resposta. Criar
+um ouvinte &#8220;após&#8221; é tão fácil quanto criar uma classe ouvinte e registrá-la
+como um serviço neste evento.</p>
+<p>Por exemplo, considere o <tt class="docutils literal"><span class="pre">TokenListener</span></tt> do exemplo anterior e primeiro
+grave o token de autenticação dentro dos atributos do pedido. Isto
+servirá como uma flag básica de que este pedido foi submetido à autenticação por token:</p>
+<div class="highlight-python"><div class="highlight"><pre>public function onKernelController(FilterControllerEvent $event)
+{
+    // ...
+
+    if ($controller[0] instanceof TokenAuthenticatedController) {
+        $token = $event-&gt;getRequest()-&gt;query-&gt;get(&#39;token&#39;);
+        if (!in_array($token, $this-&gt;tokens)) {
+            throw new AccessDeniedHttpException(&#39;This action needs a valid token!&#39;);
+        }
+
+        // mark the request as having passed token authentication
+        $event-&gt;getRequest()-&gt;attributes-&gt;set(&#39;auth_token&#39;, $token);
+    }
+}
+</pre></div>
+</div>
+<p>Agora, adicione um outro método nesta classe - <tt class="docutils literal"><span class="pre">onKernelResponse</span></tt> - que procura
+por esta flag no objeto do pedido e define um cabeçalho personalizado na resposta
+se ele for encontrado:</p>
+<div class="highlight-python"><div class="highlight"><pre>// add the new use statement at the top of your file
+use Symfony\Component\HttpKernel\Event\FilterResponseEvent;
+
+public function onKernelResponse(FilterResponseEvent $event)
+{
+    // check to see if onKernelController marked this as a token &quot;auth&#39;ed&quot; request
+    if (!$token = $event-&gt;getRequest()-&gt;attributes-&gt;get(&#39;auth_token&#39;)) {
+        return;
+    }
+
+    $response = $event-&gt;getResponse();
+
+    // create a hash and set it as a response header
+    $hash = sha1($response-&gt;getContent().$token);
+    $response-&gt;headers-&gt;set(&#39;X-CONTENT-HASH&#39;, $hash);
+}
+</pre></div>
+</div>
+<p>Finalmente, uma segunda &#8220;tag&#8221; é necessária na definição do serviço para notificar o Symfony
+que o evento <tt class="docutils literal"><span class="pre">onKernelResponse</span></tt> deve ser notificado para o evento
+<tt class="docutils literal"><span class="pre">kernel.response</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre># app/config/config.yml (or inside your services.yml)
+services:
+    demo.tokens.action_listener:
+        class: Acme\DemoBundle\EventListener\TokenListener
+        arguments: [ %tokens% ]
+        tags:
+            - { name: kernel.event_listener, event: kernel.controller, method: onKernelController }
+            - { name: kernel.event_listener, event: kernel.response, method: onKernelResponse }
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml (or inside your services.xml) --&gt;</span>
+<span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;demo.tokens.action_listener&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\EventListener\TokenListener&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%tokens%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;kernel.event_listener&quot;</span> <span class="na">event=</span><span class="s">&quot;kernel.controller&quot;</span> <span class="na">method=</span><span class="s">&quot;onKernelController&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;kernel.event_listener&quot;</span> <span class="na">event=</span><span class="s">&quot;kernel.response&quot;</span> <span class="na">method=</span><span class="s">&quot;onKernelResponse&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php (or inside your services.php)</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$listener</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\DemoBundle\EventListener\TokenListener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;%tokens%&#39;</span><span class="p">));</span>
+<span class="nv">$listener</span><span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;kernel.event_listener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;event&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;kernel.controller&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;onKernelController&#39;</span><span class="p">));</span>
+<span class="nv">$listener</span><span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;kernel.event_listener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;event&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;kernel.response&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;onKernelResponse&#39;</span><span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;demo.tokens.action_listener&#39;</span><span class="p">,</span> <span class="nv">$listener</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>É isso! O <tt class="docutils literal"><span class="pre">TokenListener</span></tt> agora é notificado antes de cada controlador ser
+executado (<tt class="docutils literal"><span class="pre">onKernelController</span></tt>) e depois de cada controlador retornar uma resposta
+(<tt class="docutils literal"><span class="pre">onKernelResponse</span></tt>). Fazendo com que controladores específicos implementem a interface <tt class="docutils literal"><span class="pre">TokenAuthenticatedController</span></tt>
+, o ouvinte saberá em quais controladores ele deve agir.
+E armazenando um valor nos &#8220;atributos&#8221; do pedido, o método <tt class="docutils literal"><span class="pre">onKernelResponse</span></tt>
+sabe adicionar o cabeçalho extra. Divirta-se!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como configurar Filtros aplicados antes e após</a><ul>
+<li><a class="reference internal" href="#exemplo-de-validacao-de-token">Exemplo de validação de token</a></li>
+<li><a class="reference internal" href="#filtros-aplicados-antes-com-o-evento-kernel-controller">Filtros aplicados Antes com o evento <tt class="docutils literal"><span class="pre">kernel.controller</span></tt></a><ul>
+<li><a class="reference internal" href="#tags-de-controladores-a-serem-verificadas">Tags de Controladores a serem verificadas</a></li>
+<li><a class="reference internal" href="#criando-um-ouvinte-de-evento">Criando um Ouvinte de Evento</a></li>
+<li><a class="reference internal" href="#registrando-o-ouvinte">Registrando o Ouvinte</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#filtros-aplicados-apos-com-o-evento-kernel-response">Filtros aplicados &#8220;Após&#8221; com o evento <tt class="docutils literal"><span class="pre">kernel.response</span></tt></a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Dispatcher de Eventos</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="class_extension.html"
+                        title="next chapter">Como estender uma Classe sem usar Herança</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/event_dispatcher/before_after_filters.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="class_extension.html" title="Como estender uma Classe sem usar Herança"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Dispatcher de Eventos"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Dispatcher de Eventos</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,309 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Configuração" href="index.html" />
+    <link rel="next" title="Como usar o Apache Router" href="apache_router.html" />
+    <link rel="prev" title="Como definir Parâmetros Externos no Container de Serviços" href="external_parameters.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="apache_router.html" title="Como usar o Apache Router"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="external_parameters.html" title="Como definir Parâmetros Externos no Container de Serviços"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Configuração</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-o-pdosessionstorage-para-armazenar-as-sessoes-no-banco-de-dados">
+<span id="index-0"></span><h1>Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados<a class="headerlink" href="#como-usar-o-pdosessionstorage-para-armazenar-as-sessoes-no-banco-de-dados" title="Permalink to this headline">¶</a></h1>
+<p>O armazenamento de sessão padrão do Symfony2 grava as informações da sessão em arquivo(s).
+A maioria dos sites de médio à grande porte utilizam um banco de dados para armazenar os
+valores da sessão, em vez de arquivos, pois os bancos de dados são mais fáceis de usar e
+escalam em um ambiente multi-servidor.</p>
+<p>O Symfony2 tem uma solução interna para o armazenamento de sessão em banco de dados chamado
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Session/Storage/Handler/PdoSessionHandler.html" title="Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler"><span class="pre">PdoSessionHandler</span></a></tt>.
+Para usá-lo, você só precisa alterar alguns parâmetros no <tt class="docutils literal"><span class="pre">config.yml</span></tt> (ou o
+formato de configuração de sua escolha):</p>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.1: </span>No Symfony2.1 a classe e o namespace foram ligeiramente modificados. Você pode agora
+encontrar as classes de armazenamento de sessão no namespace <cite>Session\Storage</cite>:
+<tt class="docutils literal"><span class="pre">Symfony\Component\HttpFoundation\Session\Storage</span></tt>. Observe também
+que no Symfony2.1 você deve configurar o <tt class="docutils literal"><span class="pre">handler_id</span></tt> e não o <tt class="docutils literal"><span class="pre">storage_id</span></tt> como no Symfony2.0.
+Abaixo, você vai perceber que o <tt class="docutils literal"><span class="pre">%session.storage.options%</span></tt> não é mais usado.</p>
+</div>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre># app/config/config.yml
+framework:
+    session:
+        # ...
+        handler_id:     session.handler.pdo
+
+parameters:
+    pdo.db_options:
+        db_table:    session
+        db_id_col:   session_id
+        db_data_col: session_value
+        db_time_col: session_time
+
+services:
+    pdo:
+        class: PDO
+        arguments:
+            dsn:      &quot;mysql:dbname=mydatabase&quot;
+            user:     myuser
+            password: mypassword
+
+    session.handler.pdo:
+        class:     Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler
+        arguments: [@pdo, %pdo.db_options%]
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;framework:config&gt;</span>
+    <span class="nt">&lt;framework:session</span> <span class="na">handler-id=</span><span class="s">&quot;session.handler.pdo&quot;</span> <span class="na">lifetime=</span><span class="s">&quot;3600&quot;</span> <span class="na">auto-start=</span><span class="s">&quot;true&quot;</span><span class="nt">/&gt;</span>
+<span class="nt">&lt;/framework:config&gt;</span>
+
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;pdo.db_options&quot;</span> <span class="na">type=</span><span class="s">&quot;collection&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;db_table&quot;</span><span class="nt">&gt;</span>session<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;db_id_col&quot;</span><span class="nt">&gt;</span>session_id<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;db_data_col&quot;</span><span class="nt">&gt;</span>session_value<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;db_time_col&quot;</span><span class="nt">&gt;</span>session_time<span class="nt">&lt;/parameter&gt;</span>
+    <span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;pdo&quot;</span> <span class="na">class=</span><span class="s">&quot;PDO&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;argument&gt;</span>mysql:dbname=mydatabase<span class="nt">&lt;/argument&gt;</span>
+        <span class="nt">&lt;argument&gt;</span>myuser<span class="nt">&lt;/argument&gt;</span>
+        <span class="nt">&lt;argument&gt;</span>mypassword<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;session.handler.pdo&quot;</span> <span class="na">class=</span><span class="s">&quot;Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;pdo&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;argument&gt;</span>%pdo.db_options%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/config.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Reference</span><span class="p">;</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;framework&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="c1">// ...</span>
+    <span class="s1">&#39;session&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="o">...</span><span class="p">,</span>
+        <span class="s1">&#39;handler_id&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;session.handler.pdo&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;pdo.db_options&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;db_table&#39;</span>      <span class="o">=&gt;</span> <span class="s1">&#39;session&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_id_col&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;session_id&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_data_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_value&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_time_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_time&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+
+<span class="nv">$pdoDefinition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;PDO&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;mysql:dbname=mydatabase&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;myuser&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;mypassword&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;pdo&#39;</span><span class="p">,</span> <span class="nv">$pdoDefinition</span><span class="p">);</span>
+
+<span class="nv">$storageDefinition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="k">new</span> <span class="nx">Reference</span><span class="p">(</span><span class="s1">&#39;pdo&#39;</span><span class="p">),</span>
+    <span class="s1">&#39;%pdo.db_options%&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;session.handler.pdo&#39;</span><span class="p">,</span> <span class="nv">$storageDefinition</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">db_table</span></tt>: O nome da tabela de sessão no seu banco de dados</li>
+<li><tt class="docutils literal"><span class="pre">db_id_col</span></tt>: O nome da coluna id na sua tabela de sessão (VARCHAR (255) ou maior)</li>
+<li><tt class="docutils literal"><span class="pre">db_data_col</span></tt>: O nome da coluna value na sua tabela de sessão (TEXT ou CLOB)</li>
+<li><tt class="docutils literal"><span class="pre">db_time_col</span></tt>: O nome da coluna time em sua tabela de sessão (INTEGER)</li>
+</ul>
+<div class="section" id="compartilhando-suas-informacoes-de-conexao-do-banco-de-dados">
+<h2>Compartilhando suas Informações de Conexão do Banco de Dados<a class="headerlink" href="#compartilhando-suas-informacoes-de-conexao-do-banco-de-dados" title="Permalink to this headline">¶</a></h2>
+<p>Com a configuração fornecida, as configurações de conexão do banco de dados são definidas
+somente para a conexão de armazenamento de sessão. Isto está OK quando você usa um banco de dados
+separado para os dados da sessão.</p>
+<p>Mas, se você gostaria de armazenar os dados da sessão no mesmo banco de dados que o resto
+dos dados do seu projeto, você pode usar as definições de conexão do
+parameter.ini referenciando os parâmetros relacionados ao banco de dados definidos lá:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre>pdo:
+    class: PDO
+    arguments:
+        - &quot;mysql:dbname=%database_name%&quot;
+        - %database_user%
+        - %database_password%
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;pdo&quot;</span> <span class="na">class=</span><span class="s">&quot;PDO&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>mysql:dbname=%database_name%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%database_user%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%database_password%<span class="nt">&lt;/argument&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$pdoDefinition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;PDO&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;mysql:dbname=%database_name%&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;%database_user%&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;%database_password%&#39;</span><span class="p">,</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="exemplo-de-instrucoes-sql">
+<h2>Exemplo de Instruções SQL<a class="headerlink" href="#exemplo-de-instrucoes-sql" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="mysql">
+<h3>MySQL<a class="headerlink" href="#mysql" title="Permalink to this headline">¶</a></h3>
+<p>A instrução SQL para criar a tabela de banco de dados necessária pode ser semelhante a
+seguinte (MySQL):</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="o">`</span><span class="k">session</span><span class="o">`</span> <span class="p">(</span>
+    <span class="o">`</span><span class="n">session_id</span><span class="o">`</span> <span class="nb">varchar</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="o">`</span><span class="n">session_value</span><span class="o">`</span> <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="o">`</span><span class="n">session_time</span><span class="o">`</span> <span class="nb">int</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="o">`</span><span class="n">session_id</span><span class="o">`</span><span class="p">)</span>
+<span class="p">)</span> <span class="n">ENGINE</span><span class="o">=</span><span class="n">InnoDB</span> <span class="k">DEFAULT</span> <span class="n">CHARSET</span><span class="o">=</span><span class="n">utf8</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="postgresql">
+<h3>PostgreSQL<a class="headerlink" href="#postgresql" title="Permalink to this headline">¶</a></h3>
+<p>Para o PostgreSQL, a declaração deve ficar assim:</p>
+<div class="highlight-sql"><div class="highlight"><pre><span class="k">CREATE</span> <span class="k">TABLE</span> <span class="k">session</span> <span class="p">(</span>
+    <span class="n">session_id</span> <span class="nb">character</span> <span class="nb">varying</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">session_value</span> <span class="nb">text</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="n">session_time</span> <span class="nb">integer</span> <span class="k">NOT</span> <span class="k">NULL</span><span class="p">,</span>
+    <span class="k">CONSTRAINT</span> <span class="n">session_pkey</span> <span class="k">PRIMARY</span> <span class="k">KEY</span> <span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados</a><ul>
+<li><a class="reference internal" href="#compartilhando-suas-informacoes-de-conexao-do-banco-de-dados">Compartilhando suas Informações de Conexão do Banco de Dados</a></li>
+<li><a class="reference internal" href="#exemplo-de-instrucoes-sql">Exemplo de Instruções SQL</a><ul>
+<li><a class="reference internal" href="#mysql">MySQL</a></li>
+<li><a class="reference internal" href="#postgresql">PostgreSQL</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="external_parameters.html"
+                        title="previous chapter">Como definir Parâmetros Externos no Container de Serviços</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="apache_router.html"
+                        title="next chapter">Como usar o Apache Router</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/configuration/pdo_session_storage.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="apache_router.html" title="Como usar o Apache Router"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="external_parameters.html" title="Como definir Parâmetros Externos no Container de Serviços"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Configuração</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

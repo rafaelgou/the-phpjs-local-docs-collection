@@ -1,0 +1,336 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como usar Conceitos Avançados de ACL &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Segurança" href="index.html" />
+    <link rel="next" title="Como forçar HTTPS ou HTTP para URLs Diferentes" href="force_https.html" />
+    <link rel="prev" title="Listas de controle de acesso (ACLs)" href="acl.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="force_https.html" title="Como forçar HTTPS ou HTTP para URLs Diferentes"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="acl.html" title="Listas de controle de acesso (ACLs)"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Segurança</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-conceitos-avancados-de-acl">
+<span id="index-0"></span><h1>Como usar Conceitos Avançados de ACL<a class="headerlink" href="#como-usar-conceitos-avancados-de-acl" title="Permalink to this headline">¶</a></h1>
+<p>O objetivo deste capítulo é fornecer uma visão mais aprofundada do sistema de ACL, e
+também explicar algumas das decisões de projeto por trás dele.</p>
+<div class="section" id="conceitos-de-projeto">
+<h2>Conceitos de Projeto<a class="headerlink" href="#conceitos-de-projeto" title="Permalink to this headline">¶</a></h2>
+<p>Os recursos de uma instância do objeto de segurança do Symfony2 tem base no conceito de uma
+Lista de Controle de Acesso (ACL). Cada <strong>instância</strong> do objeto de domínio tem a sua própria ACL. A
+instância ACL contém uma lista detalhada de Entradas de Controle de Acesso (ACEs), que são
+usadas para tomar decisões de acesso. O sistema ACL do Symfony2 concentra-se em dois objetivos
+principais:</p>
+<ul class="simple">
+<li>fornecer uma maneira de recuperar uma grande quantidade de ACLs/ACEs de forma eficiente
+para os seus objetos de domínio e para modificá-los;</li>
+<li>fornecer uma maneira de tomar decisões facilmente para saber se uma pessoa está autorizada a
+executar uma ação em um objeto de domínio ou não.</li>
+</ul>
+<p>Conforme indicado no primeiro ponto, uma das principais capacidades do sistema ACL do
+Symfony2 é uma forma de recuperar ACLs/ACEs com alto desempenho. Isto é
+extremamente importante, pois cada ACL pode ter várias ACEs, e herdam
+de outra ACL em forma de árvore. Portanto, nenhum ORM é utilizado, em vez disso,
+a implementação padrão interage com a sua conexão diretamente usando o DBAL do
+Doctrine.</p>
+<div class="section" id="identidades-de-objeto">
+<h3>Identidades de Objeto<a class="headerlink" href="#identidades-de-objeto" title="Permalink to this headline">¶</a></h3>
+<p>O sistema de ACL é completamente desacoplado de seus objetos de domínio. Eles não
+tem que ser armazenados na mesma base de dados, ou no mesmo servidor. De forma
+a atingir esse desacoplamento, os seus objetos, no sistema ACL, são representados
+através de objetos de identidade de objeto. Toda vez que você deseja recuperar a ACL para um
+objeto de domínio, o sistema de ACL vai primeiro criar uma identidade de objeto do seu
+objeto de domínio e, em seguida, passar essa identidade de objeto ao provedor ACL para
+processamento adicional.</p>
+</div>
+<div class="section" id="identidades-de-seguranca">
+<h3>Identidades de Segurança<a class="headerlink" href="#identidades-de-seguranca" title="Permalink to this headline">¶</a></h3>
+<p>Isto é análogo à identidade de objeto, mas representa um usuário ou um papel em
+sua aplicação. Cada papel ou usuário tem a sua própria identidade de segurança.</p>
+</div>
+</div>
+<div class="section" id="estrutura-da-tabela-de-banco-de-dados">
+<h2>Estrutura da Tabela de Banco de Dados<a class="headerlink" href="#estrutura-da-tabela-de-banco-de-dados" title="Permalink to this headline">¶</a></h2>
+<p>A implementação padrão usa cinco tabelas de banco de dados, conforme listado abaixo. Em uma aplicação típica,
+as tabelas são ordenadas da com menos linhas para a com mais linhas:</p>
+<ul class="simple">
+<li><em>acl_security_identities</em>: Esta tabela registra todas as identidades de segurança (SID)
+que detêm ACEs. A implementação padrão vem com duas identidades de
+segurança: <tt class="docutils literal"><span class="pre">RoleSecurityIdentity</span></tt> e <tt class="docutils literal"><span class="pre">UserSecurityIdentity</span></tt></li>
+<li><em>acl_classes</em>: Esta classe mapeia nomes de classes para um ID único, que pode ser
+referenciado a partir de outras tabelas.</li>
+<li><em>acl_object_identities</em>: Cada linha nessa tabela representa um único domínio
+de instância de objeto.</li>
+<li><em>acl_object_identity_ancestors</em>: Esta tabela permite que todos os ancestrais de
+uma ACL, possam ser determinados de uma maneira muito eficiente.</li>
+<li><em>acl_entries</em>: Esta tabela contém todas as ACEs. Essa é tipicamente a tabela
+com o maior número de linhas. Ela pode conter dezenas de milhões sem afetar
+significativamente o desempenho.</li>
+</ul>
+</div>
+<div class="section" id="escopo-das-entradas-de-controle-de-acesso">
+<h2>Escopo das Entradas de Controle de Acesso<a class="headerlink" href="#escopo-das-entradas-de-controle-de-acesso" title="Permalink to this headline">¶</a></h2>
+<p>Entradas de controle de acesso podem ter escopos diferentes nos quais se aplicam. No
+Symfony2, existem basicamente dois escopos diferentes:</p>
+<ul class="simple">
+<li>Class-Scope: Essas entradas se aplicam a todos os objetos com a mesma classe.</li>
+<li>Object-Scope: Este foi o escopo utilizado unicamente no capítulo anterior, e
+ele só se aplica a um objeto específico.</li>
+</ul>
+<p>Às vezes, você vai encontrar a necessidade de aplicar uma ACE apenas a um campo específico do
+objeto. Vamos dizer que você quer que o ID somente seja visualizado por um administrador,
+mas não por seu serviço do cliente. Para resolver este problema comum, mais dois sub-escopos
+foram adicionados:</p>
+<ul class="simple">
+<li>Classe-Field-Scope: Essas entradas se aplicam a todos os objetos com a mesma classe,
+mas apenas a um campo específico dos objetos.</li>
+<li>Object-Field-Scope: Essas entradas se aplicam a um objeto específico, e apenas a um
+campo específico do objeto.</li>
+</ul>
+</div>
+<div class="section" id="decisoes-de-pre-autorizacao">
+<h2>Decisões de Pré-Autorização<a class="headerlink" href="#decisoes-de-pre-autorizacao" title="Permalink to this headline">¶</a></h2>
+<p>Para as decisões de pré-autorização, que são as decisões tomadas antes de qualquer método seguro (ou
+ação segura) ser invocado, o serviço AccessDecisionManager é usado.
+O AccessDecisionManager também é usado para tomar decisões de autorização com base
+em papéis. Assim como os papéis, o sistema de ACL adiciona vários atributos novos que podem ser
+utilizados para verificar se há permissões diferentes.</p>
+<div class="section" id="mapa-de-permissao-integrado">
+<h3>Mapa de Permissão Integrado<a class="headerlink" href="#mapa-de-permissao-integrado" title="Permalink to this headline">¶</a></h3>
+<table border="1" class="docutils">
+<colgroup>
+<col width="23%" />
+<col width="40%" />
+<col width="37%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Atributo</th>
+<th class="head">Significado Pretendido</th>
+<th class="head">Bitmasks Inteiras</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>VIEW</td>
+<td>Se alguém tem permissão
+para ver o objeto de domínio.</td>
+<td>VIEW, EDIT, OPERATOR,
+MASTER ou OWNER</td>
+</tr>
+<tr class="row-odd"><td>EDIT</td>
+<td>Se alguém tem permissão
+para fazer alterações no
+objeto de domínio.</td>
+<td>EDIT, OPERATOR, MASTER
+ou OWNER</td>
+</tr>
+<tr class="row-even"><td>CREATE</td>
+<td>Se alguém tem permissão
+para criar o objeto de
+domínio.</td>
+<td>CREATE, OPERATOR, MASTER
+ou OWNER</td>
+</tr>
+<tr class="row-odd"><td>DELETE</td>
+<td>Se alguém tem permissão
+excluir o objeto de
+domínio.</td>
+<td>DELETE, OPERATOR, MASTER
+ou OWNER</td>
+</tr>
+<tr class="row-even"><td>UNDELETE</td>
+<td>Se alguém tem permissão para
+restaurar o objeto de domínio
+anteriormente excluído.</td>
+<td>UNDELETE, OPERATOR, MASTER
+ou OWNER</td>
+</tr>
+<tr class="row-odd"><td>OPERATOR</td>
+<td>Se alguém tem permissão
+para executar todas as ações
+acima.</td>
+<td>OPERATOR, MASTER ou OWNER</td>
+</tr>
+<tr class="row-even"><td>MASTER</td>
+<td>Se alguém tem permissão
+para executar todas as ações
+acima, e além disso é
+autorizada a conceder
+qualuqer uma das permissões
+acima para outros.</td>
+<td>MASTER ou OWNER</td>
+</tr>
+<tr class="row-odd"><td>OWNER</td>
+<td>Se alguém é dono do objeto
+de domínio. Um dono pode
+executar qualquer uma das
+ações acima <em>e</em> conceder
+permissões master e owner</td>
+<td>OWNER</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="atributos-de-permissao-vs-bitmasks-de-permissao">
+<h3>Atributos de Permissão vs Bitmasks de Permissão<a class="headerlink" href="#atributos-de-permissao-vs-bitmasks-de-permissao" title="Permalink to this headline">¶</a></h3>
+<p>Os atributos são usados ​​pelo AccessDecisionManager, assim como papéis. Muitas vezes, estes
+atributos representam, de fato, um agregado de bitmasks inteiros. Bitmasks inteiros por outro
+lado, são utilizados internamente pelo sistema de ACL para armazenar de forma eficiente suas
+permissões de usuário no banco de dados e executar verificações de acesso usando
+operações bitmask extremamente rápidas.</p>
+</div>
+<div class="section" id="extensibilidade">
+<h3>Extensibilidade<a class="headerlink" href="#extensibilidade" title="Permalink to this headline">¶</a></h3>
+<p>O mapa de permissão acima não é de forma alguma estático, e teoricamente poderia ser
+completamente substituído. No entanto, ele deve cobrir a maioria dos problemas que
+você encontra e para a interoperabilidade com outros bundles, você é incentivado a
+manter o significado previsto por eles.</p>
+</div>
+</div>
+<div class="section" id="decisoes-pos-autorizacao">
+<h2>Decisões Pós-Autorização<a class="headerlink" href="#decisoes-pos-autorizacao" title="Permalink to this headline">¶</a></h2>
+<p>Decisões pós-autorização são feitas depois de um método seguro ter sido invocado,
+e normalmente envolvem o objeto de domínio que é retornado por esse método.
+Após a invocação de providers, também é permitido modificar ou filtrar o objeto de domínio
+antes de ser devolvido.</p>
+<p>Devido às limitações atuais da linguagem PHP, não existem
+recursos de pós-autorização integrados no componente de segurança.
+No entanto, existe um <a class="reference external" href="https://github.com/schmittjoh/JMSSecurityExtraBundle">JMSSecurityExtraBundle</a> experimental que adiciona
+esses recursos. Consulte a documentação para obter mais informações sobre a
+forma como isso é feito.</p>
+</div>
+<div class="section" id="processo-para-tomar-decisoes-de-autorizacao">
+<h2>Processo para Tomar Decisões de Autorização<a class="headerlink" href="#processo-para-tomar-decisoes-de-autorizacao" title="Permalink to this headline">¶</a></h2>
+<p>A classe ACL fornece dois métodos para determinar se uma identidade de segurança
+tem as bitmasks necessárias, <tt class="docutils literal"><span class="pre">isGranted</span></tt> e <tt class="docutils literal"><span class="pre">isFieldGranted</span></tt>. Quando a ACL
+recebe um pedido de autorização através de um desses métodos, ela delega
+esse pedido para uma implementação de PermissionGrantingStrategy. Isso permite
+a substituição da forma como as decisões de acesso são tomadas sem modificar
+a própria classe ACL.</p>
+<p>O PermissionGrantingStrategy primeiro verifica todos os seus ACEs object-scope, se nenhum
+for aplicável, as ACEs class-scope serão verificadas, se nenhuma for aplicável,
+em seguida, o processo vai ser repetido com as ACEs da ACL pai. Se não
+existe nenhuma ACL pai, uma exceção será lançada.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como usar Conceitos Avançados de ACL</a><ul>
+<li><a class="reference internal" href="#conceitos-de-projeto">Conceitos de Projeto</a><ul>
+<li><a class="reference internal" href="#identidades-de-objeto">Identidades de Objeto</a></li>
+<li><a class="reference internal" href="#identidades-de-seguranca">Identidades de Segurança</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#estrutura-da-tabela-de-banco-de-dados">Estrutura da Tabela de Banco de Dados</a></li>
+<li><a class="reference internal" href="#escopo-das-entradas-de-controle-de-acesso">Escopo das Entradas de Controle de Acesso</a></li>
+<li><a class="reference internal" href="#decisoes-de-pre-autorizacao">Decisões de Pré-Autorização</a><ul>
+<li><a class="reference internal" href="#mapa-de-permissao-integrado">Mapa de Permissão Integrado</a></li>
+<li><a class="reference internal" href="#atributos-de-permissao-vs-bitmasks-de-permissao">Atributos de Permissão vs Bitmasks de Permissão</a></li>
+<li><a class="reference internal" href="#extensibilidade">Extensibilidade</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#decisoes-pos-autorizacao">Decisões Pós-Autorização</a></li>
+<li><a class="reference internal" href="#processo-para-tomar-decisoes-de-autorizacao">Processo para Tomar Decisões de Autorização</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="acl.html"
+                        title="previous chapter">Listas de controle de acesso (ACLs)</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="force_https.html"
+                        title="next chapter">Como forçar HTTPS ou HTTP para URLs Diferentes</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/acl_advanced.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="force_https.html" title="Como forçar HTTPS ou HTTP para URLs Diferentes"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="acl.html" title="Listas de controle de acesso (ACLs)"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Segurança</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

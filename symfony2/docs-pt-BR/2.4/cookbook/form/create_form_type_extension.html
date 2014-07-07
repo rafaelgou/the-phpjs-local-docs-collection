@@ -1,0 +1,430 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como criar uma Extensão do Tipo de Formulário &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Formulário" href="index.html" />
+    <link rel="next" title="Como usar a opção de campo de formulário Virtual" href="use_virtuals_forms.html" />
+    <link rel="prev" title="Como Criar um Tipo de Campo de Formulário Personalizado" href="create_custom_field_type.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="use_virtuals_forms.html" title="Como usar a opção de campo de formulário Virtual"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="create_custom_field_type.html" title="Como Criar um Tipo de Campo de Formulário Personalizado"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Formulário</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-criar-uma-extensao-do-tipo-de-formulario">
+<span id="index-0"></span><h1>Como criar uma Extensão do Tipo de Formulário<a class="headerlink" href="#como-criar-uma-extensao-do-tipo-de-formulario" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference internal" href="create_custom_field_type.html"><em>Tipos de campo de formulário personalizados</em></a> são ótimos quando
+você precisa de tipos de campo para um propósito específico, por exemplo para selecionar o gênero
+ou uma entrada de número de IVA.</p>
+<p>Mas, às vezes, você realmente não precisa adicionar novos tipos de campo - você quer
+adicionar funcionalidades aos tipos existentes. É onde o tipo de formulário
+é usado.</p>
+<p>As extensões do tipo de formulário têm dois casos de uso principais:</p>
+<ol class="arabic simple">
+<li>Você quer adicionar <strong>uma funcionalidade genérica para vários tipos</strong> (como
+a adição de um texto de &#8220;ajuda&#8221; para cada tipo de campo);</li>
+<li>Você quer adicionar <strong>uma funcionalidade específica para um único tipo</strong> (tal
+como a adição de uma funcionalidade &#8220;download&#8221; para o tipo de campo &#8220;file&#8221;).</li>
+</ol>
+<p>Em ambos os casos, é possível alcançar o seu objetivo com a renderização
+personalizada de formulário. Mas, usar extensões do tipo de formulário
+pode ser mais limpo (limitando a quantidade de lógica de negócios nos templates)
+e mais flexível (você pode adicionar várias extensões do tipo a um único tipo
+de formulário.</p>
+<p>Extensões do tipo de formulário podem alcançar mais do que os tipos de campos personalizados
+podem fazer, mas, em vez de serem tipos de campos próprios, <strong>elas conectam em tipos existentes</strong>.</p>
+<p>Imagine que você gerencia uma entidade <tt class="docutils literal"><span class="pre">Media</span></tt>, e que cada mídia está associada
+a um arquivo. Seu formulário <tt class="docutils literal"><span class="pre">Media</span></tt> usa um tipo file, mas, ao editar a entidade,
+você gostaria de ver sua imagem processada automaticamente ao lado do campo
+arquivo.</p>
+<p>Você poderia, naturalmente, fazer isso personalizando a forma como este campo é renderizado em um
+template. Mas as extensões do tipo de formulário permitem que você faça isso de uma forma DRY agradável.</p>
+<div class="section" id="definindo-a-extensao-do-tipo-de-formulario">
+<h2>Definindo a Extensão do Tipo de Formulário<a class="headerlink" href="#definindo-a-extensao-do-tipo-de-formulario" title="Permalink to this headline">¶</a></h2>
+<p>Sua primeira tarefa será criar a classe da extensão do tipo de formulário. Vamos
+chamá-la <tt class="docutils literal"><span class="pre">ImageTypeExtension</span></tt>. Por padrão, as extensões de formulário geralmente
+residem no diretório <tt class="docutils literal"><span class="pre">Form\Extension</span></tt> de um de seus bundles.</p>
+<p>Ao criar uma extensão de tipo de formulário, você pode implementar a
+interface <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/FormTypeExtensionInterface.html" title="Symfony\Component\Form\FormTypeExtensionInterface"><span class="pre">FormTypeExtensionInterface</span></a></tt>
+ou estender a classe <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/AbstractTypeExtension.html" title="Symfony\Component\Form\AbstractTypeExtension"><span class="pre">AbstractTypeExtension</span></a></tt>.
+Na maioria dos casos, é mais fácil estender a classe abstrata:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Extension/ImageTypeExtension.php
+namespace Acme\DemoBundle\Form\Extension;
+
+use Symfony\Component\Form\AbstractTypeExtension;
+
+class ImageTypeExtension extends AbstractTypeExtension
+{
+    /**
+     * Returns the name of the type being extended.
+     *
+     * @return string The name of the type being extended
+     */
+    public function getExtendedType()
+    {
+        return &#39;file&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>O único método que você <strong>deve</strong> implementar é o <tt class="docutils literal"><span class="pre">getExtendedType</span></tt>.
+Ele é usado para indicar o nome do tipo de formulário que será estendido
+pela sua extensão.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">O valor que você retorna no método <tt class="docutils literal"><span class="pre">getExtendedType</span></tt> corresponde
+ao valor retornado pelo método <tt class="docutils literal"><span class="pre">getName</span></tt> na classe do tipo de formulário
+que você deseja estender.</p>
+</div>
+<p>Além da função``getExtendedType``, provavelmente você vai querer
+sobrescrever um dos seguintes métodos:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">buildForm()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">buildView()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">setDefaultOptions()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">finishView()</span></tt></li>
+</ul>
+<p>Para mais informações sobre o que esses métodos fazem, você pode consultar o
+artigo do cookbook
+<a class="reference internal" href="create_custom_field_type.html"><em>Criando Tipos de Campo Personalizados</em></a>.</p>
+</div>
+<div class="section" id="registrando-a-sua-extensao-do-tipo-de-formulario-como-um-servico">
+<h2>Registrando a sua Extensão do Tipo de Formulário como um Serviço<a class="headerlink" href="#registrando-a-sua-extensao-do-tipo-de-formulario-como-um-servico" title="Permalink to this headline">¶</a></h2>
+<p>O próximo passo tornar o Symfony ciente da sua extensão. Tudo o que você
+precisa fazer é declará-la como um serviço usando a tag
+<tt class="docutils literal"><span class="pre">form.type_extension</span></tt>.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme_demo_bundle.image_type_extension</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\DemoBundle\Form\Extension\ImageTypeExtension</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">form.type_extension</span><span class="p-Indicator">,</span> <span class="nv">alias</span><span class="p-Indicator">:</span> <span class="nv">file</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme_demo_bundle.image_type_extension&quot;</span>
+    <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\Form\Extension\ImageTypeExtension&quot;</span>
+<span class="nt">&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;form.type_extension&quot;</span> <span class="na">alias=</span><span class="s">&quot;file&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span>
+        <span class="s1">&#39;acme_demo_bundle.image_type_extension&#39;</span><span class="p">,</span>
+        <span class="s1">&#39;Acme\DemoBundle\Form\Extension\ImageTypeExtension&#39;</span>
+    <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;form.type_extension&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;alias&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;file&#39;</span><span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>A chave <tt class="docutils literal"><span class="pre">alias</span></tt> da tag é o tipo de campo que essa extensão deve
+ser aplicada. No seu caso, como você deseja estender o tipo de <tt class="docutils literal"><span class="pre">file</span></tt>,
+você vai usar o <tt class="docutils literal"><span class="pre">file</span></tt> como um alias.</p>
+</div>
+<div class="section" id="adicionando-a-logica-de-negocio-da-extensao">
+<h2>Adicionando a lógica de negócio da extensão<a class="headerlink" href="#adicionando-a-logica-de-negocio-da-extensao" title="Permalink to this headline">¶</a></h2>
+<p>O objetivo da sua extensão é exibir imagens agradáveis ​​ao lado de campos arquivo
+(quando o modelo subjacente contém imagens). Para esta finalidade, vamos supor
+que você usa uma abordagem semelhante à descrita em
+<a class="reference internal" href="../doctrine/file_uploads.html"><em>Como manusear o upload de arquivos com o Doctrine</em></a>:
+você tem um modelo Media com uma propriedade file (correspondente ao campo de arquivo,
+no formulário) e uma propriedade path (correspondendo ao caminho da imagem, no
+banco de dados):</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Entity/Media.php
+namespace Acme\DemoBundle\Entity;
+
+use Symfony\Component\Validator\Constraints as Assert;
+
+class Media
+{
+    // ...
+
+    /**
+     * @var string The path - typically stored in the database
+     */
+    private $path;
+
+    /**
+     * @var \Symfony\Component\HttpFoundation\File\UploadedFile
+     * @Assert\File(maxSize=&quot;2M&quot;)
+     */
+    public $file;
+
+    // ...
+
+    /**
+     * Get the image url
+     *
+     * @return null|string
+     */
+    public function getWebPath()
+    {
+        // ... $webPath being the full image url, to be used in templates
+
+        return $webPath;
+    }
+}
+</pre></div>
+</div>
+<p>Sua classe da extensão do tipo de formulário terá que fazer duas coisas, a fim de estender
+o tipo de formulário <tt class="docutils literal"><span class="pre">file</span></tt>:</p>
+<ol class="arabic simple">
+<li>Sobrescrever o método <tt class="docutils literal"><span class="pre">setDefaultOptions</span></tt>, a fim de adicionar uma opção
+image_path;</li>
+<li>Sobrescrever os métodos <tt class="docutils literal"><span class="pre">buildForm</span></tt> e <tt class="docutils literal"><span class="pre">buildView</span></tt> a fim de passar a url da imagem
+para a visão.</li>
+</ol>
+<p>A lógica é a seguinte: quando adicionar um campo de formulário do tipo <tt class="docutils literal"><span class="pre">file</span></tt>,
+você poderá especificar uma nova opção: `` image_path <a href="#id1"><span class="problematic" id="id2">``</span></a>. Esta opção irá
+dizer ao campo arquivo como obter o endereço real da imagem, a fim de exibí-la
+na visão:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Extension/ImageTypeExtension.php
+namespace Acme\DemoBundle\Form\Extension;
+
+use Symfony\Component\Form\AbstractTypeExtension;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\Util\PropertyPath;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class ImageTypeExtension extends AbstractTypeExtension
+{
+    /**
+     * Returns the name of the type being extended.
+     *
+     * @return string The name of the type being extended
+     */
+    public function getExtendedType()
+    {
+        return &#39;file&#39;;
+    }
+
+    /**
+     * Add the image_path option
+     *
+     * @param OptionsResolverInterface $resolver
+     */
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setOptional(array(&#39;image_path&#39;));
+    }
+
+    /**
+     * Pass the image url to the view
+     *
+     * @param FormView $view
+     * @param FormInterface $form
+     * @param array $options
+     */
+    public function buildView(FormView $view, FormInterface $form, array $options)
+    {
+        if (array_key_exists(&#39;image_path&#39;, $options)) {
+            $parentData = $form-&gt;getParent()-&gt;getData();
+
+            if (null !== $parentData) {
+                $propertyPath = new PropertyPath($options[&#39;image_path&#39;]);
+                $imageUrl = $propertyPath-&gt;getValue($parentData);
+            } else {
+                 $imageUrl = null;
+            }
+
+            // set an &quot;image_url&quot; variable that will be available when rendering this field
+            $view-&gt;set(&#39;image_url&#39;, $imageUrl);
+        }
+    }
+
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="sobrescrevendo-o-fragmento-de-template-do-widget-file">
+<h2>Sobrescrevendo o Fragmento de Template do Widget File<a class="headerlink" href="#sobrescrevendo-o-fragmento-de-template-do-widget-file" title="Permalink to this headline">¶</a></h2>
+<p>Cada tipo de campo é renderizado por um fragmento de template. Esses fragmentos de template
+podem ser sobrescritos, para personalizar a renderização formulário. Para mais informações
+você pode consultar o artigo <a class="reference internal" href="form_customization.html#cookbook-form-customization-form-themes"><em>O que são Temas de Formulário?</em></a>.</p>
+<p>Em sua classe de extensão, você adicionou uma nova variável (<tt class="docutils literal"><span class="pre">image_url</span></tt>), mas
+você ainda precisa aproveitar esta nova variável em seus templates.
+Especificamente, você precisa sobrescrever o bloco <tt class="docutils literal"><span class="pre">file_widget</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>Twig</em><div class="highlight-html+jinja"><div class="highlight"><pre><span class="c">{# src/Acme/DemoBundle/Resources/views/Form/fields.html.twig #}</span>
+<span class="cp">{%</span> <span class="k">extends</span> <span class="s1">&#39;form_div_layout.html.twig&#39;</span> <span class="cp">%}</span>
+
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">file_widget</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">spaceless</span> <span class="cp">%}</span>
+
+    <span class="cp">{{</span> <span class="nb">block</span><span class="o">(</span><span class="s1">&#39;form_widget&#39;</span><span class="o">)</span> <span class="cp">}}</span>
+    <span class="cp">{%</span> <span class="k">if</span> <span class="nv">image_url</span> <span class="k">is</span> <span class="k">not</span> <span class="nf">null</span> <span class="cp">%}</span>
+        <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">asset</span><span class="o">(</span><span class="nv">image_url</span><span class="o">)</span> <span class="cp">}}</span><span class="s">&quot;</span><span class="nt">/&gt;</span>
+    <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+
+    <span class="cp">{%</span> <span class="k">endspaceless</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-html+php"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/DemoBundle/Resources/views/Form/file_widget.html.php --&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;form&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">widget</span><span class="p">(</span><span class="nv">$form</span><span class="p">)</span> <span class="cp">?&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">if</span> <span class="p">(</span><span class="k">null</span> <span class="o">!==</span> <span class="nv">$image_url</span><span class="p">)</span><span class="o">:</span> <span class="cp">?&gt;</span>
+    <span class="nt">&lt;img</span> <span class="na">src=</span><span class="s">&quot;</span><span class="cp">&lt;?php</span> <span class="k">echo</span> <span class="nv">$view</span><span class="p">[</span><span class="s1">&#39;assets&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">getUrl</span><span class="p">(</span><span class="nv">$image_url</span><span class="p">)</span> <span class="cp">?&gt;</span><span class="s">&quot;</span><span class="nt">/&gt;</span>
+<span class="cp">&lt;?php</span> <span class="k">endif</span> <span class="cp">?&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Você precisará mudar o seu arquivo de configuração ou especificar explicitamente como
+você quer o tema do seu formulário, para que o Symfony utilize o seu bloco
+sobrecrito. Veja <a class="reference internal" href="form_customization.html#cookbook-form-customization-form-themes"><em>O que são Temas de Formulário?</em></a> para mais
+informações.</p>
+</div>
+</div>
+<div class="section" id="usando-a-extensao-do-tipo-de-formulario">
+<h2>Usando a Extensão do Tipo de Formulário<a class="headerlink" href="#usando-a-extensao-do-tipo-de-formulario" title="Permalink to this headline">¶</a></h2>
+<p>A partir de agora, ao adicionar um campo do tipo <tt class="docutils literal"><span class="pre">file</span></tt> no seu formulário, você pode
+especificar uma opção <tt class="docutils literal"><span class="pre">image_path</span></tt> que será usada para exibir uma imagem
+próxima ao campo arquivo. Por exemplo:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/MediaType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class MediaType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder
+            -&gt;add(&#39;name&#39;, &#39;text&#39;)
+            -&gt;add(&#39;file&#39;, &#39;file&#39;, array(&#39;image_path&#39; =&gt; &#39;webPath&#39;));
+    }
+
+    public function getName()
+    {
+        return &#39;media&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>Ao exibir o formulário, se o modelo subjacente já foi associado
+com uma imagem, você vai vê-la ao lado do campo arquivo.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como criar uma Extensão do Tipo de Formulário</a><ul>
+<li><a class="reference internal" href="#definindo-a-extensao-do-tipo-de-formulario">Definindo a Extensão do Tipo de Formulário</a></li>
+<li><a class="reference internal" href="#registrando-a-sua-extensao-do-tipo-de-formulario-como-um-servico">Registrando a sua Extensão do Tipo de Formulário como um Serviço</a></li>
+<li><a class="reference internal" href="#adicionando-a-logica-de-negocio-da-extensao">Adicionando a lógica de negócio da extensão</a></li>
+<li><a class="reference internal" href="#sobrescrevendo-o-fragmento-de-template-do-widget-file">Sobrescrevendo o Fragmento de Template do Widget File</a></li>
+<li><a class="reference internal" href="#usando-a-extensao-do-tipo-de-formulario">Usando a Extensão do Tipo de Formulário</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="create_custom_field_type.html"
+                        title="previous chapter">Como Criar um Tipo de Campo de Formulário Personalizado</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="use_virtuals_forms.html"
+                        title="next chapter">Como usar a opção de campo de formulário <tt class="docutils literal"><span class="pre">Virtual</span></tt></a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/create_form_type_extension.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="use_virtuals_forms.html" title="Como usar a opção de campo de formulário Virtual"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="create_custom_field_type.html" title="Como Criar um Tipo de Campo de Formulário Personalizado"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Formulário</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como usar o Apache Router &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Configuração" href="index.html" />
+    <link rel="next" title="Bundles" href="../bundles/index.html" />
+    <link rel="prev" title="Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados" href="pdo_session_storage.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../bundles/index.html" title="Bundles"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="pdo_session_storage.html" title="Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Configuração</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-o-apache-router">
+<span id="index-0"></span><h1>Como usar o Apache Router<a class="headerlink" href="#como-usar-o-apache-router" title="Permalink to this headline">¶</a></h1>
+<p>O Symfony2, mesmo sendo rápido logo após a sua instalação, ainda fornece várias formas de aumentar essa velocidade com poucos ajustes.
+Uma dessas formas é deixar o apache lidar com as rotas diretamente, em vez de usar o Symfony2 para esta tarefa.</p>
+<div class="section" id="alterando-os-parametros-de-configuracao-do-router">
+<h2>Alterando os Parâmetros de Configuração do Router<a class="headerlink" href="#alterando-os-parametros-de-configuracao-do-router" title="Permalink to this headline">¶</a></h2>
+<p>Para fazer o dump das rotas do Apache precisamos primeiro ajustar alguns parâmetros de configuração e dizer ao
+Symfony2 para usar o <tt class="docutils literal"><span class="pre">ApacheUrlMatcher</span></tt> em vez do padrão:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config_prod.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">router.options.matcher.cache_class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">~</span> <span class="c1"># disable router cache</span>
+    <span class="l-Scalar-Plain">router.options.matcher_class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Symfony\Component\Routing\Matcher\ApacheUrlMatcher</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Note que o <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/Matcher/ApacheUrlMatcher.html" title="Symfony\Component\Routing\Matcher\ApacheUrlMatcher"><span class="pre">ApacheUrlMatcher</span></a></tt>
+estende <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/Matcher/UrlMatcher.html" title="Symfony\Component\Routing\Matcher\UrlMatcher"><span class="pre">UrlMatcher</span></a></tt> assim, mesmo
+se você não regerar as regras url_rewrite, tudo vai funcionar (porque
+no final do <tt class="docutils literal"><span class="pre">ApacheUrlMatcher::match()</span></tt> é realizada uma chamada para o
+<tt class="docutils literal"><span class="pre">parent::match()</span></tt>).</p>
+</div>
+</div>
+<div class="section" id="gerando-regras-do-mod-rewrite">
+<h2>Gerando regras do mod_rewrite<a class="headerlink" href="#gerando-regras-do-mod-rewrite" title="Permalink to this headline">¶</a></h2>
+<p>Para testar se está funcionando, vamos criar uma rota bem básica para o bundle demo:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/routing.yml</span>
+<span class="l-Scalar-Plain">hello</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">pattern</span><span class="p-Indicator">:</span>  <span class="l-Scalar-Plain">/hello/{name}</span>
+    <span class="l-Scalar-Plain">defaults</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">_controller</span><span class="p-Indicator">:</span> <span class="nv">AcmeDemoBundle</span><span class="p-Indicator">:</span><span class="nv">Demo</span><span class="p-Indicator">:</span><span class="nv">hello</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+<p>Agora vamos gerar regras <strong>url_rewrite</strong>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>php app/console router:dump-apache -e<span class="o">=</span>prod --no-debug
+</pre></div>
+</div>
+<p>Que deve produzir aproximadamente o seguinte:</p>
+<div class="highlight-apache"><div class="highlight"><pre><span class="c"># skip &quot;real&quot; requests</span>
+<span class="nb">RewriteCond</span> %{REQUEST_FILENAME} -f
+<span class="nb">RewriteRule</span> .* - [QSA,L]
+
+<span class="c"># hello</span>
+<span class="nb">RewriteCond</span> %{REQUEST_URI} ^/hello/([^/]+?)$
+<span class="nb">RewriteRule</span> .* app.php [QSA,L,E=_ROUTING__route:hello,E=_ROUTING_name:%1,E=_ROUTING__controller:AcmeDemoBundle\:Demo\:hello]
+</pre></div>
+</div>
+<p>Agora você pode reescrever o <cite>web/.htaccess</cite> para usar as novas regras, portanto, com o nosso exemplo,
+ele deve parecer com o seguinte:</p>
+<div class="highlight-apache"><div class="highlight"><pre><span class="nt">&lt;IfModule</span> <span class="s">mod_rewrite.c</span><span class="nt">&gt;</span>
+    <span class="nb">RewriteEngine</span> <span class="k">On</span>
+
+    <span class="c"># skip &quot;real&quot; requests</span>
+    <span class="nb">RewriteCond</span> %{REQUEST_FILENAME} -f
+    <span class="nb">RewriteRule</span> .* - [QSA,L]
+
+    <span class="c"># hello</span>
+    <span class="nb">RewriteCond</span> %{REQUEST_URI} ^/hello/([^/]+?)$
+    <span class="nb">RewriteRule</span> .* app.php [QSA,L,E=_ROUTING__route:hello,E=_ROUTING_name:%1,E=_ROUTING__controller:AcmeDemoBundle\:Demo\:hello]
+<span class="nt">&lt;/IfModule&gt;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">O procedimento acima deve ser feito cada vez que você adicionar/alterar uma rota se deseja aproveitar o máximo desta configuração.</p>
+</div>
+<p>É isso!
+Você agora está pronto para usar as regras do Apache Route.</p>
+</div>
+<div class="section" id="ajustes-adicionais">
+<h2>Ajustes adicionais<a class="headerlink" href="#ajustes-adicionais" title="Permalink to this headline">¶</a></h2>
+<p>Para economizar um pouco de tempo de processamento, altere as ocorrências de <tt class="docutils literal"><span class="pre">Request</span></tt>
+para <tt class="docutils literal"><span class="pre">ApacheRequest</span></tt> no <tt class="docutils literal"><span class="pre">web/app.php</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// web/app.php
+
+require_once __DIR__.&#39;/../app/bootstrap.php.cache&#39;;
+require_once __DIR__.&#39;/../app/AppKernel.php&#39;;
+//require_once __DIR__.&#39;/../app/AppCache.php&#39;;
+
+use Symfony\Component\HttpFoundation\ApacheRequest;
+
+$kernel = new AppKernel(&#39;prod&#39;, false);
+$kernel-&gt;loadClassCache();
+//$kernel = new AppCache($kernel);
+$kernel-&gt;handle(ApacheRequest::createFromGlobals())-&gt;send();
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como usar o Apache Router</a><ul>
+<li><a class="reference internal" href="#alterando-os-parametros-de-configuracao-do-router">Alterando os Parâmetros de Configuração do Router</a></li>
+<li><a class="reference internal" href="#gerando-regras-do-mod-rewrite">Gerando regras do mod_rewrite</a></li>
+<li><a class="reference internal" href="#ajustes-adicionais">Ajustes adicionais</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="pdo_session_storage.html"
+                        title="previous chapter">Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../bundles/index.html"
+                        title="next chapter">Bundles</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/configuration/apache_router.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../bundles/index.html" title="Bundles"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="pdo_session_storage.html" title="Como usar o PdoSessionStorage para armazenar as Sessões no Banco de Dados"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Configuração</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

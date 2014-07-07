@@ -1,0 +1,398 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como Implementar um Formulário Simples de Registro &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Doctrine" href="index.html" />
+    <link rel="next" title="Formulário" href="../form/index.html" />
+    <link rel="prev" title="Como Registrar Funções DQL Personalizadas" href="custom_dql_functions.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../form/index.html" title="Formulário"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="custom_dql_functions.html" title="Como Registrar Funções DQL Personalizadas"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-implementar-um-formulario-simples-de-registro">
+<span id="index-0"></span><h1>Como Implementar um Formulário Simples de Registro<a class="headerlink" href="#como-implementar-um-formulario-simples-de-registro" title="Permalink to this headline">¶</a></h1>
+<p>Alguns formulários possuem campos extras cujos valores não precisam ser armazenados no
+banco de dados. Por exemplo, você pode criar um formulário de registo com alguns
+campos extras (como um campo checkbox &#8220;termos de aceite&#8221;) e incorporar o formulário
+que realmente armazena as informações da conta.</p>
+<div class="section" id="o-modelo-user">
+<h2>O modelo <tt class="docutils literal"><span class="pre">User</span></tt><a class="headerlink" href="#o-modelo-user" title="Permalink to this headline">¶</a></h2>
+<p>Você tem uma entidade simples <tt class="docutils literal"><span class="pre">User</span></tt> mapeada para o banco de dados:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/AccountBundle/Entity/User.php
+namespace Acme\AccountBundle\Entity;
+
+use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+
+/**
+ * @ORM\Entity
+ * @UniqueEntity(fields=&quot;email&quot;, message=&quot;Email already taken&quot;)
+ */
+class User
+{
+    /**
+     * @ORM\Id
+     * @ORM\Column(type=&quot;integer&quot;)
+     * @ORM\GeneratedValue(strategy=&quot;AUTO&quot;)
+     */
+    protected $id;
+
+    /**
+     * @ORM\Column(type=&quot;string&quot;, length=255)
+     * @Assert\NotBlank()
+     * @Assert\Email()
+     */
+    protected $email;
+
+    /**
+     * @ORM\Column(type=&quot;string&quot;, length=255)
+     * @Assert\NotBlank()
+     */
+    protected $plainPassword;
+
+    public function getId()
+    {
+        return $this-&gt;id;
+    }
+
+    public function getEmail()
+    {
+        return $this-&gt;email;
+    }
+
+    public function setEmail($email)
+    {
+        $this-&gt;email = $email;
+    }
+
+    public function getPlainPassword()
+    {
+        return $this-&gt;plainPassword;
+    }
+
+    public function setPlainPassword($password)
+    {
+        $this-&gt;plainPassword = $password;
+    }
+}
+</pre></div>
+</div>
+<p>Esta entidade <tt class="docutils literal"><span class="pre">User</span></tt> contém três campos, e dois deles (<tt class="docutils literal"><span class="pre">email</span></tt> e
+<tt class="docutils literal"><span class="pre">plainPassword</span></tt>) devem ser exibos no formulário. A propriedade e-mail deve ser única
+no banco de dados, isto é aplicado através da adição da validação no topo
+da classe.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Se você quiser integrar este <tt class="docutils literal"><span class="pre">User</span></tt> com o sistema de segurança, você precisa
+implementar a <a class="reference internal" href="../../book/security.html#book-security-user-entity"><em>UserInterface</em></a> do
+componente de segurança.</p>
+</div>
+</div>
+<div class="section" id="criando-um-formulario-para-o-modelo">
+<h2>Criando um Formulário para o Modelo<a class="headerlink" href="#criando-um-formulario-para-o-modelo" title="Permalink to this headline">¶</a></h2>
+<p>Em seguida, crie o formulário para o modelo <tt class="docutils literal"><span class="pre">User</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/AccountBundle/Form/Type/UserType.php
+namespace Acme\AccountBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class UserType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add(&#39;email&#39;, &#39;email&#39;);
+        $builder-&gt;add(&#39;plainPassword&#39;, &#39;repeated&#39;, array(
+           &#39;first_name&#39; =&gt; &#39;password&#39;,
+           &#39;second_name&#39; =&gt; &#39;confirm&#39;,
+           &#39;type&#39; =&gt; &#39;password&#39;,
+        ));
+    }
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            &#39;data_class&#39; =&gt; &#39;Acme\AccountBundle\Entity\User&#39;
+        ));
+    }
+
+    public function getName()
+    {
+        return &#39;user&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>Há apenas dois campos:<tt class="docutils literal"><span class="pre">email</span></tt> e <tt class="docutils literal"><span class="pre">plainPassword</span></tt> (repetido para confirmar
+a senha digitada). A opção <tt class="docutils literal"><span class="pre">data_class</span></tt> diz ao formulário o nome da
+classe de dados (ou seja, a sua entidade <tt class="docutils literal"><span class="pre">User</span></tt>).</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Para explorar mais sobre o componente de formulário, leia <a class="reference internal" href="../../book/forms.html"><em>Formulários</em></a>.</p>
+</div>
+</div>
+<div class="section" id="incorporando-o-formulario-do-user-no-formulario-de-registro">
+<h2>Incorporando o Formulário do User no Formulário de Registro<a class="headerlink" href="#incorporando-o-formulario-do-user-no-formulario-de-registro" title="Permalink to this headline">¶</a></h2>
+<p>O formulário que você vai usar para a página de registo não será o mesmo usado
+para modificar o <tt class="docutils literal"><span class="pre">User</span></tt> (ou seja, <tt class="docutils literal"><span class="pre">UserType</span></tt>). O formulário de registro
+conterá novos campos como o &#8220;aceitar os termos&#8221;, cujo valor não
+será armazenado no banco de dados.</p>
+<p>Comece criando uma classe simples que representa o &#8220;registro&#8221;:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/AccountBundle/Form/Model/Registration.php
+namespace Acme\AccountBundle\Form\Model;
+
+use Symfony\Component\Validator\Constraints as Assert;
+
+use Acme\AccountBundle\Entity\User;
+
+class Registration
+{
+    /**
+     * @Assert\Type(type=&quot;Acme\AccountBundle\Entity\User&quot;)
+     */
+    protected $user;
+
+    /**
+     * @Assert\NotBlank()
+     * @Assert\True()
+     */
+    protected $termsAccepted;
+
+    public function setUser(User $user)
+    {
+        $this-&gt;user = $user;
+    }
+
+    public function getUser()
+    {
+        return $this-&gt;user;
+    }
+
+    public function getTermsAccepted()
+    {
+        return $this-&gt;termsAccepted;
+    }
+
+    public function setTermsAccepted($termsAccepted)
+    {
+        $this-&gt;termsAccepted = (Boolean) $termsAccepted;
+    }
+}
+</pre></div>
+</div>
+<p>Em seguida, crie o formulário para este modelo <tt class="docutils literal"><span class="pre">Registration</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/AccountBundle/Form/Type/RegistrationType.php
+namespace Acme\AccountBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class RegistrationType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add(&#39;user&#39;, new UserType());
+        $builder-&gt;add(
+            &#39;terms&#39;,
+            &#39;checkbox&#39;,
+            array(&#39;property_path&#39; =&gt; &#39;termsAccepted&#39;)
+        );
+    }
+
+    public function getName()
+    {
+        return &#39;registration&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>Você não precisa usar um método especial para incorporar o formulário <tt class="docutils literal"><span class="pre">UserType</span></tt>.
+Um formulário também é um campo - logo, você pode adicionar ele como qualquer
+outro campo, com a certeza de que a propriedade <tt class="docutils literal"><span class="pre">Registration.user</span></tt> irá manter uma
+instância da classe <tt class="docutils literal"><span class="pre">User</span></tt>.</p>
+</div>
+<div class="section" id="manuseando-a-submissao-do-formulario">
+<h2>Manuseando a Submissão do Formulário<a class="headerlink" href="#manuseando-a-submissao-do-formulario" title="Permalink to this headline">¶</a></h2>
+<p>Em seguida, você precisa de um controlador para lidar com o formulário. Comece criando um
+controlador simples para exibir o formulário de registro:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/AccountBundle/Controller/AccountController.php
+namespace Acme\AccountBundle\Controller;
+
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Symfony\Component\HttpFoundation\Response;
+
+use Acme\AccountBundle\Form\Type\RegistrationType;
+use Acme\AccountBundle\Form\Model\Registration;
+
+class AccountController extends Controller
+{
+    public function registerAction()
+    {
+        $form = $this-&gt;createForm(
+            new RegistrationType(),
+            new Registration()
+        );
+
+        return $this-&gt;render(
+            &#39;AcmeAccountBundle:Account:register.html.twig&#39;,
+            array(&#39;form&#39; =&gt; $form-&gt;createView())
+        );
+    }
+}
+</pre></div>
+</div>
+<p>e o seu template:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="c">{# src/Acme/AccountBundle/Resources/views/Account/register.html.twig #}</span>
+<span class="nt">&lt;form</span> <span class="na">action=</span><span class="s">&quot;</span><span class="cp">{{</span> <span class="nv">path</span><span class="o">(</span><span class="s1">&#39;create&#39;</span><span class="o">)</span><span class="cp">}}</span><span class="s">&quot;</span> <span class="na">method=</span><span class="s">&quot;post&quot;</span> <span class="cp">{{</span> <span class="nv">form_enctype</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&gt;</span>
+    <span class="cp">{{</span> <span class="nv">form_widget</span><span class="o">(</span><span class="nv">form</span><span class="o">)</span> <span class="cp">}}</span>
+
+    <span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">&quot;submit&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/form&gt;</span>
+</pre></div>
+</div>
+<p>Por fim, adicione o controlador que lida com a submissão do formulário. Ele realiza
+a validação e salva os dados no banco de dados:</p>
+<div class="highlight-python"><div class="highlight"><pre>public function createAction()
+{
+    $em = $this-&gt;getDoctrine()-&gt;getEntityManager();
+
+    $form = $this-&gt;createForm(new RegistrationType(), new Registration());
+
+    $form-&gt;bind($this-&gt;getRequest());
+
+    if ($form-&gt;isValid()) {
+        $registration = $form-&gt;getData();
+
+        $em-&gt;persist($registration-&gt;getUser());
+        $em-&gt;flush();
+
+        return $this-&gt;redirect(...);
+    }
+
+    return $this-&gt;render(
+        &#39;AcmeAccountBundle:Account:register.html.twig&#39;,
+        array(&#39;form&#39; =&gt; $form-&gt;createView())
+    );
+}
+</pre></div>
+</div>
+<p>Pronto! O seu formulário agora valida e permite que você salve o objeto
+<tt class="docutils literal"><span class="pre">User</span></tt> no banco de dados. O checkbox extra <tt class="docutils literal"><span class="pre">terms</span></tt> na classe de modelo
+<tt class="docutils literal"><span class="pre">Registration</span></tt> é utilizado durante a validação, mas não é utilizado posteriormente
+quando salvamos o usuário no banco de dados.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como Implementar um Formulário Simples de Registro</a><ul>
+<li><a class="reference internal" href="#o-modelo-user">O modelo <tt class="docutils literal"><span class="pre">User</span></tt></a></li>
+<li><a class="reference internal" href="#criando-um-formulario-para-o-modelo">Criando um Formulário para o Modelo</a></li>
+<li><a class="reference internal" href="#incorporando-o-formulario-do-user-no-formulario-de-registro">Incorporando o Formulário do User no Formulário de Registro</a></li>
+<li><a class="reference internal" href="#manuseando-a-submissao-do-formulario">Manuseando a Submissão do Formulário</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="custom_dql_functions.html"
+                        title="previous chapter">Como Registrar Funções DQL Personalizadas</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../form/index.html"
+                        title="next chapter">Formulário</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/doctrine/registration_form.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../form/index.html" title="Formulário"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="custom_dql_functions.html" title="Como Registrar Funções DQL Personalizadas"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Doctrine</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,373 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como criar um Loader de Rota personalizado &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Roteamento" href="index.html" />
+    <link rel="next" title="Redirecionar URLs com uma Barra no Final" href="redirect_trailing_slash.html" />
+    <link rel="prev" title="Como usar os Parâmetros do Container de Serviço em suas Rotas" href="service_container_parameters.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="redirect_trailing_slash.html" title="Redirecionar URLs com uma Barra no Final"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="service_container_parameters.html" title="Como usar os Parâmetros do Container de Serviço em suas Rotas"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Roteamento</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-criar-um-loader-de-rota-personalizado">
+<span id="index-0"></span><h1>Como criar um Loader de Rota personalizado<a class="headerlink" href="#como-criar-um-loader-de-rota-personalizado" title="Permalink to this headline">¶</a></h1>
+<p>Um loader de rota personalizado permite que você adicione rotas a uma aplicação sem
+incluí-las, por exemplo, num arquivo yaml. Isto é útil quando
+você tem um bundle, mas não quer adicionar manualmente as rotas ao bundle
+em <tt class="docutils literal"><span class="pre">app/config/routing.yml</span></tt>. Isso pode ser especialmente importante quando você quer
+tornar o bundle reutilizável, ou quando o disponibilizar como código aberto, porque iria
+retardar o processo de instalação e torná-lo suscetível a erros.</p>
+<p>Alternativamente, você também pode usar um loader de rota personalizado quando quiser que
+as suas rotas sejam geradas ou localizadas automaticamente com base em alguma convenção
+ou padrão. Um exemplo é o <a class="reference external" href="https://github.com/FriendsOfSymfony/FOSRestBundle">FOSRestBundle</a> onde o roteamento é gerado com base
+nos nomes dos métodos de ação em um controlador.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Há muitos bundles que usam seus próprios loaders de rotas para
+realizar casos como os descritos acima, por exemplo
+<a class="reference external" href="https://github.com/FriendsOfSymfony/FOSRestBundle">FOSRestBundle</a>, <a class="reference external" href="https://github.com/KnpLabs/KnpRadBundle">KnpRadBundle</a> e <a class="reference external" href="https://github.com/sonata-project/SonataAdminBundle">SonataAdminBundle</a>.</p>
+</div>
+<div class="section" id="carregando-rotas">
+<h2>Carregando Rotas<a class="headerlink" href="#carregando-rotas" title="Permalink to this headline">¶</a></h2>
+<p>As rotas em uma aplicação Symfony são carregadas pelo
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Routing/DelegatingLoader.html" title="Symfony\Bundle\FrameworkBundle\Routing\DelegatingLoader"><span class="pre">DelegatingLoader</span></a></tt>.
+Este loader usa vários outros loaders (delegados) para carregar recursos de
+diferentes tipos, por exemplo, arquivos YAML ou anotações <tt class="docutils literal"><span class="pre">&#64;Route</span></tt> e <tt class="docutils literal"><span class="pre">&#64;Method</span></tt>
+em arquivos de controlador. Os loaders especializados implementam a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html" title="Symfony\Component\Config\Loader\LoaderInterface"><span class="pre">LoaderInterface</span></a></tt>
+e, portanto, tem dois métodos importantes:
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_supports" title="Symfony\Component\Config\Loader\LoaderInterface::supports()"><span class="pre">supports()</span></a></tt>
+e <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_load" title="Symfony\Component\Config\Loader\LoaderInterface::load()"><span class="pre">load()</span></a></tt>.</p>
+<p>Considere essas linhas do <tt class="docutils literal"><span class="pre">routing.yml</span></tt>:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">_demo</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">resource</span><span class="p-Indicator">:</span> <span class="s">&quot;@AcmeDemoBundle/Controller/DemoController.php&quot;</span>
+    <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">annotation</span>
+    <span class="l-Scalar-Plain">prefix</span><span class="p-Indicator">:</span>   <span class="l-Scalar-Plain">/demo</span>
+</pre></div>
+</div>
+<p>Quando o loader principal realiza o parse, ele tenta todos os loaders delegados e chama
+seu método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_supports" title="Symfony\Component\Config\Loader\LoaderInterface::supports()"><span class="pre">supports()</span></a></tt>
+com o determinado recurso (<tt class="docutils literal"><span class="pre">&#64;AcmeDemoBundle/Controller/DemoController.php</span></tt>)
+e tipo (<tt class="docutils literal"><span class="pre">annotation</span></tt>) como argumentos. Quando um dos loaders retorna <tt class="docutils literal"><span class="pre">true</span></tt>,
+seu método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_load" title="Symfony\Component\Config\Loader\LoaderInterface::load()"><span class="pre">load()</span></a></tt>
+será chamado, que deve retornar um <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/RouteCollection.html" title="Symfony\Component\Routing\RouteCollection"><span class="pre">RouteCollection</span></a></tt>
+contendo objetos <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/Route.html" title="Symfony\Component\Routing\Route"><span class="pre">Route</span></a></tt>.</p>
+</div>
+<div class="section" id="criando-um-loader-personalizado">
+<h2>Criando um Loader Personalizado<a class="headerlink" href="#criando-um-loader-personalizado" title="Permalink to this headline">¶</a></h2>
+<p>Para carregar rotas de alguma fonte personalizada (ou seja, de algo diferente de anotações,
+arquivos YAML ou XML), você precisa criar um loader de rota personalizado. Este loader
+deve implementar a <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html" title="Symfony\Component\Config\Loader\LoaderInterface"><span class="pre">LoaderInterface</span></a></tt>.</p>
+<p>O loader de exemplo abaixo, suporta o carregamento de recursos de roteamento com um tipo
+<tt class="docutils literal"><span class="pre">extra</span></tt>. O tipo <tt class="docutils literal"><span class="pre">extra</span></tt> não é importante - você pode simplesmente inventar qualquer tipo
+de recurso que desejar. O próprio nome do recurso não é realmente usado no exemplo:</p>
+<div class="highlight-python"><div class="highlight"><pre>namespace Acme\DemoBundle\Routing;
+
+use Symfony\Component\Config\Loader\LoaderInterface;
+use Symfony\Component\Config\Loader\LoaderResolverInterface;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
+
+class ExtraLoader implements LoaderInterface
+{
+    private $loaded = false;
+
+    public function load($resource, $type = null)
+    {
+        if (true === $this-&gt;loaded) {
+            throw new \RuntimeException(&#39;Do not add the &quot;extra&quot; loader twice&#39;);
+        }
+
+        $routes = new RouteCollection();
+
+        // prepare a new route
+        $pattern = &#39;/extra/{parameter}&#39;;
+        $defaults = array(
+            &#39;_controller&#39; =&gt; &#39;AcmeDemoBundle:Demo:extra&#39;,
+        );
+        $requirements = array(
+            &#39;parameter&#39; =&gt; &#39;\d+&#39;,
+        );
+        $route = new Route($pattern, $defaults, $requirements);
+
+        // add the new route to the route collection:
+        $routeName = &#39;extraRoute&#39;;
+        $routes-&gt;add($routeName, $route);
+
+        return $routes;
+    }
+
+    public function supports($resource, $type = null)
+    {
+        return &#39;extra&#39; === $type;
+    }
+
+    public function getResolver()
+    {
+        // needed, but can be blank, unless you want to load other resources
+        // and if you do, using the Loader base class is easier (see below)
+    }
+
+    public function setResolver(LoaderResolverInterface $resolver)
+    {
+        // same as above
+    }
+}
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Certifique-se que o controlador que você especificou realmente existe.</p>
+</div>
+<p>Agora defina um serviço para o <tt class="docutils literal"><span class="pre">ExtraLoader</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme_demo.routing_loader</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\DemoBundle\Routing\ExtraLoader</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">routing.loader</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;services&gt;</span>
+        <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme_demo.routing_loader&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\Routing\ExtraLoader&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;routing.loader&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/service&gt;</span>
+    <span class="nt">&lt;/services&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span>
+        <span class="s1">&#39;acme_demo.routing_loader&#39;</span><span class="p">,</span>
+        <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\DemoBundle\Routing\ExtraLoader&#39;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;routing.loader&#39;</span><span class="p">)</span>
+<span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Observe a tag <tt class="docutils literal"><span class="pre">routing.loader</span></tt>. Todos os serviços com esta tag serão marcados
+como potenciais loaders de rota e adicionados como roteadores especializados para o
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Routing/DelegatingLoader.html" title="Symfony\Bundle\FrameworkBundle\Routing\DelegatingLoader"><span class="pre">DelegatingLoader</span></a></tt>.</p>
+<div class="section" id="usando-o-loader-personalizado">
+<h3>Usando o Loader Personalizado<a class="headerlink" href="#usando-o-loader-personalizado" title="Permalink to this headline">¶</a></h3>
+<p>Se você não fez nada mais, seu loader de roteamento personalizado <em>não</em> será chamado.
+Em vez disso, você só precisa adicionar algumas linhas extras para a configuração de roteamento:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/routing.yml</span>
+<span class="l-Scalar-Plain">AcmeDemoBundle_Extra</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">resource</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">.</span>
+    <span class="l-Scalar-Plain">type</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">extra</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;routes</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/routing&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/routing http://symfony.com/schema/routing/routing-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;import</span> <span class="na">resource=</span><span class="s">&quot;.&quot;</span> <span class="na">type=</span><span class="s">&quot;extra&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/routes&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/routing.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Routing\RouteCollection</span><span class="p">;</span>
+
+<span class="nv">$collection</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">RouteCollection</span><span class="p">();</span>
+<span class="nv">$collection</span><span class="o">-&gt;</span><span class="na">addCollection</span><span class="p">(</span><span class="nv">$loader</span><span class="o">-&gt;</span><span class="na">import</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;extra&#39;</span><span class="p">));</span>
+
+<span class="k">return</span> <span class="nv">$collection</span><span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>A parte importante aqui é a chave <tt class="docutils literal"><span class="pre">type</span></tt>. Seu valor deve ser &#8220;extra&#8221;.
+Este é o tipo que nosso <tt class="docutils literal"><span class="pre">ExtraLoader</span></tt> suporta e que irá certificar-se
+que seu método <tt class="docutils literal"><span class="pre">load()</span></tt> é chamado. A chave <tt class="docutils literal"><span class="pre">resource</span></tt> é insignificante
+para o <tt class="docutils literal"><span class="pre">ExtraLoader</span></tt>, então defina ela como &#8221;.&#8221;.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">O cache das rotas definidas usando loaders personalizados será feita automaticamente pelo
+framework. Assim, sempre que você mudar alguma coisa na classe do
+loader, não se esqueça de limpar o cache.</p>
+</div>
+</div>
+</div>
+<div class="section" id="loaders-mais-avancados">
+<h2>Loaders mais Avançados<a class="headerlink" href="#loaders-mais-avancados" title="Permalink to this headline">¶</a></h2>
+<p>Na maioria dos casos é melhor não implementar a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html" title="Symfony\Component\Config\Loader\LoaderInterface"><span class="pre">LoaderInterface</span></a></tt>
+você mesmo, mas estender do <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/Loader.html" title="Symfony\Component\Config\Loader\Loader"><span class="pre">Loader</span></a></tt>.
+Esta classe sabe como usar um <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderResolver.html" title="Symfony\Component\Config\Loader\LoaderResolver"><span class="pre">LoaderResolver</span></a></tt>
+para carregar os recursos de roteamento secundários.</p>
+<p>Claro que você ainda precisa implementar
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_supports" title="Symfony\Component\Config\Loader\LoaderInterface::supports()"><span class="pre">supports()</span></a></tt>
+e <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/LoaderInterface.html#method_load" title="Symfony\Component\Config\Loader\LoaderInterface::load()"><span class="pre">load()</span></a></tt>.
+Sempre que quiser carregar outro recurso - por exemplo, um arquivo de configuração
+Yaml - você pode chamar o
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Loader/Loader.html#method_import" title="Symfony\Component\Config\Loader\Loader::import()"><span class="pre">import()</span></a></tt> method:</p>
+<div class="highlight-python"><div class="highlight"><pre>namespace Acme\DemoBundle\Routing;
+
+use Symfony\Component\Config\Loader\Loader;
+use Symfony\Component\Routing\RouteCollection;
+
+class AdvancedLoader extends Loader
+{
+    public function load($resource, $type = null)
+    {
+        $collection = new RouteCollection();
+
+        $resource = &#39;@AcmeDemoBundle/Resources/config/import_routing.yml&#39;;
+        $type = &#39;yaml&#39;;
+
+        $importedRoutes = $this-&gt;import($resource, $type);
+
+        $collection-&gt;addCollection($importedRoutes);
+
+        return $collection;
+    }
+
+    public function supports($resource, $type = null)
+    {
+        return $type === &#39;advanced_extra&#39;;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">O nome e o tipo do recurso da configuração de roteamento importada pode
+ser qualquer coisa que é normalmente suportada pelo loader de configuração
+de roteamento (YAML, XML, PHP, anotação, etc.)</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como criar um Loader de Rota personalizado</a><ul>
+<li><a class="reference internal" href="#carregando-rotas">Carregando Rotas</a></li>
+<li><a class="reference internal" href="#criando-um-loader-personalizado">Criando um Loader Personalizado</a><ul>
+<li><a class="reference internal" href="#usando-o-loader-personalizado">Usando o Loader Personalizado</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#loaders-mais-avancados">Loaders mais Avançados</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="service_container_parameters.html"
+                        title="previous chapter">Como usar os Parâmetros do Container de Serviço em suas Rotas</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="redirect_trailing_slash.html"
+                        title="next chapter">Redirecionar URLs com uma Barra no Final</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/routing/custom_route_loader.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="redirect_trailing_slash.html" title="Redirecionar URLs com uma Barra no Final"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="service_container_parameters.html" title="Como usar os Parâmetros do Container de Serviço em suas Rotas"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Roteamento</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

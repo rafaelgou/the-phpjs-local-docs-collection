@@ -1,0 +1,270 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como Modificar Formulários dinamicamente usando Eventos de Formulário &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Formulário" href="index.html" />
+    <link rel="next" title="Como embutir uma Coleção de Formulários" href="form_collections.html" />
+    <link rel="prev" title="Como usar os Transformadores de Dados" href="data_transformers.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="form_collections.html" title="Como embutir uma Coleção de Formulários"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="data_transformers.html" title="Como usar os Transformadores de Dados"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Formulário</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-modificar-formularios-dinamicamente-usando-eventos-de-formulario">
+<span id="index-0"></span><h1>Como Modificar Formulários dinamicamente usando Eventos de Formulário<a class="headerlink" href="#como-modificar-formularios-dinamicamente-usando-eventos-de-formulario" title="Permalink to this headline">¶</a></h1>
+<p>Antes de saltar diretamente para a geração dinâmica de formulário, vamos fazer uma revisão rápida
+do como uma classe de formulário parece:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/ProductType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class ProductType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add(&#39;name&#39;);
+        $builder-&gt;add(&#39;price&#39;);
+    }
+
+    public function getName()
+    {
+        return &#39;product&#39;;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Se esta parte de código em particular ainda não lhe é familiar, você
+provavelmente terá que dar um passo para trás e primeiro rever o <a class="reference internal" href="../../book/forms.html"><em>capítulo Formulários</em></a>
+antes de prosseguir.</p>
+</div>
+<p>Vamos assumir, por um momento, que este formulário utiliza uma classe imaginária &#8220;Product&#8221;
+que possui apenas duas propriedades relevantes (&#8220;name&#8221; e &#8220;price&#8221;). O formulário gerado
+desta classe terá exatamente a mesma aparência, independentemente se um novo &#8220;Product&#8221; está sendo criado
+ou se um produto já existente está sendo editado (por exemplo, um produto obtido a partir do banco de dados).</p>
+<p>Suponha agora, que você não deseja que o usuário possa alterar o valor de <tt class="docutils literal"><span class="pre">name</span></tt>
+uma vez que o objeto foi criado. Para fazer isso, você pode contar com o sistema de
+<tt class="xref doc docutils literal"><span class="pre">Dispatcher</span> <span class="pre">de</span> <span class="pre">Evento</span></tt>
+do Symfony para analisar os dados sobre o objeto e modificar o formulário com base nos
+dados do objeto &#8220;Product&#8221;. Neste artigo, você vai aprender como adicionar este nível de
+flexibilidade aos seus formulários.</p>
+<div class="section" id="adicionando-um-assinante-subscriber-de-evento-a-uma-classe-de-formulario">
+<span id="cookbook-forms-event-subscriber"></span><h2>Adicionando um Assinante (Subscriber) de evento à uma Classe de Formulário<a class="headerlink" href="#adicionando-um-assinante-subscriber-de-evento-a-uma-classe-de-formulario" title="Permalink to this headline">¶</a></h2>
+<p>Assim, em vez de adicionar diretamente o widget &#8220;name&#8221; através da sua classe de formulário
+ProductType, vamos delegar a responsabilidade de criar esse campo específico
+para um Assinante de Evento:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/ProductType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType
+use Symfony\Component\Form\FormBuilderInterface;
+use Acme\DemoBundle\Form\EventListener\AddNameFieldSubscriber;
+
+class ProductType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $subscriber = new AddNameFieldSubscriber($builder-&gt;getFormFactory());
+        $builder-&gt;addEventSubscriber($subscriber);
+        $builder-&gt;add(&#39;price&#39;);
+    }
+
+    public function getName()
+    {
+        return &#39;product&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>É passado o objeto FormFactory ao construtor do assinante de evento para que
+o seu novo assinante seja capaz de criar o widget de formulário, uma vez que ele é
+notificado do evento despachado durante a criação do formulário.</p>
+</div>
+<div class="section" id="dentro-da-classe-do-assinante-de-evento">
+<span id="cookbook-forms-inside-subscriber-class"></span><h2>Dentro da Classe do Assinante de Evento<a class="headerlink" href="#dentro-da-classe-do-assinante-de-evento" title="Permalink to this headline">¶</a></h2>
+<p>O objetivo é criar um campo &#8220;name&#8221; <em>apenas</em> se o objeto Product subjacente
+é novo (por exemplo, não tenha sido persistido no banco de dados). Com base nisso, o assinante
+pode parecer com o seguinte:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/EventListener/AddNameFieldSubscriber.php
+namespace Acme\DemoBundle\Form\EventListener;
+
+use Symfony\Component\Form\Event\DataEvent;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Form\FormEvents;
+
+class AddNameFieldSubscriber implements EventSubscriberInterface
+{
+    private $factory;
+
+    public function __construct(FormFactoryInterface $factory)
+    {
+        $this-&gt;factory = $factory;
+    }
+
+    public static function getSubscribedEvents()
+    {
+        // Tells the dispatcher that you want to listen on the form.pre_set_data
+        // event and that the preSetData method should be called.
+        return array(FormEvents::PRE_SET_DATA =&gt; &#39;preSetData&#39;);
+    }
+
+    public function preSetData(DataEvent $event)
+    {
+        $data = $event-&gt;getData();
+        $form = $event-&gt;getForm();
+
+        // During form creation setData() is called with null as an argument
+        // by the FormBuilder constructor. You&#39;re only concerned with when
+        // setData is called with an actual Entity object in it (whether new
+        // or fetched with Doctrine). This if statement lets you skip right
+        // over the null condition.
+        if (null === $data) {
+            return;
+        }
+
+        // check if the product object is &quot;new&quot;
+        if (!$data-&gt;getId()) {
+            $form-&gt;add($this-&gt;factory-&gt;createNamed(&#39;name&#39;, &#39;text&#39;));
+        }
+    }
+}
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">É fácil entender mal o propósito do segmento <tt class="docutils literal"><span class="pre">if</span> <span class="pre">(null</span> <span class="pre">===</span> <span class="pre">$data)</span></tt>
+deste assinante de evento. Para entender plenamente o seu papel, você pode considerar
+também verificar a <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Form.php">classe Form</a> e prestar atenção especial
+onde o setData() é chamado no final do construtor, bem como o
+método setData() em si.</p>
+</div>
+<p>A linha <tt class="docutils literal"><span class="pre">FormEvents::PRE_SET_DATA</span></tt> resolve para a string <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt>.
+A <a class="reference external" href="https://github.com/symfony/Form/blob/master/FormEvents.php">classe FormEvents</a> serve para propósito organizacional. É um local centralizado
+em que você pode encontrar todos os vários eventos disponíveis.</p>
+<p>Enquanto este exemplo poderia ter usado o evento <tt class="docutils literal"><span class="pre">form.set_data</span></tt> ou até mesmo o <tt class="docutils literal"><span class="pre">form.post_set_data</span></tt>
+com a mesma eficácia, usando o <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt> você garante que
+os dados que estão sendo recuperados do objeto <tt class="docutils literal"><span class="pre">Event</span></tt> não foram de modo algum modificados
+por quaisquer outros assinantes ou ouvintes. Isto é porque o <tt class="docutils literal"><span class="pre">form.pre_set_data</span></tt>
+passa um objeto <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/DataEvent.php">DataEvent</a> em vez do objcto <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/FilterDataEvent.php">FilterDataEvent</a> passado
+pelo evento <tt class="docutils literal"><span class="pre">form.set_data</span></tt>. O <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/DataEvent.php">DataEvent</a>, ao contrário de seu filho <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Event/FilterDataEvent.php">FilterDataEvent</a>,
+não tem um método setData().</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Você pode ver a lista completa de eventos de formulário através da <a class="reference external" href="https://github.com/symfony/Form/blob/master/FormEvents.php">classe FormEvents</a>,
+encontrada no bundle de formulário.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como Modificar Formulários dinamicamente usando Eventos de Formulário</a><ul>
+<li><a class="reference internal" href="#adicionando-um-assinante-subscriber-de-evento-a-uma-classe-de-formulario">Adicionando um Assinante (Subscriber) de evento à uma Classe de Formulário</a></li>
+<li><a class="reference internal" href="#dentro-da-classe-do-assinante-de-evento">Dentro da Classe do Assinante de Evento</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="data_transformers.html"
+                        title="previous chapter">Como usar os Transformadores de Dados</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="form_collections.html"
+                        title="next chapter">Como embutir uma Coleção de Formulários</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/dynamic_form_modification.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="form_collections.html" title="Como embutir uma Coleção de Formulários"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="data_transformers.html" title="Como usar os Transformadores de Dados"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Formulário</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

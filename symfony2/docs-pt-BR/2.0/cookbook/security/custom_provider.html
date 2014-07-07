@@ -1,0 +1,456 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como criar um Provider de Usuário Personalizado &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Segurança" href="index.html" />
+    <link rel="next" title="Como autenticar usuários com chaves de API" href="api_key_authentication.html" />
+    <link rel="prev" title="Como personalizar o seu Formulário de Login" href="form_login.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="api_key_authentication.html" title="Como autenticar usuários com chaves de API"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="form_login.html" title="Como personalizar o seu Formulário de Login"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Segurança</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-criar-um-provider-de-usuario-personalizado">
+<span id="index-0"></span><h1>Como criar um Provider de Usuário Personalizado<a class="headerlink" href="#como-criar-um-provider-de-usuario-personalizado" title="Permalink to this headline">¶</a></h1>
+<p>Parte do processo de autenticação padrão do Symfony depende de &#8220;providers de usuário&#8221;.
+Quando um usuário submete um nome de usuário e senha, a camada de autenticação solicita ao provider
+de usuário configurado para retornar um objeto de usuário para um determinado nome de usuário.
+Em seguida, o Symfony verifica se a senha deste usuário está correta e gera
+um token de segurança para que o usuário permaneça autenticado durante a sessão atual.
+O Symfony vem com os providers de usuário &#8220;in_memory&#8221; e &#8220;entity&#8221; prontos para uso.
+Neste artigo, você vai aprender como criar o seu próprio provider de usuário, que
+pode ser útil se os usuários são acessados através de um banco de dados personalizado, um arquivo
+ou - como mostrado neste exemplo - um serviço web.</p>
+<div class="section" id="crie-uma-classe-de-usuario">
+<h2>Crie uma Classe de Usuário<a class="headerlink" href="#crie-uma-classe-de-usuario" title="Permalink to this headline">¶</a></h2>
+<p>Em primeiro lugar, independentemente de <em>onde</em> os seus dados de usuário estão vindo, você vai
+precisar criar uma classe <tt class="docutils literal"><span class="pre">User</span></tt> que representa esses dados. No entando, a classe <tt class="docutils literal"><span class="pre">User</span></tt> pode
+parecer com o que você quiser e conter quaisquer dados. O único requisito é que a
+classe implemente <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html" title="Symfony\Component\Security\Core\User\UserInterface"><span class="pre">UserInterface</span></a></tt>.
+Os métodos dessa interface devem ser definidos na classe de usuário
+personalizada: <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getRoles" title="Symfony\Component\Security\Core\User\UserInterface::getRoles()"><span class="pre">getRoles()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getPassword" title="Symfony\Component\Security\Core\User\UserInterface::getPassword()"><span class="pre">getPassword()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getSalt" title="Symfony\Component\Security\Core\User\UserInterface::getSalt()"><span class="pre">getSalt()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_getUsername" title="Symfony\Component\Security\Core\User\UserInterface::getUsername()"><span class="pre">getUsername()</span></a></tt>,
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserInterface.html#method_eraseCredentials" title="Symfony\Component\Security\Core\User\UserInterface::eraseCredentials()"><span class="pre">eraseCredentials()</span></a></tt>.
+Também pode ser útil implementar a interface
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/EquatableInterface.html" title="Symfony\Component\Security\Core\User\EquatableInterface"><span class="pre">EquatableInterface</span></a></tt>,
+a qual define um método para verificar se o usuário é igual ao usuário atual. Essa
+interface requer um método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/EquatableInterface.html#method_isEqualTo" title="Symfony\Component\Security\Core\User\EquatableInterface::isEqualTo()"><span class="pre">isEqualTo()</span></a></tt>
+.</p>
+<p>Vamos ver isso na prática:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/WebserviceUserBundle/Security/User/WebserviceUser.php
+namespace Acme\WebserviceUserBundle\Security\User;
+
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\User\EquatableInterface;
+
+class WebserviceUser implements UserInterface, EquatableInterface
+{
+    private $username;
+    private $password;
+    private $salt;
+    private $roles;
+
+    public function __construct($username, $password, $salt, array $roles)
+    {
+        $this-&gt;username = $username;
+        $this-&gt;password = $password;
+        $this-&gt;salt = $salt;
+        $this-&gt;roles = $roles;
+    }
+
+    public function getRoles()
+    {
+        return $this-&gt;roles;
+    }
+
+    public function getPassword()
+    {
+        return $this-&gt;password;
+    }
+
+    public function getSalt()
+    {
+        return $this-&gt;salt;
+    }
+
+    public function getUsername()
+    {
+        return $this-&gt;username;
+    }
+
+    public function eraseCredentials()
+    {
+    }
+
+    public function isEqualTo(UserInterface $user)
+    {
+        if (!$user instanceof WebserviceUser) {
+            return false;
+        }
+
+        if ($this-&gt;password !== $user-&gt;getPassword()) {
+            return false;
+        }
+
+        if ($this-&gt;getSalt() !== $user-&gt;getSalt()) {
+            return false;
+        }
+
+        if ($this-&gt;username !== $user-&gt;getUsername()) {
+            return false;
+        }
+
+        return true;
+    }
+}
+</pre></div>
+</div>
+<p>Se você tiver mais informações sobre seus usuários - como um &#8220;primeiro nome&#8221; - então
+você pode adicionar um campo <tt class="docutils literal"><span class="pre">firstName</span></tt> para guardar esse dado.</p>
+</div>
+<div class="section" id="criar-um-provider-de-usuario">
+<h2>Criar um Provider de Usuário<a class="headerlink" href="#criar-um-provider-de-usuario" title="Permalink to this headline">¶</a></h2>
+<p>Agora que você tem uma classe <tt class="docutils literal"><span class="pre">User</span></tt>, você vai criar um provider de usuário, que irá
+pegar informações de usuário de algum serviço web, criar um objeto <tt class="docutils literal"><span class="pre">WebserviceUser</span></tt>
+e popular ele com os dados.</p>
+<p>O provider de usuário é apenas uma classe PHP que deve implementar a
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>,
+que requer a definição de três métodos: <tt class="docutils literal"><span class="pre">loadUserByUsername($username)</span></tt>,
+<tt class="docutils literal"><span class="pre">refreshUser(UserInterface</span> <span class="pre">$user)</span></tt> e <tt class="docutils literal"><span class="pre">supportsClass($class)</span></tt>. Para
+mais detalhes, consulte <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/User/UserProviderInterface.html" title="Symfony\Component\Security\Core\User\UserProviderInterface"><span class="pre">UserProviderInterface</span></a></tt>.</p>
+<p>Aqui está um exemplo de como isso pode parecer:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/WebserviceUserBundle/Security/User/WebserviceUserProvider.php
+namespace Acme\WebserviceUserBundle\Security\User;
+
+use Symfony\Component\Security\Core\User\UserProviderInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
+use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
+use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
+
+class WebserviceUserProvider implements UserProviderInterface
+{
+    public function loadUserByUsername($username)
+    {
+        // make a call to your webservice here
+        $userData = ...
+        // pretend it returns an array on success, false if there is no user
+
+        if ($userData) {
+            $password = &#39;...&#39;;
+
+            // ...
+
+            return new WebserviceUser($username, $password, $salt, $roles);
+        }
+
+        throw new UsernameNotFoundException(sprintf(&#39;Username &quot;%s&quot; does not exist.&#39;, $username));
+    }
+
+    public function refreshUser(UserInterface $user)
+    {
+        if (!$user instanceof WebserviceUser) {
+            throw new UnsupportedUserException(sprintf(&#39;Instances of &quot;%s&quot; are not supported.&#39;, get_class($user)));
+        }
+
+        return $this-&gt;loadUserByUsername($user-&gt;getUsername());
+    }
+
+    public function supportsClass($class)
+    {
+        return $class === &#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;;
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="crie-um-servico-para-o-provider-de-usuario">
+<h2>Crie um Serviço para o Provider de Usuário<a class="headerlink" href="#crie-um-servico-para-o-provider-de-usuario" title="Permalink to this headline">¶</a></h2>
+<p>Agora você tornará o provider de usuário disponível como um serviço:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/WebserviceUserBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">webservice_user_provider.class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider</span>
+
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">webservice_user_provider</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="s">&quot;%webservice_user_provider.class%&quot;</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/WebserviceUserBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;webservice_user_provider.class&quot;</span><span class="nt">&gt;</span>Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider<span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+
+<span class="nt">&lt;services&gt;</span>
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;webservice_user_provider&quot;</span> <span class="na">class=</span><span class="s">&quot;%webservice_user_provider.class%&quot;</span><span class="nt">&gt;&lt;/service&gt;</span>
+<span class="nt">&lt;/services&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/WebserviceUserBundle/Resources/config/services.php</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\DependencyInjection\Definition</span><span class="p">;</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setParameter</span><span class="p">(</span><span class="s1">&#39;webservice_user_provider.class&#39;</span><span class="p">,</span> <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUserProvider&#39;</span><span class="p">);</span>
+
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;webservice_user_provider&#39;</span><span class="p">,</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;%webservice_user_provider.class%&#39;</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">A verdadeira implementação do provider de usuário provavelmente terá algumas
+dependências, opções de configuração ou outros serviços. Adicione eles como
+argumentos na definição de serviço.</p>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Certifique-se que o arquivo de serviços está sendo importado. Veja <a class="reference internal" href="../../book/service_container.html#service-container-imports-directive"><em>Importando configuração com imports</em></a>
+para mais detalhes.</p>
+</div>
+</div>
+<div class="section" id="modifique-o-security-yml">
+<h2>Modifique o <tt class="docutils literal"><span class="pre">security.yml</span></tt><a class="headerlink" href="#modifique-o-security-yml" title="Permalink to this headline">¶</a></h2>
+<p>Tudo será combinado em sua configuração de segurança. Adicione o provider de usuário
+na lista de providers na seção &#8220;security&#8221;. Escolha um nome para o provider de usuário
+(por exemplo, &#8220;webservice&#8221;) e mencione o id do serviço que você acabou de definir.</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">// app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">providers</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">webservice</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">webservice_user_provider</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;provider</span> <span class="na">name=</span><span class="s">&quot;webservice&quot;</span> <span class="na">id=</span><span class="s">&quot;webservice_user_provider&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;providers&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;webservice&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;id&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;webservice_user_provider&#39;</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>O Symfony também precisa saber como codificar as senhas que são fornecidas no site pelos
+usuários, por exemplo, através do preenchimento de um formulário de login. Você pode fazer
+isso adicionando uma linha na seção &#8220;encoders&#8221; da sua configuração de segurança:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUser</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">sha512</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;encoder</span> <span class="na">class=</span><span class="s">&quot;Acme\WebserviceUserBundle\Security\User\WebserviceUser&quot;</span><span class="nt">&gt;</span>sha512<span class="nt">&lt;/encoder&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;encoders&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;sha512&#39;</span><span class="p">,</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>O valor aqui deve corresponder porém com as senhas que foram originalmente
+codificadas ao criar os seus usuários (no entanto os usuários foram criados). Quando
+um usuário submete a sua senha, o salt é acrescentado ao valor da senha e então são
+codificados usando este algoritmo antes de ser comparada com o hash da senha retornado
+pelo seu método <tt class="docutils literal"><span class="pre">getPassword()</span></tt>. Além disso, dependendo das suas opções,
+a senha pode ser codificada várias vezes e codificada para base64.</p>
+<div class="sidebar">
+<p class="first sidebar-title">Detalhes sobre como as senhas são codificadas</p>
+<p>O Symfony utiliza um método específico para combinar o salt e codificar a senha
+antes de compará-la com a senha codificada. Se o <tt class="docutils literal"><span class="pre">getSalt()</span></tt> não retornar
+nada, então a senha submetida é simplesmente codificada utilizando o algoritmo
+que você especificou no <tt class="docutils literal"><span class="pre">security.yml</span></tt>. Se um salt <em>é</em> especificado, então o valor
+seguinte é criado e <em>então</em> feito o hash através do algoritmo:</p>
+<blockquote>
+<div><tt class="docutils literal"><span class="pre">$password.'{'.$salt.'}';</span></tt>, ``</div></blockquote>
+<p>Caso os usuários externos tenham nas suas senhas um salt através de um método diferente,
+então você terá um pouco mais de trabalho para que o Symfony codifique corretamente
+a senha. Isso está além do escopo deste artigo, mas incluiria
+estender a classe <tt class="docutils literal"><span class="pre">MessageDigestPasswordEncoder</span></tt> e sobrescrever o método
+<tt class="docutils literal"><span class="pre">mergePasswordAndSalt</span></tt>.</p>
+<p>Além disso, o hash, por padrão, é codificado várias vezes e codificado
+para base64. Para obter detalhes específicos, consulte <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Security/Core/Encoder/MessageDigestPasswordEncoder.php">MessageDigestPasswordEncoder</a>.
+Para evitar isso, configure ele no seu arquivo de configuração:</p>
+<div class="last configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/security.yml</span>
+<span class="l-Scalar-Plain">security</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">encoders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">Acme\WebserviceUserBundle\Security\User\WebserviceUser</span><span class="p-Indicator">:</span>
+            <span class="l-Scalar-Plain">algorithm</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">sha512</span>
+            <span class="l-Scalar-Plain">encode_as_base64</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">false</span>
+            <span class="l-Scalar-Plain">iterations</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">1</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/security.xml --&gt;</span>
+<span class="nt">&lt;config&gt;</span>
+    <span class="nt">&lt;encoder</span> <span class="na">class=</span><span class="s">&quot;Acme\WebserviceUserBundle\Security\User\WebserviceUser&quot;</span>
+        <span class="na">algorithm=</span><span class="s">&quot;sha512&quot;</span>
+        <span class="na">encode-as-base64=</span><span class="s">&quot;false&quot;</span>
+        <span class="na">iterations=</span><span class="s">&quot;1&quot;</span>
+    <span class="nt">/&gt;</span>
+<span class="nt">&lt;/config&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// app/config/security.php</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">loadFromExtension</span><span class="p">(</span><span class="s1">&#39;security&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;encoders&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+        <span class="s1">&#39;Acme\WebserviceUserBundle\Security\User\WebserviceUser&#39;</span> <span class="o">=&gt;</span> <span class="k">array</span><span class="p">(</span>
+            <span class="s1">&#39;algorithm&#39;</span>         <span class="o">=&gt;</span> <span class="s1">&#39;sha512&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;encode_as_base64&#39;</span>  <span class="o">=&gt;</span> <span class="k">false</span><span class="p">,</span>
+            <span class="s1">&#39;iterations&#39;</span>        <span class="o">=&gt;</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">),</span>
+<span class="p">));</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como criar um Provider de Usuário Personalizado</a><ul>
+<li><a class="reference internal" href="#crie-uma-classe-de-usuario">Crie uma Classe de Usuário</a></li>
+<li><a class="reference internal" href="#criar-um-provider-de-usuario">Criar um Provider de Usuário</a></li>
+<li><a class="reference internal" href="#crie-um-servico-para-o-provider-de-usuario">Crie um Serviço para o Provider de Usuário</a></li>
+<li><a class="reference internal" href="#modifique-o-security-yml">Modifique o <tt class="docutils literal"><span class="pre">security.yml</span></tt></a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="form_login.html"
+                        title="previous chapter">Como personalizar o seu Formulário de Login</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="api_key_authentication.html"
+                        title="next chapter">Como autenticar usuários com chaves de API</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/custom_provider.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="api_key_authentication.html" title="Como autenticar usuários com chaves de API"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="form_login.html" title="Como personalizar o seu Formulário de Login"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Segurança</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como registrar um novo Formato de Requisição e de Mime Type &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Request" href="index.html" />
+    <link rel="next" title="Profiler" href="../profiler/index.html" />
+    <link rel="prev" title="Request" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../profiler/index.html" title="Profiler"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Request"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Request</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-registrar-um-novo-formato-de-requisicao-e-de-mime-type">
+<span id="index-0"></span><h1>Como registrar um novo Formato de Requisição e de Mime Type<a class="headerlink" href="#como-registrar-um-novo-formato-de-requisicao-e-de-mime-type" title="Permalink to this headline">¶</a></h1>
+<p>Todo <tt class="docutils literal"><span class="pre">Request</span></tt> possui um &#8220;formato&#8221; (e.g. <tt class="docutils literal"><span class="pre">html</span></tt>, <tt class="docutils literal"><span class="pre">json</span></tt>), que é usado
+para determinar o tipo de conteúdo a ser retornado pelo <tt class="docutils literal"><span class="pre">Response</span></tt>. Na
+verdade, o formato de requisição, acessível pelo método
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html#method_getRequestFormat" title="Symfony\Component\HttpFoundation\Request::getRequestFormat()"><span class="pre">getRequestFormat()</span></a></tt>,
+é usado para definir o MIME type do cabeçalho <tt class="docutils literal"><span class="pre">Content-Type</span></tt> no objeto
+<tt class="docutils literal"><span class="pre">Response</span></tt>. Internamente, Symfony contém um mapa dos formatos mais comuns
+(e.g. <tt class="docutils literal"><span class="pre">html</span></tt>, <tt class="docutils literal"><span class="pre">json</span></tt>) e seus MIME types associados (e.g. <tt class="docutils literal"><span class="pre">text/html</span></tt>,
+<tt class="docutils literal"><span class="pre">application/json</span></tt>). Naturalmente, formatos adicionais de MIME type de
+entrada podem ser facilmente adicionados. Este documento irá mostrar como
+você pode adicionar o formato <tt class="docutils literal"><span class="pre">jsonp</span></tt> e seu MIME type correspondente.</p>
+<div class="section" id="criando-um-kernel-request-listener">
+<h2>Criando um <tt class="docutils literal"><span class="pre">kernel.request</span></tt> Listener<a class="headerlink" href="#criando-um-kernel-request-listener" title="Permalink to this headline">¶</a></h2>
+<p>A chave para definir um novo MIME type é criar uma classe que irá &#8220;ouvir&#8221; o
+evento <tt class="docutils literal"><span class="pre">kernel.request</span></tt> enviado pelo kernel do Symfony. O evento
+<tt class="docutils literal"><span class="pre">kernel.request</span></tt> é enviado no início no processo de manipulação da
+requisição Symfony e permite que você modifique o objeto da requisição.</p>
+<p>Crie a seguinte classe, substituindo o caminho com um caminho para um pacote
+em seu projeto:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/RequestListener.php
+namespace Acme\DemoBundle;
+
+use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+
+class RequestListener
+{
+    public function onKernelRequest(GetResponseEvent $event)
+    {
+        $event-&gt;getRequest()-&gt;setFormat(&#39;jsonp&#39;, &#39;application/javascript&#39;);
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="registrando-seu-listener">
+<h2>Registrando seu Listener<a class="headerlink" href="#registrando-seu-listener" title="Permalink to this headline">¶</a></h2>
+<p>Como para qualquer outro listener, você precisa adicioná-lo em um arquivo de
+configuração e registrá-lo como um listerner adicionando a tag
+<tt class="docutils literal"><span class="pre">kernel.event_listener</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; ?&gt;</span>
+
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xmlns:xsi=</span><span class="s">&quot;http://www.w3.org/2001/XMLSchema-instance&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme.demobundle.listener.request&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\RequestListener&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;kernel.event_listener&quot;</span> <span class="na">event=</span><span class="s">&quot;kernel.request&quot;</span> <span class="na">method=</span><span class="s">&quot;onKernelRequest&quot;</span> <span class="nt">/&gt;</span>
+    <span class="nt">&lt;/service&gt;</span>
+
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme.demobundle.listener.request</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\DemoBundle\RequestListener</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">kernel.event_listener</span><span class="p-Indicator">,</span> <span class="nv">event</span><span class="p-Indicator">:</span> <span class="nv">kernel.request</span><span class="p-Indicator">,</span> <span class="nv">method</span><span class="p-Indicator">:</span> <span class="nv">onKernelRequest</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1"># app/config/config.php</span>
+<span class="nv">$definition</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Definition</span><span class="p">(</span><span class="s1">&#39;Acme\DemoBundle\RequestListener&#39;</span><span class="p">);</span>
+<span class="nv">$definition</span><span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;kernel.event_listener&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(</span><span class="s1">&#39;event&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;kernel.request&#39;</span><span class="p">,</span> <span class="s1">&#39;method&#39;</span> <span class="o">=&gt;</span> <span class="s1">&#39;onKernelRequest&#39;</span><span class="p">));</span>
+<span class="nv">$container</span><span class="o">-&gt;</span><span class="na">setDefinition</span><span class="p">(</span><span class="s1">&#39;acme.demobundle.listener.request&#39;</span><span class="p">,</span> <span class="nv">$definition</span><span class="p">);</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Neste ponto, o serviço <tt class="docutils literal"><span class="pre">acme.demobundle.listener.request</span></tt> foi configurado e
+será notificado quando o Symfony kernel enviar um evento <tt class="docutils literal"><span class="pre">kernel.request</span></tt>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Você também pode registrar o ouvinte em uma classe de extensão de
+configuração (see <a class="reference internal" href="../../book/service_container.html#service-container-extension-configuration"><em>Importando Configuração através de Extensões do Container</em></a>
+para mais informações).</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como registrar um novo Formato de Requisição e de Mime Type</a><ul>
+<li><a class="reference internal" href="#criando-um-kernel-request-listener">Criando um <tt class="docutils literal"><span class="pre">kernel.request</span></tt> Listener</a></li>
+<li><a class="reference internal" href="#registrando-seu-listener">Registrando seu Listener</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Request</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../profiler/index.html"
+                        title="next chapter">Profiler</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/request/mime_type.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../profiler/index.html" title="Profiler"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Request"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Request</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

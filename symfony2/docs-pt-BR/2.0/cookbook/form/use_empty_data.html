@@ -1,0 +1,201 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como configurar Dados Vazios para uma Classe de Formulário &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Formulário" href="index.html" />
+    <link rel="next" title="Validação" href="../validation/index.html" />
+    <link rel="prev" title="Como usar a opção de campo de formulário Virtual" href="use_virtuals_forms.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../validation/index.html" title="Validação"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="use_virtuals_forms.html" title="Como usar a opção de campo de formulário Virtual"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Formulário</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-configurar-dados-vazios-para-uma-classe-de-formulario">
+<span id="index-0"></span><h1>Como configurar Dados Vazios para uma Classe de Formulário<a class="headerlink" href="#como-configurar-dados-vazios-para-uma-classe-de-formulario" title="Permalink to this headline">¶</a></h1>
+<p>A opção <tt class="docutils literal"><span class="pre">empty_data</span></tt> permite que você especifique um conjunto de dados vazios para a sua
+classe de formulário. Este conjunto de dados vazios será usado se você fez o bind do seu
+formulário, mas não chamou o <tt class="docutils literal"><span class="pre">setData()</span></tt> nele ou não passou dados quando criou
+ele. Por exemplo:</p>
+<div class="highlight-python"><div class="highlight"><pre>public function indexAction()
+{
+    $blog = // ...
+
+    // $blog is passed in as the data, so the empty_data option is not needed
+    $form = $this-&gt;createForm(new BlogType(), $blog);
+
+    // no data is passed in, so empty_data is used to get the &quot;starting data&quot;
+    $form = $this-&gt;createForm(new BlogType());
+}
+</pre></div>
+</div>
+<p>Por padrão, o <tt class="docutils literal"><span class="pre">empty_data</span></tt> é setado como <tt class="docutils literal"><span class="pre">null</span></tt>. Ou, se você especificou
+a opção <tt class="docutils literal"><span class="pre">data_class</span></tt> para a sua classe de formulário, ele será, por padrão, uma nova instância
+dessa classe. Essa instância será criada chamando o construtor
+sem argumentos.</p>
+<p>Se você quiser sobrescrever esse comportamento padrão, existem duas formas de fazer isso.</p>
+<div class="section" id="opcao-1-instanciar-uma-nova-classe">
+<h2>Opção 1: Instanciar uma nova Classe<a class="headerlink" href="#opcao-1-instanciar-uma-nova-classe" title="Permalink to this headline">¶</a></h2>
+<p>Uma razão para usar esta opção é se você quer usar um construtor
+que possui argumentos. Lembre-se, a opção <tt class="docutils literal"><span class="pre">data_class</span></tt> padrão chama
+o construtor sem argumentos:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/BlogType.php
+// ...
+
+use Symfony\Component\Form\AbstractType;
+use Acme\DemoBundle\Entity\Blog;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class BlogType extends AbstractType
+{
+    private $someDependency;
+
+    public function __construct($someDependency)
+    {
+        $this-&gt;someDependency = $someDependency;
+    }
+    // ...
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            &#39;empty_data&#39; =&gt; new Blog($this-&gt;someDependency),
+        ));
+    }
+}
+</pre></div>
+</div>
+<p>Você pode instanciar sua classe como desejar. Neste exemplo, nós passamos
+algumas dependências para o <tt class="docutils literal"><span class="pre">BlogType</span></tt> ao instanciá-lo, então, use isso
+para instanciar o objeto <tt class="docutils literal"><span class="pre">Blog</span></tt>. O ponto é, você pode setar o <tt class="docutils literal"><span class="pre">empty_data</span></tt>
+para o objeto &#8220;novo&#8221; que você deseja usar.</p>
+</div>
+<div class="section" id="opcao-2-fornecer-uma-closure">
+<h2>Opção 2: Fornecer uma Closure<a class="headerlink" href="#opcao-2-fornecer-uma-closure" title="Permalink to this headline">¶</a></h2>
+<p>Usar uma closure é o método preferido, uma vez que irá criar o objeto
+apenas se for necessário.</p>
+<p>A closure deve aceitar uma instância <tt class="docutils literal"><span class="pre">FormInterface</span></tt> como seu primeiro argumento:</p>
+<div class="highlight-python"><div class="highlight"><pre>use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+use Symfony\Component\Form\FormInterface;
+// ...
+
+public function setDefaultOptions(OptionsResolverInterface $resolver)
+{
+    $resolver-&gt;setDefaults(array(
+        &#39;empty_data&#39; =&gt; function (FormInterface $form) {
+            return new Blog($form-&gt;get(&#39;title&#39;)-&gt;getData());
+        },
+    ));
+}
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como configurar Dados Vazios para uma Classe de Formulário</a><ul>
+<li><a class="reference internal" href="#opcao-1-instanciar-uma-nova-classe">Opção 1: Instanciar uma nova Classe</a></li>
+<li><a class="reference internal" href="#opcao-2-fornecer-uma-closure">Opção 2: Fornecer uma Closure</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="use_virtuals_forms.html"
+                        title="previous chapter">Como usar a opção de campo de formulário <tt class="docutils literal"><span class="pre">Virtual</span></tt></a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../validation/index.html"
+                        title="next chapter">Validação</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/use_empty_data.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../validation/index.html" title="Validação"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="use_virtuals_forms.html" title="Como usar a opção de campo de formulário Virtual"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Formulário</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

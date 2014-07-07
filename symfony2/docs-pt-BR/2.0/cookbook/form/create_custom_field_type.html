@@ -1,0 +1,392 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como Criar um Tipo de Campo de Formulário Personalizado &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Formulário" href="index.html" />
+    <link rel="next" title="Como criar uma Extensão do Tipo de Formulário" href="create_form_type_extension.html" />
+    <link rel="prev" title="Como embutir uma Coleção de Formulários" href="form_collections.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="create_form_type_extension.html" title="Como criar uma Extensão do Tipo de Formulário"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="form_collections.html" title="Como embutir uma Coleção de Formulários"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Formulário</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-criar-um-tipo-de-campo-de-formulario-personalizado">
+<span id="index-0"></span><h1>Como Criar um Tipo de Campo de Formulário Personalizado<a class="headerlink" href="#como-criar-um-tipo-de-campo-de-formulario-personalizado" title="Permalink to this headline">¶</a></h1>
+<p>O Symfony vem com vários tipos de campo disponíveis para a construção de formulários.
+No entanto, existem situações em que você pode desejar criar um tipo de campo de formulário personalizado
+para um propósito específico. Esta receita assume que você precisa de uma definição de campo
+que possui o gênero de uma pessoa, com base no campo choice existente. Esta seção
+explica como o campo é definido, como você pode personalizar o seu layout e, finalmente,
+como registrá-lo para uso em sua aplicação.</p>
+<div class="section" id="definindo-o-tipo-de-campo">
+<h2>Definindo o Tipo de Campo<a class="headerlink" href="#definindo-o-tipo-de-campo" title="Permalink to this headline">¶</a></h2>
+<p>A fim de criar o tipo de campo personalizado, primeiro você precisa criar a classe
+que o representa. Nesta situação, a classe que contém o tipo de campo
+será chamada <cite>GenderType</cite> e o arquivo será armazenado no local padrão
+para campos de formulário, que é <tt class="docutils literal"><span class="pre">&lt;BundleName&gt;\Form\Type</span></tt>. Verifique se o campo
+estende a classe <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Form/AbstractType.html" title="Symfony\Component\Form\AbstractType"><span class="pre">AbstractType</span></a></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/GenderType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class GenderType extends AbstractType
+{
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            &#39;choices&#39; =&gt; array(
+                &#39;m&#39; =&gt; &#39;Male&#39;,
+                &#39;f&#39; =&gt; &#39;Female&#39;,
+            )
+        ));
+    }
+
+    public function getParent()
+    {
+        return &#39;choice&#39;;
+    }
+
+    public function getName()
+    {
+        return &#39;gender&#39;;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">A localização deste arquivo não é importante - o diretório <tt class="docutils literal"><span class="pre">Form\Type</span></tt>
+é apenas uma convenção.</p>
+</div>
+<p>Aqui, o valor de retorno da função <tt class="docutils literal"><span class="pre">getParent</span></tt> indica que você está
+estendendo o tipo de campo <tt class="docutils literal"><span class="pre">choice</span></tt>. Isto significa que, por padrão, você herda
+toda a lógica e renderização deste tipo de campo. Para ver um pouco da lógica,
+confira a classe <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Extension/Core/Type/ChoiceType.php">ChoiceType</a>. Existem três métodos que são particularmente
+importantes:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">buildForm()</span></tt> - Cada tipo de campo possui um método <tt class="docutils literal"><span class="pre">buildForm</span></tt>, que é onde
+você configura e constrói qualquer campo(s). Note que este é o mesmo método
+que você usa para configurar <em>seus</em> formulários, e ele funciona da mesma forma aqui.</li>
+<li><tt class="docutils literal"><span class="pre">buildView()</span></tt> - Este método é usado para definir quaisquer variáveis extras que você
+precisa ao renderizar o seu campo em um template. Por exemplo, no <a class="reference external" href="https://github.com/symfony/symfony/blob/master/src/Symfony/Component/Form/Extension/Core/Type/ChoiceType.php">ChoiceType</a>,
+uma variável <tt class="docutils literal"><span class="pre">multiple</span></tt> é definida e utilizada no template para setar (ou não)
+o atributo <tt class="docutils literal"><span class="pre">multiple</span></tt> no campo <tt class="docutils literal"><span class="pre">select</span></tt>. Veja <a class="reference internal" href="#criando-um-template-para-o-campo">Criando um template para o Campo</a>
+para mais detalhes.</li>
+<li><tt class="docutils literal"><span class="pre">setDefaultOptions()</span></tt> - Define opções para o seu tipo do formulário, que
+podem ser usadas no <tt class="docutils literal"><span class="pre">buildForm()</span></tt> e no <tt class="docutils literal"><span class="pre">buildView()</span></tt>. Há várias
+opções comuns a todos os campos (veja <tt class="xref doc docutils literal"><span class="pre">/reference/forms/types/form</span></tt>),
+mas você pode criar quaisquer outras que você precisar aqui.</li>
+</ul>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Se você está criando um campo que consiste de muitos campos, então não se esqueça
+de definir o seu tipo &#8220;pai&#8221; como <tt class="docutils literal"><span class="pre">form</span></tt> ou algo que estenda <tt class="docutils literal"><span class="pre">form</span></tt>.
+Além disso, se você precisar modificar a &#8220;visão&#8221; de qualquer um dos tipos filho
+a partir de seu tipo pai, use o método <tt class="docutils literal"><span class="pre">finishView()</span></tt>.</p>
+</div>
+<p>O método <tt class="docutils literal"><span class="pre">getName()</span></tt> retorna um identificador que deve ser único na
+sua aplicação. Isto é usado em vários lugares, como ao personalizar
+a forma que o seu tipo de formulário será renderizado.</p>
+<p>O objetivo deste campo foi estender o tipo choice para ativar a seleção de
+um gênero. Isto é alcançado através do ajuste das <tt class="docutils literal"><span class="pre">choices</span></tt> para uma lista de gêneros
+possíveis.</p>
+</div>
+<div class="section" id="criando-um-template-para-o-campo">
+<h2>Criando um Template para o Campo<a class="headerlink" href="#criando-um-template-para-o-campo" title="Permalink to this headline">¶</a></h2>
+<p>Cada tipo de campo é renderizado por um fragmento de template, o qual é determinado, em
+parte, pelo valor do seu método <tt class="docutils literal"><span class="pre">getName()</span></tt>. Para maiores informações, visite
+<a class="reference internal" href="form_customization.html#cookbook-form-customization-form-themes"><em>O que são Temas de Formulário?</em></a>.</p>
+<p>Neste caso, uma vez que o campo pai é <tt class="docutils literal"><span class="pre">choice</span></tt>, você não <em>precisa</em> fazer
+qualquer trabalho pois o tipo de campo personalizado será automaticamente renderizado como um tipo
+<tt class="docutils literal"><span class="pre">choice</span></tt>. Mas, para o propósito deste exemplo, vamos supor que, quando o seu campo
+é &#8220;expandido&#8221; (ou seja, botões de opção ou caixas de seleção em vez de um campo de seleção),
+você quer sempre renderizá-lo em um elemento <tt class="docutils literal"><span class="pre">ul</span></tt>. Em seu template tema de formulário
+(veja o link acima para mais detalhes), crie um bloco <tt class="docutils literal"><span class="pre">gender_widget</span></tt> para lidar com isso:</p>
+<div class="highlight-html+jinja"><div class="highlight"><pre><span class="c">{# src/Acme/DemoBundle/Resources/views/Form/fields.html.twig #}</span>
+<span class="cp">{%</span> <span class="k">block</span> <span class="nv">gender_widget</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">spaceless</span> <span class="cp">%}</span>
+        <span class="cp">{%</span> <span class="k">if</span> <span class="nv">expanded</span> <span class="cp">%}</span>
+            <span class="nt">&lt;ul</span> <span class="cp">{{</span> <span class="nb">block</span><span class="o">(</span><span class="s1">&#39;widget_container_attributes&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="nt">&gt;</span>
+            <span class="cp">{%</span> <span class="k">for</span> <span class="nv">child</span> <span class="k">in</span> <span class="nv">form</span> <span class="cp">%}</span>
+                <span class="nt">&lt;li&gt;</span>
+                    <span class="cp">{{</span> <span class="nv">form_widget</span><span class="o">(</span><span class="nv">child</span><span class="o">)</span> <span class="cp">}}</span>
+                    <span class="cp">{{</span> <span class="nv">form_label</span><span class="o">(</span><span class="nv">child</span><span class="o">)</span> <span class="cp">}}</span>
+                <span class="nt">&lt;/li&gt;</span>
+            <span class="cp">{%</span> <span class="k">endfor</span> <span class="cp">%}</span>
+            <span class="nt">&lt;/ul&gt;</span>
+        <span class="cp">{%</span> <span class="k">else</span> <span class="cp">%}</span>
+            <span class="c">{# just let the choice widget render the select tag #}</span>
+            <span class="cp">{{</span> <span class="nb">block</span><span class="o">(</span><span class="s1">&#39;choice_widget&#39;</span><span class="o">)</span> <span class="cp">}}</span>
+        <span class="cp">{%</span> <span class="k">endif</span> <span class="cp">%}</span>
+    <span class="cp">{%</span> <span class="k">endspaceless</span> <span class="cp">%}</span>
+<span class="cp">{%</span> <span class="k">endblock</span> <span class="cp">%}</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>Certifique-se que é usado o prefixo widget correto. Neste exemplo, o nome deve
+ser <tt class="docutils literal"><span class="pre">gender_widget</span></tt>, de acordo com o valor retornado pelo <tt class="docutils literal"><span class="pre">getName</span></tt>.
+Além disso, o arquivo de configuração principal deve apontar para o template de formulário
+personalizado, assim, ele será usado ao renderizar todos os formulários.</p>
+<div class="last highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">twig</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">form</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">resources</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="s">&#39;AcmeDemoBundle:Form:fields.html.twig&#39;</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="usando-o-tipo-de-campo">
+<h2>Usando o Tipo de Campo<a class="headerlink" href="#usando-o-tipo-de-campo" title="Permalink to this headline">¶</a></h2>
+<p>Agora você pode usar o seu tipo de campo personalizado imediatamente, simplesmente criando uma
+nova instância do tipo em um de seus formulários:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/AuthorType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class AuthorType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add(&#39;gender_code&#39;, new GenderType(), array(
+            &#39;empty_value&#39; =&gt; &#39;Choose a gender&#39;,
+        ));
+    }
+}
+</pre></div>
+</div>
+<p>Mas isso só funciona porque o <tt class="docutils literal"><span class="pre">GenderType()</span></tt> é muito simples. E se
+os códigos do gênero foram armazenados em configuração ou num banco de dados? A próxima
+seção explica como os tipos de campos mais complexos resolvem este problema.</p>
+</div>
+<div class="section" id="criando-o-seu-tipo-de-campo-como-um-servico">
+<h2>Criando o seu Tipo de Campo como um Serviço<a class="headerlink" href="#criando-o-seu-tipo-de-campo-como-um-servico" title="Permalink to this headline">¶</a></h2>
+<p>Até agora, este artigo assumiu que você tem um tipo de campo personalizado bem simples.
+Mas se você precisar acessar a configuração, uma conexão de banco de dados ou algum outro
+serviço, então, você vai querer registrar o seu tipo personalizado como um serviço. Por
+exemplo, suponha que você está armazenando os parâmetros de gênero em configuração:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># app/config/config.yml</span>
+<span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">genders</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">m</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Male</span>
+        <span class="l-Scalar-Plain">f</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Female</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- app/config/config.xml --&gt;</span>
+<span class="nt">&lt;parameters&gt;</span>
+    <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;genders&quot;</span> <span class="na">type=</span><span class="s">&quot;collection&quot;</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;m&quot;</span><span class="nt">&gt;</span>Male<span class="nt">&lt;/parameter&gt;</span>
+        <span class="nt">&lt;parameter</span> <span class="na">key=</span><span class="s">&quot;f&quot;</span><span class="nt">&gt;</span>Female<span class="nt">&lt;/parameter&gt;</span>
+    <span class="nt">&lt;/parameter&gt;</span>
+<span class="nt">&lt;/parameters&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Para usar o parâmetro, defina o seu tipo de campo personalizado como um serviço, injetando
+o valor do parâmetro <tt class="docutils literal"><span class="pre">genders</span></tt> como o primeiro argumento para a sua função recém-criada
+<tt class="docutils literal"><span class="pre">__construct</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/DemoBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme_demo.form.type.gender</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\DemoBundle\Form\Type\GenderType</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="s">&quot;%genders%&quot;</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">form.type</span><span class="p-Indicator">,</span> <span class="nv">alias</span><span class="p-Indicator">:</span> <span class="nv">gender</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/DemoBundle/Resources/config/services.xml --&gt;</span>
+<span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme_demo.form.type.gender&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\Form\Type\GenderType&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument&gt;</span>%genders%<span class="nt">&lt;/argument&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;form.type&quot;</span> <span class="na">alias=</span><span class="s">&quot;gender&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Certifique-se que o arquivo de serviços está sendo importado. Para mais detalhes consulte
+<a class="reference internal" href="../../book/service_container.html#service-container-imports-directive"><em>Importando configuração com imports</em></a>.</p>
+</div>
+<p>Certifique-se também que o atributo <tt class="docutils literal"><span class="pre">alias</span></tt> da tag corresponde ao valor
+retornado pelo método <tt class="docutils literal"><span class="pre">getName</span></tt> definido anteriormente. Você vai ver a importância
+disto logo que usar o tipo de campo personalizado. Mas, primeiro, adicione um método
+<tt class="docutils literal"><span class="pre">__construct</span></tt> para o <tt class="docutils literal"><span class="pre">GenderType</span></tt>, o qual recebe a configuração do gênero:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/GenderType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+// ...
+
+class GenderType extends AbstractType
+{
+    private $genderChoices;
+
+    public function __construct(array $genderChoices)
+    {
+        $this-&gt;genderChoices = $genderChoices;
+    }
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            &#39;choices&#39; =&gt; $this-&gt;genderChoices,
+        ));
+    }
+
+    // ...
+}
+</pre></div>
+</div>
+<p>Ótimo! O <tt class="docutils literal"><span class="pre">GenderType</span></tt> é alimentado agora por parâmetros de configuração e
+registrado como um serviço. Além disso, devido a você ter usado o alias <tt class="docutils literal"><span class="pre">form.type</span></tt> na sua
+configuração, a utilização do campo é muito mais fácil agora:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Form/Type/AuthorType.php
+namespace Acme\DemoBundle\Form\Type;
+
+use Symfony\Component\Form\FormBuilderInterface;
+
+// ...
+
+class AuthorType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder-&gt;add(&#39;gender_code&#39;, &#39;gender&#39;, array(
+            &#39;empty_value&#39; =&gt; &#39;Choose a gender&#39;,
+        ));
+    }
+}
+</pre></div>
+</div>
+<p>Observe que em vez de criar uma nova instância, você pode apenas referir-se à
+ela pelo alias usado na sua configuração do serviço, <tt class="docutils literal"><span class="pre">gender</span></tt>. Divirta-se!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como Criar um Tipo de Campo de Formulário Personalizado</a><ul>
+<li><a class="reference internal" href="#definindo-o-tipo-de-campo">Definindo o Tipo de Campo</a></li>
+<li><a class="reference internal" href="#criando-um-template-para-o-campo">Criando um Template para o Campo</a></li>
+<li><a class="reference internal" href="#usando-o-tipo-de-campo">Usando o Tipo de Campo</a></li>
+<li><a class="reference internal" href="#criando-o-seu-tipo-de-campo-como-um-servico">Criando o seu Tipo de Campo como um Serviço</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="form_collections.html"
+                        title="previous chapter">Como embutir uma Coleção de Formulários</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="create_form_type_extension.html"
+                        title="next chapter">Como criar uma Extensão do Tipo de Formulário</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/create_custom_field_type.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="create_form_type_extension.html" title="Como criar uma Extensão do Tipo de Formulário"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="form_collections.html" title="Como embutir uma Coleção de Formulários"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Formulário</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

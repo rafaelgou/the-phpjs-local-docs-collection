@@ -1,0 +1,198 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como usar Varnish para aumentar a velocidade do meu Website &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Cache" href="index.html" />
+    <link rel="next" title="Templating" href="../templating/index.html" />
+    <link rel="prev" title="Cache" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../templating/index.html" title="Templating"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Cache"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cache</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-varnish-para-aumentar-a-velocidade-do-meu-website">
+<span id="index-0"></span><h1>Como usar Varnish para aumentar a velocidade do meu Website<a class="headerlink" href="#como-usar-varnish-para-aumentar-a-velocidade-do-meu-website" title="Permalink to this headline">¶</a></h1>
+<p>Pelo cache do Symfony2 usar os cache headers padrões do HTTP, o
+<a class="reference internal" href="../../book/http_cache.html#symfony-gateway-cache"><em>Proxy Reverso do Symfony2</em></a> pode facilmente se substituido por qualquer por qualquer outro
+proxy reverso. Varnish é um poderoso, open-source, HTTP accelerator capaz de servir
+conteúdo em cache de forma rápida em incluindo suporte à <a class="reference internal" href="../../book/http_cache.html#edge-side-includes"><em>Edge Side
+Includes</em></a> (ESI).</p>
+<div class="section" id="configuracao">
+<span id="index-1"></span><h2>Configuração<a class="headerlink" href="#configuracao" title="Permalink to this headline">¶</a></h2>
+<p>Como visto anteriormente, Symfony2 é esperto o bastente para detectar se fala com um
+proxy reverso que compreende ESI ou não. Ele trabalha fora da caixa quando você
+usa o proxy reverso do Symfony2, mas você precisa de um configuração especial para poder
+trabalhar com Varnish. Felizmente, Symfony2 depende ainda de outro padrão
+escrito por Akamaï (<a class="reference external" href="http://www.w3.org/TR/edge-arch">Edge Architecture</a>), então as dicas de configuração desde
+capítulo podem ser úteis mesmo se você não usar Symfony2.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Varnish suporta apenas o atributo <tt class="docutils literal"><span class="pre">src</span></tt> para tags ESI (atributos <tt class="docutils literal"><span class="pre">onerror</span></tt> e
+<tt class="docutils literal"><span class="pre">alt</span></tt> são ignorados).</p>
+</div>
+<p>Primeiro, configure o Varnish para que ele informe o suporte à ESI adicionando um
+<tt class="docutils literal"><span class="pre">Surrogate-Capability</span></tt> ao cabeçalho nas requisições enviadas ao servidor de
+aplicação:</p>
+<div class="highlight-text"><div class="highlight"><pre>sub vcl_recv {
+    set req.http.Surrogate-Capability = &quot;abc=ESI/1.0&quot;;
+}
+</pre></div>
+</div>
+<p>Após isso, otimize o Varnish para que ele apenas analise o conteúdo da resposta quando
+existir ao menos uma tag ESI, verificando o cabeçalho <tt class="docutils literal"><span class="pre">Surrogate-Control</span></tt> que
+é adicionado automaticamente pelo Symfony2.</p>
+<div class="highlight-text"><div class="highlight"><pre>sub vcl_fetch {
+    if (beresp.http.Surrogate-Control ~ &quot;ESI/1.0&quot;) {
+        unset beresp.http.Surrogate-Control;
+
+        // para Varnish &gt;= 3.0
+        set beresp.do_esi = true;
+        // para Varnish &lt; 3.0
+        // esi;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Compressão com ESI não é suportada pelo Varnish até a versão 3.0
+(leia <a class="reference external" href="https://www.varnish-cache.org/docs/3.0/phk/gzip.html">GZIP and Varnish</a>). Se você não está utilizando Varnish 3.0,
+coloque um servidor web a frente do Varnish para executar a compressão.</p>
+</div>
+</div>
+<div class="section" id="invalidacao-do-cache">
+<span id="index-2"></span><h2>Invalidação do Cache<a class="headerlink" href="#invalidacao-do-cache" title="Permalink to this headline">¶</a></h2>
+<p>Você nunca deverá precisar invalidar os dados em cache porque a invalidação é colocada
+nativamente nos modelos de cache HTTP (veja <a class="reference internal" href="../../book/http_cache.html#http-cache-invalidation"><em>Invalidação do Cache</em></a>).</p>
+<p>Ainda assim, o Varnish pode ser configurado para aceitar um método HTTP <tt class="docutils literal"><span class="pre">PURGE</span></tt> especial
+que invalidará o cache para derterminado recurso:</p>
+<div class="highlight-text"><div class="highlight"><pre>sub vcl_hit {
+    if (req.request == &quot;PURGE&quot;) {
+        set obj.ttl = 0s;
+        error 200 &quot;Purgado&quot;;
+    }
+}
+
+sub vcl_miss {
+    if (req.request == &quot;PURGE&quot;) {
+        error 404 &quot;Não Purgado&quot;;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">Você deve proteger o método HTTP``PURGE`` para evitar que qualquer pessoa possa
+purgar os dados em cache.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como usar Varnish para aumentar a velocidade do meu Website</a><ul>
+<li><a class="reference internal" href="#configuracao">Configuração</a></li>
+<li><a class="reference internal" href="#invalidacao-do-cache">Invalidação do Cache</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Cache</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../templating/index.html"
+                        title="next chapter">Templating</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/cache/varnish.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../templating/index.html" title="Templating"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Cache"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Cache</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

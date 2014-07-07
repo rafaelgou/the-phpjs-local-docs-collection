@@ -1,0 +1,228 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como estender uma Classe sem usar Herança &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Dispatcher de Eventos" href="index.html" />
+    <link rel="next" title="Como personalizar o Comportamento do Método sem o uso de Herança" href="method_behavior.html" />
+    <link rel="prev" title="Como configurar Filtros aplicados antes e após" href="before_after_filters.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="method_behavior.html" title="Como personalizar o Comportamento do Método sem o uso de Herança"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="before_after_filters.html" title="Como configurar Filtros aplicados antes e após"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Dispatcher de Eventos</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-estender-uma-classe-sem-usar-heranca">
+<span id="index-0"></span><h1>Como estender uma Classe sem usar Herança<a class="headerlink" href="#como-estender-uma-classe-sem-usar-heranca" title="Permalink to this headline">¶</a></h1>
+<p>Para permitir que várias classes adicionem métodos para uma outra, você pode definir o
+método mágico <tt class="docutils literal"><span class="pre">__call()</span></tt> na classe que você deseja que seja estendida da seguinte forma:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Foo</span>
+<span class="p">{</span>
+    <span class="c1">// ...</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__call</span><span class="p">(</span><span class="nv">$method</span><span class="p">,</span> <span class="nv">$arguments</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// cria um evento chamado &#39;foo.method_is_not_found&#39;</span>
+        <span class="nv">$event</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">HandleUndefinedMethodEvent</span><span class="p">(</span><span class="nv">$this</span><span class="p">,</span> <span class="nv">$method</span><span class="p">,</span> <span class="nv">$arguments</span><span class="p">);</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">dispatcher</span><span class="o">-&gt;</span><span class="na">dispatch</span><span class="p">(</span><span class="nv">$this</span><span class="p">,</span> <span class="s1">&#39;foo.method_is_not_found&#39;</span><span class="p">,</span> <span class="nv">$event</span><span class="p">);</span>
+
+        <span class="c1">// nenhum listener foi capaz de processar o evento? O método não existe</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="nv">$event</span><span class="o">-&gt;</span><span class="na">isProcessed</span><span class="p">())</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nx">\Exception</span><span class="p">(</span><span class="nb">sprintf</span><span class="p">(</span><span class="s1">&#39;Call to undefined method %s::%s.&#39;</span><span class="p">,</span> <span class="nb">get_class</span><span class="p">(</span><span class="nv">$this</span><span class="p">),</span> <span class="nv">$method</span><span class="p">));</span>
+        <span class="p">}</span>
+
+        <span class="c1">// retorna o valor retornado pelo listener</span>
+        <span class="k">return</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getReturnValue</span><span class="p">();</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Ela utiliza um <tt class="docutils literal"><span class="pre">HandleUndefinedMethodEvent</span></tt> especial que também deve ser
+criado. Esta é uma classe genérica que poderia ser reutilizada cada vez que você precisa
+utilizar esse padrão de extensão de classe:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\EventDispatcher\Event</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">HandleUndefinedMethodEvent</span> <span class="k">extends</span> <span class="nx">Event</span>
+<span class="p">{</span>
+    <span class="k">protected</span> <span class="nv">$subject</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$method</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$arguments</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$returnValue</span><span class="p">;</span>
+    <span class="k">protected</span> <span class="nv">$isProcessed</span> <span class="o">=</span> <span class="k">false</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nv">$subject</span><span class="p">,</span> <span class="nv">$method</span><span class="p">,</span> <span class="nv">$arguments</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">subject</span> <span class="o">=</span> <span class="nv">$subject</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">method</span> <span class="o">=</span> <span class="nv">$method</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">arguments</span> <span class="o">=</span> <span class="nv">$arguments</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getSubject</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">subject</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getMethod</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">method</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getArguments</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">arguments</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="sd">/**</span>
+<span class="sd">     * Define o valor de retorno e pára a notificação para outros listeners</span>
+<span class="sd">     */</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">setReturnValue</span><span class="p">(</span><span class="nv">$val</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">returnValue</span> <span class="o">=</span> <span class="nv">$val</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">isProcessed</span> <span class="o">=</span> <span class="k">true</span><span class="p">;</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">stopPropagation</span><span class="p">();</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">getReturnValue</span><span class="p">(</span><span class="nv">$val</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">returnValue</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">isProcessed</span><span class="p">()</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">isProcessed</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Em seguida, crie uma classe que vai ouvir o evento <tt class="docutils literal"><span class="pre">foo.method_is_not_found</span></tt>
+e <em>adicionar</em> o método <tt class="docutils literal"><span class="pre">bar()</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">class</span> <span class="nc">Bar</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">onFooMethodIsNotFound</span><span class="p">(</span><span class="nx">HandleUndefinedMethodEvent</span> <span class="nv">$event</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// queremos somente responder as chamadas do método &#39;bar&#39;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;bar&#39;</span> <span class="o">!=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getMethod</span><span class="p">())</span> <span class="p">{</span>
+            <span class="c1">// permite que outro listener cuide deste método desconhecido</span>
+            <span class="k">return</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// o objeto (a instância foo)</span>
+        <span class="nv">$foo</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getSubject</span><span class="p">();</span>
+
+        <span class="c1">// os argumentos do método bar</span>
+        <span class="nv">$arguments</span> <span class="o">=</span> <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">getArguments</span><span class="p">();</span>
+
+        <span class="c1">// faz algo</span>
+        <span class="c1">// ...</span>
+
+        <span class="c1">// define o valor de retorno</span>
+        <span class="nv">$event</span><span class="o">-&gt;</span><span class="na">setReturnValue</span><span class="p">(</span><span class="nv">$someValue</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Por fim, adicione o novo método <tt class="docutils literal"><span class="pre">bar</span></tt> na classe <tt class="docutils literal"><span class="pre">Foo</span></tt> para registrar uma
+instância de <tt class="docutils literal"><span class="pre">Bar</span></tt> com o evento <tt class="docutils literal"><span class="pre">foo.method_is_not_found</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$bar</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Bar</span><span class="p">();</span>
+<span class="nv">$dispatcher</span><span class="o">-&gt;</span><span class="na">addListener</span><span class="p">(</span><span class="s1">&#39;foo.method_is_not_found&#39;</span><span class="p">,</span> <span class="nv">$bar</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="before_after_filters.html"
+                        title="previous chapter">Como configurar Filtros aplicados antes e após</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="method_behavior.html"
+                        title="next chapter">Como personalizar o Comportamento do Método sem o uso de Herança</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/event_dispatcher/class_extension.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="method_behavior.html" title="Como personalizar o Comportamento do Método sem o uso de Herança"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="before_after_filters.html" title="Como configurar Filtros aplicados antes e após"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Dispatcher de Eventos</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

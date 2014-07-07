@@ -1,0 +1,354 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como Usar Voters para Verificar as Permissões do Usuário &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Segurança" href="index.html" />
+    <link rel="next" title="Listas de controle de acesso (ACLs)" href="acl.html" />
+    <link rel="prev" title="Como implementar seu próprio Voter para lista negra (blacklist) de endereços IP" href="voters.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="acl.html" title="Listas de controle de acesso (ACLs)"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="voters.html" title="Como implementar seu próprio Voter para lista negra (blacklist) de endereços IP"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Segurança</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-voters-para-verificar-as-permissoes-do-usuario">
+<span id="index-0"></span><h1>Como Usar Voters para Verificar as Permissões do Usuário<a class="headerlink" href="#como-usar-voters-para-verificar-as-permissoes-do-usuario" title="Permalink to this headline">¶</a></h1>
+<p>No Symfony2 você pode verificar a permissão para acessar dados usando o
+<a class="reference internal" href="acl.html"><em>módulo ACL</em></a>, entretanto ele pode ser demasiado
+para muitas aplicações. Uma solução muito mais fácil é trabalhar com voters personalizados,
+que são como instruções condicionais simples.</p>
+<div class="admonition seealso">
+<p class="first admonition-title">See also</p>
+<p class="last">Os voters também podem ser utilizados de outras formas, como, por exemplo, para lista negra de
+endereços IP de toda a aplicação: <a class="reference internal" href="voters.html"><em>Como implementar seu próprio Voter para lista negra (blacklist) de endereços IP</em></a>.</p>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Verifique o capítulo
+<tt class="xref doc docutils literal"><span class="pre">autorização</span></tt>
+para uma compreensão mais aprofundada sobre os voters.</p>
+</div>
+<div class="section" id="como-o-symfony-utiliza-os-voters">
+<h2>Como o Symfony Utiliza os Voters<a class="headerlink" href="#como-o-symfony-utiliza-os-voters" title="Permalink to this headline">¶</a></h2>
+<p>Para utilizar os voters, você precisa entender como o Symfony trabalha com eles.
+Todos os voters são chamados cada vez que você usa o método <tt class="docutils literal"><span class="pre">isGranted()</span></tt> no contexto
+de segurança do Symfony (ou seja, o serviço <tt class="docutils literal"><span class="pre">security.context</span></tt>). Cada um decide
+se o usuário atual deve ter acesso a algum recurso.</p>
+<p>Finalmente, o Symfony utiliza uma de três diferentes abordagens sobre o que fazer
+com o feedback de todos os voters: afirmativa, consenso e unanimidade.</p>
+<p>Para mais informações, leia
+<em class="xref std std-ref">a seção sobre gerentes de decisões acesso</em>.</p>
+</div>
+<div class="section" id="a-interface-voter">
+<h2>A Interface Voter<a class="headerlink" href="#a-interface-voter" title="Permalink to this headline">¶</a></h2>
+<p>Um voter personalizado deve implementar
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authorization/Voter/VoterInterface.html" title="Symfony\Component\Security\Core\Authorization\Voter\VoterInterface"><span class="pre">VoterInterface</span></a></tt>,
+que tem esta estrutura:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">interface</span> <span class="nx">VoterInterface</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">supportsAttribute</span><span class="p">(</span><span class="nv">$attribute</span><span class="p">);</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">supportsClass</span><span class="p">(</span><span class="nv">$class</span><span class="p">);</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">vote</span><span class="p">(</span><span class="nx">TokenInterface</span> <span class="nv">$token</span><span class="p">,</span> <span class="nv">$object</span><span class="p">,</span> <span class="k">array</span> <span class="nv">$attributes</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>O método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authorization/Voter/VoterInterface.html#method_supportsAttribute" title="Symfony\Component\Security\Core\Authorization\Voter\VoterInterface::supportsAttribute()"><span class="pre">supportsAttribute()</span></a></tt>
+é usado para verificar se o voter suporta o atributo de usuário fornecido (ou seja:
+um papel - role - como <tt class="docutils literal"><span class="pre">ROLE_USER</span></tt>, um ACL <tt class="docutils literal"><span class="pre">EDIT</span></tt>, etc.).</p>
+<p>O método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authorization/Voter/VoterInterface.html#method_supportsClass" title="Symfony\Component\Security\Core\Authorization\Voter\VoterInterface::supportsClass()"><span class="pre">supportsClass()</span></a></tt>
+é usado para verificar se o voter suporta a classe do objeto cujo
+acesso está sendo verificado.</p>
+<p>O método <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Security/Core/Authorization/Voter/VoterInterface.html#method_vote" title="Symfony\Component\Security\Core\Authorization\Voter\VoterInterface::vote()"><span class="pre">vote()</span></a></tt>
+deve implementar a lógica de negócio que verifica se o
+usuário tem acesso. Esse método deve retornar um dos seguintes valores:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_GRANTED</span></tt>: A autorização será concedida por este voter;</li>
+<li><tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_ABSTAIN</span></tt>: O voter não pode decidir se a autorização deve ser concedida;</li>
+<li><tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_DENIED</span></tt>: A autorização será negada por este voter.</li>
+</ul>
+<p>Neste exemplo, o voter irá verificar se o usuário tem acesso a um objeto específico
+de acordo com as suas condições personalizadas (ex., eles devem ser proprietários do
+objeto). Se a condição falhar, você vai retornar
+<tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_DENIED</span></tt>, caso contrário você vai retornar
+<tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_GRANTED</span></tt>. No caso da responsabilidade por essa decisão
+não pertencer a este voter, ele retornará <tt class="docutils literal"><span class="pre">VoterInterface::ACCESS_ABSTAIN</span></tt>.</p>
+</div>
+<div class="section" id="criando-o-voter-personalizado">
+<h2>Criando o Voter Personalizado<a class="headerlink" href="#criando-o-voter-personalizado" title="Permalink to this headline">¶</a></h2>
+<p>O objetivo é criar um voter que verifica se o usuário tem acesso para visualizar ou
+editar um objeto particular. Aqui está um exemplo de implementação:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Security/Authorization/Voter/PostVoter.php
+namespace Acme\DemoBundle\Security\Authorization\Voter;
+
+use Symfony\Component\Security\Core\Exception\InvalidArgumentException;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\User\UserInterface;
+
+class PostVoter implements VoterInterface
+{
+    const VIEW = &#39;view&#39;;
+    const EDIT = &#39;edit&#39;;
+
+    public function supportsAttribute($attribute)
+    {
+        return in_array($attribute, array(
+            self::VIEW,
+            self::EDIT,
+        ));
+    }
+
+    public function supportsClass($class)
+    {
+        $supportedClass = &#39;Acme\DemoBundle\Entity\Post&#39;;
+
+        return $supportedClass === $class || is_subclass_of($class, $supportedClass);
+    }
+
+    /**
+     * @var \Acme\DemoBundle\Entity\Post $post
+     */
+    public function vote(TokenInterface $token, $post, array $attributes)
+    {
+        // check if class of this object is supported by this voter
+        if (!$this-&gt;supportsClass(get_class($post))) {
+            return VoterInterface::ACCESS_ABSTAIN;
+        }
+
+        // check if the voter is used correct, only allow one attribute
+        // this isn&#39;t a requirement, it&#39;s just one easy way for you to
+        // design your voter
+        if(1 !== count($attributes)) {
+            throw new InvalidArgumentException(
+                &#39;Only one attribute is allowed for VIEW or EDIT&#39;
+            );
+        }
+
+        // set the attribute to check against
+        $attribute = $attributes[0];
+
+        // get current logged in user
+        $user = $token-&gt;getUser();
+
+        // check if the given attribute is covered by this voter
+        if (!$this-&gt;supportsAttribute($attribute)) {
+            return VoterInterface::ACCESS_ABSTAIN;
+        }
+
+        // make sure there is a user object (i.e. that the user is logged in)
+        if (!$user instanceof UserInterface) {
+            return VoterInterface::ACCESS_DENIED;
+        }
+
+        switch($attribute) {
+            case &#39;view&#39;:
+                // the data object could have for example a method isPrivate()
+                // which checks the Boolean attribute $private
+                if (!$post-&gt;isPrivate()) {
+                    return VoterInterface::ACCESS_GRANTED;
+                }
+                break;
+
+            case &#39;edit&#39;:
+                // we assume that our data object has a method getOwner() to
+                // get the current owner user entity for this data object
+                if ($user-&gt;getId() === $post-&gt;getOwner()-&gt;getId()) {
+                    return VoterInterface::ACCESS_GRANTED;
+                }
+                break;
+        }
+    }
+}
+</pre></div>
+</div>
+<p>É isso! O voter está pronto. O próximo passo é injetar o voter na
+camada de segurança.</p>
+</div>
+<div class="section" id="declarando-o-voter-como-um-servico">
+<h2>Declarando o Voter como um Serviço<a class="headerlink" href="#declarando-o-voter-como-um-servico" title="Permalink to this headline">¶</a></h2>
+<p>Para injetar o voter na camada de segurança, você deve declará-lo como um serviço
+e adicionar a tag <tt class="docutils literal"><span class="pre">security.voter</span></tt>:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="c1"># src/Acme/DemoBundle/Resources/config/services.yml</span>
+<span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">security.access.post_voter</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span>      <span class="l-Scalar-Plain">Acme\DemoBundle\Security\Authorization\Voter\PostVoter</span>
+        <span class="l-Scalar-Plain">public</span><span class="p-Indicator">:</span>     <span class="l-Scalar-Plain">false</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+           <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">security.voter</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="c">&lt;!-- src/Acme/DemoBundle/Resources/config/services.xml --&gt;</span>
+<span class="cp">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;</span>
+<span class="nt">&lt;container</span> <span class="na">xmlns=</span><span class="s">&quot;http://symfony.com/schema/dic/services&quot;</span>
+    <span class="na">xsi:schemaLocation=</span><span class="s">&quot;http://symfony.com/schema/dic/services</span>
+<span class="s">        http://symfony.com/schema/dic/services/services-1.0.xsd&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;services&gt;</span>
+        <span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;security.access.post_document_voter&quot;</span>
+            <span class="na">class=</span><span class="s">&quot;Acme\DemoBundle\Security\Authorization\Voter\PostVoter&quot;</span>
+            <span class="na">public=</span><span class="s">&quot;false&quot;</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;security.voter&quot;</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/service&gt;</span>
+    <span class="nt">&lt;/services&gt;</span>
+<span class="nt">&lt;/container&gt;</span>
+</pre></div>
+</div>
+</li>
+<li><em>PHP</em><div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Resources/config/services.php</span>
+<span class="nv">$container</span>
+    <span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span>
+            <span class="s1">&#39;security.access.post_document_voter&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;Acme\DemoBundle\Security\Authorization\Voter\PostVoter&#39;</span>
+    <span class="p">)</span>
+    <span class="o">-&gt;</span><span class="na">addTag</span><span class="p">(</span><span class="s1">&#39;security.voter&#39;</span><span class="p">)</span>
+<span class="p">;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="como-usar-o-voter-em-um-controlador">
+<h2>Como usar o Voter em um Controlador<a class="headerlink" href="#como-usar-o-voter-em-um-controlador" title="Permalink to this headline">¶</a></h2>
+<p>O voter registrado será então sempre solicitado assim que o método <tt class="docutils literal"><span class="pre">isGranted()</span></tt>
+do contexto de segurança é chamado.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// src/Acme/DemoBundle/Controller/PostController.php</span>
+<span class="k">namespace</span> <span class="nx">Acme\DemoBundle\Controller</span><span class="p">;</span>
+
+<span class="k">use</span> <span class="nx">Symfony\Bundle\FrameworkBundle\Controller\Controller</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Response</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\Security\Core\Exception\AccessDeniedException</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">PostController</span> <span class="k">extends</span> <span class="nx">Controller</span>
+<span class="p">{</span>
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">showAction</span><span class="p">(</span><span class="nv">$id</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// get a Post instance</span>
+        <span class="nv">$post</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+
+        <span class="c1">// keep in mind, this will call all registered security voters</span>
+        <span class="k">if</span> <span class="p">(</span><span class="k">false</span> <span class="o">===</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;security.context&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">isGranted</span><span class="p">(</span><span class="s1">&#39;view&#39;</span><span class="p">,</span> <span class="nv">$post</span><span class="p">))</span> <span class="p">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nx">AccessDeniedException</span><span class="p">(</span><span class="s1">&#39;Unauthorised access!&#39;</span><span class="p">);</span>
+        <span class="p">}</span>
+
+        <span class="k">return</span> <span class="k">new</span> <span class="nx">Response</span><span class="p">(</span><span class="s1">&#39;&lt;h1&gt;&#39;</span><span class="o">.</span><span class="nv">$post</span><span class="o">-&gt;</span><span class="na">getName</span><span class="p">()</span><span class="o">.</span><span class="s1">&#39;&lt;/h1&gt;&#39;</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>É assim fácil!</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como Usar Voters para Verificar as Permissões do Usuário</a><ul>
+<li><a class="reference internal" href="#como-o-symfony-utiliza-os-voters">Como o Symfony Utiliza os Voters</a></li>
+<li><a class="reference internal" href="#a-interface-voter">A Interface Voter</a></li>
+<li><a class="reference internal" href="#criando-o-voter-personalizado">Criando o Voter Personalizado</a></li>
+<li><a class="reference internal" href="#declarando-o-voter-como-um-servico">Declarando o Voter como um Serviço</a></li>
+<li><a class="reference internal" href="#como-usar-o-voter-em-um-controlador">Como usar o Voter em um Controlador</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="voters.html"
+                        title="previous chapter">Como implementar seu próprio Voter para lista negra (blacklist) de endereços IP</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="acl.html"
+                        title="next chapter">Listas de controle de acesso (ACLs)</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/security/voters_data_permission.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="acl.html" title="Listas de controle de acesso (ACLs)"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="voters.html" title="Como implementar seu próprio Voter para lista negra (blacklist) de endereços IP"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Segurança</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

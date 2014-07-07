@@ -1,0 +1,228 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como criar um Comando de Console &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Console" href="index.html" />
+    <link rel="next" title="Como usar o Console" href="usage.html" />
+    <link rel="prev" title="Console" href="index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="usage.html" title="Como usar o Console"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Console"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Console</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-criar-um-comando-de-console">
+<span id="index-0"></span><h1>Como criar um Comando de Console<a class="headerlink" href="#como-criar-um-comando-de-console" title="Permalink to this headline">¶</a></h1>
+<p>A página Console na seção Componentes (<a class="reference internal" href="../../components/console/introduction.html"><em>O Componente Console</em></a>) aborda
+como criar um comando de Console. Este artigo do cookbook abrange as diferenças
+ao criar comandos do Console com o framework Symfony2.</p>
+<div class="section" id="registrando-os-comandos-automaticamente">
+<h2>Registrando os Comandos Automaticamente<a class="headerlink" href="#registrando-os-comandos-automaticamente" title="Permalink to this headline">¶</a></h2>
+<p>Para disponibilizar os comandos de console automaticamente com o Symfony2, adicione um
+diretório <tt class="docutils literal"><span class="pre">Command</span></tt> dentro de seu bundle e crie um arquivo php com o sufixo
+<tt class="docutils literal"><span class="pre">Command.php</span></tt> para cada comando que você deseja fornecer. Por exemplo, se você
+deseja estender o <tt class="docutils literal"><span class="pre">AcmeDemoBundle</span></tt> (disponível na Edição Standard do Symfony)
+para cumprimentar-nos a partir da linha de comando, crie o <tt class="docutils literal"><span class="pre">GreetCommand.php</span></tt>
+e adicione o seguinte código:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/DemoBundle/Command/GreetCommand.php
+namespace Acme\DemoBundle\Command;
+
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+class GreetCommand extends ContainerAwareCommand
+{
+    protected function configure()
+    {
+        $this
+            -&gt;setName(&#39;demo:greet&#39;)
+            -&gt;setDescription(&#39;Greet someone&#39;)
+            -&gt;addArgument(&#39;name&#39;, InputArgument::OPTIONAL, &#39;Who do you want to greet?&#39;)
+            -&gt;addOption(&#39;yell&#39;, null, InputOption::VALUE_NONE, &#39;If set, the task will yell in uppercase letters&#39;)
+        ;
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output)
+    {
+        $name = $input-&gt;getArgument(&#39;name&#39;);
+        if ($name) {
+            $text = &#39;Hello &#39;.$name;
+        } else {
+            $text = &#39;Hello&#39;;
+        }
+
+        if ($input-&gt;getOption(&#39;yell&#39;)) {
+            $text = strtoupper($text);
+        }
+
+        $output-&gt;writeln($text);
+    }
+}
+</pre></div>
+</div>
+<p>Este comando estará disponível automaticamente para executar:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>app/console demo:greet Fabien
+</pre></div>
+</div>
+</div>
+<div class="section" id="testando-comandos">
+<h2>Testando Comandos<a class="headerlink" href="#testando-comandos" title="Permalink to this headline">¶</a></h2>
+<p>Ao testar os comandos utilizados como parte do framework completo <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Console/Application.html" title="Symfony\Bundle\FrameworkBundle\Console\Application"><span class="pre">Application</span></a></tt>
+deve ser usado em vez de <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Application.html" title="Symfony\Component\Console\Application"><span class="pre">Application</span></a></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Acme\DemoBundle\Command\GreetCommand;
+
+class ListCommandTest extends \PHPUnit_Framework_TestCase
+{
+    public function testExecute()
+    {
+        // mock the Kernel or create one depending on your needs
+        $application = new Application($kernel);
+        $application-&gt;add(new GreetCommand());
+
+        $command = $application-&gt;find(&#39;demo:greet&#39;);
+        $commandTester = new CommandTester($command);
+        $commandTester-&gt;execute(array(&#39;command&#39; =&gt; $command-&gt;getName()));
+
+        $this-&gt;assertRegExp(&#39;/.../&#39;, $commandTester-&gt;getDisplay());
+
+        // ...
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="obtendo-servicos-do-container-de-servicos">
+<h2>Obtendo Serviços do Container de Serviços<a class="headerlink" href="#obtendo-servicos-do-container-de-servicos" title="Permalink to this headline">¶</a></h2>
+<p>Usando <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Bundle/FrameworkBundle/Command/ContainerAwareCommand.html" title="Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand"><span class="pre">ContainerAwareCommand</span></a></tt>
+como classe base para o comando (em vez do mais básico
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Console/Command/Command.html" title="Symfony\Component\Console\Command\Command"><span class="pre">Command</span></a></tt>), você tem acesso ao
+container de serviço. Em outras palavras, você tem acesso a qualquer serviço configurado.
+Por exemplo, você pode facilmente estender a tarefa para a mesma ser traduzível:</p>
+<div class="highlight-python"><div class="highlight"><pre>protected function execute(InputInterface $input, OutputInterface $output)
+{
+    $name = $input-&gt;getArgument(&#39;name&#39;);
+    $translator = $this-&gt;getContainer()-&gt;get(&#39;translator&#39;);
+    if ($name) {
+        $output-&gt;writeln($translator-&gt;trans(&#39;Hello %name%!&#39;, array(&#39;%name%&#39; =&gt; $name)));
+    } else {
+        $output-&gt;writeln($translator-&gt;trans(&#39;Hello!&#39;));
+    }
+}
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como criar um Comando de Console</a><ul>
+<li><a class="reference internal" href="#registrando-os-comandos-automaticamente">Registrando os Comandos Automaticamente</a></li>
+<li><a class="reference internal" href="#testando-comandos">Testando Comandos</a></li>
+<li><a class="reference internal" href="#obtendo-servicos-do-container-de-servicos">Obtendo Serviços do Container de Serviços</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Console</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="usage.html"
+                        title="next chapter">Como usar o Console</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/console/console_command.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="usage.html" title="Como usar o Console"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Console"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Console</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

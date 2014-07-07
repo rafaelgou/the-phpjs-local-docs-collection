@@ -1,0 +1,661 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Definindo e processando valores de configuração &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="definindo-e-processando-valores-de-configuracao">
+<span id="index-0"></span><h1>Definindo e processando valores de configuração<a class="headerlink" href="#definindo-e-processando-valores-de-configuracao" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="validando-valores-de-configuracao">
+<h2>Validando valores de configuração<a class="headerlink" href="#validando-valores-de-configuracao" title="Permalink to this headline">¶</a></h2>
+<p>Após carregar valores de configuração a partir de diversos tipos de fontes, os
+valores e suas estruturas podem ser validados utilizando a parte &#8220;Definition&#8221; do
+Config Component. É comumente esperado que valores de configuração exibam algum
+tipo de hierarquia. Além de que, valores devem ser de algum certo tipo, ser
+restrito em número, ou ser um item de um dado conjunto de valores. Por exemplo,
+a configuração a seguir (em Yaml) demonstra uma hierarquia clara e algumas
+regras de validação que devem ser aplicadas a ela (como: &#8220;o valor para
+<tt class="docutils literal"><span class="pre">auto_connect</span></tt> deve ser um valor booleano&#8221;):</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">auto_connect</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+<span class="l-Scalar-Plain">default_connection</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+<span class="l-Scalar-Plain">connections</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">mysql</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+        <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+        <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">user</span>
+        <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass</span>
+    <span class="l-Scalar-Plain">sqlite</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+        <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">sqlite</span>
+        <span class="l-Scalar-Plain">memory</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span>
+        <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">user</span>
+        <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass</span>
+</pre></div>
+</div>
+<p>Quando se carrega multiplos arquivos de configuração, deve ser possível
+fundir e sobrescrever alguns valores. Outros valores não devem ser fundidos
+e permanecerem da mesma forma que estão quando encontrados pela primeria vez.
+Além de que, alhumas chaves só estão disponíveis quando outra chave tem um
+valor específico (na configuração de exmeplo abaixo: a chave <tt class="docutils literal"><span class="pre">memory</span></tt> só
+faz sentido quando <tt class="docutils literal"><span class="pre">driver</span></tt> for <tt class="docutils literal"><span class="pre">sqlite</span></tt>).</p>
+</div>
+<div class="section" id="definindo-a-hierarquia-de-valores-de-configuracao-utilizando-o-treebuilder">
+<h2>Definindo a hierarquia de valores de configuração utilizando o Treebuilder<a class="headerlink" href="#definindo-a-hierarquia-de-valores-de-configuracao-utilizando-o-treebuilder" title="Permalink to this headline">¶</a></h2>
+<p>Todas as regras referentes a configuração de valores podem ser definidas
+utilizando o <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/TreeBuilder.html" title="Symfony\Component\Config\Definition\Builder\TreeBuilder"><span class="pre">TreeBuilder</span></a></tt>.</p>
+<p>Uma instância <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/TreeBuilder.html" title="Symfony\Component\Config\Definition\Builder\TreeBuilder"><span class="pre">TreeBuilder</span></a></tt>
+deve ser retornada a partir de uma classe <tt class="docutils literal"><span class="pre">Configuration</span></tt> customizada, que
+implementa o <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/ConfigurationInterface.html" title="Symfony\Component\Config\Definition\ConfigurationInterface"><span class="pre">ConfigurationInterface</span></a></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>namespace Acme\DatabaseConfiguration;
+
+use Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Definition\Builder\TreeBuilder;
+
+class DatabaseConfiguration implements ConfigurationInterface
+{
+    public function getConfigTreeBuilder()
+    {
+        $treeBuilder = new TreeBuilder();
+        $rootNode = $treeBuilder-&gt;root(&#39;database&#39;);
+
+        // ... adiciona definições de nó a raiz da ávore
+        // ... add node definitions to the root of the tree
+
+        return $treeBuilder;
+    }
+}
+</pre></div>
+</div>
+</div>
+<div class="section" id="adicionando-definicoes-de-no-a-arvore">
+<h2>Adicionando definições de nó a arvore<a class="headerlink" href="#adicionando-definicoes-de-no-a-arvore" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="nos-de-variavel">
+<h3>Nós de variável<a class="headerlink" href="#nos-de-variavel" title="Permalink to this headline">¶</a></h3>
+<p>Uma árvore contém definições de nós que podem ser estabelecidas de forma semântica.
+Isso significa que utilizando identação e notação fluente, é possível refletir a
+estrutura real dos valores de configuração:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;booleanNode(&#39;auto_connect&#39;)
+            -&gt;defaultTrue()
+        -&gt;end()
+        -&gt;scalarNode(&#39;default_connection&#39;)
+            -&gt;defaultValue(&#39;default&#39;)
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>O nó raiz em sí é um nó array, e possui filhos, como o nó booleano <tt class="docutils literal"><span class="pre">auto_connect</span></tt>
+e o nó escalar <tt class="docutils literal"><span class="pre">default_connection</span></tt>. Em geral: após definir um nó, uma chamada
+para <tt class="docutils literal"><span class="pre">end()</span></tt> leva você um passo a cima na hierarquia.</p>
+</div>
+<div class="section" id="tipo-de-no">
+<h3>Tipo de nó<a class="headerlink" href="#tipo-de-no" title="Permalink to this headline">¶</a></h3>
+<p>É possível validar o tipo de um valor fornecido utilizando a definição apropriada
+de nó. O tipo nó está disponível para:</p>
+<ul class="simple">
+<li>scalar</li>
+<li>boolean</li>
+<li>integer (new in 2.2)</li>
+<li>float (new in 2.2)</li>
+<li>enum (new in 2.1)</li>
+<li>array</li>
+<li>variable (no validation)</li>
+</ul>
+<p>e são creiados com <tt class="docutils literal"><span class="pre">node($name,</span> <span class="pre">$type)</span></tt> ou com seu método atalho
+<tt class="docutils literal"><span class="pre">xxxxNode($name)</span></tt>.</p>
+</div>
+<div class="section" id="limitadores-de-nos-numericos">
+<h3>Limitadores de nós numéricos<a class="headerlink" href="#limitadores-de-nos-numericos" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.2: </span>Os nós numéricos (float and integer) são novos em 2.2</p>
+</div>
+<p>Os nós numéricos (float and integer) fornecem dois limitadores extras -
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder.html#method_min" title="Symfony\Component\Config\Definition\Builder::min()"><span class="pre">min()</span></a></tt> e
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder.html#method_max" title="Symfony\Component\Config\Definition\Builder::max()"><span class="pre">max()</span></a></tt> -
+possibilitando validar o valor:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;integerNode(&#39;positive_value&#39;)
+            -&gt;min(0)
+        -&gt;end()
+        -&gt;floatNode(&#39;big_value&#39;)
+            -&gt;max(5E45)
+        -&gt;end()
+        -&gt;integerNode(&#39;value_inside_a_range&#39;)
+            -&gt;min(-50)-&gt;max(50)
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+</div>
+<div class="section" id="nos-enum">
+<h3>Nós enum<a class="headerlink" href="#nos-enum" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.1: </span>O nó enum é novo no Symfony 2.1</p>
+</div>
+<p>Nós enum fornecem um limitador para comparar a entrada contra um conjunto de
+valores:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;enumNode(&#39;sexo&#39;)
+            -&gt;values(array(&#39;masculino&#39;, &#39;feminino&#39;))
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Isso irá restringir a opção <tt class="docutils literal"><span class="pre">sexo</span></tt> a ser <tt class="docutils literal"><span class="pre">masculino</span></tt> ou <tt class="docutils literal"><span class="pre">feminino</span></tt>.</p>
+</div>
+<div class="section" id="nos-array">
+<h3>Nós array<a class="headerlink" href="#nos-array" title="Permalink to this headline">¶</a></h3>
+<p>É possível adicionar um nó mais profundo à hierarquia, acrescentando um
+nó array. O próprio nó array pode ter um conjunto de variáveis nó pré definidas:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;arrayNode(&#39;connection&#39;)
+            -&gt;children()
+                -&gt;scalarNode(&#39;driver&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;host&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;username&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;password&#39;)-&gt;end()
+            -&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Ou você pode definir um protótipo para cada nó dentro de um nó array:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;arrayNode(&#39;connections&#39;)
+            -&gt;prototype(&#39;array&#39;)
+            -&gt;children()
+                -&gt;scalarNode(&#39;driver&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;host&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;username&#39;)-&gt;end()
+                -&gt;scalarNode(&#39;password&#39;)-&gt;end()
+            -&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Um protótipo pode ser utilizado para adicionar uma definição que pode ser repetida
+várias vezes dentro do nó atual. De acordo com a definição do protótipo no exemplo
+acima, é possível ter multiplas arrays connection (contendo um <tt class="docutils literal"><span class="pre">driver</span></tt>, <tt class="docutils literal"><span class="pre">host</span></tt>
+, etc.).</p>
+</div>
+<div class="section" id="opcoes-do-no-array">
+<h3>Opções do nó array<a class="headerlink" href="#opcoes-do-no-array" title="Permalink to this headline">¶</a></h3>
+<p>Antes de definir o filho de um nó array, você pode fornecer opções, como:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">useAttributeAsKey()</span></tt></dt>
+<dd>Fornece o nome de um nó filho, do qual o valor deve ser utilizado como a chave no array
+resultante.</dd>
+<dt><tt class="docutils literal"><span class="pre">requiresAtLeastOneElement()</span></tt></dt>
+<dd>Deve haver pelo menos um elemento no array (funciona somente quando <tt class="docutils literal"><span class="pre">isRequired()</span></tt>
+também é chamado).</dd>
+<dt><tt class="docutils literal"><span class="pre">addDefaultsIfNotSet()</span></tt></dt>
+<dd>Se qualquer nós filho tiver valor padrão, use-os caso valores explicitos não forem fornecidos.</dd>
+</dl>
+<p>Um exemplo disso:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;arrayNode(&#39;parameters&#39;)
+            -&gt;isRequired()
+            -&gt;requiresAtLeastOneElement()
+            -&gt;useAttributeAsKey(&#39;name&#39;)
+            -&gt;prototype(&#39;array&#39;)
+                -&gt;children()
+                    -&gt;scalarNode(&#39;value&#39;)-&gt;isRequired()-&gt;end()
+                -&gt;end()
+            -&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Em YAML, a configuração poderia ser dessa forma:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">database</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">parameters</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">param1</span><span class="p-Indicator">:</span> <span class="p-Indicator">{</span> <span class="nv">value</span><span class="p-Indicator">:</span> <span class="nv">param1val</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+<p>Em XML, cada nó <tt class="docutils literal"><span class="pre">parameters</span></tt> teria um atributo <tt class="docutils literal"><span class="pre">name</span></tt> (junto com
+<tt class="docutils literal"><span class="pre">value</span></tt>), que seria removido e utilizado como a chave para aquele
+elemento no array final. O <tt class="docutils literal"><span class="pre">useAttributeAsKey</span></tt> É útil para normalizar
+a forma como arrays são especificados entre diferentes formatos como XML
+e YAML.</p>
+</div>
+</div>
+<div class="section" id="valores-padrao-e-valores-obrigatorios">
+<h2>Valores padrão e valores obrigatórios<a class="headerlink" href="#valores-padrao-e-valores-obrigatorios" title="Permalink to this headline">¶</a></h2>
+<p>For all node types, it is possible to define default values and replacement
+values in case a node
+has a certain value:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">defaultValue()</span></tt></dt>
+<dd>Define o valor padrão</dd>
+<dt><tt class="docutils literal"><span class="pre">isRequired()</span></tt></dt>
+<dd>Deve ser definido (mas pode ser vazio)</dd>
+<dt><tt class="docutils literal"><span class="pre">cannotBeEmpty()</span></tt></dt>
+<dd>Não pode conter um valor vazio</dd>
+<dt><tt class="docutils literal"><span class="pre">default*()</span></tt></dt>
+<dd>(<tt class="docutils literal"><span class="pre">null</span></tt>, <tt class="docutils literal"><span class="pre">true</span></tt>, <tt class="docutils literal"><span class="pre">false</span></tt>), atalho para <tt class="docutils literal"><span class="pre">defaultValue()</span></tt></dd>
+<dt><tt class="docutils literal"><span class="pre">treat*Like()</span></tt></dt>
+<dd>(<tt class="docutils literal"><span class="pre">null</span></tt>, <tt class="docutils literal"><span class="pre">true</span></tt>, <tt class="docutils literal"><span class="pre">false</span></tt>), fornece um valor substituto no caso do valor ser <tt class="docutils literal"><span class="pre">*.</span></tt></dd>
+</dl>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$rootNode</span>
+    <span class="o">-&gt;</span><span class="na">children</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">arrayNode</span><span class="p">(</span><span class="s1">&#39;connection&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">children</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">scalarNode</span><span class="p">(</span><span class="s1">&#39;driver&#39;</span><span class="p">)</span>
+                    <span class="o">-&gt;</span><span class="na">isRequired</span><span class="p">()</span>
+                    <span class="o">-&gt;</span><span class="na">cannotBeEmpty</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">scalarNode</span><span class="p">(</span><span class="s1">&#39;host&#39;</span><span class="p">)</span>
+                    <span class="o">-&gt;</span><span class="na">defaultValue</span><span class="p">(</span><span class="s1">&#39;localhost&#39;</span><span class="p">)</span>
+                <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">scalarNode</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">scalarNode</span><span class="p">(</span><span class="s1">&#39;password&#39;</span><span class="p">)</span><span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">booleanNode</span><span class="p">(</span><span class="s1">&#39;memory&#39;</span><span class="p">)</span>
+                    <span class="o">-&gt;</span><span class="na">defaultFalse</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">arrayNode</span><span class="p">(</span><span class="s1">&#39;settings&#39;</span><span class="p">)</span>
+            <span class="o">-&gt;</span><span class="na">addDefaultsIfNotSet</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">children</span><span class="p">()</span>
+                <span class="o">-&gt;</span><span class="na">scalarNode</span><span class="p">(</span><span class="s1">&#39;name&#39;</span><span class="p">)</span>
+                    <span class="o">-&gt;</span><span class="na">isRequired</span><span class="p">()</span>
+                    <span class="o">-&gt;</span><span class="na">cannotBeEmpty</span><span class="p">()</span>
+                    <span class="o">-&gt;</span><span class="na">defaultValue</span><span class="p">(</span><span class="s1">&#39;value&#39;</span><span class="p">)</span>
+                <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+            <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+        <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+    <span class="o">-&gt;</span><span class="na">end</span><span class="p">()</span>
+<span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="secoes-opcionais">
+<h2>Seções Opcionais<a class="headerlink" href="#secoes-opcionais" title="Permalink to this headline">¶</a></h2>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.2: </span>Os métodos <tt class="docutils literal"><span class="pre">canBeEnabled</span></tt> e <tt class="docutils literal"><span class="pre">canBeDisabled</span></tt> são novos no Symfony 2.2</p>
+</div>
+<p>Se você possui uma seção inteira que é opicional e pode ser enabled/disabled,
+você pode se aproveitar da vantagem dos métodos atalho
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/ArrayNodeDefinition.html#method_canBeEnabled" title="Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition::canBeEnabled()"><span class="pre">canBeEnabled()</span></a></tt> e
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/ArrayNodeDefinition.html#method_canBeDisabled" title="Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition::canBeDisabled()"><span class="pre">canBeDisabled()</span></a></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>$arrayNode
+    -&gt;canBeEnabled()
+;
+
+// é equivalente a
+
+$arrayNode
+    -&gt;treatFalseLike(array(&#39;enabled&#39; =&gt; false))
+    -&gt;treatTrueLike(array(&#39;enabled&#39; =&gt; true))
+    -&gt;treatNullLike(array(&#39;enabled&#39; =&gt; true))
+    -&gt;children()
+        -&gt;booleanNode(&#39;enabled&#39;)
+            -&gt;defaultFalse()
+;
+</pre></div>
+</div>
+<p>O método <tt class="docutils literal"><span class="pre">canBeDisabled</span></tt> procura pela mesma exceção que a seção habilitaria
+por padrão.</p>
+</div>
+<div class="section" id="opcoes-de-mesclagem">
+<h2>Opções de mesclagem<a class="headerlink" href="#opcoes-de-mesclagem" title="Permalink to this headline">¶</a></h2>
+<p>Opções extras referentes ao processo de mesclagem podem ser fornecidas. Para arrays:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">performNoDeepMerging()</span></tt></dt>
+<dd>Quando o valor também é definido em uma segunda array configuração, não
+tenta mesclar um array, mas sobrescrevê-lo inteiramente</dd>
+</dl>
+<p>Para todos os nós:</p>
+<dl class="docutils">
+<dt><tt class="docutils literal"><span class="pre">cannotBeOverwritten()</span></tt></dt>
+<dd>não permite que outros arrays configuração sobrescrevam um valor existente neste nó</dd>
+</dl>
+</div>
+<div class="section" id="secoes-de-acrescimo">
+<h2>Seções de acréscimo<a class="headerlink" href="#secoes-de-acrescimo" title="Permalink to this headline">¶</a></h2>
+<p>Se você tiver uma configuração complexa para validar, então a árvore pode
+crescer para se tornar extensa e você pode querer divi-la em seções. Você
+pode fazer isso criando uma seção, um nó separado e então acrescenta-lo na
+árvore principal com <tt class="docutils literal"><span class="pre">append()</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>public function getConfigTreeBuilder()
+{
+    $treeBuilder = new TreeBuilder();
+    $rootNode = $treeBuilder-&gt;root(&#39;database&#39;);
+
+    $rootNode
+        -&gt;children()
+            -&gt;arrayNode(&#39;connection&#39;)
+                -&gt;children()
+                    -&gt;scalarNode(&#39;driver&#39;)
+                        -&gt;isRequired()
+                        -&gt;cannotBeEmpty()
+                    -&gt;end()
+                    -&gt;scalarNode(&#39;host&#39;)
+                        -&gt;defaultValue(&#39;localhost&#39;)
+                    -&gt;end()
+                    -&gt;scalarNode(&#39;username&#39;)-&gt;end()
+                    -&gt;scalarNode(&#39;password&#39;)-&gt;end()
+                    -&gt;booleanNode(&#39;memory&#39;)
+                        -&gt;defaultFalse()
+                    -&gt;end()
+                -&gt;end()
+                -&gt;append($this-&gt;addParametersNode())
+            -&gt;end()
+        -&gt;end()
+    ;
+
+    return $treeBuilder;
+}
+
+public function addParametersNode()
+{
+    $builder = new TreeBuilder();
+    $node = $builder-&gt;root(&#39;parameters&#39;);
+
+    $node
+        -&gt;isRequired()
+        -&gt;requiresAtLeastOneElement()
+        -&gt;useAttributeAsKey(&#39;name&#39;)
+        -&gt;prototype(&#39;array&#39;)
+            -&gt;children()
+                -&gt;scalarNode(&#39;value&#39;)-&gt;isRequired()-&gt;end()
+            -&gt;end()
+        -&gt;end()
+    ;
+
+    return $node;
+}
+</pre></div>
+</div>
+<p>Isso também é útil para ajudar a previnir que você se repita se você tiver
+seções do config que são repetidas em diferentes locais.</p>
+</div>
+<div class="section" id="nomralizacao">
+<h2>Nomralização<a class="headerlink" href="#nomralizacao" title="Permalink to this headline">¶</a></h2>
+<p>Quando os arquivos config são processados, eles são primeiramente normalizados,
+em seguida mesclados e finalmente a árvore é utilizada para validar o resultado
+do array. O processo de normalização é utilizado para remover algumas das
+diferenças que resultam de diferentes formatos de configuração, principalmente
+as diferenças entre Yaml e XML.</p>
+<p>O separador utilizado nas chaves são tipicamente <tt class="docutils literal"><span class="pre">_</span></tt> em Yaml e <tt class="docutils literal"><span class="pre">-</span></tt> em XML.
+Por exemplo, <tt class="docutils literal"><span class="pre">auto_connect</span></tt> em Yaml e <tt class="docutils literal"><span class="pre">auto-connect</span></tt>. A normalização
+converteria ambos para <tt class="docutils literal"><span class="pre">auto_connect</span></tt>.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p class="last">A chaves alvo não será alterada se ela estiver misturada, como
+<tt class="docutils literal"><span class="pre">foo-bar_moo</span></tt> ou se ela já existir.</p>
+</div>
+<p>Outra diferença entre Yaml e XML é na forma em que os arrays de valores
+podem ser representados. Em Yaml você pode ter:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">twig</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">extensions</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&#39;twig.extension.foo&#39;</span><span class="p-Indicator">,</span> <span class="s">&#39;twig.extension.bar&#39;</span><span class="p-Indicator">]</span>
+</pre></div>
+</div>
+<p>e em XML:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;twig:config&gt;</span>
+    <span class="nt">&lt;twig:extension&gt;</span>twig.extension.foo<span class="nt">&lt;/twig:extension&gt;</span>
+    <span class="nt">&lt;twig:extension&gt;</span>twig.extension.bar<span class="nt">&lt;/twig:extension&gt;</span>
+<span class="nt">&lt;/twig:config&gt;</span>
+</pre></div>
+</div>
+<p>Esse diferença pode ser removida na normalização através da pluralização
+da chave utilizada no XML. Você pode especificar que você quer que uma
+chave seja pluralizada dessa forma com <tt class="docutils literal"><span class="pre">fixXmlConfig()</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;fixXmlConfig(&#39;extension&#39;)
+    -&gt;children()
+        -&gt;arrayNode(&#39;extensions&#39;)
+            -&gt;prototype(&#39;scalar&#39;)-&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Se for uma pluralização irregular, você pode especificar o plural para
+utilizar como um segundo argumento:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;fixXmlConfig(&#39;child&#39;, &#39;children&#39;)
+    -&gt;children()
+        -&gt;arrayNode(&#39;children&#39;)
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Assim como corrigindo isso, <tt class="docutils literal"><span class="pre">fixXmlConfig</span></tt> garante que elementos xml individuais
+ainda estejam sendo convertidos em array. Então você deve ter:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;connection&gt;</span>default<span class="nt">&lt;/connection&gt;</span>
+<span class="nt">&lt;connection&gt;</span>extra<span class="nt">&lt;/connection&gt;</span>
+</pre></div>
+</div>
+<p>e às vezes somente:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;connection&gt;</span>default<span class="nt">&lt;/connection&gt;</span>
+</pre></div>
+</div>
+<p>Por padrão <tt class="docutils literal"><span class="pre">connection</span></tt> seria um array no primeiro caso e uma string
+no segundo tornado-a difícil de validar. Você pode assegurar que ele sempre
+será um array com <tt class="docutils literal"><span class="pre">fixXmlConfig</span></tt>.</p>
+<p>Você pode controlar ainda mais o processo de normalização. Por exemplo,
+Você pode querer permitir que uma string seja definida e utilizada como uma
+chave particular ou várias chaves sejam definidas explicitamente. De modo que,
+tudo menos <tt class="docutils literal"><span class="pre">name</span></tt> seja opcional nessa configuração:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">connection</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">my_mysql_connection</span>
+    <span class="l-Scalar-Plain">host</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">localhost</span>
+    <span class="l-Scalar-Plain">driver</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+    <span class="l-Scalar-Plain">username</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">user</span>
+    <span class="l-Scalar-Plain">password</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">pass</span>
+</pre></div>
+</div>
+<p>você também pode permitir o seguinte:</p>
+<div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">connection</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">my_mysql_connection</span>
+</pre></div>
+</div>
+<p>Mudando de um valor string para uma array associativa utilizando <tt class="docutils literal"><span class="pre">name</span></tt> como chave:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;arrayNode(&#39;connection&#39;)
+            -&gt;beforeNormalization()
+            -&gt;ifString()
+                -&gt;then(function($v) { return array(&#39;name&#39;=&gt; $v); })
+            -&gt;end()
+            -&gt;children()
+                -&gt;scalarNode(&#39;name&#39;)-&gt;isRequired()
+                // ...
+            -&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+</div>
+<div class="section" id="regras-de-validacao">
+<h2>Regras de validação<a class="headerlink" href="#regras-de-validacao" title="Permalink to this headline">¶</a></h2>
+<p>Validações mais avançadas podem ser forneceidas utilizado o
+<tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/ExprBuilder.html" title="Symfony\Component\Config\Definition\Builder\ExprBuilder"><span class="pre">ExprBuilder</span></a></tt>. Este
+builder implementa uma interface fluente para estruturas de controle comuns.
+O builder é utilizado para acrescentar regras de validação para definições de nó, como:</p>
+<div class="highlight-python"><div class="highlight"><pre>$rootNode
+    -&gt;children()
+        -&gt;arrayNode(&#39;connection&#39;)
+            -&gt;children()
+                -&gt;scalarNode(&#39;driver&#39;)
+                    -&gt;isRequired()
+                    -&gt;validate()
+                    -&gt;ifNotInArray(array(&#39;mysql&#39;, &#39;sqlite&#39;, &#39;mssql&#39;))
+                        -&gt;thenInvalid(&#39;Invalid database driver &quot;%s&quot;&#39;)
+                    -&gt;end()
+                -&gt;end()
+            -&gt;end()
+        -&gt;end()
+    -&gt;end()
+;
+</pre></div>
+</div>
+<p>Uma regra de validação sempre tem uma parte &#8220;if&#8221;. Você pode especificar esta
+parte das seguintes formas:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">ifTrue()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ifString()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ifNull()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ifArray()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ifInArray()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">ifNotInArray()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">always()</span></tt></li>
+</ul>
+<p>Uma regra de validação também requer uma parte &#8220;then&#8221;:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">then()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">thenEmptyArray()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">thenInvalid()</span></tt></li>
+<li><tt class="docutils literal"><span class="pre">thenUnset()</span></tt></li>
+</ul>
+<p>Normalmente, &#8220;then&#8221; é um closure. Seu valor de retorno será utilizado como
+um novo valor para o nó, ao invés
+do valor original do nó.</p>
+</div>
+<div class="section" id="processando-valores-de-configuracao">
+<h2>Processando valores de configuração<a class="headerlink" href="#processando-valores-de-configuracao" title="Permalink to this headline">¶</a></h2>
+<p>O <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Processor.html" title="Symfony\Component\Config\Definition\Processor"><span class="pre">Processor</span></a></tt> utiliza a
+árvore como ela foi construida utilizando o <tt class="docutils literal"><a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Config/Definition/Builder/TreeBuilder.html" title="Symfony\Component\Config\Definition\Builder\TreeBuilder"><span class="pre">TreeBuilder</span></a></tt>
+para processar multiplos arrays de valores de configuração que deveriam
+ser misturados. Se algum valor não for do tipo esperado, for obrigatório
+e ainda indefinido, ou não puder ser validado de alguma outra forma, uma
+uma exceção será lançada. Caso contrário o resultado é um array de valores
+de configuração limpo:</p>
+<div class="highlight-python"><div class="highlight"><pre>use Symfony\Component\Yaml\Yaml;
+use Symfony\Component\Config\Definition\Processor;
+use Acme\DatabaseConfiguration;
+
+$config1 = Yaml::parse(__DIR__.&#39;/src/Matthias/config/config.yml&#39;);
+$config2 = Yaml::parse(__DIR__.&#39;/src/Matthias/config/config_extra.yml&#39;);
+
+$configs = array($config1, $config2);
+
+$processor = new Processor();
+$configuration = new DatabaseConfiguration;
+$processedConfiguration = $processor-&gt;processConfiguration(
+    $configuration,
+    $configs)
+;
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Definindo e processando valores de configuração</a><ul>
+<li><a class="reference internal" href="#validando-valores-de-configuracao">Validando valores de configuração</a></li>
+<li><a class="reference internal" href="#definindo-a-hierarquia-de-valores-de-configuracao-utilizando-o-treebuilder">Definindo a hierarquia de valores de configuração utilizando o Treebuilder</a></li>
+<li><a class="reference internal" href="#adicionando-definicoes-de-no-a-arvore">Adicionando definições de nó a arvore</a><ul>
+<li><a class="reference internal" href="#nos-de-variavel">Nós de variável</a></li>
+<li><a class="reference internal" href="#tipo-de-no">Tipo de nó</a></li>
+<li><a class="reference internal" href="#limitadores-de-nos-numericos">Limitadores de nós numéricos</a></li>
+<li><a class="reference internal" href="#nos-enum">Nós enum</a></li>
+<li><a class="reference internal" href="#nos-array">Nós array</a></li>
+<li><a class="reference internal" href="#opcoes-do-no-array">Opções do nó array</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#valores-padrao-e-valores-obrigatorios">Valores padrão e valores obrigatórios</a></li>
+<li><a class="reference internal" href="#secoes-opcionais">Seções Opcionais</a></li>
+<li><a class="reference internal" href="#opcoes-de-mesclagem">Opções de mesclagem</a></li>
+<li><a class="reference internal" href="#secoes-de-acrescimo">Seções de acréscimo</a></li>
+<li><a class="reference internal" href="#nomralizacao">Nomralização</a></li>
+<li><a class="reference internal" href="#regras-de-validacao">Regras de validação</a></li>
+<li><a class="reference internal" href="#processando-valores-de-configuracao">Processando valores de configuração</a></li>
+</ul>
+</li>
+</ul>
+
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/components/config/definition.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

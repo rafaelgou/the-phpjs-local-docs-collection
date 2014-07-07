@@ -1,0 +1,435 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Como usar os Transformadores de Dados &mdash; Symfony2.4Docs 2.4 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '2.4',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="Symfony2.4Docs 2.4 documentation" href="../../index.html" />
+    <link rel="up" title="Formulário" href="index.html" />
+    <link rel="next" title="Como Modificar Formulários dinamicamente usando Eventos de Formulário" href="dynamic_form_modification.html" />
+    <link rel="prev" title="Como personalizar a Renderização de Formulários" href="form_customization.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="dynamic_form_modification.html" title="Como Modificar Formulários dinamicamente usando Eventos de Formulário"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="form_customization.html" title="Como personalizar a Renderização de Formulários"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Formulário</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="como-usar-os-transformadores-de-dados">
+<span id="index-0"></span><h1>Como usar os Transformadores de Dados<a class="headerlink" href="#como-usar-os-transformadores-de-dados" title="Permalink to this headline">¶</a></h1>
+<p>Você frenquentemente encontrará a necessidade de transformar os dados inseridos pelo usuário em um formulário
+para um outro formato para uso em seu programa. Isto pode ser feito manualmente no seu controlador
+facilmente, mas, e se você pretende utilizar este formulário específico em locais diferentes?</p>
+<p>Digamos que você tenha uma relação um-para-um da <cite>Task</cite> para o <cite>Issue</cite>, por exemplo, uma <cite>Task</cite> opcionalmente
+tem um <cite>issue</cite> ligado à ela. Adicionando uma caixa de listagem com todos os possíveis <cite>issues</cite>, eventualmente,
+pode levar a uma caixa de listagem muito longa onde é impossível encontrar algo. Em vez disso, você
+poderia adicionar uma caixa de texto, onde o usuário pode simplesmente informar o número do <cite>issue</cite>.</p>
+<p>Você poderia tentar fazer isso no seu controlador, mas não é a melhor solução.
+Seria melhor se esse <cite>issue</cite> fosse automaticamente convertido em um objeto <cite>Issue</cite>.
+É onde os transformadores de dados entram em jogo.</p>
+<div class="section" id="criando-o-transformador">
+<h2>Criando o Transformador<a class="headerlink" href="#criando-o-transformador" title="Permalink to this headline">¶</a></h2>
+<p>Primeiro, crie uma classe <cite>IssueToNumberTransformer</cite> - esta classe será responsável
+por converter de e para o número do <cite>issue</cite> e o objeto <cite>Issue</cite>:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/TaskBundle/Form/DataTransformer/IssueToNumberTransformer.php
+namespace Acme\TaskBundle\Form\DataTransformer;
+
+use Symfony\Component\Form\DataTransformerInterface;
+use Symfony\Component\Form\Exception\TransformationFailedException;
+use Doctrine\Common\Persistence\ObjectManager;
+use Acme\TaskBundle\Entity\Issue;
+
+class IssueToNumberTransformer implements DataTransformerInterface
+{
+    /**
+     * @var ObjectManager
+     */
+    private $om;
+
+    /**
+     * @param ObjectManager $om
+     */
+    public function __construct(ObjectManager $om)
+    {
+        $this-&gt;om = $om;
+    }
+
+    /**
+     * Transforms an object (issue) to a string (number).
+     *
+     * @param  Issue|null $issue
+     * @return string
+     */
+    public function transform($issue)
+    {
+        if (null === $issue) {
+            return &quot;&quot;;
+        }
+
+        return $issue-&gt;getNumber();
+    }
+
+    /**
+     * Transforms a string (number) to an object (issue).
+     *
+     * @param  string $number
+     * @return Issue|null
+     * @throws TransformationFailedException if object (issue) is not found.
+     */
+    public function reverseTransform($number)
+    {
+        if (!$number) {
+            return null;
+        }
+
+        $issue = $this-&gt;om
+            -&gt;getRepository(&#39;AcmeTaskBundle:Issue&#39;)
+            -&gt;findOneBy(array(&#39;number&#39; =&gt; $number))
+        ;
+
+        if (null === $issue) {
+            throw new TransformationFailedException(sprintf(
+                &#39;An issue with number &quot;%s&quot; does not exist!&#39;,
+                $number
+            ));
+        }
+
+        return $issue;
+    }
+}
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Se você deseja que um novo <cite>issue</cite> seja criado quando um número desconhecido é informado,
+você pode instanciá-lo ao invés de gerar uma <tt class="docutils literal"><span class="pre">TransformationFailedException</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="usando-o-transformador">
+<h2>Usando o Transformador<a class="headerlink" href="#usando-o-transformador" title="Permalink to this headline">¶</a></h2>
+<p>Agora que você já tem o transformador construído, você só precisa adicioná-lo ao seu
+campo <cite>issue</cite> de alguma forma.</p>
+<blockquote>
+<div><p>Você também pode usar transformadores sem criar um novo tipo de formulário personalizado
+chamando <tt class="docutils literal"><span class="pre">addModelTransformer</span></tt> (ou <tt class="docutils literal"><span class="pre">addViewTransformer</span></tt> - ver
+<a class="reference internal" href="#transformadores-de-modelo-e-visao">Transformadores de Modelo e Visão</a>) ) em qualquer builder de campo:</p>
+<div class="highlight-python"><div class="highlight"><pre>use Symfony\Component\Form\FormBuilderInterface;
+use Acme\TaskBundle\Form\DataTransformer\IssueToNumberTransformer;
+
+class TaskType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        // ...
+
+        // this assumes that the entity manager was passed in as an option
+        $entityManager = $options[&#39;em&#39;];
+        $transformer = new IssueToNumberTransformer($entityManager);
+
+        // add a normal text field, but add our transformer to it
+        $builder-&gt;add(
+            $builder-&gt;create(&#39;issue&#39;, &#39;text&#39;)
+                -&gt;addModelTransformer($transformer)
+        );
+    }
+
+    // ...
+}
+</pre></div>
+</div>
+</div></blockquote>
+<p>Este exemplo requer que você passe no gerenciador de entidade como uma opção
+ao criar o seu formulário. Mais tarde, você vai aprender como criar um tipo de campo
+<tt class="docutils literal"><span class="pre">issue</span></tt> personalizado para evitar ter de fazer isso no seu controlador:</p>
+<div class="highlight-python"><div class="highlight"><pre>$taskForm = $this-&gt;createForm(new TaskType(), $task, array(
+    &#39;em&#39; =&gt; $this-&gt;getDoctrine()-&gt;getEntityManager(),
+));
+</pre></div>
+</div>
+<p>Legal, está feito! O usuário poderá informar um número de <cite>issue</cite> no campo
+texto e ele será transformado novamente em um objeto <cite>Issue</cite>. Isto significa
+que, após um <cite>bind</cite> bem sucedido, o framework de Formulário passará um objeto
+<cite>Issue</cite> real para o <tt class="docutils literal"><span class="pre">Task::setIssue()</span></tt> em vez do número do <cite>issue</cite>.</p>
+<p>Se o <cite>issue</cite> não for encontrado, um erro de formulário será criado para esse campo e
+sua mensagem de erro pode ser controlada com a opção do campo <tt class="docutils literal"><span class="pre">invalid_message</span></tt>.</p>
+<div class="admonition caution">
+<p class="first admonition-title">Caution</p>
+<p>Note que a adição de um transformador exige a utilização de uma sintaxe um pouco mais
+complicada ao adicionar o campo. O código seguinte está <strong>errado</strong>, já que o transformador
+será aplicado à todo o formulário, em vez de apenas este campo:</p>
+<div class="last highlight-python"><div class="highlight"><pre>// ISTO ESTÁ ERRADO - O TRANSFORMADOR SERÁ APLICADA A TODO O FORMULÁRIO
+// Veja o exemplo acima para o código correto
+$builder-&gt;add(&#39;issue&#39;, &#39;text&#39;)
+    -&gt;addModelTransformer($transformer);
+</pre></div>
+</div>
+</div>
+<div class="section" id="transformadores-de-modelo-e-visao">
+<h3>Transformadores de Modelo e Visão<a class="headerlink" href="#transformadores-de-modelo-e-visao" title="Permalink to this headline">¶</a></h3>
+<div class="versionadded">
+<p><span class="versionmodified">New in version 2.1: </span>Os nomes e método de transformadores foram alterados no Symfony 2.1.
+<tt class="docutils literal"><span class="pre">prependNormTransformer</span></tt> tornou-se <tt class="docutils literal"><span class="pre">addModelTransformer</span></tt> e <tt class="docutils literal"><span class="pre">appendClientTransformer</span></tt>
+tornou-se <tt class="docutils literal"><span class="pre">addViewTransformer</span></tt>.</p>
+</div>
+<p>No exemplo acima, o transformador foi utilizado como um transformador de &#8220;modelo&#8221;.
+De fato, existem dois tipos diferentes de transformadores e três tipos
+diferentes de dados subjacentes.</p>
+<p>Em qualquer formulário, os 3 tipos de dados possíveis são os seguintes:</p>
+<p>1) <strong>Dados do modelo</strong> - Estes são os dados no formato usado em sua aplicação
+(ex., um objeto <tt class="docutils literal"><span class="pre">Issue</span></tt>). Se você chamar <tt class="docutils literal"><span class="pre">Form::getData</span></tt> ou <tt class="docutils literal"><span class="pre">Form::setData</span></tt>,
+você está lidando com os dados do &#8220;modelo&#8221;.</p>
+<p>2) <strong>Dados Normalizados</strong> - Esta é uma versão normalizada de seus dados, e é comumente
+o mesmo que os dados do &#8220;modelo&#8221; (apesar de não no nosso exemplo). Geralmente ele não é
+usado diretamente.</p>
+<p>3) <strong>Dados da Visão</strong> - Este é o formato que é usado para preencher os campos do
+formulário. É também o formato no qual o usuário irá enviar os dados. Quando
+você chama <tt class="docutils literal"><span class="pre">Form::bind($data)</span></tt>, o <tt class="docutils literal"><span class="pre">$data</span></tt> está no formato de dados da &#8220;visão&#8221;.</p>
+<p>Os 2 tipos diferentes de transformadores ajudam a converter de e para cada um destes
+tipos de dados:</p>
+<dl class="docutils">
+<dt><strong>Transformadores de Modelo</strong>:</dt>
+<dd><ul class="first last simple">
+<li><tt class="docutils literal"><span class="pre">transform</span></tt>: &#8220;model data&#8221; =&gt; &#8220;norm data&#8221;</li>
+<li><tt class="docutils literal"><span class="pre">reverseTransform</span></tt>: &#8220;norm data&#8221; =&gt; &#8220;model data&#8221;</li>
+</ul>
+</dd>
+<dt><strong>Transformadores de Visão</strong>:</dt>
+<dd><ul class="first last simple">
+<li><tt class="docutils literal"><span class="pre">transform</span></tt>: &#8220;norm data&#8221; =&gt; &#8220;view data&#8221;</li>
+<li><tt class="docutils literal"><span class="pre">reverseTransform</span></tt>: &#8220;view data&#8221; =&gt; &#8220;norm data&#8221;</li>
+</ul>
+</dd>
+</dl>
+<p>O transformador que você vai precisar depende de sua situação.</p>
+<p>Para utilizar o transformador de visão, chame <tt class="docutils literal"><span class="pre">addViewTransformer</span></tt>.</p>
+</div>
+</div>
+<div class="section" id="entao-por-que-nos-usamos-o-transformador-de-modelo">
+<h2>Então, por que nós usamos o transformador de modelo?<a class="headerlink" href="#entao-por-que-nos-usamos-o-transformador-de-modelo" title="Permalink to this headline">¶</a></h2>
+<p>No nosso exemplo, o campo é um campo <tt class="docutils literal"><span class="pre">text</span></tt>, e nós sempre esperamos que um campo
+texto seja um formato escalar simples, nos formatos &#8220;normalizado&#8221; e &#8220;visão&#8221;. Por
+esta razão, o transformador mais apropriado é o transformador de &#8220;modelo&#8221; (que
+converte de/para o formato <em>normalizado</em> - número de issue string - para o formato
+<em>modelo</em> - objeto <cite>Issue</cite>).</p>
+<p>A diferença entre os transformadores é sutil e você deve sempre pensar
+sobre o que o dado &#8220;normalizado&#8221; para um campo deve realmente ser. Por exemplo, o
+dado &#8220;normalizado&#8221; para um campo <tt class="docutils literal"><span class="pre">text</span></tt> é uma string, mas é um objeto <tt class="docutils literal"><span class="pre">DateTime</span></tt>
+para um campo <tt class="docutils literal"><span class="pre">date</span></tt>.</p>
+</div>
+<div class="section" id="usando-transformadores-em-um-tipo-de-campo-personalizado">
+<h2>Usando Transformadores em um tipo de campo personalizado<a class="headerlink" href="#usando-transformadores-em-um-tipo-de-campo-personalizado" title="Permalink to this headline">¶</a></h2>
+<p>No exemplo acima, você aplicou o transformador para um campo <tt class="docutils literal"><span class="pre">text</span></tt> normal.
+Isto foi fácil, mas tem duas desvantagens:</p>
+<p>1) Você precisa lembrar de aplicar o transformador sempre que você está adicionando
+um campo para números de <cite>issue</cite></p>
+<p>2) Você precisa se preocupar em sempre passar a opção <tt class="docutils literal"><span class="pre">em</span></tt> quando você está criando
+um formulário que usa o transformador.</p>
+<p>Devido à isto, você pode optar por <a class="reference internal" href="create_custom_field_type.html"><em>criar um tipo de campo personalizado</em></a>.
+Primeiro, crie a classe do tipo de campo personalizado:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/TaskBundle/Form/Type/IssueSelectorType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+use Acme\TaskBundle\Form\DataTransformer\IssueToNumberTransformer;
+use Doctrine\Common\Persistence\ObjectManager;
+use Symfony\Component\OptionsResolver\OptionsResolverInterface;
+
+class IssueSelectorType extends AbstractType
+{
+    /**
+     * @var ObjectManager
+     */
+    private $om;
+
+    /**
+     * @param ObjectManager $om
+     */
+    public function __construct(ObjectManager $om)
+    {
+        $this-&gt;om = $om;
+    }
+
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $transformer = new IssueToNumberTransformer($this-&gt;om);
+        $builder-&gt;addModelTransformer($transformer);
+    }
+
+    public function setDefaultOptions(OptionsResolverInterface $resolver)
+    {
+        $resolver-&gt;setDefaults(array(
+            &#39;invalid_message&#39; =&gt; &#39;The selected issue does not exist&#39;,
+        ));
+    }
+
+    public function getParent()
+    {
+        return &#39;text&#39;;
+    }
+
+    public function getName()
+    {
+        return &#39;issue_selector&#39;;
+    }
+}
+</pre></div>
+</div>
+<p>Em seguida, registre o seu tipo como um serviço e use a tag <tt class="docutils literal"><span class="pre">form.type</span></tt>, para que
+ele seja reconhecido como um tipo de campo personalizado:</p>
+<div class="configuration-block">
+<ul class="simple">
+<li><em>YAML</em><div class="highlight-yaml"><div class="highlight"><pre><span class="l-Scalar-Plain">services</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">acme_demo.type.issue_selector</span><span class="p-Indicator">:</span>
+        <span class="l-Scalar-Plain">class</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Acme\TaskBundle\Form\Type\IssueSelectorType</span>
+        <span class="l-Scalar-Plain">arguments</span><span class="p-Indicator">:</span> <span class="p-Indicator">[</span><span class="s">&quot;@doctrine.orm.entity_manager&quot;</span><span class="p-Indicator">]</span>
+        <span class="l-Scalar-Plain">tags</span><span class="p-Indicator">:</span>
+            <span class="p-Indicator">-</span> <span class="p-Indicator">{</span> <span class="nv">name</span><span class="p-Indicator">:</span> <span class="nv">form.type</span><span class="p-Indicator">,</span> <span class="nv">alias</span><span class="p-Indicator">:</span> <span class="nv">issue_selector</span> <span class="p-Indicator">}</span>
+</pre></div>
+</div>
+</li>
+<li><em>XML</em><div class="highlight-xml"><div class="highlight"><pre><span class="nt">&lt;service</span> <span class="na">id=</span><span class="s">&quot;acme_demo.type.issue_selector&quot;</span> <span class="na">class=</span><span class="s">&quot;Acme\TaskBundle\Form\Type\IssueSelectorType&quot;</span><span class="nt">&gt;</span>
+    <span class="nt">&lt;argument</span> <span class="na">type=</span><span class="s">&quot;service&quot;</span> <span class="na">id=</span><span class="s">&quot;doctrine.orm.entity_manager&quot;</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;tag</span> <span class="na">name=</span><span class="s">&quot;form.type&quot;</span> <span class="na">alias=</span><span class="s">&quot;issue_selector&quot;</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/service&gt;</span>
+</pre></div>
+</div>
+</li>
+</ul>
+</div>
+<p>Agora, sempre que você precisa usar o seu tipo de campo especial <tt class="docutils literal"><span class="pre">issue_selector</span></tt>,
+é muito fácil:</p>
+<div class="highlight-python"><div class="highlight"><pre>// src/Acme/TaskBundle/Form/Type/TaskType.php
+namespace Acme\TaskBundle\Form\Type;
+
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class TaskType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options)
+    {
+        $builder
+            -&gt;add(&#39;task&#39;)
+            -&gt;add(&#39;dueDate&#39;, null, array(&#39;widget&#39; =&gt; &#39;single_text&#39;));
+            -&gt;add(&#39;issue&#39;, &#39;issue_selector&#39;);
+    }
+
+    public function getName()
+    {
+        return &#39;task&#39;;
+    }
+}
+</pre></div>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Como usar os Transformadores de Dados</a><ul>
+<li><a class="reference internal" href="#criando-o-transformador">Criando o Transformador</a></li>
+<li><a class="reference internal" href="#usando-o-transformador">Usando o Transformador</a><ul>
+<li><a class="reference internal" href="#transformadores-de-modelo-e-visao">Transformadores de Modelo e Visão</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#entao-por-que-nos-usamos-o-transformador-de-modelo">Então, por que nós usamos o transformador de modelo?</a></li>
+<li><a class="reference internal" href="#usando-transformadores-em-um-tipo-de-campo-personalizado">Usando Transformadores em um tipo de campo personalizado</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="form_customization.html"
+                        title="previous chapter">Como personalizar a Renderização de Formulários</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="dynamic_form_modification.html"
+                        title="next chapter">Como Modificar Formulários dinamicamente usando Eventos de Formulário</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../../_sources/cookbook/form/data_transformers.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="dynamic_form_modification.html" title="Como Modificar Formulários dinamicamente usando Eventos de Formulário"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="form_customization.html" title="Como personalizar a Renderização de Formulários"
+             >previous</a> |</li>
+        <li><a href="../../index.html">Symfony2.4Docs 2.4 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Cookbook</a> &raquo;</li>
+          <li><a href="index.html" >Formulário</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2014, Symfony Team + Symfony pt_BR Team.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
