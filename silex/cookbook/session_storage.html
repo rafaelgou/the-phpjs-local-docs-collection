@@ -1,0 +1,204 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Using PdoSessionStorage to store Sessions in the Database &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Disabling CSRF Protection on a Form using the FormExtension" href="form_no_csrf.html" />
+    <link rel="prev" title="Translating Validation Messages" href="translating_validation_messages.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="form_no_csrf.html" title="Disabling CSRF Protection on a Form using the FormExtension"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="translating_validation_messages.html" title="Translating Validation Messages"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="using-pdosessionstorage-to-store-sessions-in-the-database">
+<h1>Using PdoSessionStorage to store Sessions in the Database<a class="headerlink" href="#using-pdosessionstorage-to-store-sessions-in-the-database" title="Permalink to this headline">¶</a></h1>
+<p>By default, the <a class="reference internal" href="../providers/session.html"><em>SessionServiceProvider</em></a> writes
+session information in files using Symfony2 NativeFileSessionStorage. Most
+medium to large websites use a database to store sessions instead of files,
+because databases are easier to use and scale in a multi-webserver
+environment.</p>
+<p>Symfony2&#8217;s <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Session/Storage/NativeSessionStorage.html">NativeSessionStorage</a>
+has multiple storage handlers and one of them uses PDO to store sessions,
+<a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Session/Storage/Handler/PdoSessionHandler.html">PdoSessionHandler</a>.
+To use it, replace the <tt class="docutils literal"><span class="pre">session.storage.handler</span></tt> service in your application
+like explained below.</p>
+<div class="section" id="with-a-dedicated-pdo-service">
+<h2>With a dedicated PDO service<a class="headerlink" href="#with-a-dedicated-pdo-service" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="k">new</span> <span class="nx">Silex\Provider\SessionServiceProvider</span><span class="p">());</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.dsn&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mysql:dbname=mydatabase&#39;</span><span class="p">;</span>
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.user&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;myuser&#39;</span><span class="p">;</span>
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mypassword&#39;</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.db_options&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;db_table&#39;</span>      <span class="o">=&gt;</span> <span class="s1">&#39;session&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_id_col&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;session_id&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_data_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_value&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_time_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_time&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">()</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nx">PDO</span><span class="p">(</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.dsn&#39;</span><span class="p">],</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.user&#39;</span><span class="p">],</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo.password&#39;</span><span class="p">]</span>
+    <span class="p">);</span>
+<span class="p">};</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.storage.handler&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">()</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nx">PdoSessionHandler</span><span class="p">(</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;pdo&#39;</span><span class="p">],</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.db_options&#39;</span><span class="p">],</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.storage.options&#39;</span><span class="p">]</span>
+    <span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="using-the-doctrineserviceprovider">
+<h2>Using the DoctrineServiceProvider<a class="headerlink" href="#using-the-doctrineserviceprovider" title="Permalink to this headline">¶</a></h2>
+<p>When using the <a class="reference internal" href="../providers/doctrine.html"><em>DoctrineServiceProvider</em></a> You don&#8217;t
+have to make another database connection, simply pass the getWrappedConnection method.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="o">-&gt;</span><span class="na">register</span><span class="p">(</span><span class="k">new</span> <span class="nx">Silex\Provider\SessionServiceProvider</span><span class="p">());</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.db_options&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">array</span><span class="p">(</span>
+    <span class="s1">&#39;db_table&#39;</span>      <span class="o">=&gt;</span> <span class="s1">&#39;session&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_id_col&#39;</span>     <span class="o">=&gt;</span> <span class="s1">&#39;session_id&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_data_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_value&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;db_time_col&#39;</span>   <span class="o">=&gt;</span> <span class="s1">&#39;session_time&#39;</span><span class="p">,</span>
+<span class="p">);</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.storage.handler&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">()</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nx">PdoSessionHandler</span><span class="p">(</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;db&#39;</span><span class="p">]</span><span class="o">-&gt;</span><span class="na">getWrappedConnection</span><span class="p">(),</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.db_options&#39;</span><span class="p">],</span>
+        <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;session.storage.options&#39;</span><span class="p">]</span>
+    <span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="database-structure">
+<h2>Database structure<a class="headerlink" href="#database-structure" title="Permalink to this headline">¶</a></h2>
+<p>PdoSessionStorage needs a database table with 3 columns:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">session_id</span></tt>: ID column (VARCHAR(255) or larger)</li>
+<li><tt class="docutils literal"><span class="pre">session_value</span></tt>: Value column (TEXT or CLOB)</li>
+<li><tt class="docutils literal"><span class="pre">session_time</span></tt>: Time column (INTEGER)</li>
+</ul>
+<p>You can find examples of SQL statements to create the session table in the
+<a class="reference external" href="http://symfony.com/doc/current/cookbook/configuration/pdo_session_storage.html#example-sql-statements">Symfony2 cookbook</a></p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Using PdoSessionStorage to store Sessions in the Database</a><ul>
+<li><a class="reference internal" href="#with-a-dedicated-pdo-service">With a dedicated PDO service</a></li>
+<li><a class="reference internal" href="#using-the-doctrineserviceprovider">Using the DoctrineServiceProvider</a></li>
+<li><a class="reference internal" href="#database-structure">Database structure</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="translating_validation_messages.html"
+                        title="previous chapter">Translating Validation Messages</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="form_no_csrf.html"
+                        title="next chapter">Disabling CSRF Protection on a Form using the FormExtension</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/cookbook/session_storage.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="form_no_csrf.html" title="Disabling CSRF Protection on a Form using the FormExtension"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="translating_validation_messages.html" title="Translating Validation Messages"
+             >previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

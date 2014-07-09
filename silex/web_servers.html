@@ -1,0 +1,258 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Webserver Configuration &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="index.html" />
+    <link rel="next" title="Changelog" href="changelog.html" />
+    <link rel="prev" title="ServiceControllerServiceProvider" href="providers/service_controller.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="changelog.html" title="Changelog"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="providers/service_controller.html" title="ServiceControllerServiceProvider"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Silex 1.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="webserver-configuration">
+<h1>Webserver Configuration<a class="headerlink" href="#webserver-configuration" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="apache">
+<h2>Apache<a class="headerlink" href="#apache" title="Permalink to this headline">¶</a></h2>
+<p>If you are using Apache, make sure <tt class="docutils literal"><span class="pre">mod_rewrite</span></tt> is enabled and use the
+following <tt class="docutils literal"><span class="pre">.htaccess</span></tt> file:</p>
+<div class="highlight-apache"><div class="highlight"><pre><span class="nt">&lt;IfModule</span> <span class="s">mod_rewrite.c</span><span class="nt">&gt;</span>
+    <span class="nb">Options</span> -MultiViews
+
+    <span class="nb">RewriteEngine</span> <span class="k">On</span>
+    <span class="c">#RewriteBase /path/to/app</span>
+    <span class="nb">RewriteCond</span> %{REQUEST_FILENAME} !-f
+    <span class="nb">RewriteRule</span> ^ index.php [QSA,L]
+<span class="nt">&lt;/IfModule&gt;</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If your site is not at the webroot level you will have to uncomment the
+<tt class="docutils literal"><span class="pre">RewriteBase</span></tt> statement and adjust the path to point to your directory,
+relative from the webroot.</p>
+</div>
+<p>Alternatively, if you use Apache 2.2.16 or higher, you can use the
+<a class="reference external" href="http://www.adayinthelifeof.nl/2012/01/21/apaches-fallbackresource-your-new-htaccess-command/">FallbackResource directive</a> so make your .htaccess even easier:</p>
+<div class="highlight-apache"><div class="highlight"><pre><span class="nb">FallbackResource</span> <span class="sx">/index.php</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">If your site is not at the webroot level you will have to adjust the path to
+point to your directory, relative from the webroot.</p>
+</div>
+</div>
+<div class="section" id="nginx">
+<h2>nginx<a class="headerlink" href="#nginx" title="Permalink to this headline">¶</a></h2>
+<p>If you are using nginx, configure your vhost to forward non-existent
+resources to <tt class="docutils literal"><span class="pre">index.php</span></tt>:</p>
+<div class="highlight-nginx"><div class="highlight"><pre><span class="k">server</span> <span class="p">{</span>
+    <span class="c1">#site root is redirected to the app boot script</span>
+    <span class="kn">location</span> <span class="p">=</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">try_files</span> <span class="s">@site</span> <span class="s">@site</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">#all other locations try other files first and go to our front controller if none of them exists</span>
+    <span class="kn">location</span> <span class="s">/</span> <span class="p">{</span>
+        <span class="kn">try_files</span> <span class="nv">$uri</span> <span class="nv">$uri/</span> <span class="s">@site</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">#return 404 for all php files as we do have a front controller</span>
+    <span class="kn">location</span> <span class="p">~</span> <span class="sr">\.php$</span> <span class="p">{</span>
+        <span class="kn">return</span> <span class="mi">404</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="kn">location</span> <span class="s">@site</span> <span class="p">{</span>
+        <span class="kn">fastcgi_pass</span>   <span class="s">unix:/var/run/php-fpm/www.sock</span><span class="p">;</span>
+        <span class="kn">include</span> <span class="s">fastcgi_params</span><span class="p">;</span>
+        <span class="kn">fastcgi_param</span>  <span class="s">SCRIPT_FILENAME</span> <span class="nv">$document_root/index.php</span><span class="p">;</span>
+        <span class="c1">#uncomment when running via https</span>
+        <span class="c1">#fastcgi_param HTTPS on;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="iis">
+<h2>IIS<a class="headerlink" href="#iis" title="Permalink to this headline">¶</a></h2>
+<p>If you are using the Internet Information Services from Windows, you can use
+this sample <tt class="docutils literal"><span class="pre">web.config</span></tt> file:</p>
+<div class="highlight-xml"><div class="highlight"><pre><span class="cp">&lt;?xml version=&quot;1.0&quot;?&gt;</span>
+<span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;system.webServer&gt;</span>
+        <span class="nt">&lt;defaultDocument&gt;</span>
+            <span class="nt">&lt;files&gt;</span>
+                <span class="nt">&lt;clear</span> <span class="nt">/&gt;</span>
+                <span class="nt">&lt;add</span> <span class="na">value=</span><span class="s">&quot;index.php&quot;</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;/files&gt;</span>
+        <span class="nt">&lt;/defaultDocument&gt;</span>
+        <span class="nt">&lt;rewrite&gt;</span>
+            <span class="nt">&lt;rules&gt;</span>
+                <span class="nt">&lt;rule</span> <span class="na">name=</span><span class="s">&quot;Silex Front Controller&quot;</span> <span class="na">stopProcessing=</span><span class="s">&quot;true&quot;</span><span class="nt">&gt;</span>
+                    <span class="nt">&lt;match</span> <span class="na">url=</span><span class="s">&quot;^(.*)$&quot;</span> <span class="na">ignoreCase=</span><span class="s">&quot;false&quot;</span> <span class="nt">/&gt;</span>
+                    <span class="nt">&lt;conditions</span> <span class="na">logicalGrouping=</span><span class="s">&quot;MatchAll&quot;</span><span class="nt">&gt;</span>
+                        <span class="nt">&lt;add</span> <span class="na">input=</span><span class="s">&quot;{REQUEST_FILENAME}&quot;</span> <span class="na">matchType=</span><span class="s">&quot;IsFile&quot;</span> <span class="na">ignoreCase=</span><span class="s">&quot;false&quot;</span> <span class="na">negate=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+                    <span class="nt">&lt;/conditions&gt;</span>
+                    <span class="nt">&lt;action</span> <span class="na">type=</span><span class="s">&quot;Rewrite&quot;</span> <span class="na">url=</span><span class="s">&quot;index.php&quot;</span> <span class="na">appendQueryString=</span><span class="s">&quot;true&quot;</span> <span class="nt">/&gt;</span>
+                <span class="nt">&lt;/rule&gt;</span>
+            <span class="nt">&lt;/rules&gt;</span>
+        <span class="nt">&lt;/rewrite&gt;</span>
+    <span class="nt">&lt;/system.webServer&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="lighttpd">
+<h2>Lighttpd<a class="headerlink" href="#lighttpd" title="Permalink to this headline">¶</a></h2>
+<p>If you are using lighttpd, use this sample <tt class="docutils literal"><span class="pre">simple-vhost</span></tt> as a starting
+point:</p>
+<div class="highlight-lighttpd"><div class="highlight"><pre><span class="k">server.document-root</span> <span class="o">=</span> <span class="s2">&quot;/path/to/app&quot;</span>
+
+<span class="k">url.rewrite-once</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="c1"># configure some static files</span>
+    <span class="s2">&quot;^/assets/.+&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;$0&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;^/favicon\.ico$&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;$0&quot;</span><span class="p">,</span>
+
+    <span class="s2">&quot;^(/[^\?]*)(\?.*)?&quot;</span> <span class="o">=&gt;</span> <span class="s2">&quot;/index.php$1$2&quot;</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="php-5-4">
+<h2>PHP 5.4<a class="headerlink" href="#php-5-4" title="Permalink to this headline">¶</a></h2>
+<p>PHP 5.4 ships with a built-in webserver for development. This server allows
+you to run silex without any configuration. However, in order to serve static
+files, you&#8217;ll have to make sure your front controller returns false in that
+case:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// web/index.php</span>
+
+<span class="nv">$filename</span> <span class="o">=</span> <span class="nx">__DIR__</span><span class="o">.</span><span class="nb">preg_replace</span><span class="p">(</span><span class="s1">&#39;#(\?.*)$#&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">&#39;REQUEST_URI&#39;</span><span class="p">]);</span>
+<span class="k">if</span> <span class="p">(</span><span class="nb">php_sapi_name</span><span class="p">()</span> <span class="o">===</span> <span class="s1">&#39;cli-server&#39;</span> <span class="o">&amp;&amp;</span> <span class="nb">is_file</span><span class="p">(</span><span class="nv">$filename</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">false</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="nv">$app</span> <span class="o">=</span> <span class="k">require</span> <span class="nx">__DIR__</span><span class="o">.</span><span class="s1">&#39;/../src/app.php&#39;</span><span class="p">;</span>
+<span class="nv">$app</span><span class="o">-&gt;</span><span class="na">run</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>Assuming your front controller is at <tt class="docutils literal"><span class="pre">web/index.php</span></tt>, you can start the
+server from the command-line with this command:</p>
+<div class="highlight-text"><div class="highlight"><pre>$ php -S localhost:8080 -t web web/index.php
+</pre></div>
+</div>
+<p>Now the application should be running at <tt class="docutils literal"><span class="pre">http://localhost:8080</span></tt>.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">This server is for development only. It is <strong>not</strong> recommended to use it
+in production.</p>
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Webserver Configuration</a><ul>
+<li><a class="reference internal" href="#apache">Apache</a></li>
+<li><a class="reference internal" href="#nginx">nginx</a></li>
+<li><a class="reference internal" href="#iis">IIS</a></li>
+<li><a class="reference internal" href="#lighttpd">Lighttpd</a></li>
+<li><a class="reference internal" href="#php-5-4">PHP 5.4</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="providers/service_controller.html"
+                        title="previous chapter">ServiceControllerServiceProvider</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="changelog.html"
+                        title="next chapter">Changelog</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/web_servers.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="changelog.html" title="Changelog"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="providers/service_controller.html" title="ServiceControllerServiceProvider"
+             >previous</a> |</li>
+        <li><a href="index.html">Silex 1.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

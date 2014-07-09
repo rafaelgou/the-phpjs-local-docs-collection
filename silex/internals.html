@@ -1,0 +1,187 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Internals &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="index.html" />
+    <link rel="next" title="Contributing" href="contributing.html" />
+    <link rel="prev" title="Managing Assets in Templates" href="cookbook/assets.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="cookbook/assets.html" title="Managing Assets in Templates"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Silex 1.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="internals">
+<h1>Internals<a class="headerlink" href="#internals" title="Permalink to this headline">¶</a></h1>
+<p>This chapter will tell you a bit about how Silex works
+internally.</p>
+<div class="section" id="silex">
+<h2>Silex<a class="headerlink" href="#silex" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="application">
+<h3>Application<a class="headerlink" href="#application" title="Permalink to this headline">¶</a></h3>
+<p>The application is the main interface to Silex. It implements Symfony2&#8217;s
+<a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernelInterface.html">HttpKernelInterface</a>,
+so you can pass a <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Request.html">Request</a>
+to the <tt class="docutils literal"><span class="pre">handle</span></tt> method and it will return a <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpFoundation/Response.html">Response</a>.</p>
+<p>It extends the <tt class="docutils literal"><span class="pre">Pimple</span></tt> service container, allowing for flexibility on the
+outside as well as the inside. You could replace any service, and you are also
+able to read them.</p>
+<p>The application makes strong use of the <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/EventDispatcher/EventDispatcher.html">EventDispatcher</a>
+to hook into the Symfony2 <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/HttpKernel/HttpKernel.html">HttpKernel</a>
+events. This allows fetching the <tt class="docutils literal"><span class="pre">Request</span></tt>, converting string responses into
+<tt class="docutils literal"><span class="pre">Response</span></tt> objects and handling Exceptions. We also use it to dispatch some
+custom events like before/after middlewares and errors.</p>
+</div>
+<div class="section" id="controller">
+<h3>Controller<a class="headerlink" href="#controller" title="Permalink to this headline">¶</a></h3>
+<p>The Symfony2 <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/Route.html">Route</a> is
+actually quite powerful. Routes can be named, which allows for URL generation.
+They can also have requirements for the variable parts. In order to allow
+setting these through a nice interface, the <tt class="docutils literal"><span class="pre">match</span></tt> method (which is used by
+<tt class="docutils literal"><span class="pre">get</span></tt>, <tt class="docutils literal"><span class="pre">post</span></tt>, etc.) returns an instance of the <tt class="docutils literal"><span class="pre">Controller</span></tt>, which
+wraps a route.</p>
+</div>
+<div class="section" id="controllercollection">
+<h3>ControllerCollection<a class="headerlink" href="#controllercollection" title="Permalink to this headline">¶</a></h3>
+<p>One of the goals of exposing the <a class="reference external" href="http://api.symfony.com/master/Symfony/Component/Routing/RouteCollection.html">RouteCollection</a>
+was to make it mutable, so providers could add stuff to it. The challenge here
+is the fact that routes know nothing about their name. The name only has
+meaning in context of the <tt class="docutils literal"><span class="pre">RouteCollection</span></tt> and cannot be changed.</p>
+<p>To solve this challenge we came up with a staging area for routes. The
+<tt class="docutils literal"><span class="pre">ControllerCollection</span></tt> holds the controllers until <tt class="docutils literal"><span class="pre">flush</span></tt> is called, at
+which point the routes are added to the <tt class="docutils literal"><span class="pre">RouteCollection</span></tt>. Also, the
+controllers are then frozen. This means that they can no longer be modified
+and will throw an Exception if you try to do so.</p>
+<p>Unfortunately no good way for flushing implicitly could be found, which is why
+flushing is now always explicit. The Application will flush, but if you want
+to read the <tt class="docutils literal"><span class="pre">ControllerCollection</span></tt> before the request takes place, you will
+have to call flush yourself.</p>
+<p>The <tt class="docutils literal"><span class="pre">Application</span></tt> provides a shortcut <tt class="docutils literal"><span class="pre">flush</span></tt> method for flushing the
+<tt class="docutils literal"><span class="pre">ControllerCollection</span></tt>.</p>
+<div class="admonition tip">
+<p class="first admonition-title">Tip</p>
+<p class="last">Instead of creating an instance of <tt class="docutils literal"><span class="pre">RouteCollection</span></tt> yourself, use the
+<tt class="docutils literal"><span class="pre">$app['controllers_factory']</span></tt> factory instead.</p>
+</div>
+</div>
+</div>
+<div class="section" id="symfony2">
+<h2>Symfony2<a class="headerlink" href="#symfony2" title="Permalink to this headline">¶</a></h2>
+<p>Following Symfony2 components are used by Silex:</p>
+<ul class="simple">
+<li><strong>HttpFoundation</strong>: For <tt class="docutils literal"><span class="pre">Request</span></tt> and <tt class="docutils literal"><span class="pre">Response</span></tt>.</li>
+<li><strong>HttpKernel</strong>: Because we need a heart.</li>
+<li><strong>Routing</strong>: For matching defined routes.</li>
+<li><strong>EventDispatcher</strong>: For hooking into the HttpKernel.</li>
+</ul>
+<p>For more information, <a class="reference external" href="http://symfony.com/">check out the Symfony website</a>.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Internals</a><ul>
+<li><a class="reference internal" href="#silex">Silex</a><ul>
+<li><a class="reference internal" href="#application">Application</a></li>
+<li><a class="reference internal" href="#controller">Controller</a></li>
+<li><a class="reference internal" href="#controllercollection">ControllerCollection</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#symfony2">Symfony2</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="cookbook/assets.html"
+                        title="previous chapter">Managing Assets in Templates</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="contributing.html"
+                        title="next chapter">Contributing</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/internals.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="contributing.html" title="Contributing"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="cookbook/assets.html" title="Managing Assets in Templates"
+             >previous</a> |</li>
+        <li><a href="index.html">Silex 1.2.1 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

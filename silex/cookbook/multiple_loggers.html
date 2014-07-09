@@ -1,0 +1,173 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Using multiple Monolog Loggers &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Managing Assets in Templates" href="assets.html" />
+    <link rel="prev" title="Converting Errors to Exceptions" href="error_handler.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="assets.html" title="Managing Assets in Templates"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="error_handler.html" title="Converting Errors to Exceptions"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="using-multiple-monolog-loggers">
+<h1>Using multiple Monolog Loggers<a class="headerlink" href="#using-multiple-monolog-loggers" title="Permalink to this headline">¶</a></h1>
+<p>Having separate instances of <cite>Monolog</cite> for different parts of your system is
+often desirable and allows you to configure them independently, allowing for fine
+grained control of where your logging goes and in what detail.</p>
+<p>This simple example allows you to quickly configure several monolog instances,
+using the bundled handler, but each with a different channel.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.factory&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="na">protect</span><span class="p">(</span><span class="k">function</span> <span class="p">(</span><span class="nv">$name</span><span class="p">)</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$log</span> <span class="o">=</span> <span class="k">new</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.logger.class&#39;</span><span class="p">](</span><span class="nv">$name</span><span class="p">);</span>
+    <span class="nv">$log</span><span class="o">-&gt;</span><span class="na">pushHandler</span><span class="p">(</span><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.handler&#39;</span><span class="p">]);</span>
+
+    <span class="k">return</span> <span class="nv">$log</span><span class="p">;</span>
+<span class="p">});</span>
+
+<span class="k">foreach</span> <span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">&#39;auth&#39;</span><span class="p">,</span> <span class="s1">&#39;payments&#39;</span><span class="p">,</span> <span class="s1">&#39;stats&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="nv">$channel</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.&#39;</span><span class="o">.</span><span class="nv">$channel</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$channel</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.factory&#39;</span><span class="p">](</span><span class="nv">$channel</span><span class="p">);</span>
+    <span class="p">};</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>As your application grows, or your logging needs for certain areas of the
+system become apparent, it should be straightforward to then configure that
+particular service separately, including your customizations.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Monolog\Handler\StreamHandler</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.payments&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$log</span> <span class="o">=</span> <span class="k">new</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.logger.class&#39;</span><span class="p">](</span><span class="s1">&#39;payments&#39;</span><span class="p">);</span>
+    <span class="nv">$handler</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">StreamHandler</span><span class="p">(</span><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.payments.logfile&#39;</span><span class="p">],</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.payment.level&#39;</span><span class="p">]);</span>
+    <span class="nv">$log</span><span class="o">-&gt;</span><span class="na">pushHandler</span><span class="p">(</span><span class="nv">$handler</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="nv">$log</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Alternatively, you could attempt to make the factory more complicated, and rely
+on some conventions, such as checking for an array of handlers registered with
+the container with the channel name, defaulting to the bundled handler.</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Monolog\Handler\StreamHandler</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Monolog\Logger</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.factory&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="na">protect</span><span class="p">(</span><span class="k">function</span> <span class="p">(</span><span class="nv">$name</span><span class="p">)</span> <span class="k">use</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$log</span> <span class="o">=</span> <span class="k">new</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.logger.class&#39;</span><span class="p">](</span><span class="nv">$name</span><span class="p">);</span>
+
+    <span class="nv">$handlers</span> <span class="o">=</span> <span class="nb">isset</span><span class="p">(</span><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.&#39;</span><span class="o">.</span><span class="nv">$name</span><span class="o">.</span><span class="s1">&#39;.handlers&#39;</span><span class="p">])</span>
+        <span class="o">?</span> <span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.&#39;</span><span class="o">.</span><span class="nv">$name</span><span class="o">.</span><span class="s1">&#39;.handlers&#39;</span><span class="p">]</span>
+        <span class="o">:</span> <span class="k">array</span><span class="p">(</span><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.handler&#39;</span><span class="p">]);</span>
+
+    <span class="k">foreach</span> <span class="p">(</span><span class="nv">$handlers</span> <span class="k">as</span> <span class="nv">$handler</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nv">$log</span><span class="o">-&gt;</span><span class="na">pushHandler</span><span class="p">(</span><span class="nv">$handler</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nv">$log</span><span class="p">;</span>
+<span class="p">});</span>
+
+<span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;monolog.payments.handlers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">(</span><span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="k">array</span><span class="p">(</span>
+        <span class="k">new</span> <span class="nx">StreamHandler</span><span class="p">(</span><span class="nx">__DIR__</span><span class="o">.</span><span class="s1">&#39;/../payments.log&#39;</span><span class="p">,</span> <span class="nx">Logger</span><span class="o">::</span><span class="na">DEBUG</span><span class="p">),</span>
+    <span class="p">);</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="error_handler.html"
+                        title="previous chapter">Converting Errors to Exceptions</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="assets.html"
+                        title="next chapter">Managing Assets in Templates</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/cookbook/multiple_loggers.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="assets.html" title="Managing Assets in Templates"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="error_handler.html" title="Converting Errors to Exceptions"
+             >previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

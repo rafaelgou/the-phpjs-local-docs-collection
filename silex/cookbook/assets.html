@@ -1,0 +1,167 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Managing Assets in Templates &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Internals" href="../internals.html" />
+    <link rel="prev" title="Using multiple Monolog Loggers" href="multiple_loggers.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../internals.html" title="Internals"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="multiple_loggers.html" title="Using multiple Monolog Loggers"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="managing-assets-in-templates">
+<h1>Managing Assets in Templates<a class="headerlink" href="#managing-assets-in-templates" title="Permalink to this headline">¶</a></h1>
+<p>A Silex application is not always hosted at the web root directory. To avoid
+repeating the base path whenever you link to another page, it is highly
+recommended to use the <a class="reference internal" href="../providers/url_generator.html"><em>URL generator service provider</em></a>.</p>
+<p>But what about images, stylesheets, or JavaScript files? Their URLs are not
+managed by the Silex router, but nonetheless, they need to get prefixed by the
+base path. Fortunately, the Request object contain the application base path
+that needs to be prepended:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="c1">// generate a link to the stylesheets in /css/styles.css</span>
+<span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getBasePath</span><span class="p">()</span><span class="o">.</span><span class="s1">&#39;/css/styles.css&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>And doing the same in a Twig template is as easy as it can get:</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">app.request.basepath</span> <span class="cp">}}</span><span class="x">/css/styles.css</span>
+</pre></div>
+</div>
+<p>If your assets are hosted under a different host, you might want to abstract
+the path by defining a Silex parameter:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;asset_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;http://assets.examples.com&#39;</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>Using it in a template is as easy as before:</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">app.asset_path</span> <span class="cp">}}</span><span class="x">/css/styles.css</span>
+</pre></div>
+</div>
+<p>If you need to implement some logic independently of the asset, define a
+service instead:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$app</span><span class="p">[</span><span class="s1">&#39;asset_path&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="k">function</span> <span class="p">()</span> <span class="p">{</span>
+    <span class="c1">// implement whatever logic you need to determine the asset path</span>
+
+    <span class="k">return</span> <span class="s1">&#39;http://assets.examples.com&#39;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>Usage is exactly the same as before:</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">app.asset_path</span> <span class="cp">}}</span><span class="x">/css/styles.css</span>
+</pre></div>
+</div>
+<p>If the asset location depends on the asset type or path, you will need more
+abstraction; here is one way to do that with a Twig function:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$app</span><span class="o">-&gt;</span><span class="na">extend</span><span class="p">(</span><span class="s1">&#39;twig&#39;</span><span class="p">,</span> <span class="k">function</span><span class="p">(</span><span class="nv">$twig</span><span class="p">,</span> <span class="nv">$app</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$twig</span><span class="o">-&gt;</span><span class="na">addFunction</span><span class="p">(</span><span class="k">new</span> <span class="nx">\Twig_SimpleFunction</span><span class="p">(</span><span class="s1">&#39;asset&#39;</span><span class="p">,</span> <span class="k">function</span> <span class="p">(</span><span class="nv">$asset</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// implement whatever logic you need to determine the asset path</span>
+
+        <span class="k">return</span> <span class="nb">sprintf</span><span class="p">(</span><span class="s1">&#39;http://assets.examples.com/%s&#39;</span><span class="p">,</span> <span class="nb">ltrim</span><span class="p">(</span><span class="nv">$asset</span><span class="p">,</span> <span class="s1">&#39;/&#39;</span><span class="p">));</span>
+    <span class="p">}));</span>
+
+    <span class="k">return</span> <span class="nv">$twig</span><span class="p">;</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>The <tt class="docutils literal"><span class="pre">asset</span></tt> function can then be used in your templates:</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">asset</span><span class="o">(</span><span class="s1">&#39;/css/styles.css&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="x"></span>
+</pre></div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="multiple_loggers.html"
+                        title="previous chapter">Using multiple Monolog Loggers</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../internals.html"
+                        title="next chapter">Internals</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/cookbook/assets.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../internals.html" title="Internals"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="multiple_loggers.html" title="Using multiple Monolog Loggers"
+             >previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Making sub-Requests &mdash; Silex 1.2.1 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.2.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="top" title="Silex 1.2.1 documentation" href="../index.html" />
+    <link rel="up" title="Cookbook" href="index.html" />
+    <link rel="next" title="Converting Errors to Exceptions" href="error_handler.html" />
+    <link rel="prev" title="Using YAML to configure Validation" href="validator_yaml.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="error_handler.html" title="Converting Errors to Exceptions"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="validator_yaml.html" title="Using YAML to configure Validation"
+             accesskey="P">previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" accesskey="U">Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="making-sub-requests">
+<h1>Making sub-Requests<a class="headerlink" href="#making-sub-requests" title="Permalink to this headline">¶</a></h1>
+<p>Since Silex is based on the <tt class="docutils literal"><span class="pre">HttpKernelInterface</span></tt>, it allows you to simulate
+requests against your application. This means that you can embed a page within
+another, it also allows you to forward a request which is essentially an
+internal redirect that does not change the URL.</p>
+<div class="section" id="basics">
+<h2>Basics<a class="headerlink" href="#basics" title="Permalink to this headline">¶</a></h2>
+<p>You can make a sub-request by calling the <tt class="docutils literal"><span class="pre">handle</span></tt> method on the
+<tt class="docutils literal"><span class="pre">Application</span></tt>. This method takes three arguments:</p>
+<ul>
+<li><dl class="first docutils">
+<dt><tt class="docutils literal"><span class="pre">$request</span></tt>: An instance of the <tt class="docutils literal"><span class="pre">Request</span></tt> class which represents the</dt>
+<dd><p class="first last">HTTP request.</p>
+</dd>
+</dl>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">$type</span></tt>: Must be either <tt class="docutils literal"><span class="pre">HttpKernelInterface::MASTER_REQUEST</span></tt> or
+<tt class="docutils literal"><span class="pre">HttpKernelInterface::SUB_REQUEST</span></tt>. Certain listeners are only executed for
+the master request, so it&#8217;s important that this is set to <tt class="docutils literal"><span class="pre">SUB_REQUEST</span></tt>.</p>
+</li>
+<li><p class="first"><tt class="docutils literal"><span class="pre">$catch</span></tt>: Catches exceptions and turns them into a response with status code
+<tt class="docutils literal"><span class="pre">500</span></tt>. This argument defaults to <tt class="docutils literal"><span class="pre">true</span></tt>. For sub-requests you will most
+likely want to set it to <tt class="docutils literal"><span class="pre">false</span></tt>.</p>
+</li>
+</ul>
+<p>By calling <tt class="docutils literal"><span class="pre">handle</span></tt>, you can make a sub-request manually. Here&#8217;s an example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\HttpKernelInterface</span><span class="p">;</span>
+
+<span class="nv">$subRequest</span> <span class="o">=</span> <span class="nx">Request</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">);</span>
+<span class="nv">$response</span> <span class="o">=</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="na">handle</span><span class="p">(</span><span class="nv">$subRequest</span><span class="p">,</span> <span class="nx">HttpKernelInterface</span><span class="o">::</span><span class="na">SUB_REQUEST</span><span class="p">,</span> <span class="k">false</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>There&#8217;s some more things that you need to keep in mind though. In most cases
+you will want to forward some parts of the current master request to the
+sub-request. That includes: Cookies, server information, session.</p>
+<p>Here is a more advanced example that forwards said information (<tt class="docutils literal"><span class="pre">$request</span></tt>
+holds the master request):</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\HttpKernelInterface</span><span class="p">;</span>
+
+<span class="nv">$subRequest</span> <span class="o">=</span> <span class="nx">Request</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(),</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">cookies</span><span class="o">-&gt;</span><span class="na">all</span><span class="p">(),</span> <span class="k">array</span><span class="p">(),</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">server</span><span class="o">-&gt;</span><span class="na">all</span><span class="p">());</span>
+<span class="k">if</span> <span class="p">(</span><span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getSession</span><span class="p">())</span> <span class="p">{</span>
+    <span class="nv">$subRequest</span><span class="o">-&gt;</span><span class="na">setSession</span><span class="p">(</span><span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getSession</span><span class="p">());</span>
+<span class="p">}</span>
+
+<span class="nv">$response</span> <span class="o">=</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="na">handle</span><span class="p">(</span><span class="nv">$subRequest</span><span class="p">,</span> <span class="nx">HttpKernelInterface</span><span class="o">::</span><span class="na">SUB_REQUEST</span><span class="p">,</span> <span class="k">false</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>To forward this response to the client, you can simply return it from a
+controller:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Silex\Application</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+<span class="k">use</span> <span class="nx">Symfony\Component\HttpKernel\HttpKernelInterface</span><span class="p">;</span>
+
+<span class="nv">$app</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;/foo&#39;</span><span class="p">,</span> <span class="k">function</span> <span class="p">(</span><span class="nx">Application</span> <span class="nv">$app</span><span class="p">,</span> <span class="nx">Request</span> <span class="nv">$request</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nv">$subRequest</span> <span class="o">=</span> <span class="nx">Request</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">,</span> <span class="o">...</span><span class="p">);</span>
+    <span class="nv">$response</span> <span class="o">=</span> <span class="nv">$app</span><span class="o">-&gt;</span><span class="na">handle</span><span class="p">(</span><span class="nv">$subRequest</span><span class="p">,</span> <span class="nx">HttpKernelInterface</span><span class="o">::</span><span class="na">SUB_REQUEST</span><span class="p">,</span> <span class="k">false</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="nv">$response</span><span class="p">;</span>
+<span class="p">});</span>
+</pre></div>
+</div>
+<p>If you want to embed the response as part of a larger page you can call
+<tt class="docutils literal"><span class="pre">Response::getContent</span></tt>:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$header</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+<span class="nv">$footer</span> <span class="o">=</span> <span class="o">...</span><span class="p">;</span>
+<span class="nv">$body</span> <span class="o">=</span> <span class="nv">$response</span><span class="o">-&gt;</span><span class="na">getContent</span><span class="p">();</span>
+
+<span class="k">return</span> <span class="nv">$header</span><span class="o">.</span><span class="nv">$body</span><span class="o">.</span><span class="nv">$footer</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="rendering-pages-in-twig-templates">
+<h2>Rendering pages in Twig templates<a class="headerlink" href="#rendering-pages-in-twig-templates" title="Permalink to this headline">¶</a></h2>
+<p>The <a class="reference internal" href="../providers/twig.html"><em>TwigServiceProvider</em></a> provides a <tt class="docutils literal"><span class="pre">render</span></tt>
+function that you can use in Twig templates. It gives you a convenient way to
+embed pages.</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="cp">{{</span> <span class="nv">render</span><span class="o">(</span><span class="s1">&#39;/sidebar&#39;</span><span class="o">)</span> <span class="cp">}}</span><span class="x"></span>
+</pre></div>
+</div>
+<p>For details, refer to the <a class="reference internal" href="../providers/twig.html"><em>TwigServiceProvider</em></a> docs.</p>
+</div>
+<div class="section" id="edge-side-includes">
+<h2>Edge Side Includes<a class="headerlink" href="#edge-side-includes" title="Permalink to this headline">¶</a></h2>
+<p>You can use ESI either through the <a class="reference internal" href="../providers/http_cache.html"><em>HttpCacheServiceProvider</em></a> or a reverse proxy cache such as Varnish. This also
+allows you to embed pages, however it also gives you the benefit of caching
+parts of the page.</p>
+<p>Here is an example of how you would embed a page via ESI:</p>
+<div class="highlight-jinja"><div class="highlight"><pre><span class="x">&lt;esi:include src=&quot;/sidebar&quot; /&gt;</span>
+</pre></div>
+</div>
+<p>For details, refer to the <a class="reference internal" href="../providers/http_cache.html"><em>HttpCacheServiceProvider</em></a> docs.</p>
+</div>
+<div class="section" id="dealing-with-the-request-base-url">
+<h2>Dealing with the request base URL<a class="headerlink" href="#dealing-with-the-request-base-url" title="Permalink to this headline">¶</a></h2>
+<p>One thing to watch out for is the base URL. If your application is not
+hosted at the webroot of your web server, then you may have an URL like
+<tt class="docutils literal"><span class="pre">http://example.org/foo/index.php/articles/42</span></tt>.</p>
+<p>In this case, <tt class="docutils literal"><span class="pre">/foo/index.php</span></tt> is your request base path. Silex accounts for
+this path prefix in the routing process, it reads it from
+<tt class="docutils literal"><span class="pre">$request-&gt;server</span></tt>. In the context of sub-requests this can lead to issues,
+because if you do not prepend the base path the request could mistake a part
+of the path you want to match as the base path and cut it off.</p>
+<p>You can prevent that from happening by always prepending the base path when
+constructing a request:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="nv">$url</span> <span class="o">=</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">getUriForPath</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">);</span>
+<span class="nv">$subRequest</span> <span class="o">=</span> <span class="nx">Request</span><span class="o">::</span><span class="na">create</span><span class="p">(</span><span class="nv">$url</span><span class="p">,</span> <span class="s1">&#39;GET&#39;</span><span class="p">,</span> <span class="k">array</span><span class="p">(),</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">cookies</span><span class="o">-&gt;</span><span class="na">all</span><span class="p">(),</span> <span class="k">array</span><span class="p">(),</span> <span class="nv">$request</span><span class="o">-&gt;</span><span class="na">server</span><span class="o">-&gt;</span><span class="na">all</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>This is something to be aware of when making sub-requests by hand.</p>
+</div>
+<div class="section" id="lack-of-container-scopes">
+<h2>Lack of container scopes<a class="headerlink" href="#lack-of-container-scopes" title="Permalink to this headline">¶</a></h2>
+<p>While the sub-requests available in Silex are quite powerful, they have their
+limits. The major limitation/danger that you will run into is the lack of
+scopes on the Pimple container.</p>
+<p>The container is a concept that is global to a Silex application, since the
+application object <strong>is</strong> the container. Any request that is run against an
+application will re-use the same set of services. Since these services are
+mutable, code in a master request can affect the sub-requests and vice versa.
+Any services depending on the <tt class="docutils literal"><span class="pre">request</span></tt> service will store the first request
+that they get (could be master or sub-request), and keep using it, even if
+that request is already over.</p>
+<p>For example:</p>
+<div class="highlight-php"><div class="highlight"><pre><span class="k">use</span> <span class="nx">Symfony\Component\HttpFoundation\Request</span><span class="p">;</span>
+
+<span class="k">class</span> <span class="nc">ContentFormatNegotiator</span>
+<span class="p">{</span>
+    <span class="k">private</span> <span class="nv">$request</span><span class="p">;</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">__construct</span><span class="p">(</span><span class="nx">Request</span> <span class="nv">$request</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">request</span> <span class="o">=</span> <span class="nv">$request</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">public</span> <span class="k">function</span> <span class="nf">negotiateFormat</span><span class="p">(</span><span class="k">array</span> <span class="nv">$serverTypes</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="nv">$clientAcceptType</span> <span class="o">=</span> <span class="nv">$this</span><span class="o">-&gt;</span><span class="na">request</span><span class="o">-&gt;</span><span class="na">headers</span><span class="o">-&gt;</span><span class="na">get</span><span class="p">(</span><span class="s1">&#39;Accept&#39;</span><span class="p">);</span>
+
+        <span class="o">...</span>
+
+        <span class="k">return</span> <span class="nv">$format</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This example looks harmless, but it might blow up. You have no way of knowing
+what <tt class="docutils literal"><span class="pre">$request-&gt;headers-&gt;get()</span></tt> will return, because <tt class="docutils literal"><span class="pre">$request</span></tt> could be
+either the master request or a sub-request. The answer in this case is to pass
+the request as an argument to <tt class="docutils literal"><span class="pre">negotiateFormat</span></tt>. Then you can pass it in
+from a location where you have safe access to the current request: a listener
+or a controller.</p>
+<p>Here are a few general approaches to working around this issue:</p>
+<ul class="simple">
+<li>Use ESI with Varnish.</li>
+<li>Do not inject the request, ever. Use listeners instead, as they can access
+the request without storing it.</li>
+<li>Inject the Silex Application and fetch the request from it.</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Making sub-Requests</a><ul>
+<li><a class="reference internal" href="#basics">Basics</a></li>
+<li><a class="reference internal" href="#rendering-pages-in-twig-templates">Rendering pages in Twig templates</a></li>
+<li><a class="reference internal" href="#edge-side-includes">Edge Side Includes</a></li>
+<li><a class="reference internal" href="#dealing-with-the-request-base-url">Dealing with the request base URL</a></li>
+<li><a class="reference internal" href="#lack-of-container-scopes">Lack of container scopes</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="validator_yaml.html"
+                        title="previous chapter">Using YAML to configure Validation</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="error_handler.html"
+                        title="next chapter">Converting Errors to Exceptions</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="../_sources/cookbook/sub_requests.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="error_handler.html" title="Converting Errors to Exceptions"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="validator_yaml.html" title="Using YAML to configure Validation"
+             >previous</a> |</li>
+        <li><a href="../index.html">Silex 1.2.1 documentation</a> &raquo;</li>
+          <li><a href="index.html" >Cookbook</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010 Fabien Potencier.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+    </div>
+  </body>
+</html>
