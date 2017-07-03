@@ -1,10 +1,10 @@
 #The PHP/Javascript Local Docs Collection
 
+**DEPRECATED**: Since this project had borned, some cool (and better) options appeared. I do recomend [DevDocs](http://devdocs.io/);
+
 A HUGE doc collection for PHP and Javascript web developers.
 
 Compiled by [Rafael Goulart](http://github.com/rafaelgou).
-
-You can see a demo in [rgou.net The PHP/JSC LDC Install](http://the-phpjs-ldc.rgou.net).
 
 ## Install
 
